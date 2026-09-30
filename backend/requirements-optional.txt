@@ -1,0 +1,3 @@
+# 可选：本地语音转写回退（等同 pyproject 的 local-stt 额外依赖：uv sync --extra local-stt）
+# 首次运行下载约 460 MB 的 small 模型到 data/models
+faster-whisper>=1.0

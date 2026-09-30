@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VeraBot · 私人 AI 助理</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app" class="phone">
+
+  <!-- 登录 / 注册 -->
+  <section id="view-auth" class="view active">
+    <div class="auth-wrap">
+      <div class="logo">V</div>
+      <h1>VeraBot</h1>
+      <p class="muted">你的私人 AI 助理团队</p>
+      <form id="auth-form" class="card form">
+        <input id="auth-user" placeholder="用户名" autocomplete="username" required minlength="3">
+        <input id="auth-pass" type="password" placeholder="密码（至少 6 位）" autocomplete="current-password" required minlength="6">
+        <button class="btn primary" id="auth-submit" type="submit">登录</button>
+        <p class="err" id="auth-err"></p>
+        <p class="switch">
+          <span id="auth-tip">还没有账号？</span>
+          <a href="#" id="auth-toggle">注册</a>
+        </p>
+      </form>
+    </div>
+  </section>
+
+  <!-- Bot 列表 -->
+  <section id="view-home" class="view">
+    <header class="bar">
+      <div class="bar-title"><b>我的 Bot</b><small id="home-user" class="muted"></small></div>
+      <button class="icon-btn plus" id="btn-new-bot" title="创建 Bot">＋</button>
+    </header>
+    <div class="scroll">
+      <p class="hint" id="bot-count"></p>
+      <ul id="bot-list" class="bot-list"></ul>
+      <div id="bot-empty" class="empty hidden">
+        <div class="empty-emoji">🤖</div>
+        <p>还没有 Bot，先创建第一个助理吧</p>
+        <button class="btn primary" id="btn-first-bot" type="button">＋ 创建第一个 Bot</button>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="home">💬<span>助理</span></button>
+      <button class="tab" data-tab="reminders">⏰<span>提醒</span></button>
+      <button class="tab" data-tab="quota">📊<span>用量</span></button>
+    </nav>
+  </section>
+
+  <!-- 提醒 -->
+  <section id="view-reminders" class="view">
+    <header class="bar"><div class="bar-title"><b>提醒事项</b><small class="muted">由 Bot 通过工具创建</small></div></header>
+    <div class="scroll"><ul id="reminder-list" class="plain-list"></ul></div>
+    <nav class="tabs">
+      <button class="tab" data-tab="home">💬<span>助理</span></button>
+      <button class="tab active" data-tab="reminders">⏰<span>提醒</span></button>
+      <button class="tab" data-tab="quota">📊<span>用量</span></button>
+    </nav>
+  </section>
+
+  <!-- 用量 -->
+  <section id="view-quota" class="view">
+    <header class="bar">
+      <div class="bar-title"><b>用量看板</b><small class="muted" id="quota-model"></small></div>
+      <button class="btn" id="btn-logout" style="padding:8px 12px;font-size:13px">退出</button>
+    </header>
+    <div class="scroll" id="quota-body"></div>
+    <nav class="tabs">
+      <button class="tab" data-tab="home">💬<span>助理</span></button>
+      <button class="tab" data-tab="reminders">⏰<span>提醒</span></button>
+      <button class="tab active" data-tab="quota">📊<span>用量</span></button>
+    </nav>
+  </section>
+
+  <!-- 对话 -->
+  <section id="view-chat" class="view">
+    <header class="bar chat-bar">
+      <button class="icon-btn" id="btn-back">‹</button>
+      <div class="avatar sm" id="chat-avatar"></div>
+      <div class="bar-title"><b id="chat-name"></b><small class="muted" id="chat-sub">私聊</small></div>
+      <button class="icon-btn" id="btn-clear" title="清空记录">🗑</button>
+    </header>
+    <div class="scroll msgs" id="msgs"></div>
+    <div class="rec-bar hidden" id="rec-bar"><span class="rec-dot"></span><span id="rec-text">正在录音 0:00</span><small class="muted">再次点击 🎙 结束</small></div>
+    <form class="composer" id="composer">
+      <div class="attach-wrap">
+        <button type="button" class="plus-in" id="btn-attach" title="添加附件" aria-label="添加附件" aria-haspopup="menu" aria-expanded="false">＋</button>
+        <div class="attach-menu hidden" id="attach-menu" role="menu">
+          <button type="button" role="menuitem" disabled aria-disabled="true"><span>🖼️</span>图片<em>即将支持</em></button>
+          <button type="button" role="menuitem" disabled aria-disabled="true"><span>📷</span>相机<em>即将支持</em></button>
+          <button type="button" role="menuitem" disabled aria-disabled="true"><span>📎</span>文件<em>即将支持</em></button>
+        </div>
+      </div>
+      <textarea id="input" rows="1" placeholder="发消息…（Enter 发送）"></textarea>
+      <button type="button" class="mic" id="btn-mic" title="语音输入（中文）" aria-label="语音输入">🎙</button>
+      <button class="btn primary send" id="btn-send" type="submit">发送</button>
+    </form>
+  </section>
+
+  <!-- 创建 Bot 底部弹层 -->
+  <div id="sheet-mask" class="mask hidden"></div>
+  <div id="sheet" class="sheet">
+    <div class="grip"></div>
+    <h3>创建 Bot</h3>
+    <form id="bot-form" class="form">
+      <div class="preview-row">
+        <div class="avatar lg" id="pv-avatar">🤖</div>
+        <input id="bf-name" placeholder="昵称，如：小研" maxlength="20" required>
+      </div>
+      <label>头像</label>
+      <div class="emoji-grid" id="emoji-grid"></div>
+      <label>颜色</label>
+      <div class="color-row" id="color-row"></div>
+      <label>快速模板</label>
+      <div class="chips" id="tpl-row"></div>
+      <label>人设 Persona</label>
+      <textarea id="bf-persona" rows="2" maxlength="1000" placeholder="例如：资深研究员，擅长资料检索与总结"></textarea>
+      <label>自定义指令 Instructions</label>
+      <textarea id="bf-instr" rows="3" maxlength="2000" placeholder="例如：回答先给结论，再给要点，不超过 200 字"></textarea>
+      <p class="err" id="bf-err"></p>
+      <div class="row">
+        <button type="button" class="btn" id="bf-cancel">取消</button>
+        <button type="submit" class="btn primary">创建</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

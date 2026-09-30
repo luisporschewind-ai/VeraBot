@@ -1,0 +1,37 @@
+# 备用方案：若 VeraBot.xcodeproj 无法打开，可 `brew install xcodegen && xcodegen generate` 重新生成
+name: VeraBot
+options:
+  bundleIdPrefix: com.verabot
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  VeraBotKit:
+    path: Packages/VeraBotKit   # 本地 Swift Package（SPM）
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+targets:
+  VeraBot:
+    type: application
+    platform: iOS
+    sources: [VeraBot]
+    dependencies:
+      - package: VeraBotKit
+        product: VeraBotCore
+      - package: VeraBotKit
+        product: VeraBotNetworking
+      - package: VeraBotKit
+        product: VeraBotTTS
+    info:
+      path: Config/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.verabot.app
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Config/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: VeraBot
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1

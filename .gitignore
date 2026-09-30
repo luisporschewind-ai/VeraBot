@@ -1,0 +1,41 @@
+# ---- 密钥与本地数据 (绝不提交) ----
+.env
+.env.*
+!.env.example
+backend/data/*
+!backend/data/.gitkeep
+*.db
+*.db-shm
+*.db-wal
+.jwt_secret
+
+# ---- Python / uv ----
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+backend/scripts/test/results/
+
+# ---- Xcode / Swift ----
+DerivedData/
+build/
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+frontend/scripts/sim/.bin/
+
+# ---- 打包产物 ----
+dist/
+
+# ---- 临时截图 / 测试产物 ----
+assets/screenshots/scratch/
+*_s.png
+
+# ---- 系统文件 ----
+.DS_Store
+._*
+
+# ---- 旧路径保护：重构前打开的 Xcode 窗口可能把旧工程回写到根目录 ios/ ----
+/ios/

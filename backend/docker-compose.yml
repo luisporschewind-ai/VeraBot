@@ -1,0 +1,11 @@
+# 可选：Docker 部署。先 cp .env.example .env 并填写 DEEPSEEK_API_KEY
+services:
+  backend:
+    build: .
+    image: verabot-backend:0.1.0
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file: .env
+    volumes:
+      - ./data:/app/data          # SQLite 数据库与 JWT 密钥持久化
+    restart: unless-stopped
