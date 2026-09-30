@@ -6,6 +6,7 @@
 - 一个 commit 只做一件事。commit message 用中文或英文均可，格式：`<范围>: <说明>`，例如 `backend: 委派记录增加 tokens 字段`、`ios: 修复 sheet 保存后布局`、`docs: 更新 RUN_LOCAL`。
 - 不提交密钥和本地数据：`backend/.env`、`backend/data/*.db`、`.jwt_secret`、`.venv/`、DerivedData、临时截图 (见 `.gitignore`)。提交前执行 `git status` 确认。
 - 后端与前端是两个可独立交付的项目：`frontend/` 不 import `backend/` 的代码，只通过 HTTP API 交互。
+- 许可证 (License)：本项目为 [MIT License](LICENSE)。提交代码即表示同意你的贡献按 MIT 许可发布；不要引入与 MIT 不兼容许可 (如 GPL) 的代码或依赖。
 
 ## 2. 文档检查清单 (Docs checklist)
 
@@ -18,6 +19,7 @@
 - [ ] 多 Agent 权限 / 护栏变化 → `docs/design/MULTI_AGENT_DESIGN.md`。
 - [ ] 行为变化 → `docs/testing/TEST_CASES_v0.1.md` 增加或更新用例，并记录结果。
 - [ ] UI 变化 → 更新 `assets/screenshots/` 中对应截图 (或在 STATUS 中注明截图过时)。
+- [ ] 新增第三方依赖 → 确认其许可证与 MIT 兼容。
 - [ ] 运行方式变化 → `docs/ops/RUN_LOCAL.md` / `docs/ops/DELIVERY.md`、`frontend/README.md`。
 
 ## 3. 版本号 (SemVer)

@@ -18,6 +18,7 @@ VeraBot-v0.1/
 ├── assets/screenshots/ # 文档引用的截图 (web / ios)
 ├── scripts/            # 仓库级脚本：package_backend.sh (打包后端交付件)
 ├── CONTRIBUTING.md     # 提交规范、文档清单、SemVer
+├── LICENSE             # MIT
 └── README.md
 ```
 
@@ -51,3 +52,7 @@ open frontend/ios/VeraBot.xcodeproj # Xcode 里选 iPhone 模拟器 ⌘R；演�
 ## 安全 (Security)
 
 密钥只放在 `backend/.env` (已 gitignore) 或环境变量里，不写日志、不返回客户端。已知的安全限制见 [docs/STATUS.md](docs/STATUS.md#2-已知限制-known-limits)。
+
+## 许可证 (License)
+
+本项目以 [MIT License](LICENSE) 开源，Copyright (c) 2026 Luis Porsche。

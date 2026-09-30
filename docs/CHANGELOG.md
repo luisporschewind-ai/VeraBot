@@ -4,7 +4,9 @@
 
 ## [Unreleased]
 
-(暂无)
+### 新增 (Added)
+
+- 许可证：采用 [MIT License](../LICENSE) (Copyright (c) 2026 Luis Porsche)；根目录 / backend / frontend README 增加 License 小节；`scripts/package_backend.sh` 打包时附带 `LICENSE`。
 
 ---
 

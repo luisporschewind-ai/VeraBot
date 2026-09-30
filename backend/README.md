@@ -85,3 +85,7 @@ uv run python scripts/dev/seed_demo.py --reset   # 重建演示账号 demo / ver
 ## 6. API 摘要
 
 见 [docs/product/FEATURES.md](../docs/product/FEATURES.md#api-摘要)，或启动后访问 `/docs` (OpenAPI)。
+
+## 7. 许可证 (License)
+
+[MIT License](../LICENSE)，Copyright (c) 2026 Luis Porsche。打包的 `VeraBot-backend-v*.zip` 内附 `LICENSE`。

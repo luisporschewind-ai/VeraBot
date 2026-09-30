@@ -68,3 +68,7 @@ tap 240 245; shot home      # 坐标为 471×1024 截图像素；截图输出到
 ```
 
 UI 用例与结果见 [docs/testing/TEST_CASES_v0.1.md](../docs/testing/TEST_CASES_v0.1.md)。
+
+## 4. 许可证 (License)
+
+[MIT License](../LICENSE)，Copyright (c) 2026 Luis Porsche。

@@ -15,7 +15,7 @@ scripts/package_backend.sh      # → dist/VeraBot-backend-v0.1.0.zip 和 .sha25
 ```
 
 - 版本号取自 `backend/verabot/__init__.py`。
-- 包含：`verabot/`、`scripts/`、`pyproject.toml`、`uv.lock`、`requirements*.txt`、`.python-version`、`.env.example`、`start.command` / `start.sh` / `stop.sh` (保留可执行权限)、`Dockerfile`、`docker-compose.yml`、`README.md`、空的 `data/`。
+- 包含：`LICENSE` (MIT，取自仓库根目录)、`verabot/`、`scripts/`、`pyproject.toml`、`uv.lock`、`requirements*.txt`、`.python-version`、`.env.example`、`start.command` / `start.sh` / `stop.sh` (保留可执行权限)、`Dockerfile`、`docker-compose.yml`、`README.md`、空的 `data/`。
 - 排除：`.venv/`、`.env`、`*.db`、`*.log`、`*.pid`、`.jwt_secret`、`__pycache__`、测试结果、本地模型。
 - zip 只包含后端 (不含 Web)，此时 `/` 返回 API 信息 JSON；需要 Web 时把 `frontend/web` 放到解压目录旁边，或设置 `VERABOT_WEB_DIR`。
 

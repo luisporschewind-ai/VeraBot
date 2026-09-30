@@ -29,6 +29,12 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
             with open(full, "rb") as fh:
                 z.writestr(zi, fh.read())   # ZipInfo.from_file 保留可执行权限 (start.sh / start.command)
             n += 1
+    lic = os.path.join(os.path.dirname(src), "LICENSE")
+    if os.path.exists(lic):  # 附带仓库根目录的 MIT LICENSE
+        zi = zipfile.ZipInfo.from_file(lic, os.path.join(top, "LICENSE")); zi.compress_type = zipfile.ZIP_DEFLATED
+        with open(lic, "rb") as fh:
+            z.writestr(zi, fh.read())
+        n += 1
 print(f"[package] {n} 个文件 → {out}")
 PYEOF
 ( cd dist && shasum -a 256 "$NAME.zip" > "$NAME.zip.sha256" )
