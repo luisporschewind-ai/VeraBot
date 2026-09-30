@@ -1,4 +1,4 @@
-# 项目状态 (STATUS) — 2026-09-30
+# 项目状态 (STATUS) — 2026-10-01
 
 ## v0.1.0 · 原型验证完成 (Prototype validated, feasible)
 
@@ -9,6 +9,17 @@
 | 测试 | **91 条用例：通过 90 / 失败 0 / 跳过 1** (TC-31 语音输入按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；重构后回归见同文档末尾 |
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
+
+## ⏸ 当前状态：开发暂停，等待 Boss 评审 (Development paused pending Boss review)
+
+Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gmail 优先通过 MCP 接入。以下两份设计稿已完成，**尚未编写任何实现代码**；在 Boss 评审并回答开放问题之前，不开始开发。
+
+| 能力 | 设计文档 | 状态 | 需要 Boss 做的事 |
+|---|---|---|---|
+| MCP 能力 (MCP Client、OAuth 2.1、工具映射、权限、HITL、防注入) | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | 📝 设计稿 v0.1 | 评审；回答 §16 开放问题 Q1~Q11 |
+| Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | 📝 设计稿 v0.2 | 评审；回答 §16 开放问题 Q1~Q12；创建 Google Cloud 项目并加入 Google Workspace Developer Preview Program (§14) |
+
+评审通过后的第一步是 M0 / G0 技术验证 (1~2 天)，见 MCP 文档 §15。
 
 ## 1. 已完成功能 (Features done)
 
@@ -59,6 +70,7 @@
 
 ## 4. 下一步 (Next steps)
 
+0. **(暂停中)** Boss 评审 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) 与 [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md)；通过后按 M0 → M1 … 实施 MCP 能力与 Gmail。
 1. 修正新建 Bot 表单页脚的过时文案；重新截 R34 (无键盘工具栏) 和 R11。
 2. 补测 TC-07 / TC-29 / TC-30、KB-04 / 08 / 09，以及真机测试 (语音输入、TTS、键盘)。
 3. 提醒推送：本地通知 (UNUserNotificationCenter) 或 APNs。
@@ -69,4 +81,4 @@
 8. 记忆：长对话摘要压缩 (summarization)。
 9. Web SPA 跟进 iOS 的权限编辑 / 协作记录 UI (如果还需要 Web)。
 10. 确认 `frontend/ios/VeraBot/File.txt` 是否删除 (NEW-03)。
-11. 配置远程 Git 仓库 (目前只有本地仓库) 和 CI (后端 mock 测试 + `swift test` + xcodebuild)。
+11. 配置 CI (后端 mock 测试 + `swift test` + xcodebuild)。远程仓库已配置 (GitHub `luisporschewind-ai/VeraBot`)。
