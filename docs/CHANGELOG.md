@@ -6,6 +6,7 @@
 
 ### 新增 (Added)
 
+- 设计文档 (未实现)：[design/GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) — Gmail 能力方案 (v1 直连 Gmail API + Google OAuth，未来 MCP)，含 HITL 发送确认、权限与委派集成、测试计划和待 Boss 决策的开放问题。
 - 许可证：采用 [MIT License](../LICENSE) (Copyright (c) 2026 Luis Porsche)；根目录 / backend / frontend README 增加 License 小节；`scripts/package_backend.sh` 打包时附带 `LICENSE`。
 
 ---
