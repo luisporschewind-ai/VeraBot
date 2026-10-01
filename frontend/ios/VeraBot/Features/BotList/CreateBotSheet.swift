@@ -13,8 +13,8 @@ struct CreateBotSheet: View {
     private enum Field: Hashable { case name, persona, instructions }
     @FocusState private var focus: Field?
 
-    private let emojis = ["🤖", "🦊", "🐼", "🐱", "🦉", "🐧", "🦄", "🐙", "🌟", "🧠", "📚", "🔬", "💼", "🎨", "🍀", "☕"]
-    private let colors = ["#0f766e", "#14b8a6", "#0369a1", "#334155", "#059669", "#d97706", "#e11d48", "#78716c"]
+    private let emojis = BotLook.emojis
+    private let colors = BotLook.colors
 
     var body: some View {
         NavigationStack {
@@ -49,18 +49,26 @@ struct CreateBotSheet: View {
                         }
                     }
                 }
-                Section("人设 Persona") {
+                Section {
                     TextField("例如：资深研究员，擅长资料检索与总结", text: $draft.persona, axis: .vertical)
                         .lineLimit(3...8)                         // 多行：回车换行；键盘工具栏「完成」收起
                         .focused($focus, equals: .persona)
+                } header: {
+                    Text("人设")
+                } footer: {
+                    Text("对其他 Bot 公开，协作时用来介绍自己。")
                 }
-                Section("自定义指令 Instructions") {
+                Section {
                     TextField("例如：先给结论，再给要点，不超过 200 字", text: $draft.instructions, axis: .vertical)
                         .lineLimit(3...8)
                         .focused($focus, equals: .instructions)
+                } header: {
+                    Text("自定义指令")
+                } footer: {
+                    Text("仅本 Bot 使用，不对其他 Bot 公开。")
                 }
                 Section {
-                    Label("新 Bot 默认最小权限（Least privilege）：不开启工具、不参与委派。创建后可在对话页右上角「Bot 设置」中开启。",
+                    Label("新 Bot 默认不开启工具、不参与委派。",
                           systemImage: "lock.shield")
                         .font(.footnote).foregroundStyle(.secondary)
                 }

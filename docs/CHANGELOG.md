@@ -44,6 +44,12 @@
 
 ### 变更 (Changed)
 
+- **iOS · Bot 详情 / 创建页改版 (Boss 批准，仅 iOS，后端与 API 未改)**：
+  - 顶部卡片 (Bot 详情与长按「编辑与权限」都显示)：点头像弹出系统 `confirmationDialog`「从相册选择」(系统 `photosPicker`) /「使用默认形象」(仅有照片时出现，保存时调用已有的 `DELETE /api/bots/{id}/avatar`)；点昵称、标签弹出系统 `alert` + TextField 修改，昵称不能为空 (最多 20 字，与后端一致)，标签与创建页同一套 `BotTagRules` (3 个 / 4 字)，不合法时确认后弹出错误并保留原值；无标签显示灰色「添加标签」。**所有改动 (含照片上传 / 删除) 只在点「保存」时提交**，「取消」/「关闭」全部丢弃；未保存的新照片先在卡片里预览。状态模型在 `VeraBotCore/BotProfileDraft.swift` (`PendingBotPhoto`：unchanged / replace / remove)。保存顺序：先 `PATCH /api/bots/{id}`，再上传或删除照片；照片失败时提示「其他修改已保存，头像未更新」并留在本页。
+  - 「基本信息」改为「默认形象」：表情横排 + 与创建页相同的 8 色 (`BotLook`)，页脚「设置了相册照片时，优先显示照片。」；详情页 PATCH 现在会发送 `color`。去掉头像 + 昵称行、标签行和「从相册设置头像」按钮 (`BotAvatarPhotoControls` 删除)。
+  - 人设 / 自定义指令在详情页和创建页都是独立分组 (标题「人设」「自定义指令」，占位用创建页例句，页脚「对其他 Bot 公开，协作时用来介绍自己。」「仅本 Bot 使用，不对其他 Bot 公开。」)。
+  - 去掉英文：分组标题「工具权限」「委派」「协作记录」(入口行「查看协作记录」)；工具行不再显示原始工具名，名称取后端 `label`，缺失 / 为空 / 等于原始名时显示「未命名工具」(`ToolInfo.displayName`)；委派页脚「（ask_bot）」→「委派其他 Bot」；创建页最小权限说明改为「新 Bot 默认不开启工具、不参与委派。」(同时修掉了过时的「右上角 Bot 设置」入口描述)；协作记录时间改为本机时区 `yyyy/M/d HH:mm` (`ListTimestamp.fullLabel`)，「N tokens」→「用量 N」，拒绝原因「Token 额度已用完」→「今日额度已用完」。
+  - 全部系统默认控件 / 弹窗，无自定义动画。测试：`swift test` 53/53 (新增 `BotProfileDraftTests` 7 个)；后端 AV/NK 21/21 回归。Web 冻结，未跟进 (见 STATUS)。
 - **Bot 标签重新设计 (Boss 批准)**：上限改为**每个 Bot 最多 3 个、每个最多 4 个字** (后端 `core/tags.py` 的 `MAX_BOT_TAGS=3` / `MAX_TAG_CHARS=4`，`clean_tags` 与 iOS `BotTagRules` 同一套规则，422 文案「每个 Bot 最多 3 个标签」「每个标签最多 4 个字」)。字段仍是 `tags: string[]`，schema 仍为 v5，结构不变。
   - 存量数据：超限的旧标签按「去控制字符 → trim → 每个截到前 4 个字 → 去重 → 只留前 3 个」收敛 (`coerce_stored_tags`)；`init_db()` 每次启动幂等改写超限行，读取 Bot 时也再收敛一次，所以旧 Bot 带原标签 PATCH 不会 422。
   - iOS 首页行：名称后跟**一个**浅灰小圆角矩形 (`Color.sectionFill` #EFEFEE，圆角 5，不是胶囊)，文字为「搜索, 查询, 调研」，`.caption` 次要灰字、单行、尾部截断；名称优先；不再显示 `+N`；右侧时间不变 (`BotTagChip`)。

@@ -1,7 +1,6 @@
 import PhotosUI
 import SwiftUI
 import UIKit
-import VeraBotNetworking
 
 /// 系统 PhotosPicker + 圆形预览。确认后把原图交给调用方上传；没有自定义动画。
 struct AvatarPhotoPicker<Label: View>: View {
@@ -94,42 +93,6 @@ struct AvatarPhotoPicker<Label: View>: View {
     private func closePreview() {
         showPreview = false
         preview = nil
-        errorText = nil
-    }
-}
-
-/// Bot 编辑页里的「从相册设置头像」。照片写入共享 AvatarStore，对话页和列表会马上换图。
-struct BotAvatarPhotoControls: View {
-    let botID: Int
-
-    @Environment(AppState.self) private var app
-    @State private var errorText: String?
-    @State private var busy = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            AvatarPhotoPicker(isEnabled: !busy) { image in
-                try await upload(image)
-            } label: {
-                Label("从相册设置头像", systemImage: "photo")
-            }
-            Text("自定义照片优先于上面选择的表情。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            if let errorText {
-                Text(errorText).font(.footnote).foregroundStyle(.red)
-            }
-        }
-    }
-
-    private func upload(_ image: UIImage) async throws {
-        guard let data = AvatarImage.jpegData(from: image), let display = UIImage(data: data) else {
-            throw APIError(status: 0, message: "无法处理这张照片")
-        }
-        busy = true
-        defer { busy = false }
-        let bot = try await app.api.uploadBotAvatar(botID: botID, jpeg: data)
-        app.avatars.setBot(id: botID, image: display, updatedAt: bot.avatarUpdatedAt)
         errorText = nil
     }
 }

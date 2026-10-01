@@ -225,7 +225,7 @@ iOS 在上传前用 `AvatarImage.jpegData` 把照片收成边长 1024 的 JPEG�
 
 读写仍走现有 Bot 接口，查询带 `user_id`；他人的 Bot 返回 404，不会改到别人的标签。标签不进入 system prompt，也不参与记忆。
 
-iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（字数按 Unicode scalar，与 Python `len` 对齐），另有 `parse` (按「,」「，」「、」与空白拆分) 和 `display` (「a, b, c」)。`Bot.tags` 在字段缺失或 JSON null 时解码为 `[]`。展示用 `Core/UI/BotTagViews.swift`：首页行名称后的 `BotTagChip` (一个 `Color.sectionFill` 圆角 5 的矩形，「搜索, 查询, 调研」，`.caption` 次要字，单行尾部截断，无 `+N`)；Bot 详情卡片名称下方一行文字；对话标题不显示标签。编辑用 `BotTagsField` (「基本信息」内一行原生 TextField，输入时即时校验)，无自定义动画。
+iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（字数按 Unicode scalar，与 Python `len` 对齐），另有 `parse` (按「,」「，」「、」与空白拆分) 和 `display` (「a, b, c」)。`Bot.tags` 在字段缺失或 JSON null 时解码为 `[]`。展示用 `Core/UI/BotTagViews.swift`：首页行名称后的 `BotTagChip` (一个 `Color.sectionFill` 圆角 5 的矩形，「搜索, 查询, 调研」，`.caption` 次要字，单行尾部截断，无 `+N`)；Bot 详情卡片名称下方一行文字；对话标题不显示标签。创建页用 `BotTagsField` (一行原生 TextField，输入时即时校验)；Bot 详情点卡片标签行弹出系统 alert 修改，经 `VeraBotCore/BotProfileDraft.swift` 暂存 (昵称 / 标签 / 照片的待保存改动，点「保存」才依次 `PATCH /api/bots/{id}` 与 `POST`/`DELETE /api/bots/{id}/avatar`)。无自定义动画。
 
 ## 6. 关键设计决策
 

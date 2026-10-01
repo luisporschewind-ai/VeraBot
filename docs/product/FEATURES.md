@@ -8,7 +8,7 @@
 |---|---|
 | 账号 (Accounts) | 用户名 + 密码注册 / 登录；bcrypt 哈希；JWT (HS256) Bearer Token；失效自动退出；设置页底部退出登录 (二次确认)。昵称可在设置页修改（1–32 字，去空白），首页左上角和对话里的用户名立刻更新 |
 | 租户隔离 (Per-user isolation) | 所有查询带 `user_id`；访问他人资源统一返回 404 (防枚举) |
-| Bot 管理 | emoji 头像 + 颜色 + 昵称 + 人设 (多行) + 指令 (多行) + 标签 (最多 3 个，每个最多 4 个字；在「基本信息」里用一个输入框，逗号 / 顿号 / 空格分隔；首页行名称后显示为一个浅灰圆角矩形「搜索, 查询, 调研」，Bot 详情卡片名称下方一行)；＋ 创建 (达到上限时 ＋ 置灰；列表不显示数量页脚)、Bot 详情编辑、长按「编辑与权限」、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`)。列表每行名称右侧显示标签小胶囊（放不下时截断，多出来的显示 `+N`），右上角显示最后消息时间（今天 HH:mm / 昨天 / 本周星期几 / M/d / 非今年 yyyy/M/d，无消息回退创建时间）；首页不显示大导航标题；右上角放大镜点按后才出现系统搜索栏（平时不显示搜索框，下拉也不出现；取消后收起并清空），当前只过滤屏幕上已加载的列表（Bot 名称和最后一条消息预览）；完整聊天历史搜索、搜索历史等移至后续迭代。所有头像（用户 / Bot，照片或表情 / 首字）都显示为正圆。用户和每个 Bot 都可以另设一张圆形照片头像（相册选择、可更换；iOS 不提供「恢复默认」入口）；表情字段保留，没有照片时继续显示 |
+| Bot 管理 | emoji 头像 + 颜色 + 昵称 + 人设 (多行) + 指令 (多行) + 标签 (最多 3 个，每个最多 4 个字，逗号 / 顿号 / 空格分隔；创建页一个输入框，Bot 详情点卡片上的标签行弹窗修改；首页行名称后显示为一个浅灰圆角矩形「搜索, 查询, 调研」，Bot 详情卡片名称下方一行)；＋ 创建 (达到上限时 ＋ 置灰；列表不显示数量页脚)、Bot 详情编辑、长按「编辑与权限」、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`)。列表每行名称右侧显示标签（放不下时尾部截断），右上角显示最后消息时间（今天 HH:mm / 昨天 / 本周星期几 / M/d / 非今年 yyyy/M/d，无消息回退创建时间）；首页不显示大导航标题；右上角放大镜点按后才出现系统搜索栏（平时不显示搜索框，下拉也不出现；取消后收起并清空），当前只过滤屏幕上已加载的列表（Bot 名称和最后一条消息预览）；完整聊天历史搜索、搜索历史等移至后续迭代。所有头像（用户 / Bot，照片或表情 / 首字）都显示为正圆。用户和每个 Bot 都可以另设一张圆形照片头像（相册选择、可更换；Bot 可在详情页点头像选「使用默认形象」移除照片，用户头像不提供该入口）；表情字段保留，没有照片时继续显示。Bot 详情页：顶部卡片 (点头像换照片 / 恢复默认形象，点昵称、标签弹窗修改，均在「保存」时才提交，「取消」丢弃) → 默认形象 (表情 + 颜色) → 人设 → 自定义指令 → 记忆 → 工具权限 (只显示中文名) → 委派 → 协作记录 (本机时间) → 清空对话；界面无英文 |
 | 流式对话 (Streaming, SSE) | `POST /api/bots/{id}/chat` 返回 `text/event-stream`，逐 token 渲染；工具卡片、交接 Trace 卡片、错误气泡 |
 | 消息富文本 (Rich messages) | iOS Bot 气泡支持 Markdown（标题 / 粗体 / 斜体 / 行内代码 / 代码块 / 引用 / 列表 / 表格 / 分隔线），自动识别网址 / 电话 / 邮箱；网页链接在 App 内 SFSafariViewController 打开，电话 / 邮件交给系统；长按气泡可复制全文或复制链接；`~` 按原文显示 (BUG-01) |
 | 对话历史 (History) | 每个 Bot 独立保存历史，最近 20 条 (`VERABOT_HISTORY_WINDOW`) 注入上下文；清空对话 (二次确认：「仅清空对话」保留记忆 /「清空对话和「X」的记忆」) |
@@ -54,6 +54,16 @@
 | POST | `/api/memories/{id}/confirm`、`/api/memories/{id}/reject` | 确认提议 (可带 `{content}` 编辑后确认；删除提议返回 `{ok, deleted_id}`) / 拒绝 |
 | GET / PATCH | `/api/memory/settings` | `{enabled, server_enabled, active_count, max_active, max_chars}`；PATCH `{enabled}` |
 | GET | `/api/health` | 健康检查 `{ok, model}` |
+
+Bot 详情改版字段映射 (2026-10-01，**无 API 变更**，全部是已有接口与字段)：
+
+| 界面操作 | 请求 | 字段 / 说明 |
+|---|---|---|
+| 打开详情 | `GET /api/bots`、`GET /api/tools` | `Bot` (`name`、`avatar`、`color`、`tags`、`has_avatar`、`avatar_updated_at` …)；`tools[].label` → `ToolInfo.displayName` (缺失 / 等于 `name` 时「未命名工具」，iOS 回退，后端 `labels` 表未改) |
+| 保存 (总是先发) | `PATCH /api/bots/{id}` | `BotPatch`：`name` (trim，1~20 字，与 `_clean_name` 一致)、`avatar`、`color` (**详情页现在发送**，原来为 nil；后端早已接受，≤ 9 字符)、`persona`、`instructions`、`allowed_tools`、`delegate_to`、`accept_delegation`、`memory_access`、`tags` (总是发送，`[]` = 清空，规则同 TAG-10) |
+| 保存时有新照片 | `POST /api/bots/{id}/avatar` | 已有接口 (JPEG，iOS 先裁成正方形)；返回 `Bot`，写入 `AvatarStore` |
+| 保存时「使用默认形象」 | `DELETE /api/bots/{id}/avatar` | 已有接口 (AV-15)；`deleteBotAvatar` 原先未被界面调用 |
+| 协作记录 | `GET /api/bots/{id}/delegations` | `created_at` (UTC ISO 8601，带 `+00:00`) 由 iOS 转本机时区；`total_tokens` 显示为「用量 N」 |
 
 用量字段映射 (`GET /api/quota` ↔ iOS `VeraBotCore.Quota`，由 `multi_agent_test.py` MA-25 断言)：
 

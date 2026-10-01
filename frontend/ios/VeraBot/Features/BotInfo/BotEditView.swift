@@ -1,23 +1,27 @@
+import PhotosUI
 import SwiftUI
 import VeraBotCore
 
-/// Bot 编辑与权限（Edit & Permissions）：Bot 列表长按「编辑与权限」或 Bot 详情（infoMode）中使用。
+/// Bot 详情 / Bot 设置：Bot 列表长按「编辑与权限」或对话页标题（infoMode）中使用。
+/// 顶部卡片：点头像换照片 / 恢复默认形象，点昵称、标签弹出系统输入框修改。
+/// 所有改动（含照片上传、删除）只在点「保存」时提交，「取消」/「关闭」全部丢弃。
 struct BotEditView: View {
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
     let bot: Bot
     let onSaved: @MainActor (Bot) -> Void
-    /// Bot 详情模式（对话页标题弹出的 sheet）：顶部显示头像/名称/人设卡片，底部显示「清空对话」
+    /// Bot 详情模式（对话页标题弹出的 sheet）：底部显示「清空对话」
     var infoMode = false
     var clearDisabled = false
     /// 清空对话；参数 includeMemories = true 时同时删除该 Bot 的记忆与对话摘要
     var onClear: (@MainActor (_ includeMemories: Bool) async -> Void)? = nil
 
     @State private var confirmClear = false
-    private enum Field: Hashable { case name, persona, instructions }
+    private enum Field: Hashable { case persona, instructions }
     @FocusState private var focus: Field?
-    @State private var name = ""
+    @State private var draft: BotProfileDraft
     @State private var avatar = ""
+    @State private var color = ""
     @State private var persona = ""
     @State private var instructions = ""
     @State private var tools: [ToolInfo] = []
@@ -28,62 +32,102 @@ struct BotEditView: View {
     @State private var acceptDelegation = false
     @State private var memoryAccess: MemoryAccess = .botAndGlobal
     @State private var memoryCount: Int?
-    @State private var tagsText = ""   // 「搜索, 查询, 调研」；保存时 BotTagRules.parse
     @State private var saving = false
     @State private var errorText: String?
     @State private var loaded = false
     @State private var freshBot: Bot?
+    // 顶部卡片的系统弹窗
+    @State private var showAvatarOptions = false
+    @State private var showPhotoPicker = false
+    @State private var photoItem: PhotosPickerItem?
+    @State private var pendingImage: UIImage?   // 未保存的新照片，只用于卡片预览
+    @State private var showNameAlert = false
+    @State private var nameInput = ""
+    @State private var showTagsAlert = false
+    @State private var tagsInput = ""
+    @State private var inputError: String?
     /// 记忆列表按「已保存的」授权过滤（未保存的 Picker 改动不影响列表）
     private var botForMemoryList: Bot { freshBot ?? bot }
+    private var savedBot: Bot { freshBot ?? bot }
 
-    private let emojis = ["🤖", "🦊", "🐼", "🐱", "🦉", "🐧", "🦄", "🐙", "🌟", "🧠", "📚", "🔬", "💼", "🎨", "🍀", "☕"]
     private var canDelegate: Bool { allowedTools.contains("ask_bot") }
+
+    init(bot: Bot, onSaved: @escaping @MainActor (Bot) -> Void, infoMode: Bool = false, clearDisabled: Bool = false,
+         onClear: (@MainActor (_ includeMemories: Bool) async -> Void)? = nil) {
+        self.bot = bot
+        self.onSaved = onSaved
+        self.infoMode = infoMode
+        self.clearDisabled = clearDisabled
+        self.onClear = onClear
+        _draft = State(initialValue: BotProfileDraft(bot: bot))
+    }
 
     var body: some View {
         ThemedForm {
-            if infoMode {
-                Section {
-                    VStack(spacing: 8) {
-                        LiveBotAvatar(botID: bot.id, emoji: avatar.isEmpty ? bot.avatar : avatar, color: bot.color,
-                                      hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 72)
-                        Text(name.isEmpty ? bot.name : name).font(.title2.bold())
-                        let shownTags = freshBot?.tags ?? bot.tags   // 已保存的标签；未保存的编辑不影响卡片
-                        if !shownTags.isEmpty {
-                            Text(BotTagRules.display(shownTags))
-                                .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        Text(persona.isEmpty ? "暂无人设简介" : persona)
-                            .font(.subheadline).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center).lineLimit(3)
+            Section {
+                VStack(spacing: 8) {
+                    Button { endEditing(); showAvatarOptions = true } label: { cardAvatar }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("更换头像")
+                    Button { nameInput = draft.name; showNameAlert = true } label: {
+                        Text(draft.name).font(.title2.bold())
                     }
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
+                    .buttonStyle(.plain)
+                    .accessibilityHint("修改昵称")
+                    Button { tagsInput = draft.tagsText; showTagsAlert = true } label: {
+                        Text(draft.tags.isEmpty ? "添加标签" : draft.tagsText)
+                            .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("修改标签")
+                    Text(persona.isEmpty ? "暂无人设简介" : persona)
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center).lineLimit(3)
                 }
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
             }
-            Section("基本信息") {
-                HStack(spacing: 12) {
-                    BotAvatar(emoji: avatar, color: bot.color, size: 44)
-                    TextField("昵称", text: $name)
-                        .focused($focus, equals: .name)
-                        .submitLabel(.next)
-                        .onSubmit { focus = .persona }
-                }
-                BotTagsField(text: $tagsText)
-                BotAvatarPhotoControls(botID: bot.id)
+
+            Section {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
-                        ForEach(emojis, id: \.self) { e in
+                        ForEach(BotLook.emojis, id: \.self) { e in
                             Text(e).font(.title3).frame(width: 32, height: 32)
                                 .background(avatar == e ? Color.brandSoft : .clear, in: RoundedRectangle(cornerRadius: 8))
                                 .onTapGesture { avatar = e }
                         }
                     }
                 }
+                HStack {
+                    ForEach(BotLook.colors, id: \.self) { c in
+                        Circle().fill(Color(hex: c)).frame(width: 28, height: 28)
+                            .overlay(Circle().stroke(Color.primary, lineWidth: BotLook.sameColor(color, c) ? 2 : 0))
+                            .onTapGesture { color = c }
+                    }
+                }
+            } header: {
+                Text("默认形象")
+            } footer: {
+                Text("设置了相册照片时，优先显示照片。")
+            }
+
+            Section {
                 // 多行：回车换行（不使用 submitLabel .next）；下拉表单 / 保存 / 关闭收起键盘
-                TextField("人设 Persona（对其他 Bot 公开）", text: $persona, axis: .vertical).lineLimit(3...8)
+                TextField("例如：资深研究员，擅长资料检索与总结", text: $persona, axis: .vertical).lineLimit(3...8)
                     .focused($focus, equals: .persona)
-                TextField("自定义指令 Instructions（私有）", text: $instructions, axis: .vertical).lineLimit(3...8)
+            } header: {
+                Text("人设")
+            } footer: {
+                Text("对其他 Bot 公开，协作时用来介绍自己。")
+            }
+
+            Section {
+                TextField("例如：先给结论，再给要点，不超过 200 字", text: $instructions, axis: .vertical).lineLimit(3...8)
                     .focused($focus, equals: .instructions)
+            } header: {
+                Text("自定义指令")
+            } footer: {
+                Text("仅本 Bot 使用，不对其他 Bot 公开。")
             }
 
             Section {
@@ -99,7 +143,7 @@ struct BotEditView: View {
                     LabeledContent {
                         if let memoryCount { Text("\(memoryCount)") }
                     } label: {
-                        Text("\(name.isEmpty ? bot.name : name) 记住的内容")
+                        Text("\(draft.name) 记住的内容")
                     }
                 }
             } header: {
@@ -111,14 +155,11 @@ struct BotEditView: View {
             Section {
                 ForEach(tools) { t in
                     CompactToggle(isOn: binding(for: t.name)) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(t.label ?? t.name)
-                            Text(t.name).font(.caption2.monospaced()).foregroundStyle(.secondary)
-                        }
+                        Text(t.displayName)
                     }
                 }
             } header: {
-                Text("工具权限 Tool allowlist")
+                Text("工具权限")
             } footer: {
                 Text("未勾选的工具不会提供给模型，且服务端会拒绝越权调用并记录审计日志。")
             }
@@ -142,17 +183,17 @@ struct BotEditView: View {
                 }
                 CompactToggle("接受其他 Bot 的委派", isOn: $acceptDelegation)
             } header: {
-                Text("委派 Delegation")
+                Text("委派")
             } footer: {
                 Text(delegationFooter)
             }
 
-            Section("审计 Trace") {
+            Section("协作记录") {
                 NavigationLink {
                     DelegationLogView(bot: bot)
                         .toolbar(.hidden, for: .tabBar)
                 } label: {
-                    Label("协作记录", systemImage: "list.bullet.rectangle")
+                    Label("查看协作记录", systemImage: "list.bullet.rectangle")
                 }
             }
 
@@ -195,10 +236,69 @@ struct BotEditView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") { endEditing(); Task { await save() } }
-                    .disabled(saving || !loaded || name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(saving || !loaded)
             }
         }
+        .confirmationDialog("头像", isPresented: $showAvatarOptions, titleVisibility: .hidden) {
+            Button("从相册选择") { showPhotoPicker = true }
+            if draft.canUseDefaultLook {
+                Button("使用默认形象") { draft.useDefaultLook(); pendingImage = nil }
+            }
+            Button("取消", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task { await loadPhoto(item) }
+        }
+        .alert("修改昵称", isPresented: $showNameAlert) {
+            TextField("昵称", text: $nameInput)
+            Button("取消", role: .cancel) {}
+            Button("确定") { inputError = draft.rename(nameInput) }
+                .disabled(nameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .alert("修改标签", isPresented: $showTagsAlert) {
+            TextField("如：搜索, 查询, 调研", text: $tagsInput)
+            Button("取消", role: .cancel) {}
+            Button("确定") { inputError = draft.setTags(tagsInput) }
+        } message: {
+            Text("最多 \(BotTagRules.maxCount) 个，每个最多 \(BotTagRules.maxLength) 个字，用逗号或空格分隔。")
+        }
+        .alert("无法修改", isPresented: Binding(get: { inputError != nil }, set: { if !$0 { inputError = nil } })) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(inputError ?? "")
+        }
         .task { await load() }
+    }
+
+    /// 卡片头像：未保存的新照片 > 待删除（显示默认形象）> 已保存的照片 / 默认形象；表情与底色实时预览。
+    @ViewBuilder private var cardAvatar: some View {
+        let emoji = avatar.isEmpty ? bot.avatar : avatar
+        let tint = color.isEmpty ? bot.color : color
+        if let pendingImage {
+            BotAvatar(emoji: emoji, color: tint, image: pendingImage, size: 72)
+        } else if draft.photo == .remove {
+            BotAvatar(emoji: emoji, color: tint, size: 72)
+        } else {
+            LiveBotAvatar(botID: bot.id, emoji: emoji, color: tint,
+                          hasAvatar: savedBot.hasAvatar, updatedAt: savedBot.avatarUpdatedAt, size: 72)
+        }
+    }
+
+    /// 读取相册照片并裁成正方形 JPEG；只放进待保存状态，不上传。
+    private func loadPhoto(_ item: PhotosPickerItem) async {
+        defer { photoItem = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data),
+              let jpeg = AvatarImage.jpegData(from: image),
+              let display = UIImage(data: jpeg) else {
+            errorText = "无法读取这张照片"
+            return
+        }
+        draft.choosePhoto(jpeg)
+        pendingImage = display
+        errorText = nil
     }
 
     /// 结束编辑：清除 FocusState 并释放第一响应者（收起键盘）
@@ -208,7 +308,7 @@ struct BotEditView: View {
     }
 
     private var delegationFooter: String {
-        var s = canDelegate ? "只能委派给勾选的 Bot（且对方需开启「接受委派」）。" : "先在上方开启「委派其他 Bot（ask_bot）」工具。"
+        var s = canDelegate ? "只能委派给勾选的 Bot（且对方需开启「接受委派」）。" : "先在上方开启「委派其他 Bot」工具。"
         if let g = guardrails {
             s += "护栏：最多 \(g.maxDelegationDepth) 跳、每轮最多 \(g.maxDelegationsPerTurn) 次委派、共享背景最多 \(g.maxSharedContext) 字；对方看不到你们的聊天记录。"
         }
@@ -226,10 +326,9 @@ struct BotEditView: View {
     }
 
     private func load() async {
-        name = bot.name; avatar = bot.avatar; persona = bot.persona; instructions = bot.instructions
+        avatar = bot.avatar; color = bot.color; persona = bot.persona; instructions = bot.instructions
         allowedTools = Set(bot.allowedTools); delegateTo = Set(bot.delegateTo); acceptDelegation = bot.acceptDelegation
         memoryAccess = bot.memoryAccess; memoryCount = bot.memoryCount
-        tagsText = BotTagRules.display(bot.tags)
         do {
             async let t = app.api.tools()
             async let b = app.api.bots()
@@ -240,7 +339,7 @@ struct BotEditView: View {
             if let fresh = br.bots.first(where: { $0.id == bot.id }) {
                 allowedTools = Set(fresh.allowedTools); delegateTo = Set(fresh.delegateTo); acceptDelegation = fresh.acceptDelegation
                 memoryAccess = fresh.memoryAccess; memoryCount = fresh.memoryCount
-                tagsText = BotTagRules.display(fresh.tags)
+                if !draft.isDirty { draft = BotProfileDraft(bot: fresh) }   // 以服务端最新数据为基线
                 freshBot = fresh
             }
             loaded = true
@@ -252,26 +351,39 @@ struct BotEditView: View {
     private func save() async {
         saving = true
         defer { saving = false }
-        let cleaned = BotTagRules.parse(tagsText)
-        if let message = cleaned.error {
-            errorText = message
-            return
-        }
-        let cleanedTags = cleaned.tags
-        let patch = BotPatch(name: name.trimmingCharacters(in: .whitespaces), avatar: avatar, color: nil,
+        let patch = BotPatch(name: draft.name, avatar: avatar, color: color,
                              persona: persona, instructions: instructions,
                              allowedTools: allowedTools.sorted(),
                              delegateTo: canDelegate ? delegateTo.sorted() : [],
                              acceptDelegation: acceptDelegation,
                              memoryAccess: memoryAccess,
-                             tags: cleanedTags)
+                             tags: draft.tags)
+        let updated: Bot
         do {
-            let updated = try await app.api.updateBot(bot.id, patch)
-            onSaved(updated)
+            updated = try await app.api.updateBot(bot.id, patch)
+        } catch {
+            errorText = app.message(for: error)
+            return
+        }
+        // 资料先保存，再提交照片改动；照片失败时资料已生效，留在本页可重试
+        do {
+            var final = updated
+            switch draft.photo {
+            case .unchanged:
+                break
+            case .replace(let jpeg):
+                final = try await app.api.uploadBotAvatar(botID: bot.id, jpeg: jpeg)
+                app.avatars.setBot(id: bot.id, image: pendingImage ?? UIImage(data: jpeg), updatedAt: final.avatarUpdatedAt)
+            case .remove:
+                final = try await app.api.deleteBotAvatar(botID: bot.id)
+                app.avatars.setBot(id: bot.id, image: nil, updatedAt: nil)
+            }
+            onSaved(final)
             endEditing()   // 关闭前确保键盘已收起（第一响应者已释放）
             dismiss()
         } catch {
-            errorText = app.message(for: error)
+            onSaved(updated)
+            errorText = "其他修改已保存，头像未更新：\(app.message(for: error))"
         }
     }
 }

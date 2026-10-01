@@ -18,6 +18,17 @@ public enum ListTimestamp {
         parse(bot.lastMessage?.createdAt) ?? parse(bot.createdAt)
     }
 
+    /// 完整的本地时间：「2026/10/1 17:32」（协作记录等明细用）。
+    public static func fullLabel(for date: Date, calendar: Calendar = .current,
+                                 locale: Locale = Locale(identifier: "zh_Hans_CN")) -> String {
+        let f = DateFormatter()
+        f.calendar = calendar
+        f.timeZone = calendar.timeZone
+        f.locale = locale
+        f.dateFormat = "yyyy/M/d HH:mm"
+        return f.string(from: date)
+    }
+
     public static func label(for date: Date, now: Date = Date(), calendar: Calendar = .current,
                              locale: Locale = Locale(identifier: "zh_Hans_CN")) -> String {
         let f = DateFormatter()

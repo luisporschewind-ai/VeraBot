@@ -1,7 +1,7 @@
 import SwiftUI
 import VeraBotCore
 
-/// 协作记录（Delegation log）
+/// 协作记录：时间按本机时区显示。
 struct DelegationLogView: View {
     @Environment(AppState.self) private var app
     let bot: Bot
@@ -34,7 +34,7 @@ struct DelegationLogView: View {
                     if let reason = r.reason, !reason.isEmpty {
                         Text("拒绝原因：\(reasonText(reason))").font(.caption).foregroundStyle(.orange)
                     }
-                    Text("\(String((r.createdAt ?? "").prefix(16)).replacingOccurrences(of: "T", with: " ")) UTC · 深度 \(r.depth ?? 1) · \(r.totalTokens ?? 0) tokens")
+                    Text("\(timeText(r.createdAt)) · 深度 \(r.depth ?? 1) · 用量 \(r.totalTokens ?? 0)")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 2)
@@ -53,13 +53,18 @@ struct DelegationLogView: View {
         .refreshable { await load() }
     }
 
+    private func timeText(_ iso: String?) -> String {
+        guard let date = ListTimestamp.parse(iso) else { return "时间未知" }
+        return ListTimestamp.fullLabel(for: date)
+    }
+
     private func reasonText(_ r: String) -> String {
         switch r {
         case "not_in_allowlist": return "不在委派白名单"
         case "target_refuses": return "对方不接受委派"
         case "loop": return "检测到委派环路"
         case "turn_cap": return "超过单轮委派次数上限"
-        case "budget": return "Token 额度已用完"
+        case "budget": return "今日额度已用完"
         case "self": return "不能委派给自己"
         default: return r
         }
