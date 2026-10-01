@@ -352,3 +352,15 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 
 | DETAIL-UI-09 | iOS | 打开 Bot 详情 (对话标题)、长按「编辑与权限」、首页 ＋ 创建 Bot，分别在有 / 无改动时向下拖动 sheet | 都不能下滑关闭 (系统 `interactiveDismissDisabled()`，始终开启，无确认弹窗)；只能点「关闭」/「取消」或「保存」/「创建」退出 | 待 Boss 验收 |
 汇总：DETAIL-01~04 **通过** (`swift test` 53/53，Mac，2026-10-01)；后端 AV/NK 21/21 回归；模拟器构建、安装、启动通过；DETAIL-UI-01~09 待验收。
+
+## 删除 Bot 二次确认 (Delete confirmation) — 2026-10-01
+
+仅 iOS，后端未改。入口：首页列表左滑「删除」（全仓库唯一的删除 Bot 入口；长按菜单只有「编辑与权限」，Bot 详情没有删除）。文案在 `VeraBotCore/BotDeletion.swift`。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| BOTDEL-01 | iOS Kit | `BotDeletion.title` / `message` | 标题「删除「小研」？」；说明含对话、记忆、照片头像、委派名单、保留项，以「此操作无法撤销。」结尾 | 通过 (`swift test` 54/54，Mac) |
+| BOTDEL-02 | 后端 (代码核对 + 既有 MEM-25 / AV-16) | `DELETE /api/bots/{id}` 删除了什么 | 删除：`bots` 行 (含工具 / 委派 / 记忆授权 / 标签)；`messages` (外键级联)；`memories` 中 scope=bot / summary 且属于该 Bot 的 (级联)；`avatars` 照片 (触发器)；其他 Bot `delegate_to` 中的该 id (`remove_from_delegate_lists`) | 与弹窗文案一致 |
+| BOTDEL-03 | 后端 (遗留数据，仅报告未修) | 删除后仍留下的数据 | ① `delegations` 中 from / to 为该 Bot 的记录 (无外键；其他 Bot 的协作记录显示「已删除」；只有 v2 迁移时清理过一次)；② `usage_log.bot_id`、`audit_log.bot_id` (无外键，用量统计继续计入)；③ `reminders.bot_id` 置 NULL，提醒保留 (显示「来自 已删除的 Bot」)；④ 它提议的 global 记忆保留，`source_bot_id` 置 NULL (设计如此，MEM-25)；⑤ iOS 本机头像缓存 `bot-{id}.jpg` 不会删除 | 已记录，不修 |
+| BOTDEL-UI-01 | iOS | 首页左滑某 Bot →「删除」→「取消」；再左滑 → 全滑 | 行不消失、不调用 API；全滑也只弹确认框 | 待 Boss 验收 |
+| BOTDEL-UI-02 | iOS | 左滑 →「删除」→ 确认框「删除」 | 确认框为系统样式，标题「删除「X」？」，说明文字与 BOTDEL-01 一致；确认后列表刷新、该 Bot 消失；失败时列表下方显示错误 | 待 Boss 验收 |

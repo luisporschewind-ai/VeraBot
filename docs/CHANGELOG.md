@@ -44,6 +44,7 @@
 
 ### 变更 (Changed)
 
+- **iOS · 删除 Bot 需二次确认**：唯一的删除入口（首页列表左滑；长按菜单、Bot 详情没有删除）由 `.onDelete` 改为 `.swipeActions` 的「删除」按钮（`tint(.red)`，不用 destructive role，行不会先被移走），点按后弹出系统 `confirmationDialog`：标题「删除「名称」？」，说明删除 / 保留的内容（与后端 `DELETE /api/bots/{id}` 实际行为核对过），按钮「删除」(destructive) /「取消」。确认后才调用 API；失败时列表下方显示错误（原来静默忽略）。文案在 `VeraBotCore/BotDeletion.swift`。后端未改；遗留数据见 TEST_CASES BOTDEL-03。
 - **iOS · Bot 详情 / 编辑与权限 / 创建 Bot 不能下滑关闭**：三个 sheet 都加系统 `.interactiveDismissDisabled()`（始终开启，无确认弹窗），只能点「关闭」/「取消」或「保存」/「创建」退出，避免未保存的改动被误丢。仅 iOS；用例 DETAIL-UI-09。
 - **iOS · Bot 详情 / 创建页改版 (Boss 批准，仅 iOS，后端与 API 未改)**：
   - 顶部卡片 (Bot 详情与长按「编辑与权限」都显示)：点头像弹出系统 `confirmationDialog`「从相册选择」(系统 `photosPicker`) /「使用默认形象」(仅有照片时出现，保存时调用已有的 `DELETE /api/bots/{id}/avatar`)；点昵称、标签弹出系统 `alert` + TextField 修改，昵称不能为空 (最多 20 字，与后端一致)，标签与创建页同一套 `BotTagRules` (3 个 / 4 字)，不合法时确认后弹出错误并保留原值；无标签显示灰色「添加标签」。**所有改动 (含照片上传 / 删除) 只在点「保存」时提交**，「取消」/「关闭」全部丢弃；未保存的新照片先在卡片里预览。状态模型在 `VeraBotCore/BotProfileDraft.swift` (`PendingBotPhoto`：unchanged / replace / remove)。保存顺序：先 `PATCH /api/bots/{id}`，再上传或删除照片；照片失败时提示「其他修改已保存，头像未更新」并留在本页。

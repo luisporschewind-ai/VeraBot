@@ -79,3 +79,11 @@ private func bot(hasAvatar: Bool = false, tags: [String] = ["研究"]) throws ->
     cal.timeZone = TimeZone(identifier: "Asia/Shanghai")!
     #expect(ListTimestamp.fullLabel(for: date, calendar: cal) == "2026/10/1 17:32")
 }
+
+@Test func botDeletionConfirmText() {
+    #expect(BotDeletion.title("小研") == "删除「小研」？")
+    let m = BotDeletion.message("小研")
+    #expect(m.contains("与「小研」的全部对话") && m.contains("记忆") && m.contains("照片头像") && m.contains("委派名单"))
+    #expect(m.contains("共享的资料") && m.contains("提醒") && m.contains("保留"))
+    #expect(m.hasSuffix("此操作无法撤销。"))
+}

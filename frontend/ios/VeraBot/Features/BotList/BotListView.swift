@@ -6,6 +6,7 @@ struct BotListView: View {
     @State private var bots: [Bot] = []
     @State private var limit = 20   // 服务端下发的软上限（Soft limit）
     @State private var editing: Bot?
+    @State private var pendingDelete: Bot?   // 左滑「删除」只弹确认框，确认后才调用 API
     @State private var showCreate = false
     @State private var errorText: String?
     @State private var query = ""
@@ -21,11 +22,12 @@ struct BotListView: View {
                         .contextMenu {
                             Button { editing = bot } label: { Label("编辑与权限", systemImage: "slider.horizontal.3") }
                         }
+                        // 不用 .onDelete / role: .destructive：它们会先把行动画移除，这里只弹确认框
+                        .swipeActions(edge: .trailing) {
+                            Button { pendingDelete = bot } label: { Label("删除", systemImage: "trash") }
+                                .tint(.red)
+                        }
                         .plainListRow()
-                }
-                .onDelete { idx in
-                    let targets = idx.map { filteredBots[$0] }
-                    Task { await delete(targets) }
                 }
                 if let errorText {
                     Text(errorText).foregroundStyle(.red).font(.footnote)
@@ -33,6 +35,16 @@ struct BotListView: View {
                 }
             }
             .listStyle(.plain)
+            .confirmationDialog(pendingDelete.map { BotDeletion.title($0.name) } ?? "",
+                                isPresented: Binding(get: { pendingDelete != nil },
+                                                     set: { if !$0 { pendingDelete = nil } }),
+                                titleVisibility: .visible,
+                                presenting: pendingDelete) { bot in
+                Button("删除", role: .destructive) { Task { await delete(bot) } }
+                Button("取消", role: .cancel) {}
+            } message: { bot in
+                Text(BotDeletion.message(bot.name))
+            }
             .themedPageBackground()
             .overlay {
                 if !trimmedQuery.isEmpty && filteredBots.isEmpty {
@@ -140,11 +152,14 @@ struct BotListView: View {
         }
     }
 
-    private func delete(_ targets: [Bot]) async {
-        for b in targets {
-            _ = try? await app.api.deleteBot(b.id)
+    private func delete(_ bot: Bot) async {
+        do {
+            _ = try await app.api.deleteBot(bot.id)
+            await load()
+        } catch {
+            await load()
+            errorText = app.message(for: error)
         }
-        await load()
     }
 }
 
