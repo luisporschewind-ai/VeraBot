@@ -44,6 +44,13 @@
 
 ### 变更 (Changed)
 
+- **Bot 标签重新设计 (Boss 批准)**：上限改为**每个 Bot 最多 3 个、每个最多 4 个字** (后端 `core/tags.py` 的 `MAX_BOT_TAGS=3` / `MAX_TAG_CHARS=4`，`clean_tags` 与 iOS `BotTagRules` 同一套规则，422 文案「每个 Bot 最多 3 个标签」「每个标签最多 4 个字」)。字段仍是 `tags: string[]`，schema 仍为 v5，结构不变。
+  - 存量数据：超限的旧标签按「去控制字符 → trim → 每个截到前 4 个字 → 去重 → 只留前 3 个」收敛 (`coerce_stored_tags`)；`init_db()` 每次启动幂等改写超限行，读取 Bot 时也再收敛一次，所以旧 Bot 带原标签 PATCH 不会 422。
+  - iOS 首页行：名称后跟**一个**浅灰小圆角矩形 (`Color.sectionFill` #EFEFEE，圆角 5，不是胶囊)，文字为「搜索, 查询, 调研」，`.caption` 次要灰字、单行、尾部截断；名称优先；不再显示 `+N`；右侧时间不变 (`BotTagChip`)。
+  - 对话页标题胶囊：只显示头像 + 名称，去掉标签。
+  - Bot 详情头像卡片：名称下方显示「搜索, 查询, 调研」(footnote、次要灰字；无标签时不显示)。
+  - 编辑：去掉单独的「标签」分组；Bot 详情「基本信息」与创建 Bot 的首个分组内新增一行原生「标签」输入框 (`BotTagsField`，占位「如：搜索, 查询, 调研」)，用英文 / 中文逗号、顿号或空格分隔；输入时即时校验，超限时下方红色 footnote 提示；保存用 `BotTagRules.parse` 的规范化结果。无自定义动画。
+  - 测试：`bot_tags_test.py` 10/10 (TAG-06 改为 3 个 / 4 字；新增 TAG-09 存量收敛、TAG-10 前后端规则契约，读取 `BotTags.swift` 断言上限与文案)；`BotTagTests` 改为新上限并新增分隔符解析、展示往返 (`swift test` 46/46)；MA 25/25、AV/NK 21/21、MEM 36/36 回归通过。Web 冻结，未跟进 (见 STATUS)。
 - **设计 · MCP / Gmail 定稿 (仅文档)**：[design/MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) 与 [design/GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) 升为 **v1.0 (Boss 已批准，2026-10-01)**：全部开放问题标为已决定 (决定 D1~D10：M1 先做 MCP Client 核心 + 公网免授权只读服务；schema v6 (批准时写 v5，同日 v5 已被 Bot 标签占用)；仅内置目录 / 运维配置；所有写操作 HITL 确认，含 `create_draft`；委派禁用 + taint；MCP 服务即能力包，分组开关 +「开启全部只读」；Face ID 推到 M6；本地部署 + iOS PKCE；里程碑改为 M1~M7，Gmail 在 M4~M6)；文中 schema v3 / v5 改为 v6。未写代码，MCP 开发等待额度重置 (见 STATUS)。
 - **iOS · 登录页标题**：登录页大标题由「VeraBot」改为「Vera Bot」，与主屏显示名一致。
 - **iOS · 分组灰与开关尺寸 (Boss 要求)**：

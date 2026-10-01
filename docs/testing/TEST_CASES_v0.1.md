@@ -308,7 +308,7 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | UI-22 | iOS | 浅色模式打开 设置、Bot 详情、对话页、登录页；再切到深色 | 浅色：分组 / 卡片 / Bot 气泡 / 输入框底为 `#EFEFEE` (RGB 239, 239, 238)，页面背景仍为纯白；深色：分组为系统 `secondarySystemBackground`，与改动前一致 | **像素已核对**：`xcrun simctl io booted screenshot` 取模拟器帧缓冲，设置页 (push / TabView 内 push / sheet)、Form 行、纯色块均为 **(239, 239, 238)**，无叠加层、无色彩空间偏差。取色须用 simctl 截图或在设备上截图；在 Mac 屏幕上对 Simulator 窗口取色会经过 macOS 色彩管理，数值偏暗 (例如 Generic RGB 下为 235, 235, 234；外接 DELL 配置文件下为 237, 237, 235)，不是 App 的输出。界面整体待 Boss 验收 |
 | UI-23 | iOS | 依次查看 设置 (通知 / 触感反馈 / 语音播放)、设置 › 记忆 (允许 Bot 记住)、Bot 详情 (工具权限、委派目标、接受委派) 的开关并切换 | 开关比系统默认小 (85%)，右对齐，与右边距对齐；行高不变、开关和标题不被裁切；切换手感与动画为系统默认；禁用的委派目标行标题变淡且不可切换；VoiceOver 读作「标题 + 开关」 | 待 Boss 在模拟器验收 (已构建并安装，未做 UI 自动化) |
 
-## Bot 标签 (Tags) — 2026-10-01
+## Bot 标签 (Tags) — 2026-10-01 (同日重新设计：3 个 / 4 字，见文末汇总)
 
 自动化：`backend/scripts/test/bot_tags_test.py`（临时 DB，不消耗 Token）。iOS 规则在 `VeraBotCore/BotTags.swift`，用例 `BotTagTests`。Linux Swift 6.2 上对 Core 源文件做了类型检查，并用独立程序跑通 `BotTagRules` 与 `Bot` / `BotPatch` / `BotCreate` 的编解码（与 TAG-UI-01 / TAG-UI-02 相同的断言）。完整 `swift test` 未能编译：既有 `MessageMarkdown.swift` 依赖 Apple Foundation 的 Markdown 与 `NSDataDetector`，swift-corelibs-foundation 没有这些 API。
 
@@ -319,12 +319,14 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | TAG-03 | 创建 | `tags: ["  研究 ", "", "研究", "写作", "  ", "写作", "　天气　"]` | 201，顺序为 `["研究", "写作", "天气"]`；列表与详情一致 | 通过 |
 | TAG-04 | 更新 | 只 PATCH 名称，省略 `tags` | 200，名称变了，标签不变 | 通过 |
 | TAG-05 | 更新 | `tags: []`，再 PATCH `[" 日程 ", "日程", "笔记"]` | 先清空为 `[]`，再变成 `["日程", "笔记"]` | 通过 |
-| TAG-06 | 校验 | 5 个标签、恰好 12 字；6 个；13 字；换行；DEL；`tags` 为字符串 / 数字 / null | 前两种 201；其余 422，`detail[0].msg` 依次为「每个 Bot 最多 5 个标签」「每个标签最多 12 个字」「标签不能包含控制字符」「标签必须是列表」「标签必须是文字」「标签必须是列表」；文案不含 `Value error`；失败的 PATCH 不改已保存的标签 | 通过 |
+| TAG-06 | 校验 | 3 个标签、恰好 4 字；4 个；5 字；换行；DEL；`tags` 为字符串 / 数字 / null | 前两种 201；其余 422，`detail[0].msg` 依次为「每个 Bot 最多 3 个标签」「每个标签最多 4 个字」「标签不能包含控制字符」「标签必须是列表」「标签必须是文字」「标签必须是列表」；文案不含 `Value error`；失败不写入 | 通过 (重新设计后) |
 | TAG-07 | 隔离 | 用户 B PATCH / GET 用户 A 的 Bot，并拉自己的列表 | 404 / 404；A 的标签不变；B 的列表没有这个 Bot | 通过 |
 | TAG-08 | 创建 | `tags` 只有空白和重复 | 201，收成一个标签 | 通过 |
-| TAG-UI-01 | iOS Kit | 旧 Bot JSON 无 `tags` 或 `tags: null` | 解码为 `[]`；有字段时按顺序解码 | 代码已接上；`swift test` 未在本环境执行 |
-| TAG-UI-02 | iOS Kit | `BotTagRules`：trim / 去空 / 去重 / 12 字 / 13 字 / 6 个 / 控制字符 | 成功列表与中文错误与 TAG-03 / TAG-06 一致；`BotPatch` 省略 nil `tags`，显式 `[]` 会编码 | 代码已接上；`swift test` 未在本环境执行 |
-| TAG-UI-03 | iOS | 首页 Bot 行、对话胶囊标题 | 标签在名称右侧，小胶囊、次要文字；多的显示 `+N`，过长截断；没有标签时布局与原来一致。点标题仍进 Bot 详情 | 待 Boss 在模拟器验收 |
-| TAG-UI-04 | iOS | 创建 Bot、Bot 设置 / 详情的「标签」分组 | 可添加、点按修改、左滑删除；超过 5 个或 12 字时表单内中文提示，不提交；保存后列表和标题更新 | 待 Boss 在模拟器验收 |
+| TAG-09 | 存量数据 | 库里直接写入超限标签 `["一二三四五六", "研究", "  ", "一二三四", "写作", "天气", "日程"]`；读取；再跑两次 `init_db()`；带收敛后的标签 PATCH | 读取与库内都变成 `["一二三四", "研究", "写作"]` (截到 4 字、去重、留前 3 个)，幂等；PATCH 200 | 通过 |
+| TAG-10 | 契约 | 后端读取 iOS `BotTags.swift` | `maxCount` / `maxLength` = `MAX_BOT_TAGS` / `MAX_TAG_CHARS` = 3 / 4；三条错误文案一致；Bot JSON 含 `tags` 数组 | 通过 |
+| TAG-UI-01 | iOS Kit | 旧 Bot JSON 无 `tags` 或 `tags: null` | 解码为 `[]`；有字段时按顺序解码 | 通过 (`swift test` 46/46，Mac) |
+| TAG-UI-02 | iOS Kit | `BotTagRules`：trim / 去空 / 去重 / 4 字 / 5 字 / 4 个 / 控制字符；`parse` 支持「,」「，」「、」与空格 (含全角)；`display` 为「a, b, c」且可往返 | 与后端 TAG-03 / TAG-06 一致；`BotPatch` 省略 nil `tags`，显式 `[]` 会编码 | 通过 (`swift test` 46/46，Mac) |
+| TAG-UI-03 | iOS | 首页 Bot 行、对话胶囊标题、Bot 详情卡片 | 首页：名称后一个浅灰圆角矩形 (#EFEFEE，圆角 5)，「搜索, 查询, 调研」次要小字，放不下尾部截断，名称优先，无 `+N`，时间不变；对话标题只有头像 + 名称；Bot 详情卡片名称下方一行「搜索, 查询, 调研」；无标签时都不占位 | 待 Boss 在模拟器验收 (已构建并安装，未做 UI 自动化) |
+| TAG-UI-04 | iOS | 创建 Bot、Bot 详情「基本信息」里的「标签」行 | 一个输入框，占位「如：搜索, 查询, 调研」；输入 4 个或某个 5 字时下方立即出现红色提示，不能提交；改回合法后提示消失；保存后列表与详情卡片更新；不再有单独的「标签」分组 | 待 Boss 在模拟器验收 |
 
-汇总：TAG **8/8 通过**（2026-10-01，Linux）。同时回归 MA 25/25、AV/NK 21/21、MEM 36/36。iOS 界面未在模拟器执行。
+汇总：TAG **10/10 通过** (2026-10-01 重新设计后，Mac)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；`swift test` 46/46；模拟器构建通过。iOS 界面待 Boss 验收。

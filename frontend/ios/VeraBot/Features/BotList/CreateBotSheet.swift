@@ -9,6 +9,7 @@ struct CreateBotSheet: View {
     @State private var draft = BotCreate(name: "", avatar: "🤖", color: "#0f766e", persona: "", instructions: "")
     @State private var saving = false
     @State private var errorText: String?
+    @State private var tagsText = ""   // 「搜索, 查询, 调研」；保存时 BotTagRules.parse
     private enum Field: Hashable { case name, persona, instructions }
     @FocusState private var focus: Field?
 
@@ -26,6 +27,7 @@ struct CreateBotSheet: View {
                             .submitLabel(.next)
                             .onSubmit { focus = .persona }
                     }
+                    BotTagsField(text: $tagsText)
                 }
                 Section("头像") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 8) {
@@ -57,7 +59,6 @@ struct CreateBotSheet: View {
                         .lineLimit(3...8)
                         .focused($focus, equals: .instructions)
                 }
-                BotTagsSection(tags: $draft.tags)
                 Section {
                     Label("新 Bot 默认最小权限（Least privilege）：不开启工具、不参与委派。创建后可在对话页右上角「Bot 设置」中开启。",
                           systemImage: "lock.shield")
@@ -86,7 +87,7 @@ struct CreateBotSheet: View {
         defer { saving = false }
         var body = draft
         body.name = body.name.trimmingCharacters(in: .whitespaces)
-        let cleaned = BotTagRules.normalized(body.tags)
+        let cleaned = BotTagRules.parse(tagsText)
         if let message = cleaned.error {
             errorText = message
             return

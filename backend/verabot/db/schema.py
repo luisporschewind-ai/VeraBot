@@ -185,5 +185,16 @@ def init_db():
         _add_column(c, "messages", "memory_ids", "TEXT")                                    # 本条回复注入了哪些记忆（JSON list）
         # --- v5：Bot 标签。JSON 字符串数组，默认 []。不回填、不改写已有权限 / 记忆 / 头像 ---
         _add_column(c, "bots", "tags", "TEXT NOT NULL DEFAULT '[]'")
+        # 标签上限收紧 (2026-10-01：最多 3 个、每个 4 字)。结构不变 (仍是 v5)；每次启动把超限的存量标签收敛：
+        # 保留前 3 个、每个截断到 4 字、去重。幂等，只改写确实变化的行。
+        from ..core.tags import coerce_stored_tags
+        for bid, raw in c.execute("SELECT id, tags FROM bots WHERE tags != '[]'").fetchall():
+            try:
+                old = json.loads(raw or "[]")
+            except ValueError:
+                old = None
+            new = coerce_stored_tags(old)
+            if new != old:
+                c.execute("UPDATE bots SET tags=? WHERE id=?", (json.dumps(new, ensure_ascii=False), bid))
         if ver < SCHEMA_VERSION:
             c.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES ('version', ?)", (str(SCHEMA_VERSION),))

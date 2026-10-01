@@ -2,6 +2,7 @@
 import json
 from datetime import datetime, timezone
 
+from ..core.tags import coerce_stored_tags
 from .database import now_iso, tx
 
 
@@ -14,7 +15,7 @@ def _bot(r):
     b["delegate_to"] = json.loads(b.get("delegate_to") or "[]")
     b["accept_delegation"] = bool(b.get("accept_delegation"))
     b["memory_access"] = b.get("memory_access") or "bot_and_global"
-    b["tags"] = json.loads(b.get("tags") or "[]")
+    b["tags"] = coerce_stored_tags(json.loads(b.get("tags") or "[]"))   # 旧数据超出当前上限时按规则收敛
     return b
 
 

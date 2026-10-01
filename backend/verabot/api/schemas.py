@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from ..core.tags import MAX_BOT_TAGS, MAX_TAG_CHARS   # 3 个 / 每个 4 字
 from ..services.users import clean_nickname
 
 
@@ -22,14 +23,12 @@ class NicknameIn(BaseModel):
         return clean_nickname(v)
 
 
-MAX_BOT_TAGS = 5
-MAX_TAG_CHARS = 12
 
 
 def clean_tags(v):
     """标签：trim，丢掉空白和重复（保留首次出现的顺序）。
 
-    最多 5 个，每个最多 12 个字，不能含控制字符。非法时抛 ValueError，由 422 处理成中文提示。
+    最多 3 个，每个最多 4 个字，不能含控制字符。非法时抛 ValueError，由 422 处理成中文提示。
     """
     if not isinstance(v, list):
         raise ValueError("标签必须是列表")
@@ -44,13 +43,13 @@ def clean_tags(v):
         if any(unicodedata.category(ch) == "Cc" for ch in tag):
             raise ValueError("标签不能包含控制字符")
         if len(tag) > MAX_TAG_CHARS:
-            raise ValueError("每个标签最多 12 个字")
+            raise ValueError(f"每个标签最多 {MAX_TAG_CHARS} 个字")
         if tag in seen:
             continue
         seen.add(tag)
         out.append(tag)
     if len(out) > MAX_BOT_TAGS:
-        raise ValueError("每个 Bot 最多 5 个标签")
+        raise ValueError(f"每个 Bot 最多 {MAX_BOT_TAGS} 个标签")
     return out
 
 

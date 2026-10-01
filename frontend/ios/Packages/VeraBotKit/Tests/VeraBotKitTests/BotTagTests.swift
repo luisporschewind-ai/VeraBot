@@ -21,16 +21,35 @@ import Testing
 }
 
 @Test func botTagRulesMatchServer() {
+    #expect(BotTagRules.maxCount == 3 && BotTagRules.maxLength == 4)
     let cleaned = BotTagRules.normalized(["  研究 ", "", "研究", "写作", "  "])
     #expect(cleaned.error == nil)
     #expect(cleaned.tags == ["研究", "写作"])
-    let exact = BotTagRules.normalized(["一二三四五六七八九十甲乙"])
-    #expect(exact.error == nil && exact.tags == ["一二三四五六七八九十甲乙"])
-    #expect(BotTagRules.normalized(["一二三四五六七八九十甲乙丙"]).error == "每个标签最多 12 个字")
-    #expect(BotTagRules.normalized((0..<6).map { "标\($0)" }).error == "每个 Bot 最多 5 个标签")
+    let exact = BotTagRules.normalized(["一二三四"])
+    #expect(exact.error == nil && exact.tags == ["一二三四"])
+    #expect(BotTagRules.normalized(["一二三四五"]).error == "每个标签最多 4 个字")
+    #expect(BotTagRules.normalized((0..<4).map { "标\($0)" }).error == "每个 Bot 最多 3 个标签")
     #expect(BotTagRules.normalized(["研\n究"]).error == "标签不能包含控制字符")
     let blanks = BotTagRules.normalized(["", "   "])
     #expect(blanks.error == nil && blanks.tags.isEmpty)
+}
+
+@Test func botTagParseSeparators() {
+    // 英文 / 中文逗号、顿号、空格（含全角）都能分隔；多余分隔符与重复被丢掉
+    #expect(BotTagRules.parse("搜索, 查询, 调研") == TagNormalization(tags: ["搜索", "查询", "调研"], error: nil))
+    #expect(BotTagRules.parse("搜索，查询、调研").tags == ["搜索", "查询", "调研"])
+    #expect(BotTagRules.parse(" 搜索  查询\u{3000}调研 ,, ").tags == ["搜索", "查询", "调研"])
+    #expect(BotTagRules.parse("搜索, 搜索").tags == ["搜索"])
+    #expect(BotTagRules.parse("").tags.isEmpty && BotTagRules.parse("").error == nil)
+    #expect(BotTagRules.parse("a, b, c, d").error == "每个 Bot 最多 3 个标签")
+    #expect(BotTagRules.parse("搜索引擎优化").error == "每个标签最多 4 个字")
+}
+
+@Test func botTagDisplayRoundTrips() {
+    #expect(BotTagRules.display(["搜索", "查询", "调研"]) == "搜索, 查询, 调研")
+    #expect(BotTagRules.display([]) == "")
+    let tags = ["搜索", "查询"]
+    #expect(BotTagRules.parse(BotTagRules.display(tags)).tags == tags)
 }
 
 @Test func botCreateEncodesTags() throws {

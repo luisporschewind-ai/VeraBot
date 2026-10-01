@@ -172,7 +172,7 @@ struct BotRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(bot.name).font(.headline).lineLimit(1).layoutPriority(1)
-                    BotTagChips(tags: bot.tags)
+                    BotTagChip(tags: bot.tags)   // 一个浅灰圆角矩形，「搜索, 查询, 调研」，放不下尾部截断
                     Spacer(minLength: 8)
                     if let date = ListTimestamp.rowDate(for: bot) {
                         Text(ListTimestamp.label(for: date))

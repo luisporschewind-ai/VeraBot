@@ -216,14 +216,16 @@ iOS 在上传前用 `AvatarImage.jpegData` 把照片收成边长 1024 的 JPEG�
 | trim | 去掉首尾空白（含全角空格） |
 | 空白项 | 丢掉，不报错 |
 | 重复 | 丢掉，保留第一次出现的顺序 |
-| 个数 | 清洗后最多 5 个，否则「每个 Bot 最多 5 个标签」 |
-| 长度 | 每个最多 12 个 Unicode 码位，否则「每个标签最多 12 个字」 |
+| 个数 | 清洗后最多 3 个，否则「每个 Bot 最多 3 个标签」 (2026-10-01 由 5 改为 3) |
+| 长度 | 每个最多 4 个 Unicode 码位，否则「每个标签最多 4 个字」 (由 12 改为 4) |
 | 控制字符 | Unicode 类别 `Cc`（含换行、DEL），「标签不能包含控制字符」 |
 | 类型 | 不是数组 →「标签必须是列表」；元素不是字符串 →「标签必须是文字」 |
 
+上限定义在 `core/tags.py` (`MAX_BOT_TAGS` / `MAX_TAG_CHARS`)。存量超限数据由 `coerce_stored_tags` 收敛 (去控制字符、trim、截到 4 字、去重、留前 3 个)：`init_db()` 每次启动幂等改写，`db/repository._bot` 读取时也收敛。
+
 读写仍走现有 Bot 接口，查询带 `user_id`；他人的 Bot 返回 404，不会改到别人的标签。标签不进入 system prompt，也不参与记忆。
 
-iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（字数按 Unicode scalar，与 Python `len` 对齐）。`Bot.tags` 在字段缺失或 JSON null 时解码为 `[]`。展示用 `Core/UI/BotTagViews.swift` 的 `BotTagChips`（次要文字小胶囊，`lineLimit(1)` 截断，超出可见个数显示 `+N`）：首页行在名称右侧最多 2 个，对话胶囊标题最多 1 个。创建页和 Bot 设置 / 详情用 `BotTagsSection`（系统 Form：文本行可改、左滑删除、添加按钮），无自定义动画。对话页只改标题按钮，不改消息列表或记忆卡片。
+iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（字数按 Unicode scalar，与 Python `len` 对齐），另有 `parse` (按「,」「，」「、」与空白拆分) 和 `display` (「a, b, c」)。`Bot.tags` 在字段缺失或 JSON null 时解码为 `[]`。展示用 `Core/UI/BotTagViews.swift`：首页行名称后的 `BotTagChip` (一个 `Color.sectionFill` 圆角 5 的矩形，「搜索, 查询, 调研」，`.caption` 次要字，单行尾部截断，无 `+N`)；Bot 详情卡片名称下方一行文字；对话标题不显示标签。编辑用 `BotTagsField` (「基本信息」内一行原生 TextField，输入时即时校验)，无自定义动画。
 
 ## 6. 关键设计决策
 

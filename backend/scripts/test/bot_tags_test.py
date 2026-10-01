@@ -2,7 +2,8 @@
 """Bot 标签（tags，schema v5）确定性测试。
 
 临时 SQLite，不消耗 Token、不触碰正式数据库。覆盖：
-v4 → v5 幂等迁移、创建 / 列表 / 详情 / 更新、校验（trim、去空、去重、上限、控制字符）、用户隔离。
+v4 → v5 幂等迁移、创建 / 列表 / 详情 / 更新、校验（trim、去空、去重、上限 3 个 / 4 字、控制字符）、用户隔离、
+存量超限数据收敛（TAG-09）、iOS 规则契约（TAG-10）。
 
 运行（在 backend/ 下）：uv run python scripts/test/bot_tags_test.py
 """
@@ -160,12 +161,11 @@ check(
     f"clear={cleared.json().get('tags')} replaced={replaced.json().get('tags')}",
 )
 
-exact = ["一二三四五六七八九十甲乙"] * 1
-five = [f"标{i}" for i in range(5)]
-ok_five = cli.post("/api/bots", json={"name": "五个", "tags": five}, headers=H)
-ok_len = cli.post("/api/bots", json={"name": "十二字", "tags": ["一二三四五六七八九十甲乙"]}, headers=H)
-too_many = cli.post("/api/bots", json={"name": "六个", "tags": [f"标{i}" for i in range(6)]}, headers=H)
-too_long = cli.patch(f"/api/bots/{created['id']}", json={"tags": ["一二三四五六七八九十甲乙丙"]}, headers=H)
+three = ["搜索", "查询", "调研"]
+ok_three = cli.post("/api/bots", json={"name": "三个", "tags": three}, headers=H)
+ok_len = cli.post("/api/bots", json={"name": "四字", "tags": ["一二三四"]}, headers=H)
+too_many = cli.post("/api/bots", json={"name": "四个", "tags": [f"标{i}" for i in range(4)]}, headers=H)
+too_long = cli.patch(f"/api/bots/{created['id']}", json={"tags": ["一二三四五"]}, headers=H)
 ctrl = cli.patch(f"/api/bots/{created['id']}", json={"tags": ["研\n究"]}, headers=H)
 ctrl_del = cli.patch(f"/api/bots/{created['id']}", json={"tags": ["a\x7fb"]}, headers=H)
 not_list = cli.post("/api/bots", json={"name": "不是列表", "tags": "研究"}, headers=H)
@@ -175,12 +175,11 @@ null_tags = cli.post("/api/bots", json={"name": "空标签", "tags": None}, head
 still = cli.get(f"/api/bots/{created['id']}", headers=H).json()
 check(
     "TAG-06",
-    "恰好 5 个、恰好 12 字通过；超出、控制字符、非列表、非文字、null → 422 中文，且不写入",
-    ok_five.status_code == 201 and ok_five.json().get("tags") == five
-    and ok_len.status_code == 201 and ok_len.json().get("tags") == ["一二三四五六七八九十甲乙"]
-    and exact[0] == "一二三四五六七八九十甲乙"
-    and too_many.status_code == 422 and err_text(too_many) == "每个 Bot 最多 5 个标签"
-    and too_long.status_code == 422 and err_text(too_long) == "每个标签最多 12 个字"
+    "恰好 3 个、恰好 4 字通过；4 个 / 5 字、控制字符、非列表、非文字、null → 422 中文，且不写入",
+    ok_three.status_code == 201 and ok_three.json().get("tags") == three
+    and ok_len.status_code == 201 and ok_len.json().get("tags") == ["一二三四"]
+    and too_many.status_code == 422 and err_text(too_many) == "每个 Bot 最多 3 个标签"
+    and too_long.status_code == 422 and err_text(too_long) == "每个标签最多 4 个字"
     and ctrl.status_code == 422 and err_text(ctrl) == "标签不能包含控制字符"
     and ctrl_del.status_code == 422 and err_text(ctrl_del) == "标签不能包含控制字符"
     and not_list.status_code == 422 and err_text(not_list) == "标签必须是列表"
@@ -210,6 +209,43 @@ check(
     dups_only.status_code == 201 and dups_only.json().get("tags") == ["工作"]
     and bare.json().get("tags") == [],
     str(dups_only.json().get("tags")),
+)
+
+# ---------- TAG-09 存量超限数据：启动时收敛 + 读取时收敛；收敛后 PATCH 其他字段不再 422 ----------
+legacy_tags = ["一二三四五六", "研究", "  ", "一二三四", "写作", "天气", "日程"]
+con = sqlite3.connect(DB)
+con.execute("UPDATE bots SET tags=? WHERE id=?", (json.dumps(legacy_tags, ensure_ascii=False), created["id"]))
+con.commit()
+read_before = cli.get(f"/api/bots/{created['id']}", headers=H).json().get("tags")   # 读取路径收敛（尚未重启）
+db.init_db()                                                                           # 启动时收敛（幂等）
+stored = json.loads(con.execute("SELECT tags FROM bots WHERE id=?", (created["id"],)).fetchone()[0])
+db.init_db()
+stored2 = json.loads(con.execute("SELECT tags FROM bots WHERE id=?", (created["id"],)).fetchone()[0])
+con.close()
+patched = cli.patch(f"/api/bots/{created['id']}", json={"name": "收敛后", "tags": stored}, headers=H)
+expect9 = ["一二三四", "研究", "写作"]   # 截到 4 字后「一二三四五六」与「一二三四」重复，去重；只留前 3 个
+check(
+    "TAG-09",
+    "存量超限标签：读取与启动时都收敛为前 3 个、每个截到 4 字、去重；幂等；之后带原标签 PATCH 成功",
+    read_before == expect9 and stored == expect9 and stored2 == expect9
+    and patched.status_code == 200 and patched.json().get("tags") == expect9,
+    f"read={read_before} stored={stored} patch={patched.status_code}",
+)
+
+# ---------- TAG-10 前后端契约：iOS BotTagRules 的上限与错误文案与后端一致；Bot JSON 含 tags ----------
+import re  # noqa: E402
+from verabot.core import tags as tag_rules  # noqa: E402
+swift = (Path(__file__).resolve().parents[3] / "frontend/ios/Packages/VeraBotKit/Sources/VeraBotCore/BotTags.swift").read_text()
+ios_count = int(re.search(r"maxCount\s*=\s*(\d+)", swift).group(1))
+ios_len = int(re.search(r"maxLength\s*=\s*(\d+)", swift).group(1))
+msgs = ["每个 Bot 最多 \\(maxCount) 个标签", "每个标签最多 \\(maxLength) 个字", "标签不能包含控制字符"]
+check(
+    "TAG-10",
+    "契约：iOS maxCount / maxLength = 后端 MAX_BOT_TAGS / MAX_TAG_CHARS (3 / 4)；错误文案同源；Bot JSON 含 tags 数组",
+    ios_count == tag_rules.MAX_BOT_TAGS == 3 and ios_len == tag_rules.MAX_TAG_CHARS == 4
+    and all(m in swift for m in msgs)
+    and isinstance(cli.get("/api/bots", headers=H).json()["bots"][0].get("tags"), list),
+    f"ios=({ios_count},{ios_len}) backend=({tag_rules.MAX_BOT_TAGS},{tag_rules.MAX_TAG_CHARS})",
 )
 
 p = sum(1 for r in RESULTS if r[2])

@@ -28,7 +28,7 @@ struct BotEditView: View {
     @State private var acceptDelegation = false
     @State private var memoryAccess: MemoryAccess = .botAndGlobal
     @State private var memoryCount: Int?
-    @State private var tags: [String] = []
+    @State private var tagsText = ""   // 「搜索, 查询, 调研」；保存时 BotTagRules.parse
     @State private var saving = false
     @State private var errorText: String?
     @State private var loaded = false
@@ -47,6 +47,11 @@ struct BotEditView: View {
                         LiveBotAvatar(botID: bot.id, emoji: avatar.isEmpty ? bot.avatar : avatar, color: bot.color,
                                       hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 72)
                         Text(name.isEmpty ? bot.name : name).font(.title2.bold())
+                        let shownTags = freshBot?.tags ?? bot.tags   // 已保存的标签；未保存的编辑不影响卡片
+                        if !shownTags.isEmpty {
+                            Text(BotTagRules.display(shownTags))
+                                .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                        }
                         Text(persona.isEmpty ? "暂无人设简介" : persona)
                             .font(.subheadline).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center).lineLimit(3)
@@ -63,6 +68,7 @@ struct BotEditView: View {
                         .submitLabel(.next)
                         .onSubmit { focus = .persona }
                 }
+                BotTagsField(text: $tagsText)
                 BotAvatarPhotoControls(botID: bot.id)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
@@ -79,8 +85,6 @@ struct BotEditView: View {
                 TextField("自定义指令 Instructions（私有）", text: $instructions, axis: .vertical).lineLimit(3...8)
                     .focused($focus, equals: .instructions)
             }
-
-            BotTagsSection(tags: $tags)
 
             Section {
                 Picker(selection: $memoryAccess) {
@@ -225,7 +229,7 @@ struct BotEditView: View {
         name = bot.name; avatar = bot.avatar; persona = bot.persona; instructions = bot.instructions
         allowedTools = Set(bot.allowedTools); delegateTo = Set(bot.delegateTo); acceptDelegation = bot.acceptDelegation
         memoryAccess = bot.memoryAccess; memoryCount = bot.memoryCount
-        tags = bot.tags
+        tagsText = BotTagRules.display(bot.tags)
         do {
             async let t = app.api.tools()
             async let b = app.api.bots()
@@ -236,7 +240,7 @@ struct BotEditView: View {
             if let fresh = br.bots.first(where: { $0.id == bot.id }) {
                 allowedTools = Set(fresh.allowedTools); delegateTo = Set(fresh.delegateTo); acceptDelegation = fresh.acceptDelegation
                 memoryAccess = fresh.memoryAccess; memoryCount = fresh.memoryCount
-                tags = fresh.tags
+                tagsText = BotTagRules.display(fresh.tags)
                 freshBot = fresh
             }
             loaded = true
@@ -248,7 +252,7 @@ struct BotEditView: View {
     private func save() async {
         saving = true
         defer { saving = false }
-        let cleaned = BotTagRules.normalized(tags)
+        let cleaned = BotTagRules.parse(tagsText)
         if let message = cleaned.error {
             errorText = message
             return
