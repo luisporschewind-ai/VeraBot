@@ -31,6 +31,7 @@
 
 ### 变更 (Changed)
 
+- **iOS · 对话标题与用户气泡**：导航栏胶囊标题去掉右侧下箭头，仍为头像 + 名称，点按仍打开 Bot 详情。用户自己的消息气泡上方不再显示昵称；Bot 一侧展示不变。
 - **文档同步 (docs: sync progress and docs with code)**，对照 commit `4f4cd49` 的代码逐项核对：
   - [STATUS.md](STATUS.md)：新增「当前进度」一节 (已完成待 Boss 验收：浮动输入栏、富文本、链接 / App 内网页、视觉风格、设置页重排、头像 / 昵称等，附 commit 与用例；暂停：MCP / Gmail 设计待评审、首页搜索延期；已知遗留清单)；功能表补充视觉风格 / 输入栏 / 富文本 / App 图标与名称；测试行补充 v0.1.0 之后的用例。
   - [design/ARCHITECTURE.md](design/ARCHITECTURE.md)：`db` 模块改为 schema v3；iOS 模块树补 `Haptics`、`AvatarImage`、`HealthStatus`、DebugView、用量入口；主题表补 `brandLight` / `brandDark` / `codeFill` / `quoteBar`；章节编号按出现顺序修正 (§5 资料与头像、§6 关键设计决策)；记忆决策注明只有滑动窗口。

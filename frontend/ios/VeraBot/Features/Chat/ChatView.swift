@@ -48,7 +48,7 @@ struct ChatView: View {
         .navigationTitle("\(vm.bot.avatar) \(vm.bot.name)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // 标题（头像 + 名称 + 下箭头）可点击 → Bot 详情；右上角不再放按钮
+            // 标题（头像 + 名称）可点击 → Bot 详情；右上角不再放按钮
             ToolbarItem(placement: .principal) {
                 botTitleButton
                     .glassButtonStyle()   // iOS 26 Liquid Glass 胶囊；旧系统 bordered
@@ -74,7 +74,6 @@ struct ChatView: View {
                 LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
                                hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt, size: 26)
                 Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
-                Image(systemName: "chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             }
         }
         .accessibilityLabel("\(vm.bot.name)，查看 Bot 详情")

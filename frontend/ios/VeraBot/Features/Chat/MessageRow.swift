@@ -5,18 +5,12 @@ struct MessageRow: View {
     let item: ChatViewModel.Item
     let bot: Bot
     @AppStorage(SettingsKeys.ttsEnabled) private var ttsEnabled = true
-    @Environment(AppState.self) private var app
 
     var body: some View {
         if item.isUser {
             HStack {
                 Spacer(minLength: 48)
                 VStack(alignment: .trailing, spacing: 6) {
-                    if !app.displayName.isEmpty {
-                        Text(app.displayName)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                     Text(item.text)
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .foregroundStyle(.white)
