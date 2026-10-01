@@ -8,7 +8,7 @@ struct QuotaView: View {
     @State private var errorText: String?
 
     var body: some View {
-        List {
+        ThemedList {
             if let q = quota {
                 Section("今日 Token 额度") {
                     ProgressView(value: Double(min(q.today.totalTokens, q.dailyTokenQuota)),

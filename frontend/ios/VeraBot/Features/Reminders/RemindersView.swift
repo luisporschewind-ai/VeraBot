@@ -9,7 +9,7 @@ struct RemindersView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            ThemedList {
                 ForEach(reminders) { r in
                     HStack {
                         Image(systemName: r.done == 1 ? "checkmark.circle.fill" : "alarm")

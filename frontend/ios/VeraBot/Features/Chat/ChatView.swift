@@ -33,7 +33,7 @@ struct ChatView: View {
             .bottomAnchoredScrolling()                    // 初次进入 & 键盘弹出时保持贴底（iOS 18+；17 由 keyboardDidShow 滚动兜底）
             .scrollDismissesKeyboard(.interactively)      // 下拉消息列表可交互式收起键盘
             .onTapGesture { focused = false }             // 点空白处收起键盘（气泡内按钮优先响应）
-            .background(Color(.systemGroupedBackground))
+            .background(Color.appBackground)
             .onChange(of: vm.scrollTick) {
                 proxy.scrollTo("bottom", anchor: .bottom)   // 新消息 / 流式输出：滚到最后一条
             }
@@ -49,15 +49,9 @@ struct ChatView: View {
         .toolbar {
             // 标题（头像 + 名称 + 下箭头）可点击 → Bot 详情；右上角不再放按钮
             ToolbarItem(placement: .principal) {
-                if #available(iOS 26, *) {
-                    botTitleButton
-                        .buttonStyle(.glass)
-                        .buttonBorderShape(.capsule)
-                } else {
-                    botTitleButton
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.capsule)
-                }
+                botTitleButton
+                    .glassButtonStyle()   // iOS 26 Liquid Glass 胶囊；旧系统 bordered
+                    .buttonBorderShape(.capsule)
             }
         }
         // Bot 详情：系统默认 sheet（page sheet 卡片，非 push / 非全屏），下滑关闭
@@ -114,7 +108,7 @@ struct ChatView: View {
                     .lineLimit(1...5)
                     .focused($focused)
                     .padding(.horizontal, 10).padding(.vertical, 9)
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 14))
 
                 Button {
                     if !speech.isRecording {
@@ -126,7 +120,7 @@ struct ChatView: View {
                         .font(.title3)
                         .frame(width: 38, height: 38)
                         .foregroundStyle(speech.isRecording ? .white : .primary)
-                        .background(speech.isRecording ? Color.red : Color(.secondarySystemBackground),
+                        .background(speech.isRecording ? Color.red : Color.sectionFill,
                                     in: RoundedRectangle(cornerRadius: 12))
                 }
                 .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")

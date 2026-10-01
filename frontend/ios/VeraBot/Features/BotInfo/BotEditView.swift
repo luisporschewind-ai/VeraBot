@@ -33,7 +33,7 @@ struct BotEditView: View {
     private var canDelegate: Bool { allowedTools.contains("ask_bot") }
 
     var body: some View {
-        Form {
+        ThemedForm {
             if infoMode {
                 Section {
                     VStack(spacing: 8) {

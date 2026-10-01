@@ -10,7 +10,7 @@ struct DelegationLogView: View {
     @State private var loaded = false
 
     var body: some View {
-        List {
+        ThemedList {
             ForEach(records) { r in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {

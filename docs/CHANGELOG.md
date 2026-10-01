@@ -25,6 +25,14 @@
 
 ### 变更 (Changed)
 
+- **iOS · 白底 + Liquid Glass 视觉风格、沉浸式助理列表、主题色板 (Theme tokens)**：
+  - 所有页面背景改为白色（深色模式为黑色）；分组列表 / 表单的 Section、卡片、Bot 回复气泡改用原页面灰底的浅色值 `#F2F2F7`（原 `systemGroupedBackground`），深色为 `secondarySystemBackground`（sheet 内自动取 elevated 值）——即「背景白、分组灰」反转。涉及设置、调试、用量、提醒、协作记录、新建 Bot、Bot 详情 / 编辑、对话页、登录页。
+  - 「助理」首页 Bot 列表去掉圆角 inset grouped 分组，改为白底全宽 `.plain` 列表，`listRowSeparator(.hidden)` 无分隔线；保留头像、名称、时间、预览、系统 chevron，行上下 10pt 间距。
+  - 颜色集中到 `Core/UI/Theme.swift`：语义色 `appBackground` / `sectionFill` / `brandSoft` / `botBubble` / `traceFill` / `insetFill`（`UIColor` 动态色，随 trait 解析，设置 › 外观 切换时全部一起更新）；容器 `ThemedForm` / `ThemedList`（白底 + 灰分组），修饰符 `themedPageBackground()`、`plainListRow()`、`themedFieldBackground()`。视图里不再写死颜色值。
+  - 修复深色模式：`brandSoft`（表情选中底色、交接 Trace 卡片）增加深色变体 `#123D39`；Trace 卡片 / 气泡 / 输入框底色都改为带深色变体的语义色。
+  - Liquid Glass（iOS 26 原生 API，`#available(iOS 26)` 判断，旧系统回退）：主操作按钮 `prominentButtonStyle()` → `.glassProminent`（回退 `.borderedProminent`，登录、创建第一个 Bot）；胶囊按钮 `glassButtonStyle()` → `.glass`（回退 `.bordered`，对话标题）；`glassSurface(in:)` → `.glassEffect(.regular.interactive())`（回退 `regularMaterial`）；`GlassGroup` → `GlassEffectContainer`。导航栏、Tab 栏、工具栏按钮沿用系统 iOS 26 默认玻璃。
+  - 登录页：白色背景，输入框改为浅灰圆角底（`themedFieldBackground()`），替代 `roundedBorder`。
+
 - **iOS · 对话标题胶囊按钮**：ChatView 的中心 Bot 标题保留原有 Bot 详情 sheet 点击行为与无障碍标签，改用 iOS 26 原生 Liquid Glass 胶囊按钮（头像 + 名称 + 下箭头）；iOS 17–18 回退为系统 bordered 胶囊按钮，避免与返回按钮产生视觉合并。
 - **iOS · 首页导航栏与按需搜索**：移除首页大标题「我的 Bot」，改用紧凑 inline 导航栏，保留左上角头像与右上角两个独立的 Liquid Glass 圆形按钮（搜索在左、＋ 在右；iOS 26 在两个 `ToolbarItem` 之间插入 `ToolbarSpacer(.fixed, placement: .topBarTrailing)`，用 `if #available(iOS 26, *)` 包裹），并确保返回上级时不出现异常标题。搜索栏只有点按放大镜后才挂载 `.searchable`（`navigationBarDrawer(displayMode: .always)`，自动聚焦）；未激活时不挂载，下拉列表也不会露出搜索框。点圆形 X 取消后搜索栏收起并清空关键词。当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览），完整聊天历史搜索、搜索历史等移至后续迭代。
 - **iOS · 取消 / 关闭按钮**：工具栏与 sheet 里的「取消」「关闭」统一改为系统圆形 X（新增 `Core/UI/DismissToolbarButton.swift`：iOS 26 用 `Button(role: .cancel / .close)` + `xmark`，呈现为 Liquid Glass 圆形按钮；iOS 17–18 回退 `role: .cancel` + `xmark`），无障碍标签仍为「取消」/「关闭」。涉及：新建 Bot、Bot 设置 / Bot 详情、头像预览。确认框 / alert 里的「取消」保持系统文字按钮。

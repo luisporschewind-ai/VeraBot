@@ -10,7 +10,7 @@ struct DebugView: View {
     @State private var checking = false
 
     var body: some View {
-        Form {
+        ThemedForm {
             Section {
                 LabeledContent("服务器地址", value: app.baseURLString)
                     .textSelection(.enabled)

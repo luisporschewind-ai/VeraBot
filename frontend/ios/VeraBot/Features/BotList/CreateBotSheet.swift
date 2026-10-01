@@ -17,7 +17,7 @@ struct CreateBotSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            ThemedForm {
                 Section {
                     HStack(spacing: 14) {
                         BotAvatar(emoji: draft.avatar, color: draft.color, size: 56)

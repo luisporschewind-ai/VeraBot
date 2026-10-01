@@ -11,7 +11,7 @@ import VeraBotTTS
 
 struct SettingsView: View {
     var body: some View {
-        Form {
+        ThemedForm {
             AccountSettingsSection()   // 账号置顶
             UsageSettingsSection()     // 用量（push 用量看板）
             GeneralSettingsSection()   // 外观 / 通知 / 触感反馈 / 语言

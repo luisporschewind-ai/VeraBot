@@ -36,7 +36,7 @@ struct MessageRow: View {
                         Text(markdown(item.text + (item.streaming ? " ▍" : "")))
                             .textSelection(.enabled)
                             .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                     if ttsEnabled && !item.streaming && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)

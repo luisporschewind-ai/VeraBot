@@ -129,6 +129,23 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 - 本地包通过 `XCLocalSwiftPackageReference (relativePath = Packages/VeraBotKit)` 引用，产品 VeraBotCore / VeraBotNetworking / VeraBotTTS 链接到 App target。
 - `project.yml` 是等价的 xcodegen 描述 (备用)。
 
+### 3.3 主题 (Theme)
+
+所有颜色与玻璃样式集中在 `Core/UI/Theme.swift`，视图只引用语义名，不写死颜色值：
+
+| Token | 浅色 | 深色 | 用途 |
+|---|---|---|---|
+| `Color.appBackground` | `#FFFFFF` | `#000000` | 页面背景 |
+| `Color.sectionFill` | `#F2F2F7` (原页面灰底) | `secondarySystemBackground` (sheet 内 elevated) | 分组 Section、卡片、输入框底 |
+| `Color.botBubble` / `traceFill` | = `sectionFill` | = `sectionFill` | Bot 回复气泡、工具 Trace |
+| `Color.insetFill` | = `appBackground` | = `appBackground` | 卡片里再嵌一层的内容 |
+| `Color.brandSoft` | `#E6F4F2` | `#123D39` | 表情选中、交接 Trace |
+| `Color.brand` / `AccentColor` | `#0F766E` | `#14B8A6` (AccentColor) | 强调色 (`.tint`) |
+
+- 语义色是 `UIColor { trait in … }` 动态色，按 trait 解析；外观设置通过根视图 `preferredColorScheme` 改变 trait，所有页面同步更新。
+- 容器：`ThemedForm` / `ThemedList`（`scrollContentBackground(.hidden)` + `appBackground`，行底 `listRowBackground(sectionFill)`，行内可再覆盖）；修饰符 `themedPageBackground()`、`plainListRow()`（首页平铺无分隔线）、`themedFieldBackground()`。
+- Liquid Glass：`glassButtonStyle()` (`.glass`)、`prominentButtonStyle()` (`.glassProminent`)、`glassSurface(in:)` (`.glassEffect(.regular.interactive())`)、`GlassGroup` (`GlassEffectContainer`)；均以 `#available(iOS 26)` 判断，iOS 17–18 回退 bordered / `regularMaterial`。不加自定义动画。
+
 ## 4. 依赖管理选择 (Dependency management)
 
 | | 选择 | 理由 | 不选 |

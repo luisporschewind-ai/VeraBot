@@ -24,7 +24,7 @@ struct TraceView: View {
                     Text(markdown("↩ **\(trace.result?["to_bot"]?.text ?? "")**：\(answer)"))
                         .font(.caption).lineLimit(8)
                         .padding(6)
-                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8))
+                        .background(Color.insetFill, in: RoundedRectangle(cornerRadius: 8))
                     let tokens = trace.result?["tokens"]?.text ?? ""
                     let truncated = trace.result?["shared_truncated"]?.text == "true"
                     Text("协作记录 #\(trace.result?["delegation_id"]?.text ?? "-")" + (tokens.isEmpty ? "" : " · \(tokens) tokens")
@@ -38,7 +38,7 @@ struct TraceView: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(trace.name == "ask_bot" ? Color.brandSoft : Color.gray.opacity(0.08),
+        .background(trace.name == "ask_bot" ? Color.brandSoft : Color.traceFill,
                     in: RoundedRectangle(cornerRadius: 12))
     }
 

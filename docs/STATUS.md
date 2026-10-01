@@ -49,7 +49,6 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 - **头像存在 SQLite `avatars.data`**：512 JPEG，单张大约几 KB 到几十 KB。备份数据库即包含头像。
 - **提醒不推送**：没有 APNs / 本地通知。设置里的「通知」开关只申请系统授权并保存偏好，目前不会发出任何通知。
 - **语言**：App 声明了 zh-Hans 与 en 本地化（仅 `InfoPlist.xcstrings`：显示名与权限文案），系统设置中可按 App 切换语言；但界面文案仍是中文硬编码，切到英文后 App 内界面仍为中文。
-- **深色模式**：外观可切到深色，但部分自定义浅色（如 `Color.brandSoft` 表情选中底色、Trace 卡片底色）没有深色变体，深色下对比度待 Boss 验收后再调。
 - **列表时间不会自动跨天刷新**：停留在首页跨过午夜时，「HH:mm」不会自己变成「昨天」；回到首页或下拉刷新后更新。「本周」按系统日历的周（中文地区周一开始）计算。
 - **首页搜索暂延期扩展**：搜索入口保留；当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览），完整聊天历史搜索、搜索历史等移至后续迭代。
 - **记忆**：滑动窗口 (最近 N 条)，没有摘要 / 向量检索。
@@ -75,7 +74,8 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 昵称 / 照片头像的 iOS 界面 | 代码已接上 API；本环境没有 Xcode，模拟器点测留到 Mac（步骤见 [RUN_LOCAL.md](ops/RUN_LOCAL.md)） |
 | 首页正圆头像、圆形 X 取消 / 关闭、行时间、首页搜索 (UI-11~14) | 已在 iPhone 17 模拟器 (iOS 26) 构建、安装、启动；界面效果待 Boss 验收 |
 | iOS 17 / 18 旧系统 | 未测 (`defaultScrollAnchor` 等 iOS 18+ API 已做版本判断) |
-| 深色模式 (Dark mode)、动态字体 (Dynamic Type)、iPad | 未测 |
+| 白底 + Liquid Glass、深色模式 (UI-16~19) | 已在 iPhone 17 模拟器 (iOS 26) 构建、安装，浅色 / 深色目视检查首页、设置、对话、Bot 详情；新建 Bot / 提醒 / 登录 / 调试页待 Boss 验收 |
+| 动态字体 (Dynamic Type)、iPad | 未测 |
 
 ## 4. 下一步 (Next steps)
 

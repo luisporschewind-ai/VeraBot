@@ -34,6 +34,7 @@ struct LoginView: View {
                     .focused($focus, equals: .username)
                     .submitLabel(.next)
                     .onSubmit { focus = .password }
+                    .themedFieldBackground()
                 SecureField("密码（至少 6 位）", text: $password)
                     .textContentType(isRegister ? .newPassword : .password)
                     .focused($focus, equals: .password)
@@ -42,8 +43,8 @@ struct LoginView: View {
                         focus = nil
                         if canSubmit { Task { await submit() } }
                     }
+                    .themedFieldBackground()
             }
-            .textFieldStyle(.roundedBorder)
             .padding(.top, 8)
 
             if let errorText {
@@ -59,7 +60,7 @@ struct LoginView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .prominentButtonStyle()
             .controlSize(.large)
             .disabled(!canSubmit)
 
@@ -69,7 +70,7 @@ struct LoginView: View {
             Spacer()
             DisclosureGroup("服务器地址", isExpanded: $showServer) {
                 TextField(AppConfig.defaultBaseURL, text: $app.baseURLString)
-                    .textFieldStyle(.roundedBorder)
+                    .themedFieldBackground()
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -80,6 +81,8 @@ struct LoginView: View {
             .font(.footnote)
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.appBackground)
         .contentShape(Rectangle())
         .onTapGesture { focus = nil }            // 点空白处收起键盘
         .keyboardDoneButton { focus = nil }      // 键盘工具栏「完成」

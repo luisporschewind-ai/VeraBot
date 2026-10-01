@@ -14,23 +14,26 @@ struct BotListView: View {
 
     var body: some View {
         NavigationStack {
+            // 沉浸式平铺列表：白底、无圆角分组、无分隔线（plainListRow 见 Theme）
             List {
-                Section {
-                    ForEach(filteredBots) { bot in
-                        NavigationLink(value: bot) { BotRow(bot: bot) }
-                            .contextMenu {
-                                Button { editing = bot } label: { Label("编辑与权限", systemImage: "slider.horizontal.3") }
-                            }
-                    }
-                    .onDelete { idx in
-                        let targets = idx.map { filteredBots[$0] }
-                        Task { await delete(targets) }
-                    }
+                ForEach(filteredBots) { bot in
+                    NavigationLink(value: bot) { BotRow(bot: bot) }
+                        .contextMenu {
+                            Button { editing = bot } label: { Label("编辑与权限", systemImage: "slider.horizontal.3") }
+                        }
+                        .plainListRow()
+                }
+                .onDelete { idx in
+                    let targets = idx.map { filteredBots[$0] }
+                    Task { await delete(targets) }
                 }
                 if let errorText {
                     Text(errorText).foregroundStyle(.red).font(.footnote)
+                        .plainListRow()
                 }
             }
+            .listStyle(.plain)
+            .themedPageBackground()
             .overlay {
                 if !trimmedQuery.isEmpty && filteredBots.isEmpty {
                     ContentUnavailableView.search(text: trimmedQuery)
@@ -40,7 +43,7 @@ struct BotListView: View {
                     } description: {
                         Text("点击右上角「＋」或下方按钮创建第一个助理")
                     } actions: {
-                        Button("＋ 创建第一个 Bot") { showCreate = true }.buttonStyle(.borderedProminent)
+                        Button("＋ 创建第一个 Bot") { showCreate = true }.prominentButtonStyle()
                     }
                 }
             }
@@ -180,7 +183,7 @@ struct BotRow: View {
                 Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 
     private var preview: String {
