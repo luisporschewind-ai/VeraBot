@@ -34,7 +34,7 @@ cd backend && uv run python scripts/dev/seed_demo.py --reset  # 清空 demo 的�
 2. `open frontend/ios/VeraBot.xcodeproj` → 选择 **iPhone 17** 模拟器 → ⌘R。
    命令行等价：`frontend/scripts/run_ios.sh "iPhone 17"` (编译到 `/tmp/verabot_dd`，安装并启动)。
 3. 登录 `demo` / `verabot2026`。服务器地址默认 `http://127.0.0.1:8000`，可在登录页修改。
-4. 常用路径：Bot 列表 → 点 Vera 进入对话 → 点顶部标题打开「Bot 详情」(sheet) → 协作记录；首页左上角头像 → 设置 (账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录)；设置页右上角 🐞 → 调试 (服务器地址、健康检查、构建信息)。
+4. 常用路径：Bot 列表 → 点 Vera 进入对话 → 点顶部标题打开「Bot 详情」(sheet) → 协作记录；首页左上角头像 → 设置 (账号 → 用量 → 记忆 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录)；设置页右上角 🐞 → 调试 (服务器地址、健康检查、构建信息)。
 
 ### 拉到头像 / 昵称改动之后
 
@@ -55,6 +55,29 @@ curl -s --noproxy '*' http://127.0.0.1:8000/api/health
 4. 再进设置，点头像，从相册选一张图（模拟器可以把图片拖进去）。圆形预览后点「使用」。设置页和首页左上角变成这张照片。完全杀掉 App 再打开，照片还在。
 5. 打开某个 Bot → 点标题进详情 →「从相册设置头像」→ 使用。回到对话，标题和对方气泡是圆形照片；返回列表，这一行也是。（iOS 不再提供「恢复默认头像」入口。）
 6. 换一个账号登录（或另一台模拟器连同一后端），看不到 demo 的头像字节；demo 再登录，自己的昵称和头像还在。
+
+### 拉到长期记忆 (Memory M1，schema v4) 之后
+
+后端新增依赖 `cryptography`，启动时自动迁到 schema v4；不用改 `.env`，不用删库。建议先备份：
+
+```bash
+cd backend
+cp data/verabot.db data/verabot.db.bak-before-v4   # 迁移不可逆
+./stop.sh
+./start.sh --detach        # uv sync 装上 cryptography，init_db() 迁到 v4
+curl -s --noproxy '*' http://127.0.0.1:8000/api/health
+```
+
+- 健康 / 财务类记忆用 Fernet 加密，密钥首次使用时自动生成在 `data/.memory_key` (权限 600，已被 gitignore)。也可以设置 `VERABOT_MEMORY_ENC_KEY` (逗号分隔多把用于轮换)。**备份数据库时一并备份密钥文件**，否则这些记忆只能显示占位。
+- `VERABOT_MEMORY=0` 可在服务器端整体关闭记忆 (默认开启)。
+
+模拟器验收 (Boss，按 [MEMORY_GROWTH.md](../design/MEMORY_GROWTH.md) §5.8 与 MEM-UI-01~12)：
+
+1. 对 Vera 说「记住我不吃香菜」→ 出现「要我记住吗？」卡片 →「记住」→ 卡片变为「已记住」。
+2. 清空对话 (Bot 详情底部 →「仅清空对话」) 后问「推荐一道菜」，回答避开香菜。
+3. 设置 › 记忆 →「Vera 了解的你」：首次打开有 DeepSeek 说明；可看到 / 编辑 / 左滑删除 / ＋ 添加 / 清空；关掉「允许 Bot 记住」后对话里不再出现卡片。
+4. 说「我对青霉素过敏，记一下」→ 卡片与记忆页标「敏感 · 健康信息」。说「我的密码是 abc123，记住」→ 不出卡片。
+5. Bot 详情 › 记忆：切换「不使用 / 仅本 Bot 的记忆 / 本 Bot + 共享资料」并保存；「{Bot} 记住的内容」只列该 Bot 可见的记忆。「清空对话和「X」的记忆」会删掉该 Bot 的记忆，「关于你」保留。
 
 ### 设置页重排 (调试页 / 用量 / 通用)
 
@@ -80,6 +103,7 @@ curl -s --noproxy '*' http://127.0.0.1:8000/api/health
 |---|---|---|
 | `uv run python scripts/test/multi_agent_test.py` | 多 Agent 权限 / 护栏 / 迁移 (MA-01~24)，临时 DB | 否 (mock) |
 | `uv run python scripts/test/avatar_profile_test.py` | 昵称、用户 / Bot 头像、v2→v3 迁移、租户隔离 | 否 |
+| `uv run python scripts/test/memory_test.py` | 长期记忆 MEM-01~36：v3→v4 迁移、提议 / 确认 / 拒绝、敏感策略与加密、召回注入、委派隔离、API 契约，临时 DB | 否 (mock) |
 | `uv run python scripts/test/smoke_test.py` | 端到端冒烟测试，结束后删除测试账号；未配置 `OPENAI_API_KEY` 时语音转写 2 项记为 SKIP | 是 |
 | `uv run python scripts/test/api_regress.py` 然后 `api_regress2.py` | 迭代 2 回归 REG-* / TC-*：前者创建临时用户 `qa_reg_*`，后者复用并在结束时删除 | 是 |
 | `uv run python scripts/test/api_v01_tc*.py` | 迭代 1 API 用例 | 部分 |

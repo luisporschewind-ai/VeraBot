@@ -1,6 +1,6 @@
 # VeraBot 多 Agent 协作设计 (Multi-Agent Design) — v0.1.0
 
-> 适用版本：v0.1.0 (迭代 2 引入，数据库 schema v2；当前库为 schema v3，见 §6 末尾)。代码位置：`backend/verabot/agents/` (permissions / guardrails / context / delegation / runtime / prompts)。本文说明 Bot 之间的权限模型 (permission model)、上下文隔离 (context isolation)、防护措施 (guardrails)、审计 (audit)，以及 iOS 端的配置界面和设置页 (Settings) 的扩展方式。
+> 适用版本：v0.1.0 (迭代 2 引入，数据库 schema v2；当前库为 schema v4，v4 = 长期记忆，见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md))。代码位置：`backend/verabot/agents/` (permissions / guardrails / context / delegation / runtime / prompts)。本文说明 Bot 之间的权限模型 (permission model)、上下文隔离 (context isolation)、防护措施 (guardrails)、审计 (audit)，以及 iOS 端的配置界面和设置页 (Settings) 的扩展方式。
 
 ## 1. 目标 (Goals)
 
@@ -44,6 +44,7 @@
 | 调用方公开资料 (public profile) | ✅，名称 + persona 前 80 字 |
 | 调用方对话历史 (history) / 私有指令 (instructions) / 用户其他数据 | ❌ |
 | 被委派方自己的对话历史 | ❌ (不读取，也不写入。委派不会污染对方的记忆) |
+| 长期记忆 (Memory：全局资料与任何 Bot 的记忆) | ❌ (`run_once` 不召回；depth ≥ 1 调用 `remember` / `forget_memory` 返回 `memory_not_delegable` 并写审计。调用方如需共享，只能把任务需要的条目写进 `shared_context`，见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §7) |
 
 实际发送的内容以 JSON 保存在 `delegations.payload`，方便审计时核对「到底共享了什么」。
 
@@ -81,8 +82,8 @@
 ## 7. iOS 界面
 
 - **Bot 列表**：长按 → 「编辑与权限」；不显示数量页脚 (2026-10-01 移除)，到达上限时右上角 ＋ 置灰。新建表单里有最小权限提示。
-- **BotEditView** (对话页点标题进入 Bot 详情，或 Bot 列表长按「编辑与权限」)：基本信息 (名称 / 表情 / 人设 / 指令)，另有「从相册设置头像」（照片优先于表情；iOS 不提供恢复默认入口）；工具权限开关 (Tool allowlist)；委派目标 (没有开启 `ask_bot` 时不可选)；接受委派开关；guardrail 说明；「协作记录」入口。保存资料时调用 `PATCH /api/bots/{id}`；照片走 `/api/bots/{id}/avatar`，不跟「保存」按钮绑在一起。
-- **Bot 详情** (对话页点标题「头像 + 名称 ›」)：以系统默认 sheet 弹出 (非 push、非全屏、下滑关闭)。它复用 `BotEditView(infoMode: true)`，内嵌完整设置：资料卡片、基本信息、工具权限、委派、协作记录，底部「清空对话」(有二次确认)。对话页导航栏只保留返回和标题。
+- **BotEditView** (对话页点标题进入 Bot 详情，或 Bot 列表长按「编辑与权限」)：基本信息 (名称 / 表情 / 人设 / 指令)，另有「从相册设置头像」（照片优先于表情；iOS 不提供恢复默认入口）；记忆 (`memory_access` Picker + 「{Bot} 记住的内容」入口，位于工具权限之前)；工具权限开关 (Tool allowlist，记忆工具不在其中)；委派目标 (没有开启 `ask_bot` 时不可选)；接受委派开关；guardrail 说明；「协作记录」入口。保存资料时调用 `PATCH /api/bots/{id}`；照片走 `/api/bots/{id}/avatar`，不跟「保存」按钮绑在一起。
+- **Bot 详情** (对话页点标题「头像 + 名称 ›」)：以系统默认 sheet 弹出 (非 push、非全屏、下滑关闭)。它复用 `BotEditView(infoMode: true)`，内嵌完整设置：资料卡片、基本信息、工具权限、委派、协作记录，底部「清空对话」(有二次确认：「仅清空对话」保留记忆 /「清空对话和「X」的记忆」)。对话页导航栏只保留返回和标题。
 - **首页导航栏**：没有照片时左上角仍是首字，和 ＋ 一样用系统圆形 toolbar 按钮，不自绘背景。有照片时按钮里显示圆形头像。
 
 ## 8. 设置页 (Settings) 与 TTS 扩展性
@@ -91,6 +92,7 @@
 - 分组顺序：账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (每组是一个独立的 `struct …Section: View`)：
   - `AccountSettingsSection`（实现在 `Features/Settings/UserProfileEditor.swift`）：头像（点按打开系统相册，圆形预览后上传）、昵称（保存后写入 `AppState.displayName`，首页和对话立刻更新）、用户名。服务器地址移到调试页。
   - `UsageSettingsSection`：一行「用量」，NavigationLink push `QuotaView` (用量看板，已不是底部 Tab)。
+  - `MemorySettingsSection`（`Features/Memory/MemorySettingsSection.swift`）：「Vera 了解的你」(条数，push `MemoryListView`) + 「允许 Bot 记住」`Toggle` (以服务器 `GET/PATCH /api/memory/settings` 为准，不是 `@AppStorage`；失败回退)。
   - `GeneralSettingsSection`（`Features/Settings/GeneralSettingsSection.swift`）：外观 `Picker` (`vb_appearance`，`AppearanceMode`，App 根视图 `preferredColorScheme`)；通知 `Toggle` (`vb_notifications_enabled`，开启时请求 `UNUserNotificationCenter` 授权，被拒绝则回退并提供「前往设置」)；触感反馈 `Toggle` (`vb_haptics_enabled`，所有触感经 `View.hapticFeedback(_:trigger:)` → 系统 `sensoryFeedback`，受此开关控制)；语言 (显示当前语言，点按打开 `UIApplication.openSettingsURLString`，由系统按 App 切换语言)。
   - `VoiceSettingsSection`：语音播放开关 (`@AppStorage("vb_tts_enabled")`，默认开启，同时控制用户消息和 Bot 回复气泡下方的 🔊 按钮 (共用 `SpeakButton`；用户消息的按钮右对齐))；语音引擎选择 (`vb_tts_engine`)，可选「本机 TTS」，「云端 TTS (即将支持)」用 `selectionDisabled` 置灰。
   - `AboutSettingsSection`：版本号 (CFBundleShortVersionString)。

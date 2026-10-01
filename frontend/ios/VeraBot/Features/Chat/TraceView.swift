@@ -48,6 +48,8 @@ struct TraceView: View {
         case "get_weather": return "🌤 天气查询"
         case "create_reminder": return "⏰ 创建提醒"
         case "list_reminders": return "📋 查看提醒"
+        case "remember": return "🧠 记忆"
+        case "forget_memory": return "🧠 忘掉记忆"
         default: return "🔧 \(trace.name)"
         }
     }

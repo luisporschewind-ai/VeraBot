@@ -14,6 +14,7 @@ struct SettingsView: View {
         ThemedForm {
             AccountSettingsSection()   // 账号置顶
             UsageSettingsSection()     // 用量（push 用量看板）
+            MemorySettingsSection()    // 记忆：「Vera 了解的你」+ 允许 Bot 记住（Features/Memory）
             GeneralSettingsSection()   // 外观 / 通知 / 触感反馈 / 语言
             VoiceSettingsSection()     // 语音播放 + 语音引擎
             AboutSettingsSection()

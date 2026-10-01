@@ -8,10 +8,13 @@ import VeraBotCore
 public struct APIError: LocalizedError, Sendable {
     public let status: Int
     public let message: String
+    /// 后端 {"detail": {"message", "code"}} 里的机器可读原因（如 sensitive_credential / memory_limit）
+    public let code: String?
 
-    public init(status: Int, message: String) {
+    public init(status: Int, message: String, code: String? = nil) {
         self.status = status
         self.message = message
+        self.code = code
     }
     public var errorDescription: String? { message }
 }
@@ -22,7 +25,29 @@ public enum ChatEvent: Sendable {
     case toolStart(ToolTrace)
     case toolResult(ToolTrace)
     case error(String)
-    case done
+    case done(ChatDone)
+}
+
+/// SSE done 事件：本条回复的消息 id，以及本轮注入了哪些记忆（v4 起，旧后端为空）。
+public struct ChatDone: Decodable, Sendable, Hashable {
+    public let messageID: Int?
+    public let memoryIDs: [Int]
+
+    enum CodingKeys: String, CodingKey {
+        case messageID = "message_id"
+        case memoryIDs = "memory_ids"
+    }
+
+    public init(messageID: Int? = nil, memoryIDs: [Int] = []) {
+        self.messageID = messageID
+        self.memoryIDs = memoryIDs
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        messageID = try c.decodeIfPresent(Int.self, forKey: .messageID)
+        memoryIDs = try c.decodeIfPresent([Int].self, forKey: .memoryIDs) ?? []
+    }
 }
 
 private struct DeltaPayload: Decodable { let text: String }
@@ -102,8 +127,49 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/bots/\(botID)/messages")
     }
 
-    public func clearMessages(botID: Int) async throws -> OKResponse {
-        try await call("/api/bots/\(botID)/messages", method: "DELETE")
+    public func clearMessages(botID: Int, includeMemories: Bool) async throws -> ClearMessagesResponse {
+        try await call("/api/bots/\(botID)/messages", method: "DELETE",
+                       query: includeMemories ? [URLQueryItem(name: "include_memories", value: "true")] : [])
+    }
+
+    // MARK: - Memories（长期记忆，见 docs/design/MEMORY_GROWTH.md §5.5）
+    public func memories(_ query: MemoryQuery) async throws -> MemoriesResponse {
+        try await call("/api/memories", query: query.queryItems)
+    }
+
+    public func memory(id: Int) async throws -> Memory { try await call("/api/memories/\(id)") }
+
+    public func createMemory(_ m: MemoryCreate) async throws -> Memory {
+        try await call("/api/memories", method: "POST", body: try encode(m))
+    }
+
+    public func updateMemory(id: Int, _ patch: MemoryPatch) async throws -> Memory {
+        try await call("/api/memories/\(id)", method: "PATCH", body: try encode(patch))
+    }
+
+    public func deleteMemory(id: Int) async throws -> OKResponse {
+        try await call("/api/memories/\(id)", method: "DELETE")
+    }
+
+    public func clearMemories(scope: MemoryScope?, botID: Int?) async throws -> MemoryClearResponse {
+        var q = [URLQueryItem(name: "scope", value: scope?.rawValue ?? "all"), URLQueryItem(name: "confirm", value: "true")]
+        if let botID { q.append(URLQueryItem(name: "bot_id", value: String(botID))) }
+        return try await call("/api/memories", method: "DELETE", query: q)
+    }
+
+    public func confirmMemory(id: Int, content: String?) async throws -> MemoryConfirmResult {
+        let body: Data? = try content.map { try encode(["content": $0]) }
+        return try await call("/api/memories/\(id)/confirm", method: "POST", body: body)
+    }
+
+    public func rejectMemory(id: Int) async throws -> OKResponse {
+        try await call("/api/memories/\(id)/reject", method: "POST")
+    }
+
+    public func memorySettings() async throws -> MemorySettings { try await call("/api/memory/settings") }
+
+    public func updateMemorySettings(enabled: Bool) async throws -> MemorySettings {
+        try await call("/api/memory/settings", method: "PATCH", body: try encode(["enabled": enabled]))
     }
 
     // MARK: - Reminders / Quota
@@ -178,7 +244,7 @@ public struct APIClient: VeraBotAPI {
         case "error":
             return .error((try? decoder.decode(ErrorPayload.self, from: data))?.message ?? "未知错误")
         case "done":
-            return .done
+            return .done((try? decoder.decode(ChatDone.self, from: data)) ?? ChatDone())
         default:
             return nil
         }
@@ -189,8 +255,10 @@ public struct APIClient: VeraBotAPI {
         try JSONEncoder().encode(value)
     }
 
-    private func makeRequest(_ path: String, method: String, body: Data?) -> URLRequest {
-        var req = URLRequest(url: baseURL.appending(path: path))
+    private func makeRequest(_ path: String, method: String, body: Data?, query: [URLQueryItem] = []) -> URLRequest {
+        var url = baseURL.appending(path: path)
+        if !query.isEmpty { url = url.appending(queryItems: query) }
+        var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token {
@@ -201,8 +269,9 @@ public struct APIClient: VeraBotAPI {
         return req
     }
 
-    private func call<T: Decodable & Sendable>(_ path: String, method: String = "GET", body: Data? = nil) async throws -> T {
-        let (data, response) = try await URLSession.shared.data(for: makeRequest(path, method: method, body: body))
+    private func call<T: Decodable & Sendable>(_ path: String, method: String = "GET", body: Data? = nil,
+                                               query: [URLQueryItem] = []) async throws -> T {
+        let (data, response) = try await URLSession.shared.data(for: makeRequest(path, method: method, body: body, query: query))
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
             throw Self.apiError(status: status, data: data)
@@ -243,18 +312,23 @@ public struct APIClient: VeraBotAPI {
         return data
     }
 
-    private static func apiError(status: Int, data: Data) -> APIError {
+    static func apiError(status: Int, data: Data) -> APIError {
         var message = "请求失败（HTTP \(status)）"
+        var code: String?
         if let body = try? JSONDecoder().decode(ErrorBody.self, from: data), let detail = body.detail {
             switch detail {
             case .string(let s):
                 message = s
             case .array(let items):
                 message = items.map { ($0["msg"]?.text) ?? $0.text }.joined(separator: "；")
+            case .object:
+                // {"detail": {"message": "…", "code": "…"}}（记忆等需要区分原因的接口）
+                message = detail["message"]?.text ?? detail.text
+                code = detail["code"]?.text
             default:
                 message = detail.text
             }
         }
-        return APIError(status: status, message: message)
+        return APIError(status: status, message: message, code: code)
     }
 }

@@ -4,6 +4,7 @@ import VeraBotCore
 struct MessageRow: View {
     let item: ChatViewModel.Item
     let bot: Bot
+    let vm: ChatViewModel
     @AppStorage(SettingsKeys.ttsEnabled) private var ttsEnabled = true
 
     var body: some View {
@@ -25,7 +26,18 @@ struct MessageRow: View {
                 LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
                                hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 34)
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(item.traces) { TraceView(trace: $0, fromBot: bot.name) }
+                    ForEach(item.traces) { trace in
+                        // 记忆工具：待确认 → 确认卡片；其他结果 → 一行说明；执行中 / 非记忆工具 → 普通 Trace
+                        if let p = trace.memoryProposal {
+                            if p.isCard {
+                                MemoryProposalCard(proposal: p, botName: bot.name, vm: vm)
+                            } else {
+                                MemoryToolNote(proposal: p)
+                            }
+                        } else {
+                            TraceView(trace: trace, fromBot: bot.name)
+                        }
+                    }
                     if !item.text.isEmpty || item.streaming {
                         MessageContentView(text: item.text + (item.streaming ? " ▍" : ""))
                             .padding(.horizontal, 14).padding(.vertical, 10)

@@ -21,7 +21,7 @@ struct ChatView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(vm.items) { item in
-                        MessageRow(item: item, bot: vm.bot)
+                        MessageRow(item: item, bot: vm.bot, vm: vm)
                     }
                     if let e = vm.errorText {
                         Text(e).font(.footnote).foregroundStyle(.red)
@@ -65,6 +65,7 @@ struct ChatView: View {
             .environment(app)
         }
         .task { await vm.load() }
+        .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）
         .onDisappear { focused = false }   // 返回 / 离开页面时收起键盘
     }
 

@@ -20,7 +20,20 @@ public protocol VeraBotAPI: Sendable {
     func tools() async throws -> ToolsResponse
     func delegations(botID: Int) async throws -> DelegationsResponse
     func messages(botID: Int) async throws -> MessagesResponse
-    func clearMessages(botID: Int) async throws -> OKResponse
+    /// includeMemories：同时删除该 Bot 的「本 Bot 记忆」与对话摘要（默认 false，记忆保留）
+    func clearMessages(botID: Int, includeMemories: Bool) async throws -> ClearMessagesResponse
+    // 长期记忆（Memory，后端 schema v4）
+    func memories(_ query: MemoryQuery) async throws -> MemoriesResponse
+    func memory(id: Int) async throws -> Memory
+    func createMemory(_ m: MemoryCreate) async throws -> Memory
+    func updateMemory(id: Int, _ patch: MemoryPatch) async throws -> Memory
+    func deleteMemory(id: Int) async throws -> OKResponse
+    /// scope nil = 全部；.bot 需传 botID
+    func clearMemories(scope: MemoryScope?, botID: Int?) async throws -> MemoryClearResponse
+    func confirmMemory(id: Int, content: String?) async throws -> MemoryConfirmResult
+    func rejectMemory(id: Int) async throws -> OKResponse
+    func memorySettings() async throws -> MemorySettings
+    func updateMemorySettings(enabled: Bool) async throws -> MemorySettings
     func reminders() async throws -> RemindersResponse
     func completeReminder(_ id: Int) async throws -> OKResponse
     func quota() async throws -> Quota

@@ -10,7 +10,8 @@ struct BotEditView: View {
     /// Bot 详情模式（对话页标题弹出的 sheet）：顶部显示头像/名称/人设卡片，底部显示「清空对话」
     var infoMode = false
     var clearDisabled = false
-    var onClear: (@MainActor () async -> Void)? = nil
+    /// 清空对话；参数 includeMemories = true 时同时删除该 Bot 的记忆与对话摘要
+    var onClear: (@MainActor (_ includeMemories: Bool) async -> Void)? = nil
 
     @State private var confirmClear = false
     private enum Field: Hashable { case name, persona, instructions }
@@ -25,9 +26,14 @@ struct BotEditView: View {
     @State private var allowedTools: Set<String> = []
     @State private var delegateTo: Set<Int> = []
     @State private var acceptDelegation = false
+    @State private var memoryAccess: MemoryAccess = .botAndGlobal
+    @State private var memoryCount: Int?
     @State private var saving = false
     @State private var errorText: String?
     @State private var loaded = false
+    @State private var freshBot: Bot?
+    /// 记忆列表按「已保存的」授权过滤（未保存的 Picker 改动不影响列表）
+    private var botForMemoryList: Bot { freshBot ?? bot }
 
     private let emojis = ["🤖", "🦊", "🐼", "🐱", "🦉", "🐧", "🦄", "🐙", "🌟", "🧠", "📚", "🔬", "💼", "🎨", "🍀", "☕"]
     private var canDelegate: Bool { allowedTools.contains("ask_bot") }
@@ -71,6 +77,28 @@ struct BotEditView: View {
                     .focused($focus, equals: .persona)
                 TextField("自定义指令 Instructions（私有）", text: $instructions, axis: .vertical).lineLimit(3...8)
                     .focused($focus, equals: .instructions)
+            }
+
+            Section {
+                Picker(selection: $memoryAccess) {
+                    ForEach(MemoryAccess.allCases) { a in Text(a.title).tag(a) }
+                } label: {
+                    Label("记忆", systemImage: "brain")
+                }
+                NavigationLink {
+                    MemoryListView(botFilter: botForMemoryList)
+                        .toolbar(.hidden, for: .tabBar)
+                } label: {
+                    LabeledContent {
+                        if let memoryCount { Text("\(memoryCount)") }
+                    } label: {
+                        Text("\(name.isEmpty ? bot.name : name) 记住的内容")
+                    }
+                }
+            } header: {
+                Text("记忆")
+            } footer: {
+                Text("「本 Bot + 共享资料」还会读取「关于你」里所有 Bot 共享的资料。被其他 Bot 委派时，不会读取或写入你的记忆。")
             }
 
             Section {
@@ -132,15 +160,18 @@ struct BotEditView: View {
                     }
                     .disabled(clearDisabled)
                     .confirmationDialog("清空与「\(bot.name)」的全部对话？", isPresented: $confirmClear, titleVisibility: .visible) {
-                        Button("清空对话与记忆", role: .destructive) {
-                            Task { await onClear(); endEditing(); dismiss() }   // 清空后关闭 sheet，回到对话页
+                        Button("仅清空对话", role: .destructive) {
+                            Task { await onClear(false); endEditing(); dismiss() }   // 清空后关闭 sheet，回到对话页
+                        }
+                        Button("清空对话和「\(bot.name)」的记忆", role: .destructive) {
+                            Task { await onClear(true); endEditing(); dismiss() }
                         }
                         Button("取消", role: .cancel) {}
                     } message: {
-                        Text("该 Bot 将忘记此前的所有对话内容，此操作不可撤销。")
+                        Text("对话内容将被删除，此操作不可撤销。默认保留记忆（可在「Vera 了解的你」中管理）；选择第二项会同时删除仅「\(bot.name)」可用的记忆，所有 Bot 共享的资料不受影响。")
                     }
                 } footer: {
-                    Text("清空后该 Bot 将忘记此前的全部对话内容。")
+                    Text("清空后该 Bot 将忘记此前的全部对话内容；记住的信息默认保留。")
                 }
             }
         }
@@ -190,6 +221,7 @@ struct BotEditView: View {
     private func load() async {
         name = bot.name; avatar = bot.avatar; persona = bot.persona; instructions = bot.instructions
         allowedTools = Set(bot.allowedTools); delegateTo = Set(bot.delegateTo); acceptDelegation = bot.acceptDelegation
+        memoryAccess = bot.memoryAccess; memoryCount = bot.memoryCount
         do {
             async let t = app.api.tools()
             async let b = app.api.bots()
@@ -199,6 +231,8 @@ struct BotEditView: View {
             others = br.bots.filter { $0.id != bot.id }
             if let fresh = br.bots.first(where: { $0.id == bot.id }) {
                 allowedTools = Set(fresh.allowedTools); delegateTo = Set(fresh.delegateTo); acceptDelegation = fresh.acceptDelegation
+                memoryAccess = fresh.memoryAccess; memoryCount = fresh.memoryCount
+                freshBot = fresh
             }
             loaded = true
         } catch {
@@ -213,7 +247,8 @@ struct BotEditView: View {
                              persona: persona, instructions: instructions,
                              allowedTools: allowedTools.sorted(),
                              delegateTo: canDelegate ? delegateTo.sorted() : [],
-                             acceptDelegation: acceptDelegation)
+                             acceptDelegation: acceptDelegation,
+                             memoryAccess: memoryAccess)
         do {
             let updated = try await app.api.updateBot(bot.id, patch)
             onSaved(updated)

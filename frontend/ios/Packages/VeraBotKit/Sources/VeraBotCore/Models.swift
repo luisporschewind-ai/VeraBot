@@ -111,6 +111,10 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
     /// 是否设置了照片头像（表情符号仍在 avatar）。
     public let hasAvatar: Bool
     public let avatarUpdatedAt: String?
+    /// 记忆授权（schema v4）。旧后端没有该字段时按默认 bot_and_global。
+    public let memoryAccess: MemoryAccess
+    /// 该 Bot 的生效「本 Bot 记忆」条数（不含共享资料）；旧后端为 nil。
+    public let memoryCount: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, name, avatar, color, persona, instructions
@@ -121,6 +125,8 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         case acceptDelegation = "accept_delegation"
         case hasAvatar = "has_avatar"
         case avatarUpdatedAt = "avatar_updated_at"
+        case memoryAccess = "memory_access"
+        case memoryCount = "memory_count"
     }
 
     public init(from decoder: Decoder) throws {
@@ -138,6 +144,8 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         acceptDelegation = try c.decodeIfPresent(Bool.self, forKey: .acceptDelegation) ?? false
         hasAvatar = try c.decodeIfPresent(Bool.self, forKey: .hasAvatar) ?? false
         avatarUpdatedAt = try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt)
+        memoryAccess = try c.decodeIfPresent(MemoryAccess.self, forKey: .memoryAccess) ?? .botAndGlobal
+        memoryCount = try c.decodeIfPresent(Int.self, forKey: .memoryCount)
     }
 }
 
@@ -151,10 +159,11 @@ public struct BotPatch: Codable, Sendable {
     public var allowedTools: [String]?
     public var delegateTo: [Int]?
     public var acceptDelegation: Bool?
+    public var memoryAccess: MemoryAccess?
 
     public init(name: String? = nil, avatar: String? = nil, color: String? = nil, persona: String? = nil,
                 instructions: String? = nil, allowedTools: [String]? = nil, delegateTo: [Int]? = nil,
-                acceptDelegation: Bool? = nil) {
+                acceptDelegation: Bool? = nil, memoryAccess: MemoryAccess? = nil) {
         self.name = name
         self.avatar = avatar
         self.color = color
@@ -163,6 +172,7 @@ public struct BotPatch: Codable, Sendable {
         self.allowedTools = allowedTools
         self.delegateTo = delegateTo
         self.acceptDelegation = acceptDelegation
+        self.memoryAccess = memoryAccess
     }
 
     enum CodingKeys: String, CodingKey {
@@ -170,6 +180,7 @@ public struct BotPatch: Codable, Sendable {
         case allowedTools = "allowed_tools"
         case delegateTo = "delegate_to"
         case acceptDelegation = "accept_delegation"
+        case memoryAccess = "memory_access"
     }
 }
 
@@ -198,6 +209,8 @@ public struct Guardrails: Codable, Sendable, Hashable {
 public struct ToolsResponse: Codable, Sendable {
     public let tools: [ToolInfo]
     public let guardrails: Guardrails?
+    /// 记忆摘要（v4 起；记忆工具不在 tools 列表里，由 Bot 的 memory_access 控制）
+    public let memory: ToolsMemoryInfo?
 }
 
 /// 协作记录（Delegation log）
