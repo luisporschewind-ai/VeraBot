@@ -27,6 +27,8 @@
 | App 图标 / 名称 (App icon & name) | 主屏显示名「Vera Bot」(`INFOPLIST_KEY_CFBundleDisplayName`，`InfoPlist.xcstrings` zh-Hans / en 均为「Vera Bot」)；App 图标为 `Assets.xcassets/AppIcon.appiconset` 单尺寸 1024×1024 (源图 `assets/brand/app-icon-source.png`)。设置 › 关于 中的应用简介仍写「VeraBot · 你的私人 AI 助理团队」 |
 | Web 客户端 | 只作为 API 验收客户端，功能落后于 iOS (见 [STATUS.md](../STATUS.md) 已知限制) |
 
+> **计划中 (Planned)**：Bot 置顶 (schema v6，`pinned_at` + PATCH `pinned`，首页左滑 / 长按「置顶」，置顶行浅灰底)，规格见 [BOT_PIN.md](../design/BOT_PIN.md)，未实现。
+
 ## API 摘要
 
 所有 `/api/*` (除 auth / health) 需要 `Authorization: Bearer <JWT>`。完整 schema：后端启动后访问 `/docs`。

@@ -4,7 +4,7 @@
 > v0.2 变更：按 Boss 决策，**Gmail 主路径改为通过 MCP 接入** (Google 官方 Gmail MCP 服务器)；v0.1 的「后端直连 Gmail REST API」降级为**备用路径 (fallback)**。发送仍然必须逐封人工确认 (HITL)。
 > 前置文档：[MCP_CAPABILITY.md](MCP_CAPABILITY.md) (MCP Client、OAuth 2.1、工具映射、权限、HITL、防注入的通用设计；本文只写 Gmail 特有部分)。相关：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py`、`agents/permissions.py`、`agents/guardrails.py`、`db/schema.py`。
-> **schema 版本 (2026-10-01)**：v4 = 记忆 M1，v5 = Bot 标签，本文所需的迁移使用 **schema v6** (MCP 文档 §16 D2)。
+> **schema 版本 (2026-10-01)**：v4 = 记忆 M1，v5 = Bot 标签，v6 = Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md))，本文所需的迁移使用 **schema v7** (MCP 文档 §16 D2)。
 
 ## 0. 摘要 (TL;DR)
 
@@ -239,7 +239,7 @@ sequenceDiagram
 
 | 规则 | 实现 |
 |---|---|
-| 默认关闭 | schema v6 迁移不给任何已有 Bot 授予邮件工具；Gmail 新同步到的工具不自动授权 |
+| 默认关闭 | schema v7 迁移不给任何已有 Bot 授予邮件工具；Gmail 新同步到的工具不自动授权 |
 | 白名单 | BotEditView「Gmail」分组中手动开启；`mail_send_draft` 开关下注明「每封都需要你确认」 |
 | 未连接不暴露 | Gmail 实例非 `connected`：`mcp__gmail__*` 与 `mail_send_draft` 都不暴露 |
 | 委派禁用 | 所有邮件工具 `delegable = False` |
@@ -280,7 +280,7 @@ sequenceDiagram
 - **API**：使用 MCP 通用 API (`/api/mcp/*`、`/api/pending-actions/*`，见 MCP 文档 §12.1)，**不再新增** v0.1 的 `/api/connections/google/*`。Gmail 在目录中是 `catalog_id = gmail_google` (备用 `gmail_direct`)。
 - **SSE**：`confirmation_required {action_id, kind: "send_mail", preview: {to, cc, subject, body, warnings[]}, expires_at}`；`connection_required {server_id, reason}`。
 - **`/api/tools`**：`mail_send_draft` 带 `source: "builtin"`、`requires: "gmail"`、`risk: "send"`、`delegable: false`；Gmail MCP 工具带 `source: "mcp"`、`server: "Gmail"`。
-- **数据库**：并入 MCP 文档 §12.2 的 schema 迁移 (**schema v6**；v3 = 昵称 / 头像，v4 = 记忆 M1，v5 = Bot 标签) (`mcp_servers`、`mcp_credentials`、`mcp_tools`、`oauth_states`、`pending_actions`)。v0.1 草案中的 `oauth_connections` 表**取消**，改用 `mcp_credentials` (备用路径以 `provider='google'` 区分)。迁移不修改任何 Bot 的 `allowed_tools`。
+- **数据库**：并入 MCP 文档 §12.2 的 schema 迁移 (**schema v7**；v3 = 昵称 / 头像，v4 = 记忆 M1，v5 = Bot 标签，v6 = Bot 置顶) (`mcp_servers`、`mcp_credentials`、`mcp_tools`、`oauth_states`、`pending_actions`)。v0.1 草案中的 `oauth_connections` 表**取消**，改用 `mcp_credentials` (备用路径以 `provider='google'` 区分)。迁移不修改任何 Bot 的 `allowed_tools`。
 - **配置 (`.env.example`)**：`GOOGLE_OAUTH_CLIENT_ID` (及 Web 类型时 `GOOGLE_OAUTH_CLIENT_SECRET`)、`GOOGLE_OAUTH_REDIRECT_URI`、`VERABOT_GMAIL_ROUTE=mcp` (`mcp` / `direct`，新建连接时的默认路线)、`VERABOT_MAIL_MAX_BODY_CHARS=4000`，以及 MCP 通用配置。
 - **后端模块**：
 
@@ -299,7 +299,7 @@ api/routers/actions.py               # confirm 时执行 drafts.send（kind = se
 
 | ID | 用例 |
 |---|---|
-| MAIL-01 | 新 Bot / v6 迁移后已有 Bot 都没有邮件工具 |
+| MAIL-01 | 新 Bot / v7 迁移后已有 Bot 都没有邮件工具 |
 | MAIL-02 | 未连接 Gmail：即使白名单有工具也不暴露；强行调用 → `not_connected` + 审计 |
 | MAIL-03 | 只有 readonly 授权时 `create_draft` / `mail_send_draft` → `insufficient_scope` (支持 step-up 时触发追加授权提示) |
 | MAIL-04 | 授权：state 错误 / 过期 / 他人 / 重复 → 400；`iss` 不匹配 → 拒绝；`code_verifier` 不出现在任何响应中 |

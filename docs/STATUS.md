@@ -10,6 +10,19 @@
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
 
+## 🔁 交接 (Handoff for the next agent) — 2026-10-01 21:40 UTC+8
+
+- **HEAD**：本交接文档所在提交 (上一功能提交 `82ee633` 删除 Bot 二次确认)，分支 `main`，仓库 `/Users/admin/Desktop/VeraBot-v0.1` (Mac)，origin `github.com/luisporschewind-ai/VeraBot`。先 `git pull --ff-only`。
+- **不要提交的本地改动**：`frontend/ios/VeraBot.xcodeproj/project.pbxproj` (`DEVELOPMENT_TEAM = 4M4EACBGAJ`，Boss 签名) 与 `frontend/ios/VeraBot/InfoPlist.xcstrings`。只 `git add` 自己的文件。不动 tag `v0.1.0`。
+- **规则**：前后端同步 (字段 / 文案 / 上限改动要有契约测试并写对照表)；Web 冻结 (只在 STATUS 记落后项)；iOS 只用原生默认样式、无自定义动画、Theme 语义色、头像正圆 (照片或表情 + 底色)；代码、测试、文档 (CHANGELOG / FEATURES / TEST_CASES / STATUS) 同一提交；作者 `Luis <luisporschewind@gmail.com>`；不做 UI 自动化 / 点按 / 截图；只装 **iPhone 17 模拟器** (UDID `6FD1E62D-DA65-42B1-81F5-554042006671`)，不装真机；不用 Homebrew。
+- **构建 / 测试**：`frontend/ios`：`xcodebuild -project VeraBot.xcodeproj -scheme VeraBot -sdk iphonesimulator -destination "id=<UDID>" -derivedDataPath /tmp/verabot_dd build`，再 `xcrun simctl install/launch <UDID> com.verabot.app`；Kit：`frontend/ios/Packages/VeraBotKit && swift test` (当前 54/54)；后端 (在 `backend/`)：`uv run python scripts/test/{bot_tags_test,multi_agent_test,avatar_profile_test,memory_test}.py`。
+- **后端启动**：`backend/stop.sh` 后 `backend/start.sh --detach` (默认 `0.0.0.0:8000`，日志 `data/server.log`)；健康检查 `curl http://192.168.0.104:8000/api/health`；demo / verabot2026。
+- **待办**：
+  1. **Bot 置顶** (Boss 已批准，规格 [BOT_PIN.md](design/BOT_PIN.md)，schema v6，未开工；迁移前备份数据库)。
+  2. **执行状态机** (只读评估已完成，未决定)：iOS 现在无状态枚举，靠 `sending` / `streaming` / traces 推断；建议在 `VeraBotCore` 用现有 SSE 事件 (delta / tool_start / tool_result / error / done) 推导状态并原生显示「正在思考 / 正在调用… / 正在请教…」，可选后端 `status` 事件。
+  3. **遗留英文**：对话页委派 Trace 行 (`Features/Chat/TraceView.swift`) 仍显示「N tokens」。
+  4. **头像动画** (Boss 桌面的 `LiveBotAvatar.swift` 卡通头像)：**未决定**；与项目同名类 / `Color(hex:)` 冲突，且是自定义动画，违反现有规则，需 Boss 拍板是否例外。
+
 ## 📍 当前进度 (Current progress) — 截至 commit `4f4cd49` (2026-10-01 14:44 UTC+8)
 
 v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v5** (v4 长期记忆；v5 Bot 标签。记忆升级前已备份 `backend/data/verabot.db.bak-before-v4`)；iOS 版本号仍为 `0.1.0 (1)`。
@@ -43,10 +56,10 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 ### 已知遗留 (Known leftovers，仅列出，未处理)
 
-- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签没有 Web UI** (Web 冻结；后端 `tags` 字段向后兼容)。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。
+- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签没有 Web UI** (Web 冻结；后端 `tags` 字段向后兼容)。Bot 置顶实现后同样不做 Web。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。
 - **截图过时**：`assets/screenshots/ios/` 下全部截图早于 2026-10-01 的界面改动；其中 `R34_form_keyboard`、`R11_settings` 与当时的界面也已不符。新 UI 用例 (UI-*、MSG-*) 尚无截图。
 - **`frontend/ios/VeraBot/File.txt`** 仍在仓库中 (8 字节，内容「QA回归」，NEW-03)，待确认是否删除。
-- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**。MCP / Gmail 设计稿 (v1.0) 已统一写为 **v6**。
+- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶 (预留，[BOT_PIN.md](design/BOT_PIN.md)，未实现)**。MCP / Gmail 设计稿 (v1.0) 已改为 **v7**。
 
 ## ⏸ 设计已定稿：MCP 开发等待额度重置 (Design approved, development waits for quota reset)
 

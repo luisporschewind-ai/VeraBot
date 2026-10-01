@@ -2,7 +2,7 @@
 
 > 状态：**v1.0 已批准 (Approved)，尚未实现**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)；**开发等待额度重置后开始** (从 §15 的 M1 开始)。决定与正文冲突时以 §16 为准。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
-> **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，Bot 标签 (commit `1d18e1b`) 占用 **schema v5**，本文的迁移使用 **schema v6** (§16 D2)。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密复用该依赖，但使用独立密钥 `VERABOT_TOKEN_ENC_KEY` (§16 D2)。
+> **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，Bot 标签 (commit `1d18e1b`) 占用 **schema v5**，Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md)) 预留 **schema v6**，本文的迁移使用 **schema v7** (§16 D2)。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密复用该依赖，但使用独立密钥 `VERABOT_TOKEN_ENC_KEY` (§16 D2)。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
 > 规范依据 (2026-10-01 核实)：MCP 规范 **2026-07-28** 版 (当前最新稳定版，上一版 2025-11-25)；官方 Python SDK **`mcp` v2.2.0** (2026-09-07 发布，MIT，Python ≥ 3.10)。见 §17 参考资料。
 
@@ -73,7 +73,7 @@ iOS App ──JWT──▶ VeraBot backend (FastAPI)
 
 ```
 core/crypto.py                    # Fernet / MultiFernet 加解密 (与 Gmail 设计共用)
-db/schema.py                      # schema v6 迁移 (§12.2)；db/repository.py：mcp_* / pending_actions 查询
+db/schema.py                      # schema v7 迁移 (§12.2)；db/repository.py：mcp_* / pending_actions 查询
 services/mcp/catalog.py           # 内置目录 + 运维配置 mcp_servers.toml 加载与校验
 services/mcp/client.py            # 连接管理：构造 Client / 传输、超时、重试、熔断、discover 缓存
 services/mcp/auth.py              # OAuthClientProvider 桥接、DB TokenStorage、刷新 / 撤销
@@ -270,7 +270,7 @@ sequenceDiagram
 
 | 规则 | 设计 |
 |---|---|
-| 默认关闭 | 新 Bot `allowed_tools=[]` (已有)；schema v6 迁移**不给任何已有 Bot 授予 MCP 工具**；新同步到的工具不自动授权 |
+| 默认关闭 | 新 Bot `allowed_tools=[]` (已有)；schema v7 迁移**不给任何已有 Bot 授予 MCP 工具**；新同步到的工具不自动授权 |
 | 白名单粒度 | 按工具 (`mcp__gmail__search_threads`)；App 提供「本服务全部只读工具」快捷开关，但保存时展开为具体工具名 (避免以后新增工具被隐式授权) |
 | 未连接不暴露 | 服务器非 `connected`：`get_schemas` 不暴露其工具；强行调用返回 `not_connected` |
 | 委派限制 | MCP 工具默认 `delegable=False`：**被委派的 Bot 即使白名单包含 MCP 工具也不能调用** (`not_delegable`，写 `tool_denied` 审计与协作记录)。以后可按工具放开「可信服务器的只读工具」(原 Q4，已决定见 §16) |
@@ -449,11 +449,11 @@ SSE 事件：
 - 新增 `confirmation_required`：`{action_id, kind: "mcp_tool_call" | "send_mail", server, tool, label, arguments, risk, warnings[], expires_at}`。
 - 新增 `connection_required`：`{server_id, reason: "not_connected" | "expired" | "needs_scope"}`，App 显示「去连接」按钮。
 
-### 12.2 数据库 schema v6 (幂等迁移，沿用 `schema_meta`)
+### 12.2 数据库 schema v7 (幂等迁移，沿用 `schema_meta`)
 
-> 注：v3 = 昵称 / 头像，v4 = 记忆 M1，v5 = Bot 标签，本迁移为 **v6** (§16 D2)。
+> 注：v3 = 昵称 / 头像，v4 = 记忆 M1，v5 = Bot 标签，v6 = Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md))，本迁移为 **v7** (§16 D2)。
 
-与 [GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) 合并为同一次 v6 迁移：原 `oauth_connections` 泛化为 `mcp_credentials` (Gmail 直连备用路径复用同表，见 Gmail 文档 §12)。
+与 [GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) 合并为同一次 v7 迁移：原 `oauth_connections` 泛化为 `mcp_credentials` (Gmail 直连备用路径复用同表，见 Gmail 文档 §12)。
 
 ```sql
 CREATE TABLE IF NOT EXISTS mcp_servers (
@@ -556,7 +556,7 @@ CREATE INDEX IF NOT EXISTS idx_mcp_tools_user ON mcp_tools(user_id, status);
 
 | ID | 用例 |
 |---|---|
-| MCP-01 | 迁移 v5 → v6 幂等；已有 Bot 与新 Bot 都没有任何 MCP 工具 |
+| MCP-01 | 迁移 v6 → v7 幂等；已有 Bot 与新 Bot 都没有任何 MCP 工具 |
 | MCP-02 | 发现与映射：`tools/list` 分页全部同步；命名空间 `mcp__slug__tool`；`.` 替换；超 64 字符截断 + 哈希；冲突处理 |
 | MCP-03 | 非法工具 (名称 / schema / `x-mcp-header`) 被排除并审计，其他工具正常 |
 | MCP-04 | 新同步工具不自动进入白名单；「全部只读」快捷开关保存为具体工具名 |
@@ -599,7 +599,7 @@ CREATE INDEX IF NOT EXISTS idx_mcp_tools_user ON mcp_tools(user_id, status);
 
 | 阶段 | 内容 | 前提 | 验收 |
 |---|---|---|---|
-| **M1** MCP Client 核心 + 公网验证服务 (约 3 人日) | 后端：schema v6 `mcp_servers` / `mcp_tools`、内置目录 + 运维配置、Streamable HTTP (无授权)、发现与映射、`mcp__{server}__{tool}` 命名空间、权限扩展 (默认关闭 / 委派禁用 / taint / 单轮上限 / 每 Bot 软上限 20)、结果清洗与包裹、审计、超时。目录内置 1 个公网免授权只读服务：**Microsoft Learn MCP** (备选 DeepWiki MCP；动工前用一次 `tools/list` 确认)。iOS：Bot 详情「MCP 服务」分组开关 (能力包) +「开启全部只读」。测试用进程内假 MCP 服务器，不依赖外网 | — | MCP-01~09、14~19、25~30 (只读部分)；`/api/tools` 与 iOS 模型契约测试 |
+| **M1** MCP Client 核心 + 公网验证服务 (约 3 人日) | 后端：schema v7 `mcp_servers` / `mcp_tools`、内置目录 + 运维配置、Streamable HTTP (无授权)、发现与映射、`mcp__{server}__{tool}` 命名空间、权限扩展 (默认关闭 / 委派禁用 / taint / 单轮上限 / 每 Bot 软上限 20)、结果清洗与包裹、审计、超时。目录内置 1 个公网免授权只读服务：**Microsoft Learn MCP** (备选 DeepWiki MCP；动工前用一次 `tools/list` 确认)。iOS：Bot 详情「MCP 服务」分组开关 (能力包) +「开启全部只读」。测试用进程内假 MCP 服务器，不依赖外网 | — | MCP-01~09、14~19、25~30 (只读部分)；`/api/tools` 与 iOS 模型契约测试 |
 | **M2** 设置页与健壮性 (约 2 人日) | 设置 →「连接的账号 / MCP 服务」列表、服务详情、连接 / 断开 / 同步；工具定义变更审阅；重试与熔断 | M1 | MCP 相关用例 + UI 回归 |
 | **M3** 通用 HITL (约 3 人日) | `pending_actions` (mcp_tool_call)、风险分级与确认策略 (所有写操作都确认)、`ToolConfirmationCard`、工具调用记录；用测试服务器的写工具验收 | M1 | MCP-10~13；UI 回归 |
 | **M4** OAuth 2.1 + Google (约 3 人日) | 后端 `services/mcp/auth` 桥接、DB `TokenStorage` + Fernet (`VERABOT_TOKEN_ENC_KEY`)、刷新 / 撤销 / step-up；iOS `ASWebAuthenticationSession` (复用 Safari 会话)、连接时的数据外发同意说明。**Boss 先完成**：Google Cloud 项目 (Testing 模式，≤ 100 测试用户)、加入 Workspace Developer Preview、iOS OAuth client | M2；Google 准备完成 | MCP-20~24 |
@@ -616,7 +616,7 @@ CREATE INDEX IF NOT EXISTS idx_mcp_tools_user ON mcp_tools(user_id, status);
 | # | 问题 | 决定 (2026-10-01) | 理由 |
 |---|---|---|---|
 | D1 | 第一个里程碑范围 / 验证服务 (原 M0) | ✅ M1 只做 MCP Client 核心 + 1 个公网免授权只读服务 (Microsoft Learn MCP，备选 DeepWiki)；测试用进程内假服务器；Google 预览推到 Gmail 之前 | 不依赖 OAuth / 审批即可验证全链路，成本最低 |
-| D2 | schema 版本与密钥 | ✅ 使用下一个空闲版本 (批准时为 v5；同日 v5 被 Bot 标签 `1d18e1b` 占用，故为 **schema v6**)；凭据加密复用 `cryptography`，独立密钥 `VERABOT_TOKEN_ENC_KEY` | v3 / v4 / v5 已占用；密钥隔离 |
+| D2 | schema 版本与密钥 | ✅ 使用下一个空闲版本 (批准时为 v5；同日 v5 被 Bot 标签 `1d18e1b` 占用、v6 预留给 Bot 置顶，故为 **schema v7**)；凭据加密复用 `cryptography`，独立密钥 `VERABOT_TOKEN_ENC_KEY` | v3 / v4 / v5 已占用，v6 预留置顶；密钥隔离 |
 | D3 | 服务器来源 (原 Q2、Q8) | ✅ v1 只用内置目录 + 运维配置；自定义 URL 到 M7 且默认关；不接受第三方托管 (Composio / Zapier 等)；自托管开源服务器仅作运维备选 | 攻击面最小，凭据不出手 |
 | D4 | 工具结果发给 DeepSeek (原 Q1) | ✅ 接受；每连接一个服务显示说明并记录同意时间 | 原型用 DeepSeek；知情同意可追溯 |
 | D5 | 写操作是否确认 (原 Q3) | ✅ v1 **所有写操作都走 HITL 确认** (含 Gmail `create_draft`)；取消 / 过期后草稿保留 | 单一规则易测最安全；以后可按工具放宽 |
