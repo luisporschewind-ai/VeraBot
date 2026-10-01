@@ -71,7 +71,7 @@ struct CreateBotSheet: View {
             .scrollDismissesKeyboard(.interactively)
             .keyboardDoneButton { focus = nil }
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { DismissToolbarButton(kind: .cancel) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("创建") { Task { await save() } }
                         .disabled(saving || draft.name.trimmingCharacters(in: .whitespaces).isEmpty)

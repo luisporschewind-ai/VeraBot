@@ -28,11 +28,7 @@ struct AvatarPhotoPicker<Label: View>: View {
             NavigationStack {
                 VStack(spacing: 16) {
                     if let preview {
-                        Image(uiImage: preview)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 220, height: 220)
-                            .clipShape(Circle())
+                        CircleAvatar(image: preview, size: 220) { EmptyView() }
                     }
                     Text("将裁成正方形，并按圆形显示")
                         .font(.footnote)
@@ -50,7 +46,7 @@ struct AvatarPhotoPicker<Label: View>: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("取消") { closePreview() }
+                        DismissToolbarButton(kind: .cancel) { closePreview() }
                             .disabled(busy)
                     }
                     ToolbarItem(placement: .confirmationAction) {

@@ -153,7 +153,7 @@ struct BotEditView: View {
         .onDisappear { endEditing() }   // push 协作记录 / 关闭 sheet（含下滑关闭）时收起键盘
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(infoMode ? "关闭" : "取消") { endEditing(); dismiss() }
+                DismissToolbarButton(kind: infoMode ? .close : .cancel) { endEditing(); dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") { endEditing(); Task { await save() } }

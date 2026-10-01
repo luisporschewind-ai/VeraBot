@@ -10,12 +10,12 @@ frontend/
 │   ├── Config/Info.plist
 │   ├── VeraBot/                  # App 源码 (按功能分目录)
 │   │   ├── App/                  #   入口 VeraBotApp、AppState、AppConfig (默认服务器地址)
-│   │   ├── Core/UI/              #   Theme、BotAvatar、UserAvatar、AvatarPicker、LiveBotAvatar
+│   │   ├── Core/UI/              #   Theme、CircleAvatar、BotAvatar、UserAvatar、AvatarPicker、LiveBotAvatar、DismissToolbarButton
 │   │   ├── Features/             #   Auth、BotList、BotInfo、Chat、Settings、Reminders、Quota
 │   │   ├── Services/             #   Keyboard、Speech (语音输入)、Avatar (AvatarStore)
 │   │   └── Assets.xcassets
 │   └── Packages/VeraBotKit/      # 本地 Swift Package (SPM)
-│       ├── Sources/VeraBotCore        # 共享模型 (Codable) + SettingsKeys
+│       ├── Sources/VeraBotCore        # 共享模型 (Codable) + SettingsKeys + ListTimestamp
 │       ├── Sources/VeraBotNetworking  # VeraBotAPI 协议 + APIClient (REST + SSE)
 │       ├── Sources/VeraBotTTS         # TTSEngine 协议 + 本机 / 云端引擎 + SpeechPlayer
 │       └── Tests/VeraBotKitTests      # swift-testing 单元测试

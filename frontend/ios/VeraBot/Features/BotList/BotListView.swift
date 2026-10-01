@@ -8,19 +8,21 @@ struct BotListView: View {
     @State private var editing: Bot?
     @State private var showCreate = false
     @State private var errorText: String?
+    @State private var query = ""
+    @State private var searching = false   // 由右上角放大镜按钮打开系统搜索栏
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(bots) { bot in
+                    ForEach(filteredBots) { bot in
                         NavigationLink(value: bot) { BotRow(bot: bot) }
                             .contextMenu {
                                 Button { editing = bot } label: { Label("编辑与权限", systemImage: "slider.horizontal.3") }
                             }
                     }
                     .onDelete { idx in
-                        let targets = idx.map { bots[$0] }
+                        let targets = idx.map { filteredBots[$0] }
                         Task { await delete(targets) }
                     }
                 }
@@ -29,7 +31,9 @@ struct BotListView: View {
                 }
             }
             .overlay {
-                if bots.isEmpty && errorText == nil {
+                if !trimmedQuery.isEmpty && filteredBots.isEmpty {
+                    ContentUnavailableView.search(text: trimmedQuery)
+                } else if bots.isEmpty && errorText == nil {
                     ContentUnavailableView {
                         Label("还没有 Bot", systemImage: "person.crop.circle.badge.plus")
                     } description: {
@@ -40,6 +44,8 @@ struct BotListView: View {
                 }
             }
             .navigationTitle("我的 Bot")
+            .searchable(text: $query, isPresented: $searching,
+                        placement: .navigationBarDrawer(displayMode: .automatic), prompt: "搜索 Bot 或消息")
             .navigationDestination(for: Bot.self) { bot in
                 ChatView(bot: bot, api: app.api)
                     .toolbar(.hidden, for: .tabBar)   // 二级页面隐藏底部 Tab 栏，返回根页面时自动恢复
@@ -54,6 +60,10 @@ struct BotListView: View {
                         HomeAvatarLabel(name: app.displayName, image: app.avatars.userImage)
                     }
                     .accessibilityLabel("设置")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { searching = true } label: { Image(systemName: "magnifyingglass") }
+                        .accessibilityLabel("搜索")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showCreate = true } label: { Image(systemName: "plus") }   // 原生圆形玻璃按钮
@@ -71,6 +81,18 @@ struct BotListView: View {
             }
             .onAppear { Task { await load() } }   // 从对话页返回时刷新（对话页可能新建了 Bot）
             .refreshable { await load() }
+        }
+    }
+
+    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    /// 按 Bot 名称与最后一条消息预览过滤（系统本地化不区分大小写匹配）
+    private var filteredBots: [Bot] {
+        let q = trimmedQuery
+        guard !q.isEmpty else { return bots }
+        return bots.filter { bot in
+            bot.name.localizedStandardContains(q)
+                || (bot.lastMessage?.content.localizedStandardContains(q) ?? false)
         }
     }
 
@@ -104,7 +126,16 @@ struct BotRow: View {
             LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
                            hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
             VStack(alignment: .leading, spacing: 3) {
-                Text(bot.name).font(.headline)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(bot.name).font(.headline).lineLimit(1)
+                    Spacer(minLength: 8)
+                    if let date = ListTimestamp.rowDate(for: bot) {
+                        Text(ListTimestamp.label(for: date))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
                 Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
         }

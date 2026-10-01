@@ -27,7 +27,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 |---|---|---|
 | 账号 Accounts | ✅ | 注册 / 登录 (bcrypt + JWT)，Token 持久化，失效自动退出，设置页底部退出登录 (二次确认)。昵称 `PATCH /api/me`（设置页可编辑；首页与对话读同一 `AppState`） |
 | 租户隔离 Isolation | ✅ | 所有查询带 `user_id`，越权 (IDOR) 返回 404 |
-| Bot 管理 | ✅ | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`，达到上限 ＋ 置灰)；列表不显示数量页脚 |
+| Bot 管理 | ✅ | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`，达到上限 ＋ 置灰)；列表不显示数量页脚；行右上角显示最后消息时间；右上角 🔍 系统搜索 (按名称 / 最后消息过滤) |
 | 流式对话 SSE | ✅ | 逐 token 渲染、工具卡片、交接 Trace 卡片、错误气泡 |
 | 记忆 Memory | ✅ | 每 Bot 独立，最近 20 条；清空对话 (二次确认) |
 | 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot` |
@@ -38,7 +38,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 语音播放 TTS | ✅ | 用户 + Bot 气泡 🔊，本机 TTS；设置里可关闭 |
 | 设置页 Settings | ✅ | 首页头像入口；账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (最底部)。右上角 🐞 进入「调试」页：服务器地址、健康检查、版本 / 构建信息 |
 | 照片头像 Avatars | ✅ (API) / 🟡 (iOS 未在本环境跑模拟器) | 用户与每个 Bot：相册设置、更换（iOS 不再提供「恢复默认」入口，后端 DELETE 保留）；服务端 512 JPEG、按用户隔离。iOS 用 PhotosPicker；Linux 上未做 Xcode / 模拟器点测 |
-| 导航 Navigation | ✅ | 二级页面隐藏 Tab 栏；对话标题 → Bot 详情 sheet；首页原生圆形按钮 |
+| 导航 Navigation | ✅ | 二级页面隐藏 Tab 栏；对话标题 → Bot 详情 sheet；首页原生圆形按钮；头像统一正圆 (`CircleAvatar`)；工具栏取消 / 关闭为系统圆形 X (`DismissToolbarButton`) |
 | 键盘 Keyboard | ✅ | 输入栏随键盘上移、点空白 / 下拉收起、表单 next、多行人设 / 指令、sheet 保存后布局正常 |
 | 附件 Attachments | 🟡 占位 | ＋ 菜单：图片 / 相机 / 文件「即将支持」(禁用) |
 
@@ -50,6 +50,8 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 - **提醒不推送**：没有 APNs / 本地通知。设置里的「通知」开关只申请系统授权并保存偏好，目前不会发出任何通知。
 - **语言**：App 声明了 zh-Hans 与 en 本地化（仅 `InfoPlist.xcstrings`：显示名与权限文案），系统设置中可按 App 切换语言；但界面文案仍是中文硬编码，切到英文后 App 内界面仍为中文。
 - **深色模式**：外观可切到深色，但部分自定义浅色（如 `Color.brandSoft` 表情选中底色、Trace 卡片底色）没有深色变体，深色下对比度待 Boss 验收后再调。
+- **列表时间不会自动跨天刷新**：停留在首页跨过午夜时，「HH:mm」不会自己变成「昨天」；回到首页或下拉刷新后更新。「本周」按系统日历的周（中文地区周一开始）计算。
+- **首页搜索只过滤本地已加载的列表**（名称 + 最后一条消息预览），不搜索历史消息全文。
 - **记忆**：滑动窗口 (最近 N 条)，没有摘要 / 向量检索。
 - **安全**：Token 存 UserDefaults / localStorage (生产应改 Keychain / HttpOnly Cookie)，没有刷新 Token、没有速率限制 (Rate limit)，CORS `*`，ATS 允许本地 HTTP。
 - **云端 TTS**：只是占位 (stub)，设置里置灰。
@@ -71,6 +73,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | TC-07 Token 失效、TC-29 ＋ 菜单、TC-30 断网气泡 | 沿用迭代 1 结果，迭代 2 未重新点测 |
 | 真机 (Real device) | 未测，只在 iPhone 17 模拟器 (iOS 26) 上测试 |
 | 昵称 / 照片头像的 iOS 界面 | 代码已接上 API；本环境没有 Xcode，模拟器点测留到 Mac（步骤见 [RUN_LOCAL.md](ops/RUN_LOCAL.md)） |
+| 首页正圆头像、圆形 X 取消 / 关闭、行时间、首页搜索 (UI-11~14) | 已在 iPhone 17 模拟器 (iOS 26) 构建、安装、启动；界面效果待 Boss 验收 |
 | iOS 17 / 18 旧系统 | 未测 (`defaultScrollAnchor` 等 iOS 18+ API 已做版本判断) |
 | 深色模式 (Dark mode)、动态字体 (Dynamic Type)、iPad | 未测 |
 

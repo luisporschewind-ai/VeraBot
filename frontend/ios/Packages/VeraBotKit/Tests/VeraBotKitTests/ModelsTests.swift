@@ -61,3 +61,43 @@ import Testing
 @MainActor @Test func ttsPlainTextStripsMarkdown() {
     #expect(SpeechPlayer.plainText("**结论**：`ok`") == "结论：ok")
 }
+
+// MARK: - 会话列表时间（ListTimestamp）
+
+private func shanghaiCalendar() -> Calendar {
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+    cal.firstWeekday = 2   // 周一为一周第一天
+    cal.locale = Locale(identifier: "zh_Hans_CN")
+    return cal
+}
+
+private func at(_ y: Int, _ m: Int, _ d: Int, _ h: Int = 12, _ min: Int = 0) -> Date {
+    shanghaiCalendar().date(from: DateComponents(year: y, month: m, day: d, hour: h, minute: min))!
+}
+
+@Test func listTimestampParsesBackendISO() {
+    #expect(ListTimestamp.parse("2026-10-01T02:28:50+00:00") != nil)
+    #expect(ListTimestamp.parse("2026-10-01T02:28:50.123Z") != nil)
+    #expect(ListTimestamp.parse("") == nil)
+    #expect(ListTimestamp.parse(nil) == nil)
+}
+
+@Test func listTimestampFormats() {
+    let cal = shanghaiCalendar()
+    let now = at(2026, 10, 1, 11, 58)   // 周四
+    #expect(ListTimestamp.label(for: at(2026, 10, 1, 9, 5), now: now, calendar: cal) == "09:05")
+    #expect(ListTimestamp.label(for: at(2026, 9, 30, 23, 0), now: now, calendar: cal) == "昨天")
+    #expect(ListTimestamp.label(for: at(2026, 9, 28), now: now, calendar: cal) == "星期一")
+    #expect(ListTimestamp.label(for: at(2026, 9, 27), now: now, calendar: cal) == "9/27")
+    #expect(ListTimestamp.label(for: at(2025, 12, 31), now: now, calendar: cal) == "2025/12/31")
+}
+
+@Test func listTimestampFallsBackToCreatedAt() throws {
+    let withMsg = ##"{"id":1,"name":"a","avatar":"🤖","color":"#000","created_at":"2026-09-01T00:00:00+00:00","last_message":{"content":"hi","created_at":"2026-10-01T02:28:50+00:00"}}"##
+    let noMsg = ##"{"id":2,"name":"b","avatar":"🤖","color":"#000","created_at":"2026-09-01T00:00:00+00:00","last_message":null}"##
+    let a = try JSONDecoder().decode(Bot.self, from: Data(withMsg.utf8))
+    let b = try JSONDecoder().decode(Bot.self, from: Data(noMsg.utf8))
+    #expect(ListTimestamp.rowDate(for: a) == ListTimestamp.parse("2026-10-01T02:28:50+00:00"))
+    #expect(ListTimestamp.rowDate(for: b) == ListTimestamp.parse("2026-09-01T00:00:00+00:00"))
+}

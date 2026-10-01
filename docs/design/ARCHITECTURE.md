@@ -106,9 +106,10 @@ erDiagram
 
 ```
 VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swift Package)
-├── App/        入口、AppState、AppConfig          ├── VeraBotCore        模型 (Codable)、SettingsKeys   ← 无依赖
-├── Core/UI/    Theme、BotAvatar、UserAvatar、     ├── VeraBotNetworking  VeraBotAPI 协议 + APIClient     → Core
-│               AvatarPicker、LiveBotAvatar      │                      （含头像 multipart / 字节下载）
+├── App/        入口、AppState、AppConfig          ├── VeraBotCore        模型 (Codable)、SettingsKeys、  ← 无依赖
+├── Core/UI/    Theme、CircleAvatar、BotAvatar、  │                      ListTimestamp (列表时间文案)
+│               UserAvatar、AvatarPicker、       ├── VeraBotNetworking  VeraBotAPI 协议 + APIClient     → Core
+│               LiveBotAvatar、DismissToolbarButton │                   （含头像 multipart / 字节下载）
 ├── Features/   Auth · BotList · BotInfo · Chat    └── VeraBotTTS         TTSEngine 协议 + SpeechPlayer  → Core
 │               Settings · Reminders · Quota
 └── Services/   Keyboard、Speech (语音输入)、Avatar (AvatarStore)

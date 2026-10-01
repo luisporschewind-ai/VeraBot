@@ -6,6 +6,8 @@
 
 ### 新增 (Added)
 
+- **iOS · 助理列表行时间**：每行右上角显示最后一条消息时间（没有消息时回退 Bot 创建时间），`footnote` + `secondary`：今天 `HH:mm`、昨天「昨天」、本周内「星期几」、更早 `M/d`、非今年 `yyyy/M/d`。格式逻辑在 `VeraBotCore/ListTimestamp.swift`（含单元测试）。后端 `GET /api/bots` 早已返回 `last_message.created_at` 与 `created_at`，**后端未改动**。
+- **iOS · 首页搜索**：导航栏右上角 ＋ 左边新增放大镜按钮，点按打开系统 `.searchable`（`navigationBarDrawer`），按 Bot 名称和最后一条消息预览过滤（`localizedStandardContains`），无结果显示系统 `ContentUnavailableView.search`。
 - **iOS · 设置页「通用」分组**（外观 / 通知 / 触感反馈 / 语言，均为系统原生控件，偏好存 `@AppStorage`，key 见 `SettingsKeys`）：
   - 外观：`Picker` 跟随系统 / 浅色 / 深色（`vb_appearance`），在 App 根视图用 `preferredColorScheme` 应用。
   - 通知：`Toggle`（`vb_notifications_enabled`，默认关）。打开时调用 `UNUserNotificationCenter.requestAuthorization`；被拒绝或系统里已关闭时开关回退，并弹窗提供「前往设置」（`openNotificationSettingsURLString`）。回到前台时与系统授权状态同步。目前 App 还不发送任何通知（提醒仍只落库），此开关只负责授权与偏好。
@@ -23,6 +25,9 @@
 
 ### 变更 (Changed)
 
+- **iOS · 取消 / 关闭按钮**：工具栏与 sheet 里的「取消」「关闭」统一改为系统圆形 X（新增 `Core/UI/DismissToolbarButton.swift`：iOS 26 用 `Button(role: .cancel / .close)` + `xmark`，呈现为 Liquid Glass 圆形按钮；iOS 17–18 回退 `role: .cancel` + `xmark`），无障碍标签仍为「取消」/「关闭」。涉及：新建 Bot、Bot 设置 / Bot 详情、头像预览。确认框 / alert 里的「取消」保持系统文字按钮。
+- 文档同步：FEATURES / STATUS / TEST_CASES (新增 UI-11~14) / ARCHITECTURE §3.1 / frontend README。API 无变化。
+- **iOS · 头像正圆**：新增 `Core/UI/CircleAvatar.swift`（固定等宽高 frame + `aspectRatio(contentMode: .fill)` + `clipShape(Circle())` + `fixedSize()`），`UserAvatar`、`HomeAvatarLabel`、`BotAvatar`、头像预览统一使用。修复首页左上角头像在导航栏按钮里被压成椭圆；没有照片时首字放在品牌色圆底上（30×30）。Bot 的表情头像也从圆角方形改成正圆（与照片头像一致）。
 - **iOS · 设置页重排**：顺序改为 账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录。「账号」分组去掉「服务器」行（移到调试页）；「关于」只显示版本号，构建号等详细信息移到调试页。
 - **iOS · 用量入口**：底部 Tab 移除「用量」（现在只有 助理 / 提醒）；「用量」成为设置页「账号」下方的一行，push 原有用量看板（`QuotaView` 去掉自带的 NavigationStack，标题 inline）。额度用完的错误提示改为「可在「设置 › 用量」查看」。
 - **iOS · 头像**：移除用户和 Bot 头像的「恢复默认头像」入口（设置页账号区、Bot 详情），只保留从相册设置 / 更换。后端 `DELETE /api/me/avatar`、`DELETE /api/bots/{id}/avatar` 与 `VeraBotAPI.deleteMyAvatar()` / `deleteBotAvatar(botID:)` 保留未动（iOS UI 不再调用）。
