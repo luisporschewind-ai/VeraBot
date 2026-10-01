@@ -1,4 +1,5 @@
 """请求体校验（Pydantic schemas）。"""
+import unicodedata
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -19,6 +20,38 @@ class NicknameIn(BaseModel):
     @classmethod
     def _check(cls, v):
         return clean_nickname(v)
+
+
+MAX_BOT_TAGS = 5
+MAX_TAG_CHARS = 12
+
+
+def clean_tags(v):
+    """标签：trim，丢掉空白和重复（保留首次出现的顺序）。
+
+    最多 5 个，每个最多 12 个字，不能含控制字符。非法时抛 ValueError，由 422 处理成中文提示。
+    """
+    if not isinstance(v, list):
+        raise ValueError("标签必须是列表")
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in v:
+        if not isinstance(item, str):
+            raise ValueError("标签必须是文字")
+        tag = item.strip()
+        if not tag:
+            continue
+        if any(unicodedata.category(ch) == "Cc" for ch in tag):
+            raise ValueError("标签不能包含控制字符")
+        if len(tag) > MAX_TAG_CHARS:
+            raise ValueError("每个标签最多 12 个字")
+        if tag in seen:
+            continue
+        seen.add(tag)
+        out.append(tag)
+    if len(out) > MAX_BOT_TAGS:
+        raise ValueError("每个 Bot 最多 5 个标签")
+    return out
 
 
 def _clean_name(v):
@@ -47,11 +80,19 @@ class BotIn(BotPerms):
     color: str = Field(default="#0F766E", max_length=9)
     persona: str = Field(default="", max_length=1000)
     instructions: str = Field(default="", max_length=2000)
+    tags: list[str] = Field(default_factory=list)
 
     @field_validator("name")
     @classmethod
     def _check_name(cls, v):
         return _clean_name(v)
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _check_tags(cls, v):
+        if v is None:
+            raise ValueError("标签必须是列表")
+        return clean_tags(v)
 
 
 class BotPatch(BotPerms):
@@ -60,11 +101,19 @@ class BotPatch(BotPerms):
     color: str | None = Field(default=None, max_length=9)
     persona: str | None = Field(default=None, max_length=1000)
     instructions: str | None = Field(default=None, max_length=2000)
+    tags: list[str] | None = None   # None = 不修改；[] = 清空
 
     @field_validator("name")
     @classmethod
     def _check_name(cls, v):
         return _clean_name(v)
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _check_tags(cls, v):
+        if v is None:
+            return None
+        return clean_tags(v)
 
 
 class ChatIn(BaseModel):

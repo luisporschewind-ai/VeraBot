@@ -26,7 +26,7 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v4：v1 → v2 → v3 → v4)、查询 | `database.py`、`schema.py`、`repository.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v5：v1 → v2 → v3 → v4 → v5)、查询 | `database.py`、`schema.py`、`repository.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
 | `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆 (`services/memory/` 子包：策略检查、召回、确认流程、SQL) | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/{__init__,policy,recall,repository,errors}.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
@@ -91,7 +91,7 @@ erDiagram
     bots ||--o{ memories : "bot / summary scope"
     bots ||--o| avatars : "optional photo"
     users { int id string username string password_hash string nickname string avatar_updated_at int token_budget int memory_enabled }
-    bots { int id int user_id string name string avatar string color string persona string instructions json allowed_tools json delegate_to int accept_delegation string image_updated_at string memory_access }
+    bots { int id int user_id string name string avatar string color string persona string instructions json allowed_tools json delegate_to int accept_delegation string image_updated_at string memory_access json tags }
     avatars { int user_id int bot_id string content_type blob data string updated_at }
     messages { int id int user_id int bot_id string role string content json traces json memory_ids }
     memories { int id int user_id string scope int bot_id string type string content string content_enc string content_hash string status string sensitivity string action int target_id int use_count }
@@ -101,7 +101,7 @@ erDiagram
     audit_log { int id int user_id int bot_id string kind string detail }
 ```
 
-另有 `transcriptions` (Web 语音转写计数，用于用量看板) 和 `avatars` (用户 / Bot 的 512 JPEG)。`schema_meta` 记录 schema 版本；`init_db()` 建表并做幂等迁移 (v1 → v2 → v3 → v4)。v3 只加列和头像表，不改 v2 的权限回填。v4 新增 `memories` 表和 `bots.memory_access` (默认 `bot_and_global`)、`users.memory_enabled` (默认 1)、`messages.memory_ids` 三列，不写入任何记忆。详见下文「资料与头像」与 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §3。
+另有 `transcriptions` (Web 语音转写计数，用于用量看板) 和 `avatars` (用户 / Bot 的 512 JPEG)。`schema_meta` 记录 schema 版本；`init_db()` 建表并做幂等迁移 (v1 → v2 → v3 → v4 → v5)。v3 只加列和头像表，不改 v2 的权限回填。v4 新增 `memories` 表和 `bots.memory_access` (默认 `bot_and_global`)、`users.memory_enabled` (默认 1)、`messages.memory_ids` 三列，不写入任何记忆。v5 只给 `bots` 加 `tags` (JSON 数组，默认 `[]`)，不改权限、记忆或头像。详见下文「资料与头像」「Bot 标签」与 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §3。
 
 ## 3. iOS 客户端 (frontend/ios)
 
@@ -110,11 +110,11 @@ erDiagram
 ```
 VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swift Package)
 ├── App/        入口、AppState、AppConfig          ├── VeraBotCore        模型 (Codable)、SettingsKeys、  ← 无依赖
-├── Core/UI/    Theme、CircleAvatar、BotAvatar、  │                      ListTimestamp、MessageMarkdown、HealthStatus
+├── Core/UI/    Theme、CircleAvatar、BotAvatar、  │                      ListTimestamp、MessageMarkdown、HealthStatus、BotTags
 │               MessageContentView、InAppBrowser、│
 │               UserAvatar、AvatarPicker、       ├── VeraBotNetworking  VeraBotAPI 协议 + APIClient     → Core
 │               LiveBotAvatar、DismissToolbarButton │                   （含头像 multipart / 字节下载）
-│               Haptics、AvatarImage              │
+│               Haptics、AvatarImage、BotTagViews │
 ├── Features/   Auth · BotList · BotInfo · Chat    └── VeraBotTTS         TTSEngine 协议 + SpeechPlayer  → Core
 │               Settings (含 DebugView) · Reminders · Quota (由 设置 › 用量 push)
 │               Memory (确认卡片、「Vera 了解的你」、编辑页、设置分组)
@@ -202,6 +202,28 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 常量在 `services/avatars.py`：`MAX_AVATAR_BYTES = 8 MiB`，`AVATAR_SIZE = 512`。不新增环境变量。
 
 iOS 在上传前用 `AvatarImage.jpegData` 把照片收成边长 1024 的 JPEG（相册里的 HEIC 由系统 `UIImage` 解码后再编码）。圆形预览用系统 sheet，显示区域与服务端中心裁切一致。昵称和用户头像放在 `AppState`；Bot 照片放在 `AvatarStore`。设置页保存后，首页工具栏和对话里的用户昵称读的是同一份 `displayName`，不会各刷各的接口。
+
+## 5.3 Bot 标签 (Tags) — schema v5
+
+`bots.tags` 是 JSON 文本列，默认 `[]`。`init_db()` 用已有的 `_add_column` 幂等添加；已有行得到 `[]`，再次启动不覆盖后来写入的标签，也不改 `allowed_tools` / `memory_access` / 头像。
+
+公开 Bot JSON（列表、详情、创建、更新）都带 `tags: string[]`。创建时省略为 `[]`；更新时省略表示不改，传 `[]` 清空。`services/bots.public_bot` 把解析后的数组放进响应；库里仍是 JSON 字符串。
+
+校验在 `api/schemas.py::clean_tags`（422，中文，去掉 pydantic 前缀）：
+
+| 规则 | 行为 |
+|---|---|
+| trim | 去掉首尾空白（含全角空格） |
+| 空白项 | 丢掉，不报错 |
+| 重复 | 丢掉，保留第一次出现的顺序 |
+| 个数 | 清洗后最多 5 个，否则「每个 Bot 最多 5 个标签」 |
+| 长度 | 每个最多 12 个 Unicode 码位，否则「每个标签最多 12 个字」 |
+| 控制字符 | Unicode 类别 `Cc`（含换行、DEL），「标签不能包含控制字符」 |
+| 类型 | 不是数组 →「标签必须是列表」；元素不是字符串 →「标签必须是文字」 |
+
+读写仍走现有 Bot 接口，查询带 `user_id`；他人的 Bot 返回 404，不会改到别人的标签。标签不进入 system prompt，也不参与记忆。
+
+iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（字数按 Unicode scalar，与 Python `len` 对齐）。`Bot.tags` 在字段缺失或 JSON null 时解码为 `[]`。展示用 `Core/UI/BotTagViews.swift` 的 `BotTagChips`（次要文字小胶囊，`lineLimit(1)` 截断，超出可见个数显示 `+N`）：首页行在名称右侧最多 2 个，对话胶囊标题最多 1 个。创建页和 Bot 设置 / 详情用 `BotTagsSection`（系统 Form：文本行可改、左滑删除、添加按钮），无自定义动画。对话页只改标题按钮，不改消息列表或记忆卡片。
 
 ## 6. 关键设计决策
 

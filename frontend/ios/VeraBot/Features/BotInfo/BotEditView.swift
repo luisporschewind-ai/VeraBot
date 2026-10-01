@@ -28,6 +28,7 @@ struct BotEditView: View {
     @State private var acceptDelegation = false
     @State private var memoryAccess: MemoryAccess = .botAndGlobal
     @State private var memoryCount: Int?
+    @State private var tags: [String] = []
     @State private var saving = false
     @State private var errorText: String?
     @State private var loaded = false
@@ -78,6 +79,8 @@ struct BotEditView: View {
                 TextField("自定义指令 Instructions（私有）", text: $instructions, axis: .vertical).lineLimit(3...8)
                     .focused($focus, equals: .instructions)
             }
+
+            BotTagsSection(tags: $tags)
 
             Section {
                 Picker(selection: $memoryAccess) {
@@ -222,6 +225,7 @@ struct BotEditView: View {
         name = bot.name; avatar = bot.avatar; persona = bot.persona; instructions = bot.instructions
         allowedTools = Set(bot.allowedTools); delegateTo = Set(bot.delegateTo); acceptDelegation = bot.acceptDelegation
         memoryAccess = bot.memoryAccess; memoryCount = bot.memoryCount
+        tags = bot.tags
         do {
             async let t = app.api.tools()
             async let b = app.api.bots()
@@ -232,6 +236,7 @@ struct BotEditView: View {
             if let fresh = br.bots.first(where: { $0.id == bot.id }) {
                 allowedTools = Set(fresh.allowedTools); delegateTo = Set(fresh.delegateTo); acceptDelegation = fresh.acceptDelegation
                 memoryAccess = fresh.memoryAccess; memoryCount = fresh.memoryCount
+                tags = fresh.tags
                 freshBot = fresh
             }
             loaded = true
@@ -243,12 +248,19 @@ struct BotEditView: View {
     private func save() async {
         saving = true
         defer { saving = false }
+        let cleaned = BotTagRules.normalized(tags)
+        if let message = cleaned.error {
+            errorText = message
+            return
+        }
+        let cleanedTags = cleaned.tags
         let patch = BotPatch(name: name.trimmingCharacters(in: .whitespaces), avatar: avatar, color: nil,
                              persona: persona, instructions: instructions,
                              allowedTools: allowedTools.sorted(),
                              delegateTo: canDelegate ? delegateTo.sorted() : [],
                              acceptDelegation: acceptDelegation,
-                             memoryAccess: memoryAccess)
+                             memoryAccess: memoryAccess,
+                             tags: cleanedTags)
         do {
             let updated = try await app.api.updateBot(bot.id, patch)
             onSaved(updated)

@@ -141,7 +141,7 @@ _add_column(c, "messages", "memory_ids", "TEXT")                                
 
 - 迁移**不写入任何记忆**，不改动已有 Bot 的 `allowed_tools` / `delegate_to`，不重跑 v2 回填。
 - 回滚：迁移不可逆，升级前复制 `backend/data/verabot.db` (与 v2 / v3 相同)。
-- **版本号协调**：记忆已落地并占用 **v4** (Boss 决定)。MCP / Gmail 的迁移使用下一个空闲版本 **v5** (已在 [MCP_CAPABILITY.md](MCP_CAPABILITY.md) / [GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) 文首注明)；两者表结构互不依赖。
+- **版本号协调**：记忆已落地并占用 **v4** (Boss 决定)。Bot 标签随后占用 **v5**（见 [ARCHITECTURE.md](ARCHITECTURE.md) §5.3）。MCP / Gmail 设计稿文首仍写 v5，实施时使用下一个空闲版本 **v6**；表结构互不依赖。
 - **升级前备份**：`cp backend/data/verabot.db backend/data/verabot.db.bak-before-v4` (本机已于 2026-10-01 执行)。
 - 级联：删除用户 → 全部记忆删除；删除 Bot → 其 `bot` / `summary` 记忆删除，`global` 记忆保留且 `source_bot_id` 置 NULL；清空对话 → 默认记忆保留 (`source_message_id` 置 NULL)；确认框第二个选项「清空对话和「X」的记忆」同时删除该 Bot 的 `bot` 与 `summary` 记忆 (`include_memories=true`，Boss 决定 Q3)，`global` 记忆不受影响。
 

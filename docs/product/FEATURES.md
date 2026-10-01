@@ -1,6 +1,6 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-> 与代码同步至 commit `4f4cd49` (2026-10-01)。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。
+> 与代码同步至 commit `4f4cd49` (2026-10-01)，并包含其后的 Bot 标签（schema v5）。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。
 
 ## 功能 (Features)
 
@@ -8,7 +8,7 @@
 |---|---|
 | 账号 (Accounts) | 用户名 + 密码注册 / 登录；bcrypt 哈希；JWT (HS256) Bearer Token；失效自动退出；设置页底部退出登录 (二次确认)。昵称可在设置页修改（1–32 字，去空白），首页左上角和对话里的用户名立刻更新 |
 | 租户隔离 (Per-user isolation) | 所有查询带 `user_id`；访问他人资源统一返回 404 (防枚举) |
-| Bot 管理 | emoji 头像 + 颜色 + 昵称 + 人设 (多行) + 指令 (多行)；＋ 创建 (达到上限时 ＋ 置灰；列表不显示数量页脚)、Bot 详情编辑、长按「编辑与权限」、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`)。列表每行右上角显示最后消息时间（今天 HH:mm / 昨天 / 本周星期几 / M/d / 非今年 yyyy/M/d，无消息回退创建时间）；首页不显示大导航标题；右上角放大镜点按后才出现系统搜索栏（平时不显示搜索框，下拉也不出现；取消后收起并清空），当前只过滤屏幕上已加载的列表（Bot 名称和最后一条消息预览）；完整聊天历史搜索、搜索历史等移至后续迭代。所有头像（用户 / Bot，照片或表情 / 首字）都显示为正圆。用户和每个 Bot 都可以另设一张圆形照片头像（相册选择、可更换；iOS 不提供「恢复默认」入口）；表情字段保留，没有照片时继续显示 |
+| Bot 管理 | emoji 头像 + 颜色 + 昵称 + 人设 (多行) + 指令 (多行) + 标签 (最多 5 个，每个最多 12 个字)；＋ 创建 (达到上限时 ＋ 置灰；列表不显示数量页脚)、Bot 详情编辑、长按「编辑与权限」、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`)。列表每行名称右侧显示标签小胶囊（放不下时截断，多出来的显示 `+N`），右上角显示最后消息时间（今天 HH:mm / 昨天 / 本周星期几 / M/d / 非今年 yyyy/M/d，无消息回退创建时间）；首页不显示大导航标题；右上角放大镜点按后才出现系统搜索栏（平时不显示搜索框，下拉也不出现；取消后收起并清空），当前只过滤屏幕上已加载的列表（Bot 名称和最后一条消息预览）；完整聊天历史搜索、搜索历史等移至后续迭代。所有头像（用户 / Bot，照片或表情 / 首字）都显示为正圆。用户和每个 Bot 都可以另设一张圆形照片头像（相册选择、可更换；iOS 不提供「恢复默认」入口）；表情字段保留，没有照片时继续显示 |
 | 流式对话 (Streaming, SSE) | `POST /api/bots/{id}/chat` 返回 `text/event-stream`，逐 token 渲染；工具卡片、交接 Trace 卡片、错误气泡 |
 | 消息富文本 (Rich messages) | iOS Bot 气泡支持 Markdown（标题 / 粗体 / 斜体 / 行内代码 / 代码块 / 引用 / 列表 / 表格 / 分隔线），自动识别网址 / 电话 / 邮箱；网页链接在 App 内 SFSafariViewController 打开，电话 / 邮件交给系统；长按气泡可复制全文或复制链接；`~` 按原文显示 (BUG-01) |
 | 对话历史 (History) | 每个 Bot 独立保存历史，最近 20 条 (`VERABOT_HISTORY_WINDOW`) 注入上下文；清空对话 (二次确认：「仅清空对话」保留记忆 /「清空对话和「X」的记忆」) |
@@ -21,7 +21,7 @@
 | 语音播放 (TTS) | 用户消息和 Bot 回复下方 🔊，本机 AVSpeechSynthesizer；设置里可关闭；云端 TTS 占位 |
 | 设置页 (Settings) | 首页左上角头像进入；账号 (头像 / 昵称 / 用户名) → 用量 (push 用量看板) → 记忆 (「Vera 了解的你」+「允许 Bot 记住」) → 通用 (外观：跟随系统 / 浅色 / 深色；通知开关，开启时申请系统授权，被拒绝则回退并提供「前往设置」；触感反馈开关，控制 App 内所有 sensoryFeedback；语言：显示当前语言，点按打开系统设置中本 App 页面切换) → 语音 → 关于 (版本号) → 退出登录 (单独一组，位于最底部)。头像用系统 PhotosPicker，预览为圆形，确认后上传 |
 | 调试页 (Debug) | 设置页导航栏右上角 🐞 (`ladybug`) push 进入：服务器地址、后端健康检查 (`GET /api/health`)、版本 / 构建号 / Bundle ID / 系统版本 / 构建配置。开发信息不出现在普通设置里 |
-| 导航 / 键盘 | 二级页面隐藏 Tab 栏；对话标题为可点击的原生胶囊按钮（iOS 26 Liquid Glass，旧系统 bordered 回退）并打开 Bot 详情 sheet；首页原生圆形按钮（左上角头像为固定 30×30 正圆；右上角 放大镜 搜索 与 ＋ 创建 为两个独立圆形按钮，iOS 26 用 `ToolbarSpacer(.fixed)` 分开）；工具栏 / sheet 的取消、关闭为系统圆形 X（iOS 26 `Button(role: .cancel / .close)`，确认框里的取消仍是文字）；输入栏随键盘上移、点空白 / 下拉收起。对话输入栏为浮动 Liquid Glass：圆形玻璃 ＋ 附件按钮 + 胶囊玻璃输入框（占位「向 {Bot 名} 提问」，尾部 🎙 语音输入），无发送按钮，键盘 return 发送 |
+| 导航 / 键盘 | 二级页面隐藏 Tab 栏；对话标题为可点击的原生胶囊按钮（iOS 26 Liquid Glass，旧系统 bordered 回退；头像 + 名称，名称右侧为标签小胶囊）并打开 Bot 详情 sheet；首页原生圆形按钮（左上角头像为固定 30×30 正圆；右上角 放大镜 搜索 与 ＋ 创建 为两个独立圆形按钮，iOS 26 用 `ToolbarSpacer(.fixed)` 分开）；工具栏 / sheet 的取消、关闭为系统圆形 X（iOS 26 `Button(role: .cancel / .close)`，确认框里的取消仍是文字）；输入栏随键盘上移、点空白 / 下拉收起。对话输入栏为浮动 Liquid Glass：圆形玻璃 ＋ 附件按钮 + 胶囊玻璃输入框（占位「向 {Bot 名} 提问」，尾部 🎙 语音输入），无发送按钮，键盘 return 发送 |
 | 视觉风格 (Visual style) | 页面白底（深色黑底），分组 / 卡片 / Bot 气泡浅灰 `#EFEFEE` (RGB 239, 239, 238)（深色 `secondarySystemBackground`）；「助理」列表为白底全宽平铺、无分隔线；iOS 26 Liquid Glass（系统导航栏 / Tab 栏 / 工具栏按钮，`.glass` 胶囊、`.glassProminent` 主按钮，旧系统 bordered 回退）。颜色集中在 `Core/UI/Theme.swift` 语义色，设置 › 外观 切换时全局一致；所有开关为缩小 85% 的系统 Toggle (`CompactToggle`) |
 | 附件 (Attachments) | 占位：＋ 菜单 图片 / 相机 / 文件「即将支持」(禁用) |
 | App 图标 / 名称 (App icon & name) | 主屏显示名「Vera Bot」(`INFOPLIST_KEY_CFBundleDisplayName`，`InfoPlist.xcstrings` zh-Hans / en 均为「Vera Bot」)；App 图标为 `Assets.xcassets/AppIcon.appiconset` 单尺寸 1024×1024 (源图 `assets/brand/app-icon-source.png`)。设置 › 关于 中的应用简介仍写「VeraBot · 你的私人 AI 助理团队」 |
@@ -40,8 +40,8 @@
 | GET | `/api/me/avatar` | 当前用户的 JPEG；未设置 → 404「未设置头像」 |
 | DELETE | `/api/me/avatar` | 删除自定义头像（恢复默认），返回更新后的 `user`。iOS UI 目前不调用 |
 | POST / GET / DELETE | `/api/bots/{id}/avatar` | 与用户头像相同，对象是该用户自己的 Bot。他人或不存在的 Bot → 404。删除后仍保留 emoji `avatar` 字段。删除 Bot 时照片行一并删除 |
-| GET / POST | `/api/bots` | Bot 列表 / 创建 (新 Bot 默认最小权限)。每个 Bot 另有 `has_avatar`、`avatar_updated_at`；`avatar` 仍是 emoji |
-| GET / PATCH / DELETE | `/api/bots/{id}` | 详情 / 修改 (含 `allowed_tools`、`delegate_to`、`accept_delegation`、`memory_access`) / 删除。Bot JSON 另有 `memory_access` (`none`/`bot`/`bot_and_global`) 与 `memory_count` |
+| GET / POST | `/api/bots` | Bot 列表 / 创建 (新 Bot 默认最小权限)。每个 Bot 另有 `has_avatar`、`avatar_updated_at`、`tags`（字符串数组，缺省 `[]`）；`avatar` 仍是 emoji。创建时可带 `tags` |
+| GET / PATCH / DELETE | `/api/bots/{id}` | 详情 / 修改 (含 `allowed_tools`、`delegate_to`、`accept_delegation`、`memory_access`、`tags`) / 删除。Bot JSON 另有 `memory_access` (`none`/`bot`/`bot_and_global`)、`memory_count`、`tags`。`tags` 省略 = 不修改，`[]` = 清空。非法标签 → 422 中文 |
 | GET / DELETE | `/api/bots/{id}/messages` | 历史消息 (含 Trace) / 清空对话。DELETE 可选 `?include_memories=true` 同时删除该 Bot 的记忆与摘要，返回 `{ok, deleted_memories}` |
 | GET | `/api/bots/{id}/delegations` | 该 Bot 发出和收到的委派记录 |
 | POST | `/api/bots/{id}/chat` | **SSE** 流式对话 `{message}` |

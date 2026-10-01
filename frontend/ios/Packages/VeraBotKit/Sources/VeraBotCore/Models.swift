@@ -115,6 +115,8 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
     public let memoryAccess: MemoryAccess
     /// 该 Bot 的生效「本 Bot 记忆」条数（不含共享资料）；旧后端为 nil。
     public let memoryCount: Int?
+    /// 标签。旧后端没有该字段时为空列表。
+    public let tags: [String]
 
     enum CodingKeys: String, CodingKey {
         case id, name, avatar, color, persona, instructions
@@ -127,6 +129,7 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         case avatarUpdatedAt = "avatar_updated_at"
         case memoryAccess = "memory_access"
         case memoryCount = "memory_count"
+        case tags
     }
 
     public init(from decoder: Decoder) throws {
@@ -146,6 +149,7 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         avatarUpdatedAt = try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt)
         memoryAccess = try c.decodeIfPresent(MemoryAccess.self, forKey: .memoryAccess) ?? .botAndGlobal
         memoryCount = try c.decodeIfPresent(Int.self, forKey: .memoryCount)
+        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
     }
 }
 
@@ -160,10 +164,12 @@ public struct BotPatch: Codable, Sendable {
     public var delegateTo: [Int]?
     public var acceptDelegation: Bool?
     public var memoryAccess: MemoryAccess?
+    /// nil = 不修改；空数组 = 清空。
+    public var tags: [String]?
 
     public init(name: String? = nil, avatar: String? = nil, color: String? = nil, persona: String? = nil,
                 instructions: String? = nil, allowedTools: [String]? = nil, delegateTo: [Int]? = nil,
-                acceptDelegation: Bool? = nil, memoryAccess: MemoryAccess? = nil) {
+                acceptDelegation: Bool? = nil, memoryAccess: MemoryAccess? = nil, tags: [String]? = nil) {
         self.name = name
         self.avatar = avatar
         self.color = color
@@ -173,6 +179,7 @@ public struct BotPatch: Codable, Sendable {
         self.delegateTo = delegateTo
         self.acceptDelegation = acceptDelegation
         self.memoryAccess = memoryAccess
+        self.tags = tags
     }
 
     enum CodingKeys: String, CodingKey {
@@ -181,6 +188,7 @@ public struct BotPatch: Codable, Sendable {
         case delegateTo = "delegate_to"
         case acceptDelegation = "accept_delegation"
         case memoryAccess = "memory_access"
+        case tags
     }
 }
 
@@ -257,13 +265,16 @@ public struct BotCreate: Codable, Sendable {
     public var color: String
     public var persona: String
     public var instructions: String
+    public var tags: [String]
 
-    public init(name: String, avatar: String, color: String, persona: String, instructions: String) {
+    public init(name: String, avatar: String, color: String, persona: String, instructions: String,
+                tags: [String] = []) {
         self.name = name
         self.avatar = avatar
         self.color = color
         self.persona = persona
         self.instructions = instructions
+        self.tags = tags
     }
 }
 

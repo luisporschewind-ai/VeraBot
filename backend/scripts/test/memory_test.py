@@ -61,7 +61,7 @@ ou = con.execute("SELECT nickname, memory_enabled FROM users WHERE id=1").fetcho
 nmem = con.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
 con.close()
 check("MEM-01", "v3 → v4 迁移幂等：memories 表 + 三个新列，默认 bot_and_global / 开启；存量数据不变",
-      ver == "4" and "memories" in tables and "memory_access" in bot_cols and "memory_enabled" in user_cols
+      ver == str(db.SCHEMA_VERSION) and "memories" in tables and "memory_access" in bot_cols and "memory_enabled" in user_cols
       and "memory_ids" in msg_cols and old == ("OldBot", "🐼", '["get_weather"]', "[]", "t1", "bot_and_global")
       and ou == ("老王", 1) and nmem == 0, f"ver={ver} old={old} user={ou}")
 

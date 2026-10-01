@@ -57,6 +57,7 @@ struct CreateBotSheet: View {
                         .lineLimit(3...8)
                         .focused($focus, equals: .instructions)
                 }
+                BotTagsSection(tags: $draft.tags)
                 Section {
                     Label("新 Bot 默认最小权限（Least privilege）：不开启工具、不参与委派。创建后可在对话页右上角「Bot 设置」中开启。",
                           systemImage: "lock.shield")
@@ -85,6 +86,12 @@ struct CreateBotSheet: View {
         defer { saving = false }
         var body = draft
         body.name = body.name.trimmingCharacters(in: .whitespaces)
+        let cleaned = BotTagRules.normalized(body.tags)
+        if let message = cleaned.error {
+            errorText = message
+            return
+        }
+        body.tags = cleaned.tags
         do {
             _ = try await app.api.createBot(body)
             onCreated()

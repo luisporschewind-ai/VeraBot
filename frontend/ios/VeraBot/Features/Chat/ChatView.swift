@@ -74,10 +74,16 @@ struct ChatView: View {
             HStack(spacing: 6) {
                 LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
                                hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt, size: 26)
-                Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
+                Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+                BotTagChips(tags: vm.bot.tags, maxVisible: 1, chipMaxWidth: 64)
             }
         }
-        .accessibilityLabel("\(vm.bot.name)，查看 Bot 详情")
+        .accessibilityLabel(botTitleAccessibility)
+    }
+
+    private var botTitleAccessibility: String {
+        if vm.bot.tags.isEmpty { return "\(vm.bot.name)，查看 Bot 详情" }
+        return "\(vm.bot.name)，标签 \(vm.bot.tags.joined(separator: "，"))，查看 Bot 详情"
     }
 
     /// 底部浮动输入栏（Liquid Glass）：[＋ 圆形玻璃按钮] [胶囊玻璃：输入框 … 🎙]。

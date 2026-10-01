@@ -5,14 +5,14 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v4**（v3 昵称 + 照片头像；v4 长期记忆）。iOS `0.1.0 (1)` |
-| 测试 | v0.1.0：**91 条用例：通过 90 / 失败 0 / 跳过 1** (TC-31 语音输入按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；重构后回归见同文档末尾。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、`swift test` 38 条；UI-* / MSG-* 大多待 Boss 验收 (见下节) |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v5**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签）。iOS `0.1.0 (1)` |
+| 测试 | v0.1.0：**91 条用例：通过 90 / 失败 0 / 跳过 1** (TC-31 语音输入按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；重构后回归见同文档末尾。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；此前 `swift test` 38 条，标签新增 `BotTagTests`（本环境无可用 Swift 工具链，未重跑）；UI-* / MSG-* 大多待 Boss 验收 (见下节) |
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
 
 ## 📍 当前进度 (Current progress) — 截至 commit `4f4cd49` (2026-10-01 14:44 UTC+8)
 
-v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v4** (长期记忆，2026-10-01；升级前已备份 `backend/data/verabot.db.bak-before-v4`)；iOS 版本号仍为 `0.1.0 (1)`。
+v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v5** (v4 长期记忆；v5 Bot 标签。记忆升级前已备份 `backend/data/verabot.db.bak-before-v4`)；iOS 版本号仍为 `0.1.0 (1)`。
 
 ### 已完成，待 Boss 验收 (Done, pending Boss verification)
 
@@ -28,6 +28,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | 用户 / Bot 照片头像 + 可编辑昵称 (Stuart 实现，schema v3) | `07d0716` | 后端 `avatar_profile_test.py` 21/21；iOS 待 Mac 模拟器点测 | AV-*、NK-*、UI-AV-01/03、UI-NK-01 |
 | **长期记忆 M1** (先确认后保存的记忆、确认卡片、「Vera 了解的你」、Bot 详情记忆分组、健康 / 财务加密、清空对话可选删记忆；schema v4) | 见 CHANGELOG | 后端 `memory_test.py` 36/36、MA 24/24、AV/NK 21/21；`swift test` 34/34；模拟器已构建 / 安装 / 启动，未点测 | MEM-*、MEM-UI-01~12、[MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §5.8 |
 | 设置 › 用量 行右侧「已用 N%」(今日 Token / 今日额度，iOS 计算，后端未改) | 见 CHANGELOG | MA-25 契约 25/25、`QuotaTests` 4 个；模拟器已构建 / 安装 / 启动，未点测 | QUOTA-03、QUOTA-04、UI-21 |
+| **Bot 标签** (列表与对话标题显示；创建 / 编辑可增删改；schema v5) | 见 CHANGELOG | 后端 `bot_tags_test.py` 8/8；回归 MA 25/25、AV/NK 21/21、MEM 36/36。iOS 未在模拟器点测 | TAG-01~08、TAG-UI-01~04 |
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
 | 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 待验收 | UI-01~03、UI-10 |
 
@@ -45,7 +46,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 - **截图过时**：`assets/screenshots/ios/` 下全部截图早于 2026-10-01 的界面改动；其中 `R34_form_keyboard`、`R11_settings` 与当时的界面也已不符。新 UI 用例 (UI-*、MSG-*) 尚无截图。
 - **`frontend/ios/VeraBot/File.txt`** 仍在仓库中 (8 字节，内容「QA回归」，NEW-03)，待确认是否删除。
 - **新建 Bot 表单页脚文案过时**：仍写「在对话页右上角「Bot 设置」中开启」(`CreateBotSheet.swift`)，实际入口是「对话页点标题 → Bot 详情」。
-- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆；MCP / Gmail 的迁移使用 **v5** (已在两份设计稿中注明)。
+- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**。MCP / Gmail 设计稿文首仍写「下一个空闲版本 v5」；实施时改用 **v6**（两份稿按要求未在本变更中改写）。
 
 ## ⏸ 设计评审：开发暂停，等待 Boss 评审 (Development paused pending Boss review)
 
@@ -57,7 +58,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | 📝 设计稿 v0.2 | 评审；回答 §16 开放问题 Q1~Q12；创建 Google Cloud 项目并加入 Google Workspace Developer Preview Program (§14) |
 | 以记忆为核心的 Bot 成长体系 (显式记忆 + 记忆页 → 摘要 / 风格校准 → 隐式候选 / 主动建议 / 快捷提问 → 成长界面 / 月度回顾 → 向量检索 / 协作优化) | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1 已实现 (决定见 §17.1) | 按 MEM-UI-01~12 与 §5.8 验收 M1；决定是否开始 M2 |
 
-MCP 评审通过后的第一步是 M0 / G0 技术验证 (1~2 天)，见 MCP 文档 §15。记忆 M1 已占用 schema v4，MCP / Gmail 使用 v5。
+MCP 评审通过后的第一步是 M0 / G0 技术验证 (1~2 天)，见 MCP 文档 §15。记忆 M1 已占用 schema v4，Bot 标签占用 v5；MCP / Gmail 实施时使用 v6。
 
 ## 1. 已完成功能 (Features done)
 
@@ -65,7 +66,7 @@ MCP 评审通过后的第一步是 M0 / G0 技术验证 (1~2 天)，见 MCP 文�
 |---|---|---|
 | 账号 Accounts | ✅ | 注册 / 登录 (bcrypt + JWT)，Token 持久化，失效自动退出，设置页底部退出登录 (二次确认)。昵称 `PATCH /api/me`（设置页可编辑；首页与对话读同一 `AppState`） |
 | 租户隔离 Isolation | ✅ | 所有查询带 `user_id`，越权 (IDOR) 返回 404 |
-| Bot 管理 | ✅ | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`，达到上限 ＋ 置灰)；列表不显示数量页脚；行右上角显示最后消息时间；右上角 🔍 搜索入口保留但范围暂定：当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览）；完整聊天历史搜索、搜索历史等移至后续迭代 |
+| Bot 管理 | ✅ (API) / 🟡 (iOS 标签待模拟器点测) | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`，达到上限 ＋ 置灰)；列表不显示数量页脚；名称右侧显示标签，行右上角显示最后消息时间；右上角 🔍 搜索入口保留但范围暂定：当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览）；完整聊天历史搜索、搜索历史等移至后续迭代 |
 | 流式对话 SSE | ✅ | 逐 token 渲染、工具卡片、交接 Trace 卡片、错误气泡 |
 | 记忆 Memory | ✅ | 每 Bot 独立，最近 20 条；清空对话 (二次确认) |
 | 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot` |

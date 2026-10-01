@@ -170,14 +170,16 @@ struct BotRow: View {
             LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
                            hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(bot.name).font(.headline).lineLimit(1)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(bot.name).font(.headline).lineLimit(1).layoutPriority(1)
+                    BotTagChips(tags: bot.tags)
                     Spacer(minLength: 8)
                     if let date = ListTimestamp.rowDate(for: bot) {
                         Text(ListTimestamp.label(for: date))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
+                            .layoutPriority(1)
                     }
                 }
                 Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)

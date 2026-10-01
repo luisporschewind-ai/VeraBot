@@ -1,6 +1,6 @@
 # VeraBot 多 Agent 协作设计 (Multi-Agent Design) — v0.1.0
 
-> 适用版本：v0.1.0 (迭代 2 引入，数据库 schema v2；当前库为 schema v4，v4 = 长期记忆，见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md))。代码位置：`backend/verabot/agents/` (permissions / guardrails / context / delegation / runtime / prompts)。本文说明 Bot 之间的权限模型 (permission model)、上下文隔离 (context isolation)、防护措施 (guardrails)、审计 (audit)，以及 iOS 端的配置界面和设置页 (Settings) 的扩展方式。
+> 适用版本：v0.1.0 (迭代 2 引入，数据库 schema v2；当前库为 schema v5，v4 = 长期记忆，v5 = Bot 标签，见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) 与 [ARCHITECTURE.md](ARCHITECTURE.md) §5.3)。代码位置：`backend/verabot/agents/` (permissions / guardrails / context / delegation / runtime / prompts)。本文说明 Bot 之间的权限模型 (permission model)、上下文隔离 (context isolation)、防护措施 (guardrails)、审计 (audit)，以及 iOS 端的配置界面和设置页 (Settings) 的扩展方式。
 
 ## 1. 目标 (Goals)
 

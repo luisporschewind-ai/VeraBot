@@ -14,6 +14,7 @@ def _bot(r):
     b["delegate_to"] = json.loads(b.get("delegate_to") or "[]")
     b["accept_delegation"] = bool(b.get("accept_delegation"))
     b["memory_access"] = b.get("memory_access") or "bot_and_global"
+    b["tags"] = json.loads(b.get("tags") or "[]")
     return b
 
 

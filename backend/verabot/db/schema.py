@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v4）。"""
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v5）。"""
 import json
 
 from .database import tx
@@ -122,7 +122,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mem_dedupe
 """
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 ALL_TOOLS_V2 = ["get_weather", "create_reminder", "list_reminders", "ask_bot"]
 
 
@@ -141,6 +141,7 @@ def init_db():
     v1 → v2：多 Agent 权限模型 / 协作审计 / 用户预算。
     v2 → v3：用户昵称、用户头像、Bot 照片头像（表情符号字段保持不变）。
     v3 → v4：长期记忆 memories 表 + bots.memory_access / users.memory_enabled / messages.memory_ids。
+    v4 → v5：bots.tags（JSON 数组，默认 []）。不改权限、记忆、头像。
     """
     with tx() as c:
         c.executescript(SCHEMA)
@@ -182,5 +183,7 @@ def init_db():
         _add_column(c, "bots", "memory_access", "TEXT NOT NULL DEFAULT 'bot_and_global'")  # none / bot / bot_and_global
         _add_column(c, "users", "memory_enabled", "INTEGER NOT NULL DEFAULT 1")             # 用户总开关
         _add_column(c, "messages", "memory_ids", "TEXT")                                    # 本条回复注入了哪些记忆（JSON list）
+        # --- v5：Bot 标签。JSON 字符串数组，默认 []。不回填、不改写已有权限 / 记忆 / 头像 ---
+        _add_column(c, "bots", "tags", "TEXT NOT NULL DEFAULT '[]'")
         if ver < SCHEMA_VERSION:
             c.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES ('version', ?)", (str(SCHEMA_VERSION),))
