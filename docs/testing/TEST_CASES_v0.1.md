@@ -137,7 +137,7 @@
 | SET-08 | 退出登录 | 设置 → 滚动到最底部 → 退出登录 → 确认 | 弹出「确定退出登录？」；确认后回到登录页，vb_token 被清除；重新登录 demo 成功 | R20, R21, R22 |
 | SET-09 | 用户消息也有 🔊 | 临时 Bot 一问一答 → 开 / 关「语音播放」 | 开启时用户气泡下方 (右对齐) 和 Bot 气泡下方都有 🔊；关闭后两者都隐藏 | R23_user_tts, R23b_user_tts_off |
 | NAV-01 | 二级页面隐藏 Tab 栏 | 打开 小研 对话 → 返回 → 点头像进设置 → 返回 | 对话页、设置页不显示底部「助理 / 提醒」Tab 栏（2026-10-01 起「用量」不再是 Tab），输入栏贴底部安全区；返回 Bot 列表后 Tab 栏重新出现 (Bot 设置、协作记录、新建 Bot 同样隐藏) | R24_chat_no_tabbar, R25_settings_no_tabbar, R26_back_tabbar |
-| NAV-02 | 对话标题 → Bot 详情 sheet | 打开 小研 对话 → 点顶部胶囊标题（头像 + 名称，无下箭头） | 对话页导航栏只有返回 + 胶囊标题（右上角 ⚙/🗑 已移除）；以系统默认 sheet 弹出「Bot 详情」（非 push、非全屏，下滑可关闭），内嵌完整设置：头像/名称/标签/人设卡片、默认形象、人设、自定义指令、记忆、工具权限、委派目标/接受委派、协作记录 (2026-10-01 改版，见 DETAIL-UI)、底部「清空对话」；右上角「保存」、左上角「关闭」 | R27_chat_title, R28_bot_info |
+| NAV-02 | 对话标题 → Bot 详情 sheet | 打开 小研 对话 → 点顶部胶囊标题（头像 + 名称，无下箭头） | 对话页导航栏只有返回 + 胶囊标题（右上角 ⚙/🗑 已移除）；以系统默认 sheet 弹出「Bot 详情」（非 push、非全屏，2026-10-01 起不能下滑关闭，见 DETAIL-UI-09），内嵌完整设置：头像/名称/标签/人设卡片、默认形象、人设、自定义指令、记忆、工具权限、委派目标/接受委派、协作记录 (2026-10-01 改版，见 DETAIL-UI)、底部「清空对话」；右上角「保存」、左上角「关闭」 | R27_chat_title, R28_bot_info |
 | NAV-03 | 详情页清空对话仍需确认 | Bot 详情 → 滚动到底部 → 清空对话 | 弹出「清空与「小研」的全部对话？」确认框；取消后消息仍在 | R29_clear_confirm_from_info |
 | NAV-04 | 首页导航栏原生样式 | 看「我的 Bot」导航栏 | 左上角头像（首字母）与右上角 ＋ 均为 iOS 26 系统 Liquid Glass 圆形按钮，无自绘背景 | R30_home_nav_native |
 | SET-10 | 设置页账号置顶 | 首页点头像进入设置 | 分组顺序：账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录；账号区没有「服务器」行 (2026-10-01 再次更新) | R31_settings_account_top (旧版，退出登录仍在账号组内)；新版由 Boss 目视验证 |
@@ -176,7 +176,7 @@
 | KB-09 | 登录 / 新建 Bot 表单 | 代码审查：同样的 FocusState + 键盘工具栏「完成」按钮 (非 sheet 内的表单保留)；登录页 用户名 → 密码 为 next，密码回车即登录；新建 Bot 的昵称 → 人设 为 next | 与 KB-06 / KB-10 实现相同 | — (本轮未点测，需要退出登录 / 新建 Bot) |
 | KB-10 | 人设 / 指令支持多行 | Vera → Bot 详情 → 点人设末尾 → 回车 → 输入 hi → 关闭 (不保存) | 回车键为 ↵，回车插入换行 (「Hi」在第二行)，焦点留在人设不跳转；字段 3~8 行 (`TextField(axis: .vertical).lineLimit(3...8)`)，不使用 submitLabel；关闭时收起键盘；关闭后 Vera 数据不变 (🐼、原人设) | R35_multiline_persona |
 | KB-11 | 后端保留换行 | API：PATCH Vera persona=`第一行\n第二行\n\n第四行`、instructions=`A\nB` → GET → 恢复原值 | 读回内容与写入完全一致 (包括空行)；恢复后 Vera 与原来一致 | — (API) |
-| KB-12 | Bot 详情 sheet 键盘弹出时关闭，对话页布局正常 (Boss 反馈) | 关闭硬件键盘 → Vera 对话 → 点标题打开 Bot 详情 → 点人设 (软键盘弹出) → 保存；重复 3 次，另各测一次「关闭」与下拉关闭；每次回到对话页后再点输入框 | 回到对话页时内容贴底、没有键盘高度的空白 / 内容被顶起，无需触摸页面；再点输入框时输入栏贴在键盘上方 (不被键盘遮住)；Vera 数据不变 (🐼、原人设/指令)，无测试消息。根因：page sheet 与对话页共享窗口键盘安全区，且 sheet 内 `.keyboard` 工具栏 (inputAccessoryView)「完成」让对话页键盘避让状态错乱 (关闭后留下键盘 inset / 少算工具栏高度)；对话页 keyboardDidShow 不区分输入框。修复：BotEditView 保存 / 关闭 / onDisappear 先 endEditing (清 FocusState + resignFirstResponder)；sheet 内不再使用键盘工具栏；对话页 keyboardDidShow 只在自身输入框聚焦且无 sheet 时滚动；sheet onDismiss 无动画重新贴底 | R36_chat_after_sheet_save |
+| KB-12 | Bot 详情 sheet 键盘弹出时关闭，对话页布局正常 (Boss 反馈) | 关闭硬件键盘 → Vera 对话 → 点标题打开 Bot 详情 → 点人设 (软键盘弹出) → 保存；重复 3 次，另测一次「关闭」(2026-10-01 起 sheet 不能下滑关闭)；每次回到对话页后再点输入框 | 回到对话页时内容贴底、没有键盘高度的空白 / 内容被顶起，无需触摸页面；再点输入框时输入栏贴在键盘上方 (不被键盘遮住)；Vera 数据不变 (🐼、原人设/指令)，无测试消息。根因：page sheet 与对话页共享窗口键盘安全区，且 sheet 内 `.keyboard` 工具栏 (inputAccessoryView)「完成」让对话页键盘避让状态错乱 (关闭后留下键盘 inset / 少算工具栏高度)；对话页 keyboardDidShow 不区分输入框。修复：BotEditView 保存 / 关闭 / onDisappear 先 endEditing (清 FocusState + resignFirstResponder)；sheet 内不再使用键盘工具栏；对话页 keyboardDidShow 只在自身输入框聚焦且无 sheet 时滚动；sheet onDismiss 无动画重新贴底 | R36_chat_after_sheet_save |
 
 ### 新发现的问题 (New issues)
 
@@ -350,4 +350,5 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | DETAIL-UI-07 | iOS | 详情页与创建页的人设 / 自定义指令 | 都是独立分组，标题「人设」「自定义指令」，占位为创建页例句，页脚分别为「对其他 Bot 公开，协作时用来介绍自己。」「仅本 Bot 使用，不对其他 Bot 公开。」；创建页最小权限说明为「新 Bot 默认不开启工具、不参与委派。」 | 待 Boss 验收 |
 | DETAIL-UI-08 | iOS | 浏览 Bot 详情、创建页、协作记录 | 无英文：分组「工具权限」「委派」「协作记录」，工具行只有中文名，委派页脚写「委派其他 Bot」；协作记录时间为本机时间、末尾「用量 N」 | 待 Boss 验收 |
 
-汇总：DETAIL-01~04 **通过** (`swift test` 53/53，Mac，2026-10-01)；后端 AV/NK 21/21 回归；模拟器构建、安装、启动通过；DETAIL-UI-01~08 待验收。
+| DETAIL-UI-09 | iOS | 打开 Bot 详情 (对话标题)、长按「编辑与权限」、首页 ＋ 创建 Bot，分别在有 / 无改动时向下拖动 sheet | 都不能下滑关闭 (系统 `interactiveDismissDisabled()`，始终开启，无确认弹窗)；只能点「关闭」/「取消」或「保存」/「创建」退出 | 待 Boss 验收 |
+汇总：DETAIL-01~04 **通过** (`swift test` 53/53，Mac，2026-10-01)；后端 AV/NK 21/21 回归；模拟器构建、安装、启动通过；DETAIL-UI-01~09 待验收。

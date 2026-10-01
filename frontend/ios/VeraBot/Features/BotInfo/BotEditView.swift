@@ -229,7 +229,9 @@ struct BotEditView: View {
         // 键盘工具栏「完成」只用于非 sheet 场景：sheet（Bot 详情）里的 .keyboard 工具栏（inputAccessoryView）
         // 关闭后会让对话页的键盘避让少算工具栏高度（输入栏被键盘遮住）；sheet 内用下拉 / 保存 / 关闭收起键盘
         .keyboardDoneButton(enabled: !infoMode) { focus = nil }
-        .onDisappear { endEditing() }   // push 协作记录 / 关闭 sheet（含下滑关闭）时收起键盘
+        // 两个入口都是 sheet：禁止下滑关闭，只能点「关闭」/「取消」或「保存」退出（未保存改动不会被误丢）
+        .interactiveDismissDisabled()
+        .onDisappear { endEditing() }   // push 协作记录 / 关闭 sheet 时收起键盘
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 DismissToolbarButton(kind: infoMode ? .close : .cancel) { endEditing(); dismiss() }

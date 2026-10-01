@@ -80,6 +80,7 @@ struct CreateBotSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)
             .keyboardDoneButton { focus = nil }
+            .interactiveDismissDisabled()   // 表单有未保存输入：只能点「取消」或「创建」退出
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { DismissToolbarButton(kind: .cancel) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
