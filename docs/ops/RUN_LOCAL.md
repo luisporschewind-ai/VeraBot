@@ -66,6 +66,10 @@ curl -s --noproxy '*' http://127.0.0.1:8000/api/health
 6. 关闭「触感反馈」后发送消息 / 完成提醒不再震动 (模拟器无震感，需真机确认)。
 7. 「语言」显示当前语言，点按跳到系统「设置 › Vera Bot」，其中有「语言」选项 (简体中文 / English)。
 
+### 视觉风格 / 输入栏 / 富文本 (待 Boss 验收)
+
+拉到 `c94e26b` / `46cb977` / `4f4cd49` 之后只需 Xcode ⌘R (后端无改动)。验收步骤与预期见 [TEST_CASES_v0.1.md](../testing/TEST_CASES_v0.1.md) UI-15~20、MSG-01~04：白底 + 灰分组、深色模式、浮动玻璃输入栏 (return 发送)、Markdown 排版、链接在 App 内网页打开、长按复制。
+
 **模拟器键盘**：模拟器默认连接 Mac 的硬件键盘，软键盘不会弹出。测试键盘相关行为时：Simulator 菜单 **I/O → Keyboard → 取消勾选 Connect Hardware Keyboard**，或按 **⌘K (Toggle Software Keyboard)**。
 
 **SPM 本地包测试**：`cd frontend/ios/Packages/VeraBotKit && swift test`。

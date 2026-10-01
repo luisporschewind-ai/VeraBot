@@ -1,7 +1,7 @@
 # VeraBot v0.1 测试用例与执行结果 (Test Cases & Results)
 
 > 截图位置：iOS [`assets/screenshots/ios/test/`](../../assets/screenshots/ios/test/) (T*) 和 [`ios/regress/`](../../assets/screenshots/ios/regress/) (R*)，Web [`assets/screenshots/web/`](../../assets/screenshots/web/)。iOS 截图为 471×1024 JPEG。
-> 过时截图：`R34_form_keyboard` (仍显示已移除的键盘工具栏「完成」)、`R11_settings` (旧分组顺序)。
+> 过时截图：`R34_form_keyboard` (仍显示已移除的键盘工具栏「完成」)、`R11_settings` (旧分组顺序)。此外**所有 iOS 截图 (T* / R*) 都早于 2026-10-01 的界面改动** (设置页重排、正圆头像、白底 + Liquid Glass、浮动输入栏、富文本等)，只代表当时的界面；2026-10-01 新增的 UI-* / MSG-* 用例尚无截图，大多待 Boss 验收。
 > 版本说明：「迭代 1」= MVP 基线 (TC-01~31)，「迭代 2」= 缺陷修复 + 多 Agent 权限 + 设置 / TTS / 键盘等改动；两轮都属于 v0.1.0 (见 CHANGELOG)。
 > v0.1.0 目录重构 (2026-09-30 18:00 后) 的回归结果见文末「v0.1.0 重构回归」。
 
@@ -128,7 +128,7 @@
 | ID | 场景 | 步骤 | 结果 | 截图 |
 |---|---|---|---|---|
 | SET-01 | 首页左上角头像 | 登录后看「我的 Bot」 | 左上角显示用户首字母头像「D」 | R10_home_avatar |
-| SET-02 | 进入设置 | 点头像 | 打开「设置」：账号 / 语音 / 关于 (现顺序，见 R31；R11 截图为旧顺序「语音在前」，已过时) | R11_settings (过时), R31_settings_account_top |
+| SET-02 | 进入设置 | 点头像 | 打开「设置」(当时顺序：账号 / 语音 / 关于；R11 截图为更早的「语音在前」，已过时)。**现顺序见 SET-10**：账号 → 用量 → 通用 → 语音 → 关于 → 退出登录 | R11_settings (过时), R31_settings_account_top |
 | SET-03 | 语音引擎 | 点「本机 TTS」 | 本机 TTS ✓；云端 TTS (即将支持) 置灰，点击无效 (没有写入 vb_tts_engine) | R12_engine_picker |
 | SET-04 | 关闭语音播放 | 关闭开关 → 打开 Vera 对话 | plist `vb_tts_enabled=0`；引擎选择置灰；气泡下方没有 🔊 | R13_tts_off, R14_chat_tts_off |
 | SET-05 | 重启后保持 (Persist) | 关闭状态下 terminate + launch | 重启后仍为关闭，没有 🔊 | R14_chat_tts_off |

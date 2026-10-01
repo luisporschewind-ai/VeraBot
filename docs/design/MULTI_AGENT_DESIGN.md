@@ -1,6 +1,6 @@
 # VeraBot 多 Agent 协作设计 (Multi-Agent Design) — v0.1.0
 
-> 适用版本：v0.1.0 (迭代 2 引入，数据库 schema v2)。代码位置：`backend/verabot/agents/` (permissions / guardrails / context / delegation / runtime / prompts)。本文说明 Bot 之间的权限模型 (permission model)、上下文隔离 (context isolation)、防护措施 (guardrails)、审计 (audit)，以及 iOS 端的配置界面和设置页 (Settings) 的扩展方式。
+> 适用版本：v0.1.0 (迭代 2 引入，数据库 schema v2；当前库为 schema v3，见 §6 末尾)。代码位置：`backend/verabot/agents/` (permissions / guardrails / context / delegation / runtime / prompts)。本文说明 Bot 之间的权限模型 (permission model)、上下文隔离 (context isolation)、防护措施 (guardrails)、审计 (audit)，以及 iOS 端的配置界面和设置页 (Settings) 的扩展方式。
 
 ## 1. 目标 (Goals)
 
@@ -87,15 +87,15 @@
 
 ## 8. 设置页 (Settings) 与 TTS 扩展性
 
-- 入口：首页 (我的 Bot) **左上角的用户头像** (`UserAvatar`)，点击进入 `SettingsView`。
+- 入口：首页「助理」**左上角的用户头像** (`UserAvatar`)，点击进入 `SettingsView`。
 - 分组顺序：账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (每组是一个独立的 `struct …Section: View`)：
   - `AccountSettingsSection`（实现在 `Features/Settings/UserProfileEditor.swift`）：头像（点按打开系统相册，圆形预览后上传）、昵称（保存后写入 `AppState.displayName`，首页和对话立刻更新）、用户名。服务器地址移到调试页。
   - `UsageSettingsSection`：一行「用量」，NavigationLink push `QuotaView` (用量看板，已不是底部 Tab)。
   - `GeneralSettingsSection`（`Features/Settings/GeneralSettingsSection.swift`）：外观 `Picker` (`vb_appearance`，`AppearanceMode`，App 根视图 `preferredColorScheme`)；通知 `Toggle` (`vb_notifications_enabled`，开启时请求 `UNUserNotificationCenter` 授权，被拒绝则回退并提供「前往设置」)；触感反馈 `Toggle` (`vb_haptics_enabled`，所有触感经 `View.hapticFeedback(_:trigger:)` → 系统 `sensoryFeedback`，受此开关控制)；语言 (显示当前语言，点按打开 `UIApplication.openSettingsURLString`，由系统按 App 切换语言)。
   - `VoiceSettingsSection`：语音播放开关 (`@AppStorage("vb_tts_enabled")`，默认开启，同时控制用户消息和 Bot 回复气泡下方的 🔊 按钮 (共用 `SpeakButton`；用户消息的按钮右对齐))；语音引擎选择 (`vb_tts_engine`)，可选「本机 TTS」，「云端 TTS (即将支持)」用 `selectionDisabled` 置灰。
   - `AboutSettingsSection`：版本号 (CFBundleShortVersionString)。
-- **调试页** `DebugView`：设置页导航栏右上角 `ladybug` toolbar 按钮 push 进入；服务器地址、`GET /api/health` 状态与模型、版本 / 构建号 / Bundle ID / 系统 / 构建配置。新增开发信息一律放这里，不放普通设置分组。
   - `SignOutSettingsSection`：单独一组，固定在最底部；「退出登录」(destructive，有二次确认)。
+- **调试页** `DebugView`：设置页导航栏右上角 `ladybug` toolbar 按钮 push 进入；服务器地址、`GET /api/health` 状态与模型、版本 / 构建号 / Bundle ID / 系统 / 构建配置。新增开发信息一律放这里，不放普通设置分组。
 - **TTS 协议** (`frontend/ios/Packages/VeraBotKit/Sources/VeraBotTTS/TTS.swift`，SPM 模块 VeraBotTTS)：`protocol TTSEngine { speak(_:onFinish:) / stop() }`；`TTSEngineKind` (local / cloud，带 `isAvailable`)；`LocalTTSEngine` (AVSpeechSynthesizer, zh-CN)；`CloudTTSEngine` (占位 stub)；`@Observable SpeechPlayer` 根据当前引擎分派，并通过 `.environment` 注入。
 - **扩展方法**：
   1. 在 `SettingsKeys` (VeraBotCore) 里加 key。

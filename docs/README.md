@@ -4,7 +4,7 @@
 
 | 目录 | 文档 | 内容 |
 |---|---|---|
-| — | [STATUS.md](STATUS.md) | **项目状态**：v0.1.0 原型验证完成、当前状态 (开发暂停，待 Boss 评审 MCP / Gmail 设计稿)、功能状态、已知限制、未测项、下一步 |
+| — | [STATUS.md](STATUS.md) | **项目状态**：v0.1.0 原型验证完成、当前进度 (已完成待 Boss 验收的项、暂停 / 延期项、已知遗留)、设计评审 (待 Boss 评审 MCP / Gmail 设计稿)、功能状态、已知限制、未测项、下一步 |
 | — | [CHANGELOG.md](CHANGELOG.md) | 更新日志 (Keep a Changelog + SemVer) |
 | product/ | [FEATURES.md](product/FEATURES.md) | 功能清单、API 摘要、SSE 事件格式 |
 | design/ | [ARCHITECTURE.md](design/ARCHITECTURE.md) | 两个项目的架构、模块、依赖规则、依赖管理 (SPM / uv)、数据模型 |
@@ -16,4 +16,4 @@
 | ops/ | [DELIVERY.md](ops/DELIVERY.md) | 打包与交付、Docker、交付检查清单 |
 
 项目 README：[根目录](../README.md) · [backend](../backend/README.md) · [frontend](../frontend/README.md)
-截图：[assets/screenshots/](../assets/screenshots/) (`web/` Web SPA，`ios/test/` 迭代 1 T*，`ios/regress/` 迭代 2 R*)
+截图：[assets/screenshots/](../assets/screenshots/) (`web/` Web SPA，`ios/test/` 迭代 1 T*，`ios/regress/` 迭代 2 R*；均早于 2026-10-01 的界面改动)

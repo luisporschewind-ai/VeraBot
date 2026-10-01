@@ -10,15 +10,16 @@ frontend/
 │   ├── Config/Info.plist
 │   ├── VeraBot/                  # App 源码 (按功能分目录)
 │   │   ├── App/                  #   入口 VeraBotApp、AppState、AppConfig (默认服务器地址)
-│   │   ├── Core/UI/              #   Theme、CircleAvatar、BotAvatar、UserAvatar、AvatarPicker、LiveBotAvatar、DismissToolbarButton
-│   │   ├── Features/             #   Auth、BotList、BotInfo、Chat、Settings、Reminders、Quota
+│   │   ├── Core/UI/              #   Theme (语义色 / Liquid Glass)、CircleAvatar、BotAvatar、UserAvatar、AvatarPicker、AvatarImage、LiveBotAvatar、
+│   │   │                         #   DismissToolbarButton、Haptics、MessageContentView (富文本)、InAppBrowser (SFSafariViewController)
+│   │   ├── Features/             #   Auth、BotList、BotInfo、Chat、Settings (含 DebugView)、Reminders、Quota (设置 › 用量)
 │   │   ├── Services/             #   Keyboard、Speech (语音输入)、Avatar (AvatarStore)
 │   │   └── Assets.xcassets
 │   └── Packages/VeraBotKit/      # 本地 Swift Package (SPM)
-│       ├── Sources/VeraBotCore        # 共享模型 (Codable) + SettingsKeys + ListTimestamp
+│       ├── Sources/VeraBotCore        # 共享模型 (Codable，含 HealthStatus) + SettingsKeys + ListTimestamp + MessageMarkdown
 │       ├── Sources/VeraBotNetworking  # VeraBotAPI 协议 + APIClient (REST + SSE)
 │       ├── Sources/VeraBotTTS         # TTSEngine 协议 + 本机 / 云端引擎 + SpeechPlayer
-│       └── Tests/VeraBotKitTests      # swift-testing 单元测试
+│       └── Tests/VeraBotKitTests      # swift-testing 单元测试 (ModelsTests 11 + MessageMarkdownTests 10)
 ├── web/                          # Web SPA (index.html / app.js / style.css)，由后端托管在 /
 └── scripts/
     ├── run_ios.sh                # 命令行编译 + 安装 + 启动到模拟器
@@ -36,7 +37,9 @@ frontend/
 4. 选择 iPhone 模拟器 (测试用 iPhone 17 / iOS 26)，⌘R。或者命令行：`frontend/scripts/run_ios.sh "iPhone 17"`。
 5. 登录：演示账号 `demo` / `verabot2026` (由 `backend/scripts/dev/seed_demo.py` 创建)。
 
-**服务器地址**：默认 `http://127.0.0.1:8000` (`App/AppConfig.swift`)。模拟器直接使用；真机在登录页「服务器地址」填 Mac 的局域网 IP，如 `http://192.168.1.10:8000`。`Info.plist` 允许本地 HTTP (ATS 例外)，生产需改 HTTPS。
+**显示名称 / 图标**：主屏显示「Vera Bot」，图标见 `Assets.xcassets/AppIcon.appiconset`。
+
+**服务器地址**：默认 `http://127.0.0.1:8000` (`App/AppConfig.swift`)，登录后可在 设置 › 🐞 调试 查看。模拟器直接使用；真机在登录页「服务器地址」填 Mac 的局域网 IP，如 `http://192.168.1.10:8000`。`Info.plist` 允许本地 HTTP (ATS 例外)，生产需改 HTTPS。
 
 **模拟器键盘**：若键盘不弹出，在 Simulator 菜单 I/O → Keyboard 取消「Connect Hardware Keyboard」，或按 ⌘K (Toggle Software Keyboard)。
 
@@ -53,7 +56,7 @@ frontend/
 ## 2. Web SPA
 
 纯静态文件，无构建步骤。后端启动时，只要 `frontend/web/index.html` 存在就托管在 <http://127.0.0.1:8000/>；单独部署时可以放在任意静态服务器上，与后端同源即可 (或给后端设置 `VERABOT_WEB_DIR`)。
-说明：Web 端只作为 API 验收客户端，**没有** v0.1.0 的 iOS 新 UI (权限编辑、协作记录、设置页、TTS)。
+说明：Web 端只作为 API 验收客户端，**落后于 iOS**：没有 v0.1.0 迭代 2 的 iOS UI (权限编辑、协作记录、设置页、TTS)，也没有 2026-10-01 之后的改动 (昵称编辑、照片头像、调试页、通用设置、列表时间 / 搜索、白底 + Liquid Glass 风格、浮动输入栏、消息富文本与 App 内网页)。后端 API 对 Web 保持兼容。
 
 ## 3. 测试脚本
 

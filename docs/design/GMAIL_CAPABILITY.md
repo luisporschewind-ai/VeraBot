@@ -279,7 +279,7 @@ sequenceDiagram
 - **API**：使用 MCP 通用 API (`/api/mcp/*`、`/api/pending-actions/*`，见 MCP 文档 §12.1)，**不再新增** v0.1 的 `/api/connections/google/*`。Gmail 在目录中是 `catalog_id = gmail_google` (备用 `gmail_direct`)。
 - **SSE**：`confirmation_required {action_id, kind: "send_mail", preview: {to, cc, subject, body, warnings[]}, expires_at}`；`connection_required {server_id, reason}`。
 - **`/api/tools`**：`mail_send_draft` 带 `source: "builtin"`、`requires: "gmail"`、`risk: "send"`、`delegable: false`；Gmail MCP 工具带 `source: "mcp"`、`server: "Gmail"`。
-- **数据库**：并入 MCP 文档 §12.2 的 schema v3 (`mcp_servers`、`mcp_credentials`、`mcp_tools`、`oauth_states`、`pending_actions`)。v0.1 草案中的 `oauth_connections` 表**取消**，改用 `mcp_credentials` (备用路径以 `provider='google'` 区分)。迁移不修改任何 Bot 的 `allowed_tools`。
+- **数据库**：并入 MCP 文档 §12.2 的 schema 迁移 (原写 v3；v3 已被昵称 / 头像占用，实施时顺延，见 MCP 文档文首说明) (`mcp_servers`、`mcp_credentials`、`mcp_tools`、`oauth_states`、`pending_actions`)。v0.1 草案中的 `oauth_connections` 表**取消**，改用 `mcp_credentials` (备用路径以 `provider='google'` 区分)。迁移不修改任何 Bot 的 `allowed_tools`。
 - **配置 (`.env.example`)**：`GOOGLE_OAUTH_CLIENT_ID` (及 Web 类型时 `GOOGLE_OAUTH_CLIENT_SECRET`)、`GOOGLE_OAUTH_REDIRECT_URI`、`VERABOT_GMAIL_ROUTE=mcp` (`mcp` / `direct`，新建连接时的默认路线)、`VERABOT_MAIL_MAX_BODY_CHARS=4000`，以及 MCP 通用配置。
 - **后端模块**：
 

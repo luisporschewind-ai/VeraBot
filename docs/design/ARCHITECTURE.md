@@ -26,7 +26,7 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT) | `config.py`、`security.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (schema v2)、查询 | `database.py`、`schema.py`、`repository.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v3：v1 → v2 → v3)、查询 | `database.py`、`schema.py`、`repository.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
 | `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理 | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py` |
@@ -107,12 +107,13 @@ erDiagram
 ```
 VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swift Package)
 ├── App/        入口、AppState、AppConfig          ├── VeraBotCore        模型 (Codable)、SettingsKeys、  ← 无依赖
-├── Core/UI/    Theme、CircleAvatar、BotAvatar、  │                      ListTimestamp、MessageMarkdown
+├── Core/UI/    Theme、CircleAvatar、BotAvatar、  │                      ListTimestamp、MessageMarkdown、HealthStatus
 │               MessageContentView、InAppBrowser、│
 │               UserAvatar、AvatarPicker、       ├── VeraBotNetworking  VeraBotAPI 协议 + APIClient     → Core
 │               LiveBotAvatar、DismissToolbarButton │                   （含头像 multipart / 字节下载）
+│               Haptics、AvatarImage              │
 ├── Features/   Auth · BotList · BotInfo · Chat    └── VeraBotTTS         TTSEngine 协议 + SpeechPlayer  → Core
-│               Settings · Reminders · Quota
+│               Settings (含 DebugView) · Reminders · Quota (由 设置 › 用量 push)
 └── Services/   Keyboard、Speech (语音输入)、Avatar (AvatarStore)
 ```
 
@@ -147,7 +148,10 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 | `Color.botBubble` / `traceFill` | = `sectionFill` | = `sectionFill` | Bot 回复气泡、工具 Trace |
 | `Color.insetFill` | = `appBackground` | = `appBackground` | 卡片里再嵌一层的内容 |
 | `Color.brandSoft` | `#E6F4F2` | `#123D39` | 表情选中、交接 Trace |
-| `Color.brand` / `AccentColor` | `#0F766E` | `#14B8A6` (AccentColor) | 强调色 (`.tint`) |
+| `Color.brand` / `AccentColor` | `#0F766E` | `#14B8A6` (AccentColor) | 强调色 (`.tint`)；用户消息气泡底色 |
+| `Color.brandLight` / `brandDark` | `#14B8A6` / `#115E59` | 同左 | 品牌辅助色 |
+| `Color.codeFill` | = `insetFill` | = `insetFill` | 消息里的代码块 / 表格底 |
+| `Color.quoteBar` | = `brandLight` | = `brandLight` | 消息里引用块左侧竖条 |
 
 - 语义色是 `UIColor { trait in … }` 动态色，按 trait 解析；外观设置通过根视图 `preferredColorScheme` 改变 trait，所有页面同步更新。
 - 容器：`ThemedForm` / `ThemedList`（`scrollContentBackground(.hidden)` + `appBackground`，行底 `listRowBackground(sectionFill)`，行内可再覆盖）；修饰符 `themedPageBackground()`、`plainListRow()`（首页平铺无分隔线）、`themedFieldBackground()`。
@@ -164,11 +168,11 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 
 当前版本锁定：Python 3.12；fastapi 0.142.1、uvicorn 0.54.0、httpx 0.28.1、pyjwt 2.15.1、bcrypt 5.0.0、python-multipart 0.0.32、pillow 11.3.0 (共 45 个包，见 `uv.lock`)。iOS 无第三方依赖；工具链 Xcode 26.0.1 / Swift 6.2，部署目标 iOS 17.0。
 
-## 6. 资料与头像 (Profile & avatars) — schema v3
+## 5. 资料与头像 (Profile & avatars) — schema v3
 
 启动时 `init_db()` 幂等执行。已有库从 v2 升到 v3 时**不会**重跑 v2 的「存量 Bot 授予全部工具」逻辑。
 
-### 6.1 表
+### 5.1 表
 
 | 列 / 表 | 含义 |
 |---|---|
@@ -180,7 +184,7 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 
 公开 JSON（`services/users.public_user`、`services/bots.public_bot`）不包含 `password_hash` 和图片字节。图片只走下面的 GET。
 
-### 6.2 HTTP
+### 5.2 HTTP
 
 均需 Bearer JWT。用户头像没有 user id 路径，只能操作当前 token。Bot 头像先 `require_bot`（他人与不存在都是 404），再按 `user_id` 读写。
 
@@ -195,13 +199,13 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 
 iOS 在上传前用 `AvatarImage.jpegData` 把照片收成边长 1024 的 JPEG（相册里的 HEIC 由系统 `UIImage` 解码后再编码）。圆形预览用系统 sheet，显示区域与服务端中心裁切一致。昵称和用户头像放在 `AppState`；Bot 照片放在 `AvatarStore`。设置页保存后，首页工具栏和对话里的用户昵称读的是同一份 `displayName`，不会各刷各的接口。
 
-## 5. 关键设计决策
+## 6. 关键设计决策
 
 | 主题 | 决策 | 理由 |
 |---|---|---|
 | 模型接入 | 服务端统一持有 `DEEPSEEK_API_KEY`，OpenAI 兼容协议 | 用户零配置；可切换其他 OpenAI 兼容模型 |
 | 租户隔离 | 每条 SQL 带 `user_id`；他人资源返回 404 | 简单可审计，防枚举 |
-| 记忆隔离 | 历史按 `(user_id, bot_id)` 存取 | Bot 之间人格与上下文互不串扰 |
+| 记忆隔离 | 历史按 `(user_id, bot_id)` 存取；当前只有滑动窗口 (最近 `VERABOT_HISTORY_WINDOW`=20 条)，没有摘要 / 长期记忆 | Bot 之间人格与上下文互不串扰 |
 | 多 Agent | Agent-as-a-Tool (`ask_bot`)，最小权限 + 服务端强制 + 上下文隔离 + 护栏 + 审计 | 可控、可观测；详见 MULTI_AGENT_DESIGN |
 | 工具轮次 | 每轮最多 4 轮工具调用 (`VERABOT_MAX_TOOL_ROUNDS`) | 防止工具循环 |
 | 流式协议 | SSE (`event:` + `data:` JSON) | 浏览器 `fetch` 与 iOS `URLSession.bytes` 都能直接解析 |
