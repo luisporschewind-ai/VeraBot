@@ -9,7 +9,8 @@ struct BotListView: View {
     @State private var showCreate = false
     @State private var errorText: String?
     @State private var query = ""
-    @State private var searching = false   // 由右上角放大镜按钮打开系统搜索栏
+    @State private var searchActive = false     // 点击右上角放大镜后才挂载搜索栏；未激活时页面上不存在搜索框
+    @State private var searchPresented = false  // 系统搜索栏的焦点 / 展开状态；取消后收起并清空关键词
 
     var body: some View {
         NavigationStack {
@@ -44,8 +45,12 @@ struct BotListView: View {
                 }
             }
             .navigationTitle("我的 Bot")
-            .searchable(text: $query, isPresented: $searching,
-                        placement: .navigationBarDrawer(displayMode: .automatic), prompt: "搜索 Bot 或消息")
+            .onDemandSearchable(active: searchActive, text: $query, isPresented: $searchPresented,
+                                prompt: "搜索 Bot 或消息")
+            .onChange(of: searchPresented) { wasPresented, presented in
+                // 取消 / 收起搜索：卸载搜索栏并清空关键词，下拉也不会再露出搜索框
+                if wasPresented && !presented { endSearch() }
+            }
             .navigationDestination(for: Bot.self) { bot in
                 ChatView(bot: bot, api: app.api)
                     .toolbar(.hidden, for: .tabBar)   // 二级页面隐藏底部 Tab 栏，返回根页面时自动恢复
@@ -62,8 +67,12 @@ struct BotListView: View {
                     .accessibilityLabel("设置")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { searching = true } label: { Image(systemName: "magnifyingglass") }
+                    Button { beginSearch() } label: { Image(systemName: "magnifyingglass") }
                         .accessibilityLabel("搜索")
+                }
+                // iOS 26：固定间隔把搜索与＋拆成两个独立的 Liquid Glass 圆形按钮（不合并成一个胶囊）
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showCreate = true } label: { Image(systemName: "plus") }   // 原生圆形玻璃按钮
@@ -82,6 +91,22 @@ struct BotListView: View {
             .onAppear { Task { await load() } }   // 从对话页返回时刷新（对话页可能新建了 Bot）
             .refreshable { await load() }
         }
+    }
+
+    private func beginSearch() {
+        guard !searchActive else { searchPresented = true; return }
+        searchActive = true
+        // 先挂载搜索栏，下一帧再展开并聚焦，确保系统搜索栏能拿到焦点
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(60))
+            searchPresented = true
+        }
+    }
+
+    private func endSearch() {
+        searchPresented = false
+        searchActive = false
+        query = ""
     }
 
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -115,6 +140,20 @@ struct BotListView: View {
             _ = try? await app.api.deleteBot(b.id)
         }
         await load()
+    }
+}
+
+private extension View {
+    /// 按需搜索：仅在 active 时挂载 .searchable（始终展开的导航栏抽屉），未激活时不挂载，避免常驻 / 下拉露出搜索框
+    @ViewBuilder
+    func onDemandSearchable(active: Bool, text: Binding<String>, isPresented: Binding<Bool>,
+                            prompt: LocalizedStringKey) -> some View {
+        if active {
+            searchable(text: text, isPresented: isPresented,
+                       placement: .navigationBarDrawer(displayMode: .always), prompt: prompt)
+        } else {
+            self
+        }
     }
 }
 
