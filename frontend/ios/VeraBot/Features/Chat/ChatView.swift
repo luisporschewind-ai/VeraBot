@@ -79,68 +79,75 @@ struct ChatView: View {
         .accessibilityLabel("\(vm.bot.name)，查看 Bot 详情")
     }
 
-    /// 底部输入栏：[＋ 附件] [输入框] [🎙] [发送]
+    /// 底部浮动输入栏（Liquid Glass）：[＋ 圆形玻璃按钮] [胶囊玻璃：输入框 … 🎙]。
+    /// 无发送按钮：键盘 return 键（submitLabel .send）发送；无不透明底栏，消息从下方滚过，safeAreaInset 保证最后一条可见。
     private var composer: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             if speech.isRecording {
                 Label("正在聆听…再次点击麦克风结束", systemImage: "waveform")
                     .font(.caption).foregroundStyle(.red)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .glassSurface(in: Capsule(), interactive: false)
             } else if let err = speech.errorText {
                 Text(err).font(.caption).foregroundStyle(.orange)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .glassSurface(in: Capsule(), interactive: false)
             }
-            HStack(alignment: .bottom, spacing: 8) {
-                // 附件占位菜单（图片 / 相机 / 文件，均即将支持，暂不上传）
-                Menu {
-                    Section("添加附件") {
-                        Button {} label: { Label("图片（即将支持）", systemImage: "photo") }.disabled(true)
-                        Button {} label: { Label("相机（即将支持）", systemImage: "camera") }.disabled(true)
-                        Button {} label: { Label("文件（即将支持）", systemImage: "paperclip") }.disabled(true)
+            GlassGroup(spacing: 10) {
+                HStack(alignment: .bottom, spacing: 10) {
+                    // 附件占位菜单（图片 / 相机 / 文件，均即将支持，暂不上传）
+                    Menu {
+                        Section("添加附件") {
+                            Button {} label: { Label("图片（即将支持）", systemImage: "photo") }.disabled(true)
+                            Button {} label: { Label("相机（即将支持）", systemImage: "camera") }.disabled(true)
+                            Button {} label: { Label("文件（即将支持）", systemImage: "paperclip") }.disabled(true)
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .frame(width: Self.barHeight, height: Self.barHeight)
+                            .contentShape(Circle())
+                            .glassSurface(in: Circle())
                     }
-                } label: {
-                    Image(systemName: "plus").font(.title3.bold())
-                        .frame(width: 38, height: 38)
-                        .foregroundStyle(.white)
-                        .background(Color.brand, in: RoundedRectangle(cornerRadius: 12))
-                }
-                .accessibilityLabel("添加附件")
+                    .accessibilityLabel("添加附件")
 
-                TextField("发消息…", text: $input, axis: .vertical)
-                    .lineLimit(1...5)
-                    .focused($focused)
-                    .padding(.horizontal, 10).padding(.vertical, 9)
-                    .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 14))
-
-                Button {
-                    if !speech.isRecording {
-                        speechBase = input.isEmpty ? "" : input + " "
+                    HStack(alignment: .bottom, spacing: 4) {
+                        TextField("向 \(vm.bot.name) 提问", text: $input, axis: .vertical)
+                            .lineLimit(1...5)
+                            .focused($focused)
+                            .submitLabel(.send)
+                            .onSubmit(send)
+                            .padding(.vertical, 13)
+                        Button(action: toggleSpeech) {
+                            Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic")
+                                .font(.title3)
+                                .foregroundStyle(speech.isRecording ? Color.red : Color.secondary)
+                                .frame(width: 36, height: Self.barHeight)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")
                     }
-                    Task { await speech.toggle() }
-                } label: {
-                    Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic.fill")
-                        .font(.title3)
-                        .frame(width: 38, height: 38)
-                        .foregroundStyle(speech.isRecording ? .white : .primary)
-                        .background(speech.isRecording ? Color.red : Color.sectionFill,
-                                    in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.leading, 18).padding(.trailing, 8)
+                    .frame(minHeight: Self.barHeight)
+                    // 单行时为胶囊（圆角 = 高度一半），多行时保持同样圆角向上长高
+                    .glassSurface(in: RoundedRectangle(cornerRadius: Self.barHeight / 2, style: .continuous))
                 }
-                .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")
-
-                Button("发送") {
-                    if speech.isRecording { speech.stop() }
-                    let text = input
-                    input = ""
-                    focused = true   // 发送后键盘保持弹出，便于连续输入
-                    sendCount += 1
-                    Task { await vm.send(text) }
-                }
-                .buttonStyle(.borderedProminent)
-                .frame(height: 38)
-                .disabled(vm.sending || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+        .onChange(of: input) { old, new in
+            // 多行输入框（axis: .vertical）里 return 会插入换行：把「只多了一个换行」视为按下发送键，
+            // 恢复原文并发送；粘贴的多行文本（一次多于一个字符）保留换行
+            if new.count == old.count + 1,
+               new.filter({ $0 == "\n" }).count == old.filter({ $0 == "\n" }).count + 1 {
+                input = old
+                send()
+            }
+        }
         .onChange(of: speech.transcript) {
             if speech.isRecording || !speech.transcript.isEmpty {
                 input = speechBase + speech.transcript   // 实时写入部分识别结果，由用户确认后发送
@@ -149,5 +156,25 @@ struct ChatView: View {
         .onDisappear { speech.stop() }
         .hapticFeedback(.impact(weight: .light), trigger: sendCount)   // 发送消息（受「触感反馈」开关控制）
         .hapticFeedback(.selection, trigger: speech.isRecording)        // 开始 / 结束语音输入
+    }
+
+    private static let barHeight: CGFloat = 48
+
+    /// 发送：键盘 return 键触发；空内容或上一条仍在回复时忽略（文字保留）
+    private func send() {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !vm.sending else { return }
+        if speech.isRecording { speech.stop() }
+        input = ""
+        focused = true   // 发送后键盘保持弹出，便于连续输入
+        sendCount += 1
+        Task { await vm.send(text) }
+    }
+
+    private func toggleSpeech() {
+        if !speech.isRecording {
+            speechBase = input.isEmpty ? "" : input + " "
+        }
+        Task { await speech.toggle() }
     }
 }

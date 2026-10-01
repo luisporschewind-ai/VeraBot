@@ -25,6 +25,7 @@
 
 ### 变更 (Changed)
 
+- **iOS · 浮动 Liquid Glass 对话输入栏**：对话页底部输入栏改为浮动样式，去掉不透明底栏（`.bar`），消息可从输入栏下方滚过，仍用 `safeAreaInset(edge: .bottom)` 保证最后一条可见、随键盘上移。布局：左侧独立的圆形玻璃「＋」附件按钮（原占位菜单）；右侧胶囊玻璃输入框，占位文字「向 {Bot 名} 提问」，胶囊内尾部为 🎙 语音输入（录音中显示红色停止图标）。**移除「发送」按钮**：键盘 return 键（`.submitLabel(.send)` + `.onSubmit`）发送；多行输入框（`axis: .vertical`，1–5 行）里 return 也是发送而不是换行（检测到只新增一个换行时视为发送，粘贴的多行文本保留换行）；空内容或上一条仍在回复时不发送、文字保留。玻璃效果用 `Theme` 的 `glassSurface(in:)`（iOS 26 `.glassEffect(.regular.interactive())`）+ `GlassGroup`（`GlassEffectContainer`），iOS 17–18 回退 `regularMaterial`。「正在聆听」提示也放在玻璃胶囊里。
 - **iOS · 白底 + Liquid Glass 视觉风格、沉浸式助理列表、主题色板 (Theme tokens)**：
   - 所有页面背景改为白色（深色模式为黑色）；分组列表 / 表单的 Section、卡片、Bot 回复气泡改用原页面灰底的浅色值 `#F2F2F7`（原 `systemGroupedBackground`），深色为 `secondarySystemBackground`（sheet 内自动取 elevated 值）——即「背景白、分组灰」反转。涉及设置、调试、用量、提醒、协作记录、新建 Bot、Bot 详情 / 编辑、对话页、登录页。
   - 「助理」首页 Bot 列表去掉圆角 inset grouped 分组，改为白底全宽 `.plain` 列表，`listRowSeparator(.hidden)` 无分隔线；保留头像、名称、时间、预览、系统 chevron，行上下 10pt 间距。
