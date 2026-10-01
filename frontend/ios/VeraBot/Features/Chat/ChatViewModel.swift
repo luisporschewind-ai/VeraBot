@@ -79,7 +79,7 @@ final class ChatViewModel {
                 scrollTick += 1
             }
         } catch let e as APIError where e.status == 429 {
-            appendError("今日 Token 额度已用完，请明天再试（可在「用量」页查看今日用量）", at: idx)
+            appendError("今日 Token 额度已用完，请明天再试（可在「设置 › 用量」查看今日用量）", at: idx)
         } catch {
             appendError(error.localizedDescription, at: idx)
         }

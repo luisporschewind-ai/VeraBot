@@ -9,6 +9,7 @@ struct ChatView: View {
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
     @FocusState private var focused: Bool
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
+    @State private var sendCount = 0            // 触感反馈触发器：每次发送 +1
     @Environment(AppState.self) private var app
 
     init(bot: Bot, api: any VeraBotAPI) {
@@ -125,6 +126,7 @@ struct ChatView: View {
                     let text = input
                     input = ""
                     focused = true   // 发送后键盘保持弹出，便于连续输入
+                    sendCount += 1
                     Task { await vm.send(text) }
                 }
                 .buttonStyle(.borderedProminent)
@@ -141,5 +143,7 @@ struct ChatView: View {
             }
         }
         .onDisappear { speech.stop() }
+        .hapticFeedback(.impact(weight: .light), trigger: sendCount)   // 发送消息（受「触感反馈」开关控制）
+        .hapticFeedback(.selection, trigger: speech.isRecording)        // 开始 / 结束语音输入
     }
 }

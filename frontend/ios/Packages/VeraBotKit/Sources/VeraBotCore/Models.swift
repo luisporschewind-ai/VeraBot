@@ -379,6 +379,12 @@ public struct Quota: Codable, Sendable {
     }
 }
 
+/// GET /api/health：后端健康检查（设置 › 调试页使用）。
+public struct HealthStatus: Codable, Sendable, Hashable {
+    public let ok: Bool
+    public let model: String?
+}
+
 /// 任意 JSON 值（用于异构的工具参数 / 结果）。
 public enum JSONValue: Codable, Sendable, Hashable {
     case string(String)

@@ -5,6 +5,7 @@ struct RemindersView: View {
     @Environment(AppState.self) private var app
     @State private var reminders: [Reminder] = []
     @State private var errorText: String?
+    @State private var completedCount = 0   // 触感反馈触发器：每完成一条 +1
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,7 @@ struct RemindersView: View {
                 }
             }
             .navigationTitle("提醒事项")
+            .hapticFeedback(.success, trigger: completedCount)   // 完成提醒（受「触感反馈」开关控制）
             .task { await load() }
             .refreshable { await load() }
         }
@@ -54,7 +56,7 @@ struct RemindersView: View {
     }
 
     private func complete(_ r: Reminder) async {
-        _ = try? await app.api.completeReminder(r.id)
+        if (try? await app.api.completeReminder(r.id)) != nil { completedCount += 1 }
         await load()
     }
 }

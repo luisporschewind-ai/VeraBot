@@ -115,6 +115,8 @@ public struct APIClient: VeraBotAPI {
 
     public func quota() async throws -> Quota { try await call("/api/quota") }
 
+    public func health() async throws -> HealthStatus { try await call("/api/health") }
+
     // MARK: - Streaming chat (SSE)
     public func chatStream(botID: Int, message: String) -> AsyncThrowingStream<ChatEvent, Error> {
         let request: URLRequest

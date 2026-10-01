@@ -24,5 +24,6 @@ public protocol VeraBotAPI: Sendable {
     func reminders() async throws -> RemindersResponse
     func completeReminder(_ id: Int) async throws -> OKResponse
     func quota() async throws -> Quota
+    func health() async throws -> HealthStatus
     func chatStream(botID: Int, message: String) -> AsyncThrowingStream<ChatEvent, Error>
 }

@@ -6,6 +6,12 @@
 
 ### 新增 (Added)
 
+- **iOS · 设置页「通用」分组**（外观 / 通知 / 触感反馈 / 语言，均为系统原生控件，偏好存 `@AppStorage`，key 见 `SettingsKeys`）：
+  - 外观：`Picker` 跟随系统 / 浅色 / 深色（`vb_appearance`），在 App 根视图用 `preferredColorScheme` 应用。
+  - 通知：`Toggle`（`vb_notifications_enabled`，默认关）。打开时调用 `UNUserNotificationCenter.requestAuthorization`；被拒绝或系统里已关闭时开关回退，并弹窗提供「前往设置」（`openNotificationSettingsURLString`）。回到前台时与系统授权状态同步。目前 App 还不发送任何通知（提醒仍只落库），此开关只负责授权与偏好。
+  - 触感反馈：`Toggle`（`vb_haptics_enabled`，默认开）。新增 `View.hapticFeedback(_:trigger:)`（`Core/UI/Haptics.swift`），包装系统 `sensoryFeedback` 并受开关控制；接入发送消息（轻触）、开始 / 结束语音输入（selection）、完成提醒（success）。
+  - 语言：显示当前界面语言，点按打开系统「设置」中本 App 的页面（`UIApplication.openSettingsURLString`）按 App 切换语言。新增 `InfoPlist.xcstrings`（zh-Hans + en：显示名与麦克风 / 语音识别 / 局域网权限文案），App 包内有 `zh-Hans.lproj` 与 `en.lproj`，系统设置中才会出现「语言」选项。界面文案仍为中文硬编码，选英文后只有系统权限弹窗等为英文。
+- **iOS · 调试页**：设置页导航栏右上角 `ladybug` 按钮（原生 toolbar item，NavigationLink push）进入「调试」：服务器地址、后端健康检查（`GET /api/health`，状态 + 模型，可重新检查）、版本 / 构建号 / Bundle ID / 系统版本 / 构建配置。`VeraBotAPI` 增加 `health()`，`VeraBotCore` 增加 `HealthStatus`。
 - **iOS · 主屏显示名称**：应用在 iPhone 主屏显示为「Vera Bot」。
 - **用户与 Bot 照片头像，以及可编辑昵称**（schema v3，启动时自动迁移）：
   - 后端：`POST/GET/DELETE /api/me/avatar` 与 `/api/bots/{id}/avatar`（multipart 字段 `file`）。校验 JPEG / PNG / WebP（HEIC 识别文件头；本环境未装 HEIC 解码器时返回 415，iOS 上传前会转成 JPEG）。超过 8MB → 413。服务端按 EXIF 转正、居中裁成正方形、压成 512×512 JPEG，按用户隔离写入 `avatars` 表。`DELETE` 恢复默认（用户回到昵称首字，Bot 回到 emoji）。`PATCH /api/me` 修改昵称（trim、1–32 字、拒绝空白和控制字符）。`GET /api/me`、登录 / 注册的 `user`，以及 Bot JSON 增加 `nickname` / `display_name` / `has_avatar` / `avatar_updated_at`。新依赖 Pillow 11.3.0（HPND，与 MIT 兼容）。
@@ -17,6 +23,9 @@
 
 ### 变更 (Changed)
 
+- **iOS · 设置页重排**：顺序改为 账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录。「账号」分组去掉「服务器」行（移到调试页）；「关于」只显示版本号，构建号等详细信息移到调试页。
+- **iOS · 用量入口**：底部 Tab 移除「用量」（现在只有 助理 / 提醒）；「用量」成为设置页「账号」下方的一行，push 原有用量看板（`QuotaView` 去掉自带的 NavigationStack，标题 inline）。额度用完的错误提示改为「可在「设置 › 用量」查看」。
+- **iOS · 头像**：移除用户和 Bot 头像的「恢复默认头像」入口（设置页账号区、Bot 详情），只保留从相册设置 / 更换。后端 `DELETE /api/me/avatar`、`DELETE /api/bots/{id}/avatar` 与 `VeraBotAPI.deleteMyAvatar()` / `deleteBotAvatar(botID:)` 保留未动（iOS UI 不再调用）。
 - **iOS · Bot 列表**：移除列表底部的「已创建 N 个 Bot · 每个 Bot 的对话与记忆相互隔离 (已达上限 …)」页脚 (连同相关代码)；达到上限时右上角 ＋ 仍置灰。
 - **iOS · 用量 / 设置**：「用量看板」页移除账号分组 (账号 / 服务器 / 退出登录)；账号信息合并进设置页原有的「账号」分组 (头像 + 用户名、服务器)，不再重复。「退出登录」移到设置页最底部，单独一组 (`SignOutSettingsSection`，系统 destructive 样式，保留「确定退出登录？」二次确认)。设置页顺序：账号 → 语音 → 关于 → 退出登录。
 - 文档同步：FEATURES / STATUS / RUN_LOCAL / MULTI_AGENT_DESIGN §7–8 / TEST_CASES (新增 UI-01~03，更新 SET-08 / SET-10)。

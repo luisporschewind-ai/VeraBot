@@ -3,14 +3,13 @@ import UIKit
 import VeraBotCore
 import VeraBotNetworking
 
-/// 设置页「账号」分组：头像（相册 / 恢复默认）、昵称、服务器。改完写入 AppState，首页和对话立刻跟着变。
+/// 设置页「账号」分组：头像（从相册更换）、昵称。服务器地址见调试页。改完写入 AppState，首页和对话立刻跟着变。
 struct AccountSettingsSection: View {
     @Environment(AppState.self) private var app
     @State private var draft = ""
     @State private var baseline = ""
     @State private var errorText: String?
     @State private var saving = false
-    @State private var confirmRestore = false
 
     var body: some View {
         Section {
@@ -38,20 +37,9 @@ struct AccountSettingsSection: View {
             Button(saving ? "正在保存…" : "保存昵称") { Task { await saveNickname() } }
                 .disabled(saving)
         }
-        if app.hasAvatar || app.avatars.userImage != nil {
-            Button("恢复默认头像", role: .destructive) { confirmRestore = true }
-                .disabled(saving)
-                .confirmationDialog("恢复默认头像？", isPresented: $confirmRestore, titleVisibility: .visible) {
-                    Button("恢复默认", role: .destructive) { Task { await restore() } }
-                    Button("取消", role: .cancel) {}
-                } message: {
-                    Text("将移除自定义头像，改回显示昵称首字。")
-                }
-        }
         if let errorText {
             Text(errorText).font(.footnote).foregroundStyle(.red)
         }
-        LabeledContent("服务器", value: app.baseURLString)
         } header: {
             Text("账号")
         }
@@ -97,18 +85,5 @@ struct AccountSettingsSection: View {
         app.applyUser(user)
         app.avatars.setUser(image: display, updatedAt: user.avatarUpdatedAt)
         errorText = nil
-    }
-
-    private func restore() async {
-        saving = true
-        defer { saving = false }
-        do {
-            let user = try await app.api.deleteMyAvatar()
-            app.applyUser(user)
-            app.avatars.setUser(image: nil, updatedAt: nil)
-            errorText = nil
-        } catch {
-            errorText = app.message(for: error)
-        }
     }
 }

@@ -13,12 +13,40 @@ struct SettingsView: View {
     var body: some View {
         Form {
             AccountSettingsSection()   // 账号置顶
+            UsageSettingsSection()     // 用量（push 用量看板）
+            GeneralSettingsSection()   // 外观 / 通知 / 触感反馈 / 语言
             VoiceSettingsSection()     // 语音播放 + 语音引擎
             AboutSettingsSection()
             SignOutSettingsSection()   // 退出登录固定在最底部
         }
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // 开发 / 调试信息（服务器地址、健康检查、构建信息）统一放在调试页，不出现在普通设置里
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    DebugView()
+                        .toolbar(.hidden, for: .tabBar)
+                } label: {
+                    Image(systemName: "ladybug")
+                }
+                .accessibilityLabel("调试")
+            }
+        }
+    }
+}
+
+/// 用量：单独一行，push 现有用量看板（QuotaView）
+struct UsageSettingsSection: View {
+    var body: some View {
+        Section {
+            NavigationLink {
+                QuotaView()
+                    .toolbar(.hidden, for: .tabBar)
+            } label: {
+                Label("用量", systemImage: "chart.bar")
+            }
+        }
     }
 }
 
@@ -71,13 +99,10 @@ struct SignOutSettingsSection: View {
     }
 }
 
-/// 关于：版本信息
+/// 关于：应用简介与版本号（构建号等详细信息见调试页）
 struct AboutSettingsSection: View {
     private var version: String {
-        let info = Bundle.main.infoDictionary
-        let v = info?["CFBundleShortVersionString"] as? String ?? "-"
-        let b = info?["CFBundleVersion"] as? String ?? "-"
-        return "\(v) (\(b))"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-"
     }
 
     var body: some View {

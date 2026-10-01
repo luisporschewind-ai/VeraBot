@@ -33,11 +33,11 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot` |
 | 多 Agent 协作 | ✅ | 工具白名单、委派白名单、接受委派、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 |
 | 每日 Token 预算 | ✅ | 超额 429，委派也被拒 |
-| 提醒 Reminders / 用量 Quota | ✅ | Tab 页；提醒只落库，不推送；用量页不再显示账号分组 |
+| 提醒 Reminders / 用量 Quota | ✅ | 提醒为 Tab 页，只落库、不推送；用量看板从设置页「用量」进入 (不再是 Tab)，不显示账号分组 |
 | 语音输入 Voice input | ✅ (未实测) | Web `/api/transcribe`；iOS Speech 框架 |
 | 语音播放 TTS | ✅ | 用户 + Bot 气泡 🔊，本机 TTS；设置里可关闭 |
-| 设置页 Settings | ✅ | 首页头像入口；账号 (头像 / 昵称 / 用户名 / 服务器，含原用量页的账号信息) → 语音 → 关于 → 退出登录 (最底部) |
-| 照片头像 Avatars | ✅ (API) / 🟡 (iOS 未在本环境跑模拟器) | 用户与每个 Bot：相册设置、更换、恢复默认；服务端 512 JPEG、按用户隔离。iOS 用 PhotosPicker；Linux 上未做 Xcode / 模拟器点测 |
+| 设置页 Settings | ✅ | 首页头像入口；账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (最底部)。右上角 🐞 进入「调试」页：服务器地址、健康检查、版本 / 构建信息 |
+| 照片头像 Avatars | ✅ (API) / 🟡 (iOS 未在本环境跑模拟器) | 用户与每个 Bot：相册设置、更换（iOS 不再提供「恢复默认」入口，后端 DELETE 保留）；服务端 512 JPEG、按用户隔离。iOS 用 PhotosPicker；Linux 上未做 Xcode / 模拟器点测 |
 | 导航 Navigation | ✅ | 二级页面隐藏 Tab 栏；对话标题 → Bot 详情 sheet；首页原生圆形按钮 |
 | 键盘 Keyboard | ✅ | 输入栏随键盘上移、点空白 / 下拉收起、表单 next、多行人设 / 指令、sheet 保存后布局正常 |
 | 附件 Attachments | 🟡 占位 | ＋ 菜单：图片 / 相机 / 文件「即将支持」(禁用) |
@@ -47,7 +47,9 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 - **iOS 与 Web 不对等**：Web SPA 没有迭代 2 的 iOS UI 改动 (权限编辑、协作记录、设置页、TTS)，也没有昵称编辑和照片头像，只作为 API 验收客户端。
 - **HEIC**：服务端能认出 HEIC 文件头；未安装 `pillow-heif` 时返回 415。iOS 在上传前把相册图片转成 JPEG，不依赖服务端解 HEIC。
 - **头像存在 SQLite `avatars.data`**：512 JPEG，单张大约几 KB 到几十 KB。备份数据库即包含头像。
-- **提醒不推送**：没有 APNs / 本地通知。
+- **提醒不推送**：没有 APNs / 本地通知。设置里的「通知」开关只申请系统授权并保存偏好，目前不会发出任何通知。
+- **语言**：App 声明了 zh-Hans 与 en 本地化（仅 `InfoPlist.xcstrings`：显示名与权限文案），系统设置中可按 App 切换语言；但界面文案仍是中文硬编码，切到英文后 App 内界面仍为中文。
+- **深色模式**：外观可切到深色，但部分自定义浅色（如 `Color.brandSoft` 表情选中底色、Trace 卡片底色）没有深色变体，深色下对比度待 Boss 验收后再调。
 - **记忆**：滑动窗口 (最近 N 条)，没有摘要 / 向量检索。
 - **安全**：Token 存 UserDefaults / localStorage (生产应改 Keychain / HttpOnly Cookie)，没有刷新 Token、没有速率限制 (Rate limit)，CORS `*`，ATS 允许本地 HTTP。
 - **云端 TTS**：只是占位 (stub)，设置里置灰。

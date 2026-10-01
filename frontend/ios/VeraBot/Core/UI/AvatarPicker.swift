@@ -102,21 +102,13 @@ struct AvatarPhotoPicker<Label: View>: View {
     }
 }
 
-/// Bot 编辑页里的「从相册设置 / 恢复默认」。照片写入共享 AvatarStore，对话页和列表会马上换图。
+/// Bot 编辑页里的「从相册设置头像」。照片写入共享 AvatarStore，对话页和列表会马上换图。
 struct BotAvatarPhotoControls: View {
     let botID: Int
-    var hasAvatar: Bool
 
     @Environment(AppState.self) private var app
     @State private var errorText: String?
-    @State private var confirmRestore = false
     @State private var busy = false
-    @State private var removed = false
-
-    private var showRestore: Bool {
-        if removed { return app.avatars.image(forBot: botID) != nil }
-        return hasAvatar || app.avatars.image(forBot: botID) != nil
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -125,22 +117,12 @@ struct BotAvatarPhotoControls: View {
             } label: {
                 Label("从相册设置头像", systemImage: "photo")
             }
-            Text("自定义照片优先于表情。恢复默认后仍显示上面选择的表情。")
+            Text("自定义照片优先于上面选择的表情。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if showRestore {
-                Button("恢复默认头像", role: .destructive) { confirmRestore = true }
-                    .disabled(busy)
-            }
             if let errorText {
                 Text(errorText).font(.footnote).foregroundStyle(.red)
             }
-        }
-        .confirmationDialog("恢复默认头像？", isPresented: $confirmRestore, titleVisibility: .visible) {
-            Button("恢复默认", role: .destructive) { Task { await restore() } }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("将移除自定义照片，改回显示上面选择的表情。")
         }
     }
 
@@ -152,20 +134,6 @@ struct BotAvatarPhotoControls: View {
         defer { busy = false }
         let bot = try await app.api.uploadBotAvatar(botID: botID, jpeg: data)
         app.avatars.setBot(id: botID, image: display, updatedAt: bot.avatarUpdatedAt)
-        removed = false
         errorText = nil
-    }
-
-    private func restore() async {
-        busy = true
-        defer { busy = false }
-        do {
-            _ = try await app.api.deleteBotAvatar(botID: botID)
-            app.avatars.setBot(id: botID, image: nil, updatedAt: nil)
-            removed = true
-            errorText = nil
-        } catch {
-            errorText = app.message(for: error)
-        }
     }
 }

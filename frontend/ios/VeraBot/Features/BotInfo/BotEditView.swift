@@ -56,7 +56,7 @@ struct BotEditView: View {
                         .submitLabel(.next)
                         .onSubmit { focus = .persona }
                 }
-                BotAvatarPhotoControls(botID: bot.id, hasAvatar: bot.hasAvatar)
+                BotAvatarPhotoControls(botID: bot.id)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
                         ForEach(emojis, id: \.self) { e in
