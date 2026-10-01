@@ -23,7 +23,7 @@ struct LoginView: View {
                 .frame(width: 76, height: 76)
                 .background(Color.brand,
                             in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            Text("VeraBot").font(.largeTitle.bold())
+            Text("Vera Bot").font(.largeTitle.bold())
             Text("你的私人 AI 助理团队").foregroundStyle(.secondary)
 
             VStack(spacing: 12) {

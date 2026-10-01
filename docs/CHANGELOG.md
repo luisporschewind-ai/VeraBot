@@ -40,6 +40,7 @@
 
 ### 变更 (Changed)
 
+- **iOS · 登录页标题**：登录页大标题由「VeraBot」改为「Vera Bot」，与主屏显示名一致。
 - **iOS · 分组灰与开关尺寸 (Boss 要求)**：
   - 主题色 `Color.sectionFill` (分组 Section / 卡片 / Bot 气泡 / 输入框底) 浅色由 `#F2F2F7` 改为 `#EFEFEE` (RGB 239, 239, 238)；深色仍为 `secondarySystemBackground` (sheet 内 elevated)。只改 `Core/UI/Theme.swift` 一处，所有引用该语义色的页面同步变化。
   - 开关缩小：新增 `CompactToggle` (`Core/UI/Theme.swift`)，内部仍是系统 `Toggle` (labelsHidden)，只把开关本体 `scaleEffect(0.85, anchor: .trailing)`；标题用 `LabeledContent` 放在左侧，禁用时变淡，VoiceOver 合并为一个元素。不自定义 ToggleStyle、无动画；scaleEffect 不改变布局尺寸，行高不变、不裁切。全部 7 个开关统一替换：设置 (通知、触感反馈、语音播放)、设置 › 记忆 (允许 Bot 记住)、Bot 详情 (工具权限、委派目标、接受委派)。
