@@ -47,19 +47,17 @@ struct ChatView: View {
         .navigationTitle("\(vm.bot.avatar) \(vm.bot.name)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // 标题（头像 + 名称 + ›）可点击 → Bot 详情；右上角不再放按钮
+            // 标题（头像 + 名称 + 下箭头）可点击 → Bot 详情；右上角不再放按钮
             ToolbarItem(placement: .principal) {
-                Button { focused = false; showInfo = true } label: {   // 弹出 sheet 前收起键盘
-                    HStack(spacing: 6) {
-                        LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
-                                       hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt, size: 26)
-                        Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
-                        Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                    }
-                    .contentShape(Rectangle())
+                if #available(iOS 26, *) {
+                    botTitleButton
+                        .buttonStyle(.glass)
+                        .buttonBorderShape(.capsule)
+                } else {
+                    botTitleButton
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(vm.bot.name)，查看 Bot 详情")
             }
         }
         // Bot 详情：系统默认 sheet（page sheet 卡片，非 push / 非全屏），下滑关闭
@@ -73,6 +71,18 @@ struct ChatView: View {
         }
         .task { await vm.load() }
         .onDisappear { focused = false }   // 返回 / 离开页面时收起键盘
+    }
+
+    private var botTitleButton: some View {
+        Button { focused = false; showInfo = true } label: {   // 弹出 sheet 前收起键盘
+            HStack(spacing: 6) {
+                LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
+                               hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt, size: 26)
+                Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
+                Image(systemName: "chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityLabel("\(vm.bot.name)，查看 Bot 详情")
     }
 
     /// 底部输入栏：[＋ 附件] [输入框] [🎙] [发送]

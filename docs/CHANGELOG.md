@@ -25,6 +25,7 @@
 
 ### 变更 (Changed)
 
+- **iOS · 对话标题胶囊按钮**：ChatView 的中心 Bot 标题保留原有 Bot 详情 sheet 点击行为与无障碍标签，改用 iOS 26 原生 Liquid Glass 胶囊按钮（头像 + 名称 + 下箭头）；iOS 17–18 回退为系统 bordered 胶囊按钮，避免与返回按钮产生视觉合并。
 - **iOS · 首页导航栏与按需搜索**：移除首页大标题「我的 Bot」，改用紧凑 inline 导航栏，保留左上角头像与右上角两个独立的 Liquid Glass 圆形按钮（搜索在左、＋ 在右；iOS 26 在两个 `ToolbarItem` 之间插入 `ToolbarSpacer(.fixed, placement: .topBarTrailing)`，用 `if #available(iOS 26, *)` 包裹），并确保返回上级时不出现异常标题。搜索栏只有点按放大镜后才挂载 `.searchable`（`navigationBarDrawer(displayMode: .always)`，自动聚焦）；未激活时不挂载，下拉列表也不会露出搜索框。点圆形 X 取消后搜索栏收起并清空关键词。当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览），完整聊天历史搜索、搜索历史等移至后续迭代。
 - **iOS · 取消 / 关闭按钮**：工具栏与 sheet 里的「取消」「关闭」统一改为系统圆形 X（新增 `Core/UI/DismissToolbarButton.swift`：iOS 26 用 `Button(role: .cancel / .close)` + `xmark`，呈现为 Liquid Glass 圆形按钮；iOS 17–18 回退 `role: .cancel` + `xmark`），无障碍标签仍为「取消」/「关闭」。涉及：新建 Bot、Bot 设置 / Bot 详情、头像预览。确认框 / alert 里的「取消」保持系统文字按钮。
 - 文档同步：FEATURES / STATUS / TEST_CASES (新增 UI-11~14) / ARCHITECTURE §3.1 / frontend README。API 无变化。
