@@ -1,10 +1,10 @@
-# Gmail 能力设计 (Gmail Capability Design) — 草案 v0.2
+# Gmail 能力设计 (Gmail Capability Design) — v1.0
 
-> 状态：**设计稿，尚未实现** (Draft, not implemented)。日期：2026-10-01 (UTC+8)。**开发暂停，等待 Boss 评审** (Development paused pending Boss review)。
+> 状态：**v1.0 已批准 (Approved)，尚未实现**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)；Gmail 在 MCP 文档 §15 的 **M4~M6** 实施 (M1~M3 先完成)，开发等待额度重置。下文提到的「M0 / G0 验证」改为在 M4 开始时完成。决定与正文冲突时以 §16 为准。
 > v0.2 变更：按 Boss 决策，**Gmail 主路径改为通过 MCP 接入** (Google 官方 Gmail MCP 服务器)；v0.1 的「后端直连 Gmail REST API」降级为**备用路径 (fallback)**。发送仍然必须逐封人工确认 (HITL)。
 > 前置文档：[MCP_CAPABILITY.md](MCP_CAPABILITY.md) (MCP Client、OAuth 2.1、工具映射、权限、HITL、防注入的通用设计；本文只写 Gmail 特有部分)。相关：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py`、`agents/permissions.py`、`agents/guardrails.py`、`db/schema.py`。
-> **schema 版本 (2026-10-01)**：v4 已被 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) M1 (记忆) 占用，本文所需的迁移使用下一个空闲版本 **v5**。
+> **schema 版本 (2026-10-01)**：v4 = 记忆 M1，v5 = Bot 标签，本文所需的迁移使用 **schema v6** (MCP 文档 §16 D2)。
 
 ## 0. 摘要 (TL;DR)
 
@@ -76,7 +76,7 @@ iOS App ──JWT──▶ VeraBot backend (MCP Client, services/mcp)
 - VeraBot 用内存传输 `Client(server_instance)` 连接它，因此**同样经过 MCP 客户端的全部规则**：白名单、not_delegable、taint、结果清洗与包裹、审计。
 - 切换路线 = 把用户的 `gmail` 实例 (slug 不变) 的 `catalog_id` 在 `gmail_google` ↔ `gmail_direct` 之间切换。Bot 白名单里的 `mcp__gmail__*` 名称不变；但工具定义哈希不同，**切换后需用户在 App 中重新接受工具定义** (有意为之，防止静默改变行为)。
 - 备用路径使用 v0.1 的 Google OAuth 2.0 + PKCE 流程 (§3.3)，凭据存 `mcp_credentials (provider='google')`。
-- 启用条件：M0 验证结论为「官方预览不可用 / 不能满足需求」，或运行期官方服务长时间不可用 (由 Boss 手动切换，v1 不做自动切换，开放问题 Q11)。
+- 启用条件：M0 验证结论为「官方预览不可用 / 不能满足需求」，或运行期官方服务长时间不可用 (由 Boss 手动切换，v1 不做自动切换，已决定 §16 Q11)。
 
 ### 2.5 参考：Codex / Cursor 的做法 (概念层面)
 
@@ -92,9 +92,9 @@ iOS App ──JWT──▶ VeraBot backend (MCP Client, services/mcp)
 - 流程见 [MCP_CAPABILITY.md](MCP_CAPABILITY.md) §5.2：后端 (SDK `OAuthClientProvider`) 负责发现、PKCE (S256)、`resource`、`state` / `iss` 校验与换 Token；App 用 `ASWebAuthenticationSession` 打开授权页并把回调参数交回后端。
 - **客户端类型 (待 M0 验证)**：
   - 首选 **iOS 类型 Client ID** (bundle id `com.verabot.app`，反向 Client ID scheme 回调，无 client secret，必须 PKCE)。原因：后端在本机 / 局域网 `http://`，Google Web client 回调只允许 HTTPS 或 localhost。
-  - Google 官方指南对 Claude / Antigravity 等客户端使用 **Web application 类型** (client id + secret + HTTPS 回调)。若 M0 发现 Gmail MCP 只接受 Web 类型，则：iOS 模拟器阶段用 `http://localhost` 后端回调；真机需要后端 HTTPS 域名 (开放问题 Q6)。
+  - Google 官方指南对 Claude / Antigravity 等客户端使用 **Web application 类型** (client id + secret + HTTPS 回调)。若 M0 发现 Gmail MCP 只接受 Web 类型，则：iOS 模拟器阶段用 `http://localhost` 后端回调；真机需要后端 HTTPS 域名 (已决定 §16 Q6)。
 - `code_verifier` 只在后端；App 单独拿到授权码也无法换取 Token。
-- 授权页复用 Safari 已登录的 Google 账号 (`prefersEphemeralWebBrowserSession = false`，开放问题 Q7)。
+- 授权页复用 Safari 已登录的 Google 账号 (`prefersEphemeralWebBrowserSession = false`，已决定 §16 Q7)。
 - 连接成功后后端记录**实际授予**的 scope 与账号邮箱 (`account_label`)，然后同步工具。
 
 ### 3.2 发送所需 Token
@@ -168,7 +168,7 @@ sequenceDiagram
 | `mcp__gmail__get_message` | 官方 MCP | read | 否 | 读取单封；同上 |
 | `mcp__gmail__list_drafts` | 官方 MCP | read | 否 | 列出草稿 |
 | `mcp__gmail__list_labels` | 官方 MCP | read | 否 | 列出标签 |
-| `mcp__gmail__create_draft` | 官方 MCP | write (目录覆盖：可逆) | 否 (显示 `DraftCard` + 审计；用户可改为每次确认，MCP 文档 Q3) | 草稿写入用户 Gmail 草稿箱 |
+| `mcp__gmail__create_draft` | 官方 MCP | write (目录覆盖：可逆) | **是** (v1 所有写操作都确认，§16 Q12 / MCP D5；确认后显示 `DraftCard` + 审计) | 草稿写入用户 Gmail 草稿箱 |
 | `mail_send_draft` | VeraBot 内置 | send | **每次必须确认** | 见 §6.2 |
 | `mcp__gmail__label_*` / `unlabel_*` | 官方 MCP | write | — | **v1 不开放** (不在 `tool_allowlist` 中)，以后评估 |
 
@@ -230,8 +230,8 @@ sequenceDiagram
 3. **所见即所发**：卡片显示从 Gmail 读取的草稿内容；confirm 时重新读取并比对哈希，草稿被改过则要求重新确认。
 4. **过期与幂等**：默认 15 分钟过期 (`VERABOT_ACTION_TTL_MIN`)；confirm / cancel 同一事务改状态，重复点击不会重复发送。
 5. **高风险提示**：收件人不在原线程中、外部域名、收件人超过 3 个、正文含链接、收件人来自邮件正文而非用户消息时，卡片显示黄色提示。
-6. 取消 / 过期后草稿保留在 Gmail 草稿箱 (开放问题 Q4)。
-7. (可选) 确认时 Face ID / 设备密码 (开放问题 Q3)。
+6. 取消 / 过期后草稿保留在 Gmail 草稿箱 (已决定 §16 Q4)。
+7. 发送确认时要求 Face ID / 设备密码 (M6，设置可关；§16 Q3)。
 
 ## 8. 与权限模型的集成
 
@@ -239,7 +239,7 @@ sequenceDiagram
 
 | 规则 | 实现 |
 |---|---|
-| 默认关闭 | schema v3 迁移不给任何已有 Bot 授予邮件工具；Gmail 新同步到的工具不自动授权 |
+| 默认关闭 | schema v6 迁移不给任何已有 Bot 授予邮件工具；Gmail 新同步到的工具不自动授权 |
 | 白名单 | BotEditView「Gmail」分组中手动开启；`mail_send_draft` 开关下注明「每封都需要你确认」 |
 | 未连接不暴露 | Gmail 实例非 `connected`：`mcp__gmail__*` 与 `mail_send_draft` 都不暴露 |
 | 委派禁用 | 所有邮件工具 `delegable = False` |
@@ -257,7 +257,7 @@ sequenceDiagram
 
 ## 10. 隐私与数据留存 (Privacy & retention)
 
-- **数据流向第三方 LLM**：邮件摘要 / 正文片段会发送给 DeepSeek 用于生成回答 (跨境、第三方处理)，连接时需告知并征得同意 (开放问题 Q1)。
+- **数据流向第三方 LLM**：邮件摘要 / 正文片段会发送给 DeepSeek 用于生成回答 (跨境、第三方处理)，连接时需告知并征得同意 (已决定 §16 Q1)。
 - **Google API Services User Data Policy (Limited Use)**：Gmail 数据只能用于用户可见的功能，不能用于训练模型、广告或出售；写进隐私政策；公开发布时是审核重点。
 - **最小留存**：不在数据库缓存邮件正文；`messages.traces` 只保存线程 / 邮件 id、主题、发件人、日期和 ≤ 200 字摘要 (`get_thread` / `get_message` 的正文不写入 traces)；历史窗口注入时邮件结果只保留元数据；待确认操作的草稿快照加密存储，完成 / 过期后 7 天清除。
 - **可删除**：断开 Gmail 时删除凭据、未完成的待确认操作，并把相关 traces 中的邮件摘要脱敏。
@@ -280,7 +280,7 @@ sequenceDiagram
 - **API**：使用 MCP 通用 API (`/api/mcp/*`、`/api/pending-actions/*`，见 MCP 文档 §12.1)，**不再新增** v0.1 的 `/api/connections/google/*`。Gmail 在目录中是 `catalog_id = gmail_google` (备用 `gmail_direct`)。
 - **SSE**：`confirmation_required {action_id, kind: "send_mail", preview: {to, cc, subject, body, warnings[]}, expires_at}`；`connection_required {server_id, reason}`。
 - **`/api/tools`**：`mail_send_draft` 带 `source: "builtin"`、`requires: "gmail"`、`risk: "send"`、`delegable: false`；Gmail MCP 工具带 `source: "mcp"`、`server: "Gmail"`。
-- **数据库**：并入 MCP 文档 §12.2 的 schema 迁移 (原写 v3；v3 已被昵称 / 头像占用、v4 已被记忆 M1 占用，实施时使用下一个空闲版本 **v5**，见 MCP 文档文首说明) (`mcp_servers`、`mcp_credentials`、`mcp_tools`、`oauth_states`、`pending_actions`)。v0.1 草案中的 `oauth_connections` 表**取消**，改用 `mcp_credentials` (备用路径以 `provider='google'` 区分)。迁移不修改任何 Bot 的 `allowed_tools`。
+- **数据库**：并入 MCP 文档 §12.2 的 schema 迁移 (**schema v6**；v3 = 昵称 / 头像，v4 = 记忆 M1，v5 = Bot 标签) (`mcp_servers`、`mcp_credentials`、`mcp_tools`、`oauth_states`、`pending_actions`)。v0.1 草案中的 `oauth_connections` 表**取消**，改用 `mcp_credentials` (备用路径以 `provider='google'` 区分)。迁移不修改任何 Bot 的 `allowed_tools`。
 - **配置 (`.env.example`)**：`GOOGLE_OAUTH_CLIENT_ID` (及 Web 类型时 `GOOGLE_OAUTH_CLIENT_SECRET`)、`GOOGLE_OAUTH_REDIRECT_URI`、`VERABOT_GMAIL_ROUTE=mcp` (`mcp` / `direct`，新建连接时的默认路线)、`VERABOT_MAIL_MAX_BODY_CHARS=4000`，以及 MCP 通用配置。
 - **后端模块**：
 
@@ -299,7 +299,7 @@ api/routers/actions.py               # confirm 时执行 drafts.send（kind = se
 
 | ID | 用例 |
 |---|---|
-| MAIL-01 | 新 Bot / v3 迁移后已有 Bot 都没有邮件工具 |
+| MAIL-01 | 新 Bot / v6 迁移后已有 Bot 都没有邮件工具 |
 | MAIL-02 | 未连接 Gmail：即使白名单有工具也不暴露；强行调用 → `not_connected` + 审计 |
 | MAIL-03 | 只有 readonly 授权时 `create_draft` / `mail_send_draft` → `insufficient_scope` (支持 step-up 时触发追加授权提示) |
 | MAIL-04 | 授权：state 错误 / 过期 / 他人 / 重复 → 400；`iss` 不匹配 → 拒绝；`code_verifier` 不出现在任何响应中 |
@@ -342,34 +342,33 @@ api/routers/actions.py               # confirm 时执行 drafts.send（kind = se
 7. **注意限制**：Testing 模式下 refresh token **7 天过期**；同意页显示「Google 尚未验证此应用」；开发者预览无 GA 日期、接口与条款可能变化。
 8. **公开发布前**：`gmail.readonly` / `gmail.compose` 属于 **restricted scope**，需要通过 Google OAuth 应用验证 (隐私政策 URL、已验证域名、演示视频) 以及**第三方安全评估 CASA (Cloud Application Security Assessment)**，每年复评，有费用和数周周期。
 
-## 15. 里程碑 (Milestones)
+## 15. 里程碑 (Milestones) — 2026-10-01 定稿
 
-Gmail 里程碑依赖 [MCP_CAPABILITY.md](MCP_CAPABILITY.md) §15 的 M0~M3，对应其 M4：
+原 G0~G5 由 [MCP_CAPABILITY.md](MCP_CAPABILITY.md) §15 的统一里程碑 M1~M7 取代 (每步前后端同步交付，Web 冻结)：
 
-| 阶段 | 内容 | 依赖 | 验收 |
-|---|---|---|---|
-| **G0** 决策与验证 | Boss 回答开放问题；Google Cloud 项目 (§14)；加入开发者预览；M0 技术验证：Gmail MCP 授权方式 (iOS / Web client、PRM、`resource`)、step-up 是否支持、Token 能否用于 REST `drafts.send`、草稿 id 兼容性、抓取官方工具 schema | MCP M0 | 书面结论；选定路线 (预期 `gmail_google`) |
-| **G1** 只读 | 目录条目 `gmail_google`、连接 / 断开、`search_threads` / `get_thread` / `get_message` / `list_drafts` / `list_labels`、结果卡片、清洗与包裹、traces 不含正文 | MCP M1、M2 | MAIL-01~07、11~13、15~18、20；真实账号只读 |
-| **G2** 起草 | `create_draft` (必要时 step-up 到 compose)、`DraftCard` | G1 | MAIL-03；真实账号起草 |
-| **G3** 确认后发送 | `mail_send_draft` + `pending_actions(send_mail)` + `SendConfirmationCard` + REST `drafts.send` | G2、MCP M3 | MAIL-08~10、14；真实发送给自己 |
-| **G4** 备用路径 | `gmail_direct` 进程内 MCP 服务器 + 直连 OAuth、路线切换 | G1 (若 G0 结论为官方不可用，则 G4 提前到 G1 之前并替代之) | MAIL 全量用例在 `gmail_direct` 下通过；MAIL-19 |
-| **G5** 加固 | Face ID 确认 (如采纳)、留存与脱敏、错误与限流、隐私说明文档 | G3 | 全量回归 + UI 回归 |
-
-每个阶段一个或多个 PR，代码与文档同一个 commit (见 CONTRIBUTING)，版本按 SemVer 升 MINOR。
-
-## 16. 开放问题 (Open questions for Boss)
-
-| # | 问题 | 建议 |
+| MCP 阶段 | Gmail 内容 | 验收 |
 |---|---|---|
-| Q1 | 邮件内容会发给 DeepSeek (第三方、可能跨境) 处理，是否接受？是否在连接时单独弹出同意说明？ | 接受，连接时显示明确说明并记录同意时间 |
-| Q2 | 是否接受以 Google 官方 Gmail MCP (**开发者预览**，无 GA 日期，条款可能限制生产使用) 作为主路径？ | 接受用于原型阶段；保留 `gmail_direct` 备用 |
-| Q3 | 确认发送时是否要求 Face ID / 设备密码？ | 建议 G5 加上，可在设置中关闭 |
-| Q4 | 用户取消 / 过期后，Gmail 里的草稿保留还是自动删除？ | 保留 (可逆、用户可见) |
-| Q5 | 读过邮件的轮次禁止 `ask_bot` 是否太严格？ | v1 保持严格；以后改为「用户确认后共享」 |
-| Q6 | 后端以后会不会有公网 HTTPS 域名？(影响 Web client 回调、真机、CIMD) | 目前本地部署，先用 iOS client + PKCE |
-| Q7 | 授权页是否复用 Safari 已登录的 Google 账号 (非 ephemeral)？ | 复用 |
-| Q8 | 是否计划公开发布 (App Store / 多用户)？决定是否要走 restricted scope 验证 + CASA | 原型阶段保持 Testing 模式，≤ 100 个测试用户 |
-| Q9 | 是否需要支持多个 Gmail 账号 / Google Workspace 账号？ | v1 每用户 1 个 |
-| Q10 | 是否允许自托管社区服务器 `workspace-mcp` (MIT) 作为运维选项？是否接受第三方托管 MCP 持有 Token？ | 自托管可作为备选；第三方托管不接受 |
-| Q11 | 官方服务不可用时，是否需要自动切换到 `gmail_direct`？ | v1 由 Boss 手动切换，避免静默改变数据路径 |
-| Q12 | `create_draft` 是否需要每次确认？ | 不需要 (可逆，显示草稿卡片 + 审计)；与 MCP 文档 Q3 一致 |
+| M1~M3 | 无 Gmail 代码；完成 MCP 核心 + 公网验证服务、设置页、通用 HITL | 见 MCP 文档 |
+| **M4** OAuth 2.1 + Google | Boss 先建 Google Cloud 项目 (§14，Testing 模式)、加入 Workspace 开发者预览、iOS OAuth client；开始时完成原 G0 验证 (授权方式、step-up、Token 能否用于 REST `drafts.send`、草稿 id 兼容性、抓取官方工具 schema) | MCP-20~24；书面验证结论 |
+| **M5** Gmail 只读 | `gmail_google` 目录条目、连接 / 断开、`search_threads` / `get_thread` / `get_message` / `list_drafts` / `list_labels`、结果卡片、清洗与包裹、traces 不含正文 | MAIL-01~07、11~13、15~18、20；真实账号只读 |
+| **M6** 起草 + 确认后发送 | `create_draft` (确认后执行，必要时 step-up 到 compose)、`DraftCard`；`mail_send_draft` + `pending_actions(send_mail)` + `SendConfirmationCard` + REST `drafts.send`；发送确认要求 Face ID (可关) | MAIL-03、08~10、14；真实发送给自己 |
+| **M7** 加固 | `gmail_direct` 备用路径 (手动切换)、留存与脱敏、错误与限流、隐私说明 | MAIL 全量 (含 MAIL-19)；UI 回归 |
+
+## 16. 决定 (Decisions) — 2026-10-01 Boss 批准
+
+原已决定 §16 Q1~Q12 全部已决定 (2026-10-01)，与 [MCP_CAPABILITY.md](MCP_CAPABILITY.md) §16 的 D1~D10 一致：
+
+| # | 问题 | 决定 (2026-10-01) | 对应 |
+|---|---|---|---|
+| Q1 | 邮件内容发给 DeepSeek，是否接受？ | ✅ 接受；连接时显示说明并记录同意时间 | D4 |
+| Q2 | 官方 Gmail MCP (开发者预览) 作为主路径？ | ✅ 接受用于原型；保留 `gmail_direct` 备用 | D9 |
+| Q3 | 确认发送时是否要求 Face ID？ | ✅ M6 加上，仅发送 / 删除类，设置可关 | D8 |
+| Q4 | 取消 / 过期后草稿保留还是删除？ | ✅ 保留 | D5 |
+| Q5 | 读过邮件的轮次禁止 `ask_bot` 是否太严？ | ✅ v1 保持严格 | D6 |
+| Q6 | 是否会有公网 HTTPS 域名？ | ✅ 目前本地部署，用 iOS client + PKCE + App scheme 回调 | D9 |
+| Q7 | 授权页是否复用 Safari 已登录的 Google 账号？ | ✅ 复用 (非 ephemeral) | D9 |
+| Q8 | 是否公开发布 (restricted scope 验证 + CASA)？ | ✅ 原型阶段保持 Testing 模式，≤ 100 测试用户 | D9 |
+| Q9 | 是否支持多个 Gmail 账号？ | ✅ v1 每用户 1 个 | D9 |
+| Q10 | 自托管 `workspace-mcp` / 第三方托管？ | ✅ 自托管仅作运维备选；第三方托管不接受 | D3 |
+| Q11 | 官方不可用时是否自动切换到 `gmail_direct`？ | ✅ 不自动，由 Boss 手动切换 | D9 |
+| Q12 | `create_draft` 是否需要每次确认？ | ✅ **需要** (v1 所有写操作都确认；推翻原建议) | D5 |

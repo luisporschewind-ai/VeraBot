@@ -44,6 +44,7 @@
 
 ### 变更 (Changed)
 
+- **设计 · MCP / Gmail 定稿 (仅文档)**：[design/MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) 与 [design/GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) 升为 **v1.0 (Boss 已批准，2026-10-01)**：全部开放问题标为已决定 (决定 D1~D10：M1 先做 MCP Client 核心 + 公网免授权只读服务；schema v6 (批准时写 v5，同日 v5 已被 Bot 标签占用)；仅内置目录 / 运维配置；所有写操作 HITL 确认，含 `create_draft`；委派禁用 + taint；MCP 服务即能力包，分组开关 +「开启全部只读」；Face ID 推到 M6；本地部署 + iOS PKCE；里程碑改为 M1~M7，Gmail 在 M4~M6)；文中 schema v3 / v5 改为 v6。未写代码，MCP 开发等待额度重置 (见 STATUS)。
 - **iOS · 登录页标题**：登录页大标题由「VeraBot」改为「Vera Bot」，与主屏显示名一致。
 - **iOS · 分组灰与开关尺寸 (Boss 要求)**：
   - 主题色 `Color.sectionFill` (分组 Section / 卡片 / Bot 气泡 / 输入框底) 浅色由 `#F2F2F7` 改为 `#EFEFEE` (RGB 239, 239, 238)；深色仍为 `secondarySystemBackground` (sheet 内 elevated)。只改 `Core/UI/Theme.swift` 一处，所有引用该语义色的页面同步变化。用 `simctl io screenshot` 读模拟器帧缓冲，设置页 / Form 行 / sheet / 纯色块均为 (239, 239, 238)。Boss 测到的 (234, 234, 233) 不是 App 绘制造成的：在 Mac 屏幕上对 Simulator 窗口取色时，数值经过了 macOS 色彩管理 (Digital Color Meter 的显示色彩空间 / 显示器配置文件)，所以代码未改 (见 TEST_CASES UI-22)。

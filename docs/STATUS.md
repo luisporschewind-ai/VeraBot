@@ -36,7 +36,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 | 项 | 状态 |
 |---|---|
-| MCP 能力、Gmail 接入 | 📝 设计稿完成，**等待 Boss 评审**，未写实现代码 (见下一节) |
+| MCP 能力、Gmail 接入 | ✅ 设计 v1.0 已批准 (2026-10-01，决定 D1~D10)；**开发等待额度重置后从 M1 开始**，未写实现代码 (见下一节) |
 | 以记忆为核心的 Bot 成长体系 M2~M5 (摘要、风格校准、隐式候选、成长界面、向量检索) | 📝 方案 v1.0 已批准，M1 已实现；M2 起未开始 |
 | 首页搜索扩展 (完整聊天历史搜索、搜索历史) | ⏸ 延期到后续迭代；当前只过滤已加载列表 |
 
@@ -46,19 +46,19 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 - **截图过时**：`assets/screenshots/ios/` 下全部截图早于 2026-10-01 的界面改动；其中 `R34_form_keyboard`、`R11_settings` 与当时的界面也已不符。新 UI 用例 (UI-*、MSG-*) 尚无截图。
 - **`frontend/ios/VeraBot/File.txt`** 仍在仓库中 (8 字节，内容「QA回归」，NEW-03)，待确认是否删除。
 - **新建 Bot 表单页脚文案过时**：仍写「在对话页右上角「Bot 设置」中开启」(`CreateBotSheet.swift`)，实际入口是「对话页点标题 → Bot 详情」。
-- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**。MCP / Gmail 设计稿文首仍写「下一个空闲版本 v5」；实施时改用 **v6**（两份稿按要求未在本变更中改写）。
+- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**。MCP / Gmail 设计稿 (v1.0) 已统一写为 **v6**。
 
-## ⏸ 设计评审：开发暂停，等待 Boss 评审 (Development paused pending Boss review)
+## ⏸ 设计已定稿：MCP 开发等待额度重置 (Design approved, development waits for quota reset)
 
-Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gmail 优先通过 MCP 接入。以下两份设计稿已完成；以记忆为核心的 Bot 成长体系方案已由 Boss 批准 (v1.0)，**M1 已实现** (见上)；MCP / Gmail 两份设计稿仍**尚未编写任何实现代码**。
+Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gmail 优先通过 MCP 接入。两份设计稿已于 2026-10-01 由 Boss 批准为 **v1.0** (全部开放问题已决定)；以记忆为核心的 Bot 成长体系方案 v1.0 已批准，M1 已实现 (见上)。
 
 | 能力 | 设计文档 | 状态 | 需要 Boss 做的事 |
 |---|---|---|---|
-| MCP 能力 (MCP Client、OAuth 2.1、工具映射、权限、HITL、防注入) | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | 📝 设计稿 v0.1 | 评审；回答 §16 开放问题 Q1~Q11 |
-| Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | 📝 设计稿 v0.2 | 评审；回答 §16 开放问题 Q1~Q12；创建 Google Cloud 项目并加入 Google Workspace Developer Preview Program (§14) |
+| MCP 能力 (MCP Client、OAuth 2.1、工具映射、权限、HITL、防注入) | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | ✅ v1.0 已批准 (§16 决定 D1~D10) | 额度重置后开始 M1 |
+| Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准 (§16 Q1~Q12 已决定) | M4 之前：创建 Google Cloud 项目 (Testing 模式) 并加入 Google Workspace Developer Preview Program (§14) |
 | 以记忆为核心的 Bot 成长体系 (显式记忆 + 记忆页 → 摘要 / 风格校准 → 隐式候选 / 主动建议 / 快捷提问 → 成长界面 / 月度回顾 → 向量检索 / 协作优化) | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1 已实现 (决定见 §17.1) | 按 MEM-UI-01~12 与 §5.8 验收 M1；决定是否开始 M2 |
 
-MCP 评审通过后的第一步是 M0 / G0 技术验证 (1~2 天)，见 MCP 文档 §15。记忆 M1 已占用 schema v4，Bot 标签占用 v5；MCP / Gmail 实施时使用 v6。
+**MCP / Gmail 设计已于 2026-10-01 由 Boss 批准为 v1.0，尚未写任何实现代码；开发等待额度重置后按 MCP 文档 §15 的 M1~M7 进行** (M1 = MCP Client 核心 + 公网免授权只读服务；Gmail 在 M4~M6)。原 M0 / G0 技术验证已取消，Google 相关验证在 M4 开始时进行。记忆 M1 占用 schema v4，Bot 标签占用 v5；MCP / Gmail 使用 **v6**。
 
 ## 1. 已完成功能 (Features done)
 
@@ -124,7 +124,7 @@ MCP 评审通过后的第一步是 M0 / G0 技术验证 (1~2 天)，见 MCP 文�
 
 ## 4. 下一步 (Next steps)
 
-0. **(暂停中)** Boss 评审 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) 与 [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md)；通过后按 M0 → M1 … 实施 MCP 能力与 Gmail。
+0. **(等待额度重置)** 按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §15 的 M1 → M7 实施 MCP 能力与 Gmail (设计 v1.0 已批准；Gmail 在 M4~M6，M4 前 Boss 需完成 Google Cloud 准备)。
 1. Boss 验收 2026-10-01 的界面改动 (UI-04~20、MSG-01~04、UI-AV / UI-NK)；修正新建 Bot 表单页脚的过时文案；按新界面重新截图 (至少 R11、R34 与新 UI 用例)。
 2. 补测 TC-07 / TC-29 / TC-30、KB-04 / 08 / 09，以及真机测试 (语音输入、TTS、键盘)。
 3. 提醒推送：本地通知 (UNUserNotificationCenter) 或 APNs。
