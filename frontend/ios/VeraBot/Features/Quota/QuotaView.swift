@@ -55,11 +55,6 @@ struct QuotaView: View {
                     }
                 }
                 if let errorText { Text(errorText).foregroundStyle(.red) }
-                Section {
-                    LabeledContent("账号", value: app.username ?? "-")
-                    LabeledContent("服务器", value: app.baseURLString)
-                    Button("退出登录", role: .destructive) { app.signOut() }
-                }
             }
             .navigationTitle("用量看板")
             .task { await load() }

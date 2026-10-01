@@ -25,18 +25,18 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| 账号 Accounts | ✅ | 注册 / 登录 (bcrypt + JWT)，Token 持久化，失效自动退出，设置页退出登录 (二次确认) |
+| 账号 Accounts | ✅ | 注册 / 登录 (bcrypt + JWT)，Token 持久化，失效自动退出，设置页底部退出登录 (二次确认) |
 | 租户隔离 Isolation | ✅ | 所有查询带 `user_id`，越权 (IDOR) 返回 404 |
-| Bot 管理 | ✅ | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`) |
+| Bot 管理 | ✅ | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`，达到上限 ＋ 置灰)；列表不显示数量页脚 |
 | 流式对话 SSE | ✅ | 逐 token 渲染、工具卡片、交接 Trace 卡片、错误气泡 |
 | 记忆 Memory | ✅ | 每 Bot 独立，最近 20 条；清空对话 (二次确认) |
 | 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot` |
 | 多 Agent 协作 | ✅ | 工具白名单、委派白名单、接受委派、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 |
 | 每日 Token 预算 | ✅ | 超额 429，委派也被拒 |
-| 提醒 Reminders / 用量 Quota | ✅ | Tab 页；提醒只落库，不推送 |
+| 提醒 Reminders / 用量 Quota | ✅ | Tab 页；提醒只落库，不推送；用量页不再显示账号分组 |
 | 语音输入 Voice input | ✅ (未实测) | Web `/api/transcribe`；iOS Speech 框架 |
 | 语音播放 TTS | ✅ | 用户 + Bot 气泡 🔊，本机 TTS；设置里可关闭 |
-| 设置页 Settings | ✅ | 首页头像入口；账号 → 语音 → 关于 |
+| 设置页 Settings | ✅ | 首页头像入口；账号 (含原用量页的账号信息) → 语音 → 关于 → 退出登录 (最底部) |
 | 导航 Navigation | ✅ | 二级页面隐藏 Tab 栏；对话标题 → Bot 详情 sheet；首页原生圆形按钮 |
 | 键盘 Keyboard | ✅ | 输入栏随键盘上移、点空白 / 下拉收起、表单 next、多行人设 / 指令、sheet 保存后布局正常 |
 | 附件 Attachments | 🟡 占位 | ＋ 菜单：图片 / 相机 / 文件「即将支持」(禁用) |

@@ -15,6 +15,7 @@ struct SettingsView: View {
             AccountSettingsSection()   // 账号置顶
             VoiceSettingsSection()     // 语音播放 + 语音引擎
             AboutSettingsSection()
+            SignOutSettingsSection()   // 退出登录固定在最底部
         }
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
@@ -50,21 +51,29 @@ struct VoiceSettingsSection: View {
     }
 }
 
-/// 账号：头像、用户名、退出登录
+/// 账号：头像、用户名、服务器（原「用量」页的账号信息已合并至此）
 struct AccountSettingsSection: View {
     @Environment(AppState.self) private var app
-    @Environment(SpeechPlayer.self) private var player
-    @State private var confirmLogout = false
 
     var body: some View {
         Section("账号") {
             HStack(spacing: 12) {
                 UserAvatar(username: app.username ?? "?", size: 44)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(app.username ?? "未登录").font(.headline)
-                    Text(app.baseURLString).font(.caption).foregroundStyle(.secondary)
-                }
+                Text(app.username ?? "未登录").font(.headline)
             }
+            LabeledContent("服务器", value: app.baseURLString)
+        }
+    }
+}
+
+/// 退出登录：单独一组，固定在设置页最底部
+struct SignOutSettingsSection: View {
+    @Environment(AppState.self) private var app
+    @Environment(SpeechPlayer.self) private var player
+    @State private var confirmLogout = false
+
+    var body: some View {
+        Section {
             Button("退出登录", role: .destructive) { confirmLogout = true }
                 .confirmationDialog("确定退出登录？", isPresented: $confirmLogout, titleVisibility: .visible) {
                     Button("退出登录", role: .destructive) {

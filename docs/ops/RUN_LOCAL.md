@@ -34,7 +34,7 @@ cd backend && uv run python scripts/dev/seed_demo.py --reset  # 清空 demo 的�
 2. `open frontend/ios/VeraBot.xcodeproj` → 选择 **iPhone 17** 模拟器 → ⌘R。
    命令行等价：`frontend/scripts/run_ios.sh "iPhone 17"` (编译到 `/tmp/verabot_dd`，安装并启动)。
 3. 登录 `demo` / `verabot2026`。服务器地址默认 `http://127.0.0.1:8000`，可在登录页修改。
-4. 常用路径：Bot 列表 → 点 Vera 进入对话 → 点顶部标题打开「Bot 详情」(sheet) → 协作记录；首页左上角头像 → 设置 (账号 → 语音 → 关于)。
+4. 常用路径：Bot 列表 → 点 Vera 进入对话 → 点顶部标题打开「Bot 详情」(sheet) → 协作记录；首页左上角头像 → 设置 (账号 → 语音 → 关于 → 退出登录)。
 
 **模拟器键盘**：模拟器默认连接 Mac 的硬件键盘，软键盘不会弹出。测试键盘相关行为时：Simulator 菜单 **I/O → Keyboard → 取消勾选 Connect Hardware Keyboard**，或按 **⌘K (Toggle Software Keyboard)**。
 

@@ -23,9 +23,6 @@ struct BotListView: View {
                         let targets = idx.map { bots[$0] }
                         Task { await delete(targets) }
                     }
-                } footer: {
-                    Text("已创建 \(bots.count) 个 Bot · 每个 Bot 的对话与记忆相互隔离"
-                         + (bots.count >= limit ? "（已达上限 \(limit) 个）" : ""))
                 }
                 if let errorText {
                     Text(errorText).foregroundStyle(.red).font(.footnote)

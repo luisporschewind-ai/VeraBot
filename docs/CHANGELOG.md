@@ -11,6 +11,9 @@
 
 ### 变更 (Changed)
 
+- **iOS · Bot 列表**：移除列表底部的「已创建 N 个 Bot · 每个 Bot 的对话与记忆相互隔离 (已达上限 …)」页脚 (连同相关代码)；达到上限时右上角 ＋ 仍置灰。
+- **iOS · 用量 / 设置**：「用量看板」页移除账号分组 (账号 / 服务器 / 退出登录)；账号信息合并进设置页原有的「账号」分组 (头像 + 用户名、服务器)，不再重复。「退出登录」移到设置页最底部，单独一组 (`SignOutSettingsSection`，系统 destructive 样式，保留「确定退出登录？」二次确认)。设置页顺序：账号 → 语音 → 关于 → 退出登录。
+- 文档同步：FEATURES / STATUS / RUN_LOCAL / MULTI_AGENT_DESIGN §7–8 / TEST_CASES (新增 UI-01~03，更新 SET-08 / SET-10)。
 - [design/GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) v0.1 → v0.2：Gmail **主路径改为经 MCP 接入** Google 官方 Gmail MCP 服务器 (`gmailmcp.googleapis.com`，开发者预览)；新增候选 Gmail MCP 服务器评估 (许可证与可信度)；直连 Gmail REST API 降级为备用路径 (以进程内 MCP 服务器实现，工具名不变)；发送改为内置工具 `mail_send_draft` + 用户确认后 `drafts.send`，HITL 规则不变；取消 `oauth_connections` / `/api/connections/google/*`，并入 MCP 通用表与 API；里程碑改为 G0~G5 并依赖 MCP 里程碑。
 - [STATUS.md](STATUS.md)：新增「当前状态：开发暂停，等待 Boss 评审」一节 (列出两份设计稿与 Boss 待办)；日期更新为 2026-10-01；「下一步」第 11 项更新 (远程仓库已配置)。
 - 许可证：采用 [MIT License](../LICENSE) (Copyright (c) 2026 Luis Porsche)；根目录 / backend / frontend README 增加 License 小节；`scripts/package_backend.sh` 打包时附带 `LICENSE`。
