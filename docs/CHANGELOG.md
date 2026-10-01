@@ -6,6 +6,11 @@
 
 ### 新增 (Added)
 
+- **iOS · Bot 消息富文本 + App 内网页**：
+  - Bot 回复气泡支持 Markdown：标题、段落（保留单换行）、粗体 / 斜体、行内代码、代码块（含语言标记，横向滚动，流式输出中未闭合也按代码块显示）、引用、有序 / 无序列表（含缩进）、表格（横向滚动）、分隔线；自动识别网址、电话、邮箱为可点链接。BUG-01 保持修复：行内代码以外的 `~` 一律按原文显示，不会变成删除线。
+  - 解析在 `VeraBotCore/MessageMarkdown.swift`（纯 Foundation：块级解析自写，行内交给 `AttributedString(markdown:)`，自动链接用 `NSDataDetector`；无第三方依赖），新增 10 个 `swift test` 用例（`MessageMarkdownTests`）。排版在 `Core/UI/MessageContentView.swift`（原生 Text / Grid / ScrollView），替代原 `MessageRow.swift` 里的全局 `markdown()`；交接 Trace 的回答也改用 `MessageMarkdown.inline`。
+  - 链接点按：`Core/UI/InAppBrowser.swift` 的 `.inAppBrowser()` 通过 `OpenURLAction`（`environment(\.openURL)`）接管对话页内所有 Text 链接：http / https 全屏打开 `SFSafariViewController`（`UIViewControllerRepresentable` 包装，品牌色控件，「完成」关闭）；`tel:` / `mailto:` 等交给系统。
+  - 长按 Bot 气泡：系统上下文菜单「复制」全文 + 每个链接「复制链接 …」（电话 / 邮箱复制时去掉 `tel:` / `mailto:`）。原气泡上的 `.textSelection(.enabled)` 由该菜单取代。
 - **iOS · 助理列表行时间**：每行右上角显示最后一条消息时间（没有消息时回退 Bot 创建时间），`footnote` + `secondary`：今天 `HH:mm`、昨天「昨天」、本周内「星期几」、更早 `M/d`、非今年 `yyyy/M/d`。格式逻辑在 `VeraBotCore/ListTimestamp.swift`（含单元测试）。后端 `GET /api/bots` 早已返回 `last_message.created_at` 与 `created_at`，**后端未改动**。
 - **iOS · 首页搜索（范围暂定）**：导航栏右上角 ＋ 左边新增放大镜按钮，点按打开系统 `.searchable`（`navigationBarDrawer`），当前只按 Bot 名称和最后一条消息预览过滤屏幕上已加载的列表（`localizedStandardContains`），无结果显示系统 `ContentUnavailableView.search`；完整聊天历史搜索、搜索历史等移至后续迭代。
 - **iOS · 设置页「通用」分组**（外观 / 通知 / 触感反馈 / 语言，均为系统原生控件，偏好存 `@AppStorage`，key 见 `SettingsKeys`）：

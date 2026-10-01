@@ -33,10 +33,11 @@ struct MessageRow: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(item.traces) { TraceView(trace: $0, fromBot: bot.name) }
                     if !item.text.isEmpty || item.streaming {
-                        Text(markdown(item.text + (item.streaming ? " ▍" : "")))
-                            .textSelection(.enabled)
+                        MessageContentView(text: item.text + (item.streaming ? " ▍" : ""))
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .contextMenu { MessageCopyMenu(text: item.text) }   // 长按：复制 / 复制链接
                     }
                     if ttsEnabled && !item.streaming && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)
@@ -46,11 +47,4 @@ struct MessageRow: View {
             }
         }
     }
-}
-
-func markdown(_ s: String) -> AttributedString {
-    let opts = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-    // BUG-01：「15~21°C」这类区间里的 ~ 会被解析为删除线（strikethrough）；转义后按原文显示
-    let escaped = s.replacingOccurrences(of: "~", with: "\\~")
-    return (try? AttributedString(markdown: escaped, options: opts)) ?? AttributedString(s)
 }

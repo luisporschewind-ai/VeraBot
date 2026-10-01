@@ -34,6 +34,10 @@ extension Color {
     static let traceFill = sectionFill
     /// 卡片里再嵌一层的内容底（如交接回答）
     static let insetFill = appBackground
+    /// 消息里的代码块 / 表格底
+    static let codeFill = insetFill
+    /// 消息里引用块左侧竖条
+    static let quoteBar = brandLight
 
     static func dynamic(light: UIColor, dark: UIColor) -> Color {
         Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? dark : light })

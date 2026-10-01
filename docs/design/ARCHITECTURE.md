@@ -107,7 +107,8 @@ erDiagram
 ```
 VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swift Package)
 ├── App/        入口、AppState、AppConfig          ├── VeraBotCore        模型 (Codable)、SettingsKeys、  ← 无依赖
-├── Core/UI/    Theme、CircleAvatar、BotAvatar、  │                      ListTimestamp (列表时间文案)
+├── Core/UI/    Theme、CircleAvatar、BotAvatar、  │                      ListTimestamp、MessageMarkdown
+│               MessageContentView、InAppBrowser、│
 │               UserAvatar、AvatarPicker、       ├── VeraBotNetworking  VeraBotAPI 协议 + APIClient     → Core
 │               LiveBotAvatar、DismissToolbarButton │                   （含头像 multipart / 字节下载）
 ├── Features/   Auth · BotList · BotInfo · Chat    └── VeraBotTTS         TTSEngine 协议 + SpeechPlayer  → Core
@@ -129,7 +130,13 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 - 本地包通过 `XCLocalSwiftPackageReference (relativePath = Packages/VeraBotKit)` 引用，产品 VeraBotCore / VeraBotNetworking / VeraBotTTS 链接到 App target。
 - `project.yml` 是等价的 xcodegen 描述 (备用)。
 
-### 3.3 主题 (Theme)
+### 3.3 消息富文本 (Rich messages)
+
+- 解析：`VeraBotCore/MessageMarkdown`（无 UI、可单测）。`blocks(_:)` 自写的行级解析 → `[MessageBlock]`（heading / paragraph / list / quote / code / table / rule）；`inline(_:)` 用 Foundation `AttributedString(markdown:, .inlineOnlyPreservingWhitespace)` 处理行内格式（先转义代码外的 `~`，BUG-01），再用 `NSDataDetector` 给网址 / 电话 / 邮箱加 `.link`（跳过已有链接与行内代码）；`links(in:)` 供长按菜单。不引入第三方 Markdown 库。
+- 排版：`Core/UI/MessageContentView`（块 → 原生 Text / Grid / ScrollView，颜色取 Theme 的 `codeFill` / `quoteBar`），`MessageCopyMenu`（长按复制）。
+- 链接路由：`Core/UI/InAppBrowser` 的 `.inAppBrowser()` 在对话页设置 `OpenURLAction`：`URL.opensInAppBrowser`（http/https，定义在 Core）→ `fullScreenCover` 里的 `SafariView`（`SFSafariViewController` 包装）；其他 scheme → `.systemAction`。视图只产出带 `.link` 的 AttributedString，不直接依赖浏览器实现。
+
+### 3.4 主题 (Theme)
 
 所有颜色与玻璃样式集中在 `Core/UI/Theme.swift`，视图只引用语义名，不写死颜色值：
 

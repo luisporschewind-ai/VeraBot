@@ -44,6 +44,7 @@ struct ChatView: View {
             }
         }
         .safeAreaInset(edge: .bottom) { composer }
+        .inAppBrowser()   // 消息里的 http/https 链接在 App 内 SFSafariViewController 打开；tel: / mailto: 交给系统
         .navigationTitle("\(vm.bot.avatar) \(vm.bot.name)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

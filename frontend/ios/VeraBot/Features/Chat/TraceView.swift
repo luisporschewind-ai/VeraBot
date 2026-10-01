@@ -21,7 +21,7 @@ struct TraceView: View {
                 Text(shared.isEmpty ? "未共享额外上下文（默认隔离）" : "共享背景：\(shared)")
                     .font(.caption2).foregroundStyle(.secondary).lineLimit(3)
                 if let answer = trace.result?["answer"]?.text {
-                    Text(markdown("↩ **\(trace.result?["to_bot"]?.text ?? "")**：\(answer)"))
+                    Text(MessageMarkdown.inline("↩ **\(trace.result?["to_bot"]?.text ?? "")**：\(answer)"))
                         .font(.caption).lineLimit(8)
                         .padding(6)
                         .background(Color.insetFill, in: RoundedRectangle(cornerRadius: 8))

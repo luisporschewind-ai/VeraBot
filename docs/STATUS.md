@@ -76,6 +76,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | iOS 17 / 18 旧系统 | 未测 (`defaultScrollAnchor` 等 iOS 18+ API 已做版本判断) |
 | 白底 + Liquid Glass、深色模式 (UI-16~19) | 已在 iPhone 17 模拟器 (iOS 26) 构建、安装，浅色 / 深色目视检查首页、设置、对话、Bot 详情；新建 Bot / 提醒 / 登录 / 调试页待 Boss 验收 |
 | 浮动玻璃输入栏 (UI-20)、return 发送 | 已构建、安装、启动；按 Boss 要求本轮不做模拟器点测，待 Boss 验收 |
+| 消息富文本 / App 内网页 / 长按复制 (MSG-01~04) | 解析 `swift test` 通过；App 已构建、安装、启动；按 Boss 要求本轮不做模拟器点测，界面待 Boss 验收 |
 | 动态字体 (Dynamic Type)、iPad | 未测 |
 
 ## 4. 下一步 (Next steps)
