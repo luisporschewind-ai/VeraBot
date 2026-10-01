@@ -6,7 +6,7 @@
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
 | 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v4**（v3 昵称 + 照片头像；v4 长期记忆）。iOS `0.1.0 (1)` |
-| 测试 | v0.1.0：**91 条用例：通过 90 / 失败 0 / 跳过 1** (TC-31 语音输入按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；重构后回归见同文档末尾。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、`swift test` 34 条；UI-* / MSG-* 大多待 Boss 验收 (见下节) |
+| 测试 | v0.1.0：**91 条用例：通过 90 / 失败 0 / 跳过 1** (TC-31 语音输入按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；重构后回归见同文档末尾。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、`swift test` 38 条；UI-* / MSG-* 大多待 Boss 验收 (见下节) |
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
 
@@ -27,6 +27,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | 设置页重排 (账号 → 用量 → 通用 → 语音 → 关于 → 退出登录)、调试页 🐞、用量移入设置、通用 (外观 / 通知 / 触感反馈 / 语言) | `15cfbe8` | 待验收 | UI-04~09、SET-10 |
 | 用户 / Bot 照片头像 + 可编辑昵称 (Stuart 实现，schema v3) | `07d0716` | 后端 `avatar_profile_test.py` 21/21；iOS 待 Mac 模拟器点测 | AV-*、NK-*、UI-AV-01/03、UI-NK-01 |
 | **长期记忆 M1** (先确认后保存的记忆、确认卡片、「Vera 了解的你」、Bot 详情记忆分组、健康 / 财务加密、清空对话可选删记忆；schema v4) | 见 CHANGELOG | 后端 `memory_test.py` 36/36、MA 24/24、AV/NK 21/21；`swift test` 34/34；模拟器已构建 / 安装 / 启动，未点测 | MEM-*、MEM-UI-01~12、[MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §5.8 |
+| 设置 › 用量 行右侧「已用 N%」(今日 Token / 今日额度，iOS 计算，后端未改) | 见 CHANGELOG | MA-25 契约 25/25、`QuotaTests` 4 个；模拟器已构建 / 安装 / 启动，未点测 | QUOTA-03、QUOTA-04、UI-21 |
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
 | 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 待验收 | UI-01~03、UI-10 |
 
@@ -40,7 +41,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 ### 已知遗留 (Known leftovers，仅列出，未处理)
 
-- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。
+- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。
 - **截图过时**：`assets/screenshots/ios/` 下全部截图早于 2026-10-01 的界面改动；其中 `R34_form_keyboard`、`R11_settings` 与当时的界面也已不符。新 UI 用例 (UI-*、MSG-*) 尚无截图。
 - **`frontend/ios/VeraBot/File.txt`** 仍在仓库中 (8 字节，内容「QA回归」，NEW-03)，待确认是否删除。
 - **新建 Bot 表单页脚文案过时**：仍写「在对话页右上角「Bot 设置」中开启」(`CreateBotSheet.swift`)，实际入口是「对话页点标题 → Bot 详情」。

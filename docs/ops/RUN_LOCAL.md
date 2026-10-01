@@ -101,7 +101,7 @@ curl -s --noproxy '*' http://127.0.0.1:8000/api/health
 
 | 命令 (在 `backend/` 下) | 说明 | 是否调用 LLM |
 |---|---|---|
-| `uv run python scripts/test/multi_agent_test.py` | 多 Agent 权限 / 护栏 / 迁移 (MA-01~24)，临时 DB | 否 (mock) |
+| `uv run python scripts/test/multi_agent_test.py` | 多 Agent 权限 / 护栏 / 迁移 (MA-01~24) + `/api/quota` 前后端契约 (MA-25)，临时 DB | 否 (mock) |
 | `uv run python scripts/test/avatar_profile_test.py` | 昵称、用户 / Bot 头像、v2→v3 迁移、租户隔离 | 否 |
 | `uv run python scripts/test/memory_test.py` | 长期记忆 MEM-01~36：v3→v4 迁移、提议 / 确认 / 拒绝、敏感策略与加密、召回注入、委派隔离、API 契约，临时 DB | 否 (mock) |
 | `uv run python scripts/test/smoke_test.py` | 端到端冒烟测试，结束后删除测试账号；未配置 `OPENAI_API_KEY` 时语音转写 2 项记为 SKIP | 是 |

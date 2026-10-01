@@ -41,7 +41,7 @@ docker compose up -d --build         # 端口 ${PORT:-8000}；数据持久化到
 ## 5. 交付前检查 (Checklist)
 
 - [ ] `docs/CHANGELOG.md`、`docs/STATUS.md` 已更新，版本号三处一致 (见 CONTRIBUTING)
-- [ ] `uv run python scripts/test/multi_agent_test.py` 24/24；`avatar_profile_test.py` 21/21；`swift test` 通过 (当前 21 个用例)；Xcode 编译通过
+- [ ] `uv run python scripts/test/multi_agent_test.py` 25/25；`avatar_profile_test.py` 21/21；`memory_test.py` 36/36；`swift test` 通过 (当前 38 个用例)；Xcode 编译通过
 - [ ] `scripts/package_backend.sh` 生成 zip；`unzip -l` 确认不含 `.env` / `*.db` / `.venv`
 - [ ] 在全新临时目录解压并用其他端口启动：`PORT=8765 ./start.sh --detach` → `/api/health` 正常 → `./stop.sh`
 - [ ] `git tag vX.Y.Z`

@@ -91,7 +91,7 @@
 - 入口：首页「助理」**左上角的用户头像** (`UserAvatar`)，点击进入 `SettingsView`。
 - 分组顺序：账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (每组是一个独立的 `struct …Section: View`)：
   - `AccountSettingsSection`（实现在 `Features/Settings/UserProfileEditor.swift`）：头像（点按打开系统相册，圆形预览后上传）、昵称（保存后写入 `AppState.displayName`，首页和对话立刻更新）、用户名。服务器地址移到调试页。
-  - `UsageSettingsSection`：一行「用量」，NavigationLink push `QuotaView` (用量看板，已不是底部 Tab)。
+  - `UsageSettingsSection`：一行「用量」，NavigationLink push `QuotaView` (用量看板，已不是底部 Tab)；label 为 `LabeledContent`，右侧系统次要文字「已用 N%」(`Quota.usedPercentText`，今日 Token / 今日额度，加载中或无额度时不显示)。
   - `MemorySettingsSection`（`Features/Memory/MemorySettingsSection.swift`）：「Vera 了解的你」(条数，push `MemoryListView`) + 「允许 Bot 记住」`Toggle` (以服务器 `GET/PATCH /api/memory/settings` 为准，不是 `@AppStorage`；失败回退)。
   - `GeneralSettingsSection`（`Features/Settings/GeneralSettingsSection.swift`）：外观 `Picker` (`vb_appearance`，`AppearanceMode`，App 根视图 `preferredColorScheme`)；通知 `Toggle` (`vb_notifications_enabled`，开启时请求 `UNUserNotificationCenter` 授权，被拒绝则回退并提供「前往设置」)；触感反馈 `Toggle` (`vb_haptics_enabled`，所有触感经 `View.hapticFeedback(_:trigger:)` → 系统 `sensoryFeedback`，受此开关控制)；语言 (显示当前语言，点按打开 `UIApplication.openSettingsURLString`，由系统按 App 切换语言)。
   - `VoiceSettingsSection`：语音播放开关 (`@AppStorage("vb_tts_enabled")`，默认开启，同时控制用户消息和 Bot 回复气泡下方的 🔊 按钮 (共用 `SpeakButton`；用户消息的按钮右对齐))；语音引擎选择 (`vb_tts_engine`)，可选「本机 TTS」，「云端 TTS (即将支持)」用 `selectionDisabled` 置灰。
@@ -106,5 +106,5 @@
 
 ## 9. 测试 (Tests)
 
-- `backend/scripts/test/multi_agent_test.py`：确定性测试，使用 mock LLM 和临时 DB，**24/24 通过** (MA-01 ~ MA-24，覆盖迁移、最小权限、校验、拒绝与审计、白名单、accept、隔离、截断、深度、环路、单轮上限、预算、软上限，以及 BUG-02/03/04/08/09)。头像 / 昵称另见 `avatar_profile_test.py`（不在本文件的多 Agent 范围内）。
+- `backend/scripts/test/multi_agent_test.py`：确定性测试，使用 mock LLM 和临时 DB，**25/25 通过** (MA-01 ~ MA-25，MA-25 为 `/api/quota` 与 iOS `Quota` 的字段契约；覆盖迁移、最小权限、校验、拒绝与审计、白名单、accept、隔离、截断、深度、环路、单轮上限、预算、软上限，以及 BUG-02/03/04/08/09)。头像 / 昵称另见 `avatar_profile_test.py`（不在本文件的多 Agent 范围内）。
 - 真实 LLM 回归：`backend/scripts/test/api_regress.py`、`api_regress2.py`。iOS UI 回归见 [TEST_CASES_v0.1.md](../testing/TEST_CASES_v0.1.md) 的「回归测试」一节。

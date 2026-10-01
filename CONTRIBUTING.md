@@ -40,7 +40,7 @@
 ## 4. 提交前自测
 
 ```bash
-cd backend && uv run python scripts/test/multi_agent_test.py     # mock LLM，确定性，24/24
+cd backend && uv run python scripts/test/multi_agent_test.py     # mock LLM，确定性，25/25
 cd backend && uv run python scripts/test/avatar_profile_test.py  # 头像 / 昵称，21/21，不调用 LLM
 cd frontend/ios/Packages/VeraBotKit && swift test                 # VeraBotKit 单元测试
 cd frontend && scripts/run_ios.sh                                 # 编译并在模拟器运行

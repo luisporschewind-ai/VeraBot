@@ -6,6 +6,10 @@
 
 ### 新增 (Added)
 
+- **iOS · 设置 › 用量 显示已用百分比**：「用量」行右侧用系统 `LabeledContent` 次要文字显示「已用 N%」(NavigationLink 默认 value 样式，无自定义动画)。N = round(`today.total_tokens` / `daily_token_quota` × 100)，即今日 Token 占今日额度 (个人 `users.token_budget`，否则 `VERABOT_DAILY_TOKEN_QUOTA`，默认 200000) 的比例，与后端 429 拦截用的是同一对数值；超额时如实显示 > 100%。加载中 / 请求失败 / 额度 ≤ 0 时不显示数字。每次回到设置页重新拉取 `GET /api/quota`。
+  - **后端未改动**：`/api/quota` 早已返回 `daily_token_quota` 与 `today.total_tokens`，不新增字段；百分比只在 iOS 计算 (`VeraBotCore` `Quota.usedPercent` / `usedPercentText`)。
+  - 测试：`multi_agent_test.py` 新增 MA-25 (前后端契约：`/api/quota` 键 ⊇ iOS `Quota` / `UsageStats` CodingKeys，分子分母与 `db.token_budget` 一致)，25/25；`swift test` 新增 `QuotaTests` 4 个 (取整、0% / 100% / 超额、无额度、分子用今日而非累计)。用例 QUOTA-03 / QUOTA-04 / UI-21 见 TEST_CASES。
+  - Web 冻结，未加此显示 (见 STATUS)。
 - **长期记忆 M1 (Memory，schema v4，启动时自动迁移)** — 方案 [design/MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) 升为 v1.0 (Boss 已批准，决定见 §17.1，实现说明见 §19)：
   - 后端：新表 `memories` 与 `bots.memory_access` (默认 `bot_and_global`，存量 Bot 同)、`users.memory_enabled` (默认开)、`messages.memory_ids`。新模块 `services/memory/` (策略检查、召回、确认流程、SQL)、`core/crypto.py` (Fernet；密钥 `VERABOT_MEMORY_ENC_KEY` 或自动生成的 `data/.memory_key`，与数据库分离)、`agents/memory_tools.py` (`remember` / `forget_memory` 只生成待确认提议；不进 `allowed_tools`；被委派时拒绝)。depth 0 的 system prompt 注入 `<user_memory>` (≤ 12 条 / 1000 字，带来源标签，声明是数据不是指令)。密码 / 验证码 / 密钥 / 证件号 / 卡号永不保存；健康 / 财务加密保存并标记敏感；trace 不含敏感正文；审计不写正文。新接口 `/api/memories*`、`/api/memory/settings`；`DELETE /api/bots/{id}/messages` 新增可选 `include_memories`；`done` 事件新增 `memory_ids`；`/api/tools` 新增 `memory`。全部向后兼容。新依赖 `cryptography` 50.0.2 (+ `cffi`、`pycparser`，共 48 个包)。
   - iOS：Kit `VeraBotCore/Memory.swift` (模型，未知枚举回退) 与 `VeraBotAPI` 记忆方法、`APIError.code`；`Features/Memory/`：对话内确认卡片 (记住 / 不用 / 编辑后记住，已记住可跳转)、「Vera 了解的你」(待确认 / 关于你 / 仅某 Bot 分组，左滑删除、编辑、＋ 添加、清空，首次打开说明会发送给 DeepSeek)、编辑页、设置 › 记忆 分组 (位于用量之后，含「允许 Bot 记住」总开关)。Bot 详情新增「记忆」分组 (`memory_access` Picker +「{Bot} 记住的内容」)；「清空对话」确认框改为「仅清空对话」/「清空对话和「X」的记忆」两个选项。全部原生控件 + Theme 现有样式，无自定义动画。

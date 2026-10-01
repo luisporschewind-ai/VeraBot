@@ -181,6 +181,18 @@ from verabot.agents.prompts import system_prompt  # noqa: E402
 sp = system_prompt(UID, db.get_bot(UID, b["id"]), delegated_by=db.get_bot(UID, a["id"]), depth=1)
 check("MA-24", "BUG-08 委派 prompt 要求不透露内部工具", "不要提及、列举或解释你的内部工具" in sp)
 
+# ---------- 25. /api/quota 前后端契约（设置 › 用量「已用 N%」） ----------
+# iOS `Quota` / `UsageStats` 的 CodingKeys；「已用 N%」= round(today.total_tokens / daily_token_quota × 100)，在 iOS 端计算
+IOS_QUOTA_KEYS = {"model", "daily_token_quota", "today", "total", "per_bot", "daily", "delegations", "transcribe"}
+IOS_USAGE_KEYS = {"requests", "prompt_tokens", "completion_tokens", "total_tokens"}
+q25 = cli.get("/api/quota", headers=H).json()
+used25, budget25 = db.token_budget(UID)
+check("MA-25", "契约：/api/quota 键 ⊇ iOS Quota / UsageStats CodingKeys；分子分母与预算拦截一致 (today.total_tokens = 今日已用，daily_token_quota = 预算 > 0)",
+      IOS_QUOTA_KEYS <= set(q25) and IOS_USAGE_KEYS <= set(q25["today"]) and IOS_USAGE_KEYS <= set(q25["total"])
+      and isinstance(q25["daily_token_quota"], int) and q25["daily_token_quota"] == budget25 > 0
+      and q25["today"]["total_tokens"] == used25,
+      f"missing={sorted(IOS_QUOTA_KEYS - set(q25))} today={q25['today']} quota={q25['daily_token_quota']} budget=({used25},{budget25})")
+
 p = sum(1 for r in RESULTS if r[2]); print(f"\nSUMMARY {p}/{len(RESULTS)} passed")
 json.dump([{"id": i, "name": n, "ok": o, "note": x} for i, n, o, x in RESULTS], open(Path(TMP) / "results.json", "w"), ensure_ascii=False)
 print("RESULTS_JSON", Path(TMP) / "results.json")

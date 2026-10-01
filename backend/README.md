@@ -75,7 +75,7 @@ verabot/
 ## 5. 测试 (Tests)
 
 ```bash
-uv run python scripts/test/multi_agent_test.py   # mock LLM + 临时 DB，确定性，MA-01~24 (24/24)
+uv run python scripts/test/multi_agent_test.py   # mock LLM + 临时 DB，确定性，MA-01~25 (25/25，MA-25 为 /api/quota 前后端契约)
 uv run python scripts/test/avatar_profile_test.py # 头像 / 昵称 / 迁移 / 隔离，AV-* + NK-* (21/21)，不调用 LLM
 uv run python scripts/test/memory_test.py        # 长期记忆 MEM-01~36 (36/36)，mock LLM + 临时 DB
 uv run python scripts/test/smoke_test.py         # 端到端 (真实 LLM，需后端运行在 :8000)；结束后清理测试账号

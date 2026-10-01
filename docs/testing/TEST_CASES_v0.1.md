@@ -288,3 +288,13 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | MEM-UI-02~12 | iOS | 确认卡片、设置分组、记忆页、编辑页、Bot 详情记忆分组、清空对话两个选项、敏感标记、首次说明 (见 MEMORY_GROWTH §10.2) | 待 Boss 在模拟器 / 真机验收 (模拟器已构建并安装，未做 UI 自动化) |
 
 汇总：MEM **36/36 通过**；回归 MA 24/24、AV/NK 21/21 通过 (2026-10-01)。
+
+## 设置 › 用量 已用百分比 (Usage percent) — 2026-10-01
+
+自动化：`backend/scripts/test/multi_agent_test.py` MA-25 (mock LLM + 临时 DB)；iOS `swift test` (`QuotaTests`)。百分比 = round(`today.total_tokens` / `daily_token_quota` × 100)，只在 iOS 计算，后端字段不变。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| QUOTA-03 | 契约 (MA-25) | `GET /api/quota` 的键与 iOS 模型对照；与 `db.token_budget` 对照 | 顶层键 ⊇ {model, daily_token_quota, today, total, per_bot, daily, delegations, transcribe}；`today` / `total` ⊇ {requests, prompt_tokens, completion_tokens, total_tokens}；`daily_token_quota` 为整数且 = 预算 > 0；`today.total_tokens` = 今日已用 (拦截用的同一数值) | 通过 |
+| QUOTA-04 | iOS Kit | `QuotaTests`：74000 / 200000 → 「已用 37%」；37.5 → 38；0 → 「已用 0%」；200000 → 100；500 / 400 → 125 (不截断)；额度 0 → nil (不显示)；分子用 `today` 而非 `total` | 全部符合 | 通过 (`swift test`) |
+| UI-21 | iOS | demo 登录 → 首页头像 → 设置，看「用量」行；点进用量看板再返回；断开后端后重进设置 | 行右侧系统灰色次要文字「已用 N%」，N 与用量看板「今日 Token 额度」的 已用 / 额度 一致 (四舍五入取整)；加载完成前不显示数字；后端不可达时不显示假数字 | 待 Boss 在模拟器验收 (已构建并安装，未做 UI 自动化) |

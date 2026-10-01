@@ -47,13 +47,22 @@
 | POST | `/api/bots/{id}/chat` | **SSE** 流式对话 `{message}` |
 | POST | `/api/transcribe` | 语音转写 (multipart `file` + `language`) → `{text, model, duration_s}` |
 | GET | `/api/reminders`；POST `/api/reminders/{id}/done` | 提醒列表 / 标记完成 |
-| GET | `/api/quota` | 用量看板 |
+| GET | `/api/quota` | 用量看板 `{model, daily_token_quota, today, total, per_bot, daily, delegations, transcribe}`；`today` / `total` 为 `{requests, prompt_tokens, completion_tokens, total_tokens}`。设置 › 用量 行的「已用 N%」由 iOS 计算：round(`today.total_tokens` / `daily_token_quota` × 100)，额度 ≤ 0 时不显示 (字段映射见下方「用量字段映射」) |
 | GET | `/api/tools` | 工具列表 (中文标签，不含记忆工具) + 当前护栏参数 + `memory: {enabled, max_active, inject_max}` |
 | GET / POST / DELETE | `/api/memories` | 列表 (`status` 逗号分隔或 `all`、`scope`、`bot_id`、`ids`、`visible_to`、`limit`、`before_id`) → `{memories, counts, limits}` / 手动添加 (201，直接生效) / 清空 (`scope`、`bot_id`、必须 `confirm=true`) → `{ok, deleted}` |
 | GET / PATCH / DELETE | `/api/memories/{id}` | 单条 / 编辑 (仅 active，重新做敏感检查) / 删除 |
 | POST | `/api/memories/{id}/confirm`、`/api/memories/{id}/reject` | 确认提议 (可带 `{content}` 编辑后确认；删除提议返回 `{ok, deleted_id}`) / 拒绝 |
 | GET / PATCH | `/api/memory/settings` | `{enabled, server_enabled, active_count, max_active, max_chars}`；PATCH `{enabled}` |
 | GET | `/api/health` | 健康检查 `{ok, model}` |
+
+用量字段映射 (`GET /api/quota` ↔ iOS `VeraBotCore.Quota`，由 `multi_agent_test.py` MA-25 断言)：
+
+| 后端 JSON (`services/quota.py`) | iOS 属性 | 用途 |
+|---|---|---|
+| `daily_token_quota` | `Quota.dailyTokenQuota` | 今日额度 (分母)；= `users.token_budget` 或 `VERABOT_DAILY_TOKEN_QUOTA` (默认 200000) |
+| `today.total_tokens` | `Quota.today.totalTokens` | 今日已用 (分子)；与 `db.token_budget` 的已用相同 |
+| — (iOS 计算) | `Quota.usedPercent` / `usedPercentText` | 设置 › 用量 行右侧「已用 N%」 |
+| `model` / `total` / `per_bot` / `daily` / `delegations` / `transcribe` | `model` / `total` / `perBot` / `daily` / `delegations` / `transcribe` | 用量看板其余内容 (不变) |
 
 SSE 事件：
 

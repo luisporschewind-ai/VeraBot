@@ -392,6 +392,21 @@ public struct Quota: Codable, Sendable {
     }
 }
 
+extension Quota {
+    /// 今日 Token 已用百分比 = `today.total_tokens` / `daily_token_quota` × 100，四舍五入取整。
+    /// 与后端拦截用的是同一对数值 (`db.token_budget`：今日已用 vs 个人预算或 `VERABOT_DAILY_TOKEN_QUOTA`)。
+    /// 额度 ≤ 0 (无有效额度) 时返回 nil，界面不显示数字。超额时如实返回 > 100 的值，不截断。
+    public var usedPercent: Int? {
+        guard dailyTokenQuota > 0 else { return nil }
+        return Int((Double(max(today.totalTokens, 0)) / Double(dailyTokenQuota) * 100).rounded())
+    }
+
+    /// 设置 › 用量 行右侧的文案，例如「已用 37%」；无有效额度时为 nil。
+    public var usedPercentText: String? {
+        usedPercent.map { "已用 \($0)%" }
+    }
+}
+
 /// GET /api/health：后端健康检查（设置 › 调试页使用）。
 public struct HealthStatus: Codable, Sendable, Hashable {
     public let ok: Bool

@@ -37,17 +37,32 @@ struct SettingsView: View {
     }
 }
 
-/// 用量：单独一行，push 现有用量看板（QuotaView）
+/// 用量：单独一行，push 现有用量看板（QuotaView）。
+/// 右侧用系统 LabeledContent 的次要文字显示「已用 N%」（今日 Token / 今日额度，来自 GET /api/quota）；
+/// 加载中、失败或无有效额度时不显示数字。每次回到设置页重新拉取。
 struct UsageSettingsSection: View {
+    @Environment(AppState.self) private var app
+    @State private var usedText: String?
+
     var body: some View {
         Section {
             NavigationLink {
                 QuotaView()
                     .toolbar(.hidden, for: .tabBar)
             } label: {
-                Label("用量", systemImage: "chart.bar")
+                LabeledContent {
+                    if let usedText { Text(usedText) }
+                } label: {
+                    Label("用量", systemImage: "chart.bar")
+                }
             }
         }
+        .task { await load() }
+    }
+
+    private func load() async {
+        // 失败时保留上一次的值（首次失败则为 nil → 不显示），不展示假数字
+        if let q = try? await app.api.quota() { usedText = q.usedPercentText }
     }
 }
 
