@@ -74,7 +74,7 @@ struct VoiceSettingsSection: View {
 
     var body: some View {
         Section {
-            Toggle(isOn: $ttsEnabled) {
+            CompactToggle(isOn: $ttsEnabled) {
                 Label("语音播放", systemImage: "speaker.wave.2")
             }
             .onChange(of: ttsEnabled) { if !ttsEnabled { player.stop() } }

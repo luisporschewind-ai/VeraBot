@@ -148,7 +148,7 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 | Token | 浅色 | 深色 | 用途 |
 |---|---|---|---|
 | `Color.appBackground` | `#FFFFFF` | `#000000` | 页面背景 |
-| `Color.sectionFill` | `#F2F2F7` (原页面灰底) | `secondarySystemBackground` (sheet 内 elevated) | 分组 Section、卡片、输入框底 |
+| `Color.sectionFill` | `#EFEFEE` (RGB 239, 239, 238；原为 `#F2F2F7`) | `secondarySystemBackground` (sheet 内 elevated) | 分组 Section、卡片、输入框底 |
 | `Color.botBubble` / `traceFill` | = `sectionFill` | = `sectionFill` | Bot 回复气泡、工具 Trace |
 | `Color.insetFill` | = `appBackground` | = `appBackground` | 卡片里再嵌一层的内容 |
 | `Color.brandSoft` | `#E6F4F2` | `#123D39` | 表情选中、交接 Trace |

@@ -22,14 +22,14 @@ struct GeneralSettingsSection: View {
                 Label("外观", systemImage: "circle.lefthalf.filled")
             }
 
-            Toggle(isOn: $notificationsEnabled) {
+            CompactToggle(isOn: $notificationsEnabled) {
                 Label("通知", systemImage: "bell.badge")
             }
             .onChange(of: notificationsEnabled) { _, isOn in
                 if isOn { Task { await requestAuthorization() } }
             }
 
-            Toggle(isOn: $hapticsEnabled) {
+            CompactToggle(isOn: $hapticsEnabled) {
                 Label("触感反馈", systemImage: "hand.tap")
             }
 

@@ -103,7 +103,7 @@ struct BotEditView: View {
 
             Section {
                 ForEach(tools) { t in
-                    Toggle(isOn: binding(for: t.name)) {
+                    CompactToggle(isOn: binding(for: t.name)) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(t.label ?? t.name)
                             Text(t.name).font(.caption2.monospaced()).foregroundStyle(.secondary)
@@ -121,7 +121,7 @@ struct BotEditView: View {
                     Text("暂无其他 Bot").foregroundStyle(.secondary)
                 }
                 ForEach(others) { o in
-                    Toggle(isOn: targetBinding(o.id)) {
+                    CompactToggle(isOn: targetBinding(o.id)) {
                         HStack {
                             LiveBotAvatar(botID: o.id, emoji: o.avatar, color: o.color,
                                            hasAvatar: o.hasAvatar, updatedAt: o.avatarUpdatedAt, size: 26)
@@ -133,7 +133,7 @@ struct BotEditView: View {
                     }
                     .disabled(!canDelegate)
                 }
-                Toggle("接受其他 Bot 的委派", isOn: $acceptDelegation)
+                CompactToggle("接受其他 Bot 的委派", isOn: $acceptDelegation)
             } header: {
                 Text("委派 Delegation")
             } footer: {

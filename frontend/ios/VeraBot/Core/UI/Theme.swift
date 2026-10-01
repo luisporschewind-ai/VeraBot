@@ -7,7 +7,7 @@ import UIKit
 // 语义色由 UIColor 动态提供（随 trait 解析），设置 › 外观（跟随系统 / 浅色 / 深色）切换时所有页面一起更新。
 //
 //   appBackground  页面背景      浅色 #FFFFFF；深色 #000000
-//   sectionFill    分组 / 卡片   浅色 #F2F2F7（原页面灰底 systemGroupedBackground 的浅色值）；深色 secondarySystemBackground
+//   sectionFill    分组 / 卡片   浅色 #EFEFEE（RGB 239, 239, 238）；深色 secondarySystemBackground
 //   brandSoft      品牌浅底      浅色 #E6F4F2；深色 #123D39（表情选中、交接 Trace 卡片）
 //
 // Liquid Glass：iOS 26 用系统 .glassEffect / .buttonStyle(.glass)；iOS 17–18 回退到材质 / bordered 样式。
@@ -22,11 +22,11 @@ extension Color {
 
     /// 页面背景：浅色纯白，深色纯黑
     static let appBackground = Color.dynamic(light: .white, dark: .black)
-    /// 分组 Section / 卡片 / 气泡底色：浅色 #F2F2F7，深色 secondarySystemBackground（sheet 内自动取 elevated 值）
+    /// 分组 Section / 卡片 / 气泡底色：浅色 #EFEFEE（RGB 239, 239, 238），深色 secondarySystemBackground（sheet 内自动取 elevated 值）
     static let sectionFill = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
             ? UIColor.secondarySystemBackground.resolvedColor(with: trait)
-            : UIColor(hex: 0xF2F2F7)
+            : UIColor(hex: 0xEFEFEE)
     })
     /// Bot 回复气泡
     static let botBubble = sectionFill
@@ -130,6 +130,40 @@ extension View {
             background(.regularMaterial, in: shape)
                 .overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
         }
+    }
+}
+
+// MARK: - 开关
+
+/// 缩小的原生开关：仍是系统 `Toggle`（不自定义 ToggleStyle、无动画），只把开关本体缩放到 `scale`（右对齐）。
+/// scaleEffect 不改变布局尺寸，行高与原生 Toggle 相同，不会裁切。全 App 的开关统一用它（设置、Bot 详情、记忆设置）。
+struct CompactToggle<Label: View>: View {
+    static var scale: CGFloat { 0.85 }
+
+    @Binding var isOn: Bool
+    let label: Label
+    @Environment(\.isEnabled) private var isEnabled
+
+    init(isOn: Binding<Bool>, @ViewBuilder label: () -> Label) {
+        _isOn = isOn
+        self.label = label()
+    }
+
+    var body: some View {
+        LabeledContent {
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .scaleEffect(Self.scale, anchor: .trailing)
+        } label: {
+            label.opacity(isEnabled ? 1 : 0.5)   // 禁用时与系统 Toggle 一样变淡
+        }
+        .accessibilityElement(children: .combine)   // VoiceOver 读作「标题 + 开关」一个元素
+    }
+}
+
+extension CompactToggle where Label == Text {
+    init(_ title: String, isOn: Binding<Bool>) {
+        self.init(isOn: isOn) { Text(title) }
     }
 }
 

@@ -22,7 +22,7 @@ struct MemorySettingsSection: View {
                     Label("Vera 了解的你", systemImage: "brain.head.profile")
                 }
             }
-            Toggle(isOn: Binding(get: { enabled }, set: { on in Task { await set(on) } })) {
+            CompactToggle(isOn: Binding(get: { enabled }, set: { on in Task { await set(on) } })) {
                 Label("允许 Bot 记住", systemImage: "brain")
             }
             .disabled(syncing)
