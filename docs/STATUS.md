@@ -34,6 +34,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | 项 | 状态 |
 |---|---|
 | MCP 能力、Gmail 接入 | 📝 设计稿完成，**等待 Boss 评审**，未写实现代码 (见下一节) |
+| 以记忆为核心的 Bot 成长体系 (Memory growth) | 📝 实施方案完成，**等待 Boss 评审**，未写实现代码 (见下一节) |
 | 首页搜索扩展 (完整聊天历史搜索、搜索历史) | ⏸ 延期到后续迭代；当前只过滤已加载列表 |
 
 ### 已知遗留 (Known leftovers，仅列出，未处理)
@@ -46,14 +47,15 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 ## ⏸ 设计评审：开发暂停，等待 Boss 评审 (Development paused pending Boss review)
 
-Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gmail 优先通过 MCP 接入。以下两份设计稿已完成，**尚未编写任何实现代码**；在 Boss 评审并回答开放问题之前，不开始开发。
+Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gmail 优先通过 MCP 接入。以下两份设计稿已完成；另有一份以记忆为核心的 Bot 成长体系实施方案 (Boss 已认可概念，待评审实施细节)。三份文档都**尚未编写任何实现代码**；在 Boss 评审并回答开放问题之前，不开始开发。
 
 | 能力 | 设计文档 | 状态 | 需要 Boss 做的事 |
 |---|---|---|---|
 | MCP 能力 (MCP Client、OAuth 2.1、工具映射、权限、HITL、防注入) | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | 📝 设计稿 v0.1 | 评审；回答 §16 开放问题 Q1~Q11 |
 | Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | 📝 设计稿 v0.2 | 评审；回答 §16 开放问题 Q1~Q12；创建 Google Cloud 项目并加入 Google Workspace Developer Preview Program (§14) |
+| 以记忆为核心的 Bot 成长体系 (显式记忆 + 记忆页 → 摘要 / 风格校准 → 隐式候选 / 主动建议 / 快捷提问 → 成长界面 / 月度回顾 → 向量检索 / 协作优化) | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | 📝 实施方案 v0.1 (**等待 Boss 评审**) | 评审；回答 §17 开放问题 Q1~Q12；确认 M1 范围 (约 9~9.5 人日) |
 
-评审通过后的第一步是 M0 / G0 技术验证 (1~2 天)，见 MCP 文档 §15。
+MCP 评审通过后的第一步是 M0 / G0 技术验证 (1~2 天)，见 MCP 文档 §15。Memory 方案的 M1 不依赖外部服务，可与 MCP 并行或先行 (Memory 文档 Q12)；schema 版本号按落地顺序分配。
 
 ## 1. 已完成功能 (Features done)
 
@@ -89,7 +91,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 - **语言**：App 声明了 zh-Hans 与 en 本地化（仅 `InfoPlist.xcstrings`：显示名与权限文案），系统设置中可按 App 切换语言；但界面文案仍是中文硬编码，切到英文后 App 内界面仍为中文。
 - **列表时间不会自动跨天刷新**：停留在首页跨过午夜时，「HH:mm」不会自己变成「昨天」；回到首页或下拉刷新后更新。「本周」按系统日历的周（中文地区周一开始）计算。
 - **首页搜索暂延期扩展**：搜索入口保留；当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览），完整聊天历史搜索、搜索历史等移至后续迭代。
-- **记忆**：滑动窗口 (最近 N 条)，没有摘要 / 向量检索。
+- **记忆**：滑动窗口 (最近 N 条)，没有长期记忆、摘要 / 向量检索 (方案见 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md)，待评审)。
 - **安全**：Token 存 UserDefaults / localStorage (生产应改 Keychain / HttpOnly Cookie)，没有刷新 Token、没有速率限制 (Rate limit)，CORS `*`，ATS 允许本地 HTTP。
 - **云端 TTS**：只是占位 (stub)，设置里置灰。
 - **后端不会开机自启**：Mac 重启后需要重新运行 `backend/start.sh --detach` (或双击 `start.command`)；日志在 `backend/data/server.log`。
@@ -127,7 +129,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 5. 云端 TTS：后端 `/api/tts` + 实现 `CloudTTSEngine`。
 6. 安全加固：Keychain、刷新 Token、Rate limit、HTTPS / 移除 ATS 例外、收紧 CORS。
 7. 后端常驻：launchd plist (开机自启 + 崩溃重启)；实测 Docker 镜像。
-8. 记忆：长对话摘要压缩 (summarization) 与长期记忆。
+8. 记忆：按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) 实施 (等待 Boss 评审；M2 含长对话摘要)。
 9. Web SPA 跟进 iOS 的权限编辑 / 协作记录 UI (如果还需要 Web)。
 10. 确认 `frontend/ios/VeraBot/File.txt` 是否删除 (NEW-03)。
 11. 配置 CI (后端 mock 测试 + `swift test` + xcodebuild)。远程仓库已配置 (GitHub `luisporschewind-ai/VeraBot`)。

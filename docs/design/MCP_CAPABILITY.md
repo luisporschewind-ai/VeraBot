@@ -2,7 +2,7 @@
 
 > 状态：**设计稿，尚未实现** (Draft, not implemented)。日期：2026-10-01 (UTC+8)。**开发暂停，等待 Boss 评审** (Development paused pending Boss review)。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
-> **版本号说明 (2026-10-01 文档同步)**：撰写后 schema v3 已被「昵称 + 照片头像」(commit `07d0716`) 占用。本文 §12.2 所写的「schema v3」在实施时顺延为**下一个可用版本** (v4；若其他设计先落地占用 v4，则为 v5)。表结构不变。
+> **版本号说明 (2026-10-01 文档同步)**：撰写后 schema v3 已被「昵称 + 照片头像」(commit `07d0716`) 占用。本文 §12.2 所写的「schema v3」在实施时顺延为**下一个可用版本** (v4；若 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) M1 先落地占用 v4，则为 v5)。表结构不变。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
 > 规范依据 (2026-10-01 核实)：MCP 规范 **2026-07-28** 版 (当前最新稳定版，上一版 2025-11-25)；官方 Python SDK **`mcp` v2.2.0** (2026-09-07 发布，MIT，Python ≥ 3.10)。见 §17 参考资料。
 
@@ -413,7 +413,7 @@ MCP 服务器返回的内容 (邮件、网页、文档、第三方消息) 以及
 
 | 位置 | 改动 |
 |---|---|
-| 设置 → **连接的账号 / MCP 服务 (Connected accounts & MCP services)** | 新分组 `MCPServicesSection`，放在「用量」之后、「通用」之前。实施后顺序：账号 → 用量 → 连接的账号 / MCP 服务 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (与当前代码 `SettingsView` 一致，仅插入新分组；2026-10-01 文档同步更新)。列表显示每个服务：图标、名称、来源标记 (官方 / 自托管 / 自定义)、状态 (未连接 / 已连接 xxx / 需要重新连接 / 需要追加权限 / 异常)。「添加服务」从目录选择 (自定义 URL 入口仅在后端允许时显示) |
+| 设置 → **连接的账号 / MCP 服务 (Connected accounts & MCP services)** | 新分组 `MCPServicesSection`，放在「用量」之后、「通用」之前。实施后顺序：账号 → 用量 → 连接的账号 / MCP 服务 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (与当前代码 `SettingsView` 一致，仅插入新分组；2026-10-01 文档同步更新)；若「记忆」分组 ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) Q6) 先落地，则放在「记忆」之后。列表显示每个服务：图标、名称、来源标记 (官方 / 自托管 / 自定义)、状态 (未连接 / 已连接 xxx / 需要重新连接 / 需要追加权限 / 异常)。「添加服务」从目录选择 (自定义 URL 入口仅在后端允许时显示) |
 | 服务详情页 `MCPServerDetailView` | 账号与已授予权限、「连接 / 追加权限 / 断开 (二次确认)」、「刷新工具」、工具列表 (名称、风险标签：只读 / 写入 / 发送 / 破坏性、「需确认」「被委派时不可用」、新工具 / 定义已变更 标记)；变更的工具进入 `ToolChangeReviewView` 显示差异后「接受」 |
 | Bot 详情 → 工具权限 | 分组：「内置工具」+ 每个 MCP 服务一组；**默认全部关闭**；未连接的服务整组置灰并提示「需先在设置中连接」；风险标签与「每次都需要你确认」说明；「开启本服务全部只读工具」快捷按钮 (保存时展开为具体工具) |
 | 对话：Trace / 结果卡片 | `MCPToolResultCard`：服务图标 + 工具名 + 状态 + 摘要，可展开查看结构化结果；错误卡片支持「去重新连接」跳转 |

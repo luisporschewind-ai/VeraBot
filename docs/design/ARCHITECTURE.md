@@ -205,7 +205,7 @@ iOS 在上传前用 `AvatarImage.jpegData` 把照片收成边长 1024 的 JPEG�
 |---|---|---|
 | 模型接入 | 服务端统一持有 `DEEPSEEK_API_KEY`，OpenAI 兼容协议 | 用户零配置；可切换其他 OpenAI 兼容模型 |
 | 租户隔离 | 每条 SQL 带 `user_id`；他人资源返回 404 | 简单可审计，防枚举 |
-| 记忆隔离 | 历史按 `(user_id, bot_id)` 存取；当前只有滑动窗口 (最近 `VERABOT_HISTORY_WINDOW`=20 条)，没有摘要 / 长期记忆 | Bot 之间人格与上下文互不串扰 |
+| 记忆隔离 | 历史按 `(user_id, bot_id)` 存取；当前只有滑动窗口 (最近 `VERABOT_HISTORY_WINDOW`=20 条)，没有摘要 / 长期记忆 (方案见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md)，未实现) | Bot 之间人格与上下文互不串扰 |
 | 多 Agent | Agent-as-a-Tool (`ask_bot`)，最小权限 + 服务端强制 + 上下文隔离 + 护栏 + 审计 | 可控、可观测；详见 MULTI_AGENT_DESIGN |
 | 工具轮次 | 每轮最多 4 轮工具调用 (`VERABOT_MAX_TOOL_ROUNDS`) | 防止工具循环 |
 | 流式协议 | SSE (`event:` + `data:` JSON) | 浏览器 `fetch` 与 iOS `URLSession.bytes` 都能直接解析 |

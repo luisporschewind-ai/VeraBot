@@ -26,6 +26,7 @@
   - 测试：`backend/scripts/test/avatar_profile_test.py`（AV-01–17、NK-01–04，21/21，含 v2→v3 迁移与租户隔离）。`multi_agent_test.py` 仍为 24/24。
 - **iOS · App 图标**：新增 `Assets.xcassets/AppIcon.appiconset` (Xcode 26 单尺寸 1024×1024 universal，不透明白底，图案居中留白)，源图保存在 `assets/brand/app-icon-source.png`；工程设置 `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` (pbxproj 与 project.yml 同步)。
 - 设计文档 (未实现)：[design/MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) — MCP 作为一等能力：后端作为 MCP Client (官方 Python SDK `mcp` v2，MCP 规范 2026-07-28)、Streamable HTTP (生产) / stdio (仅本地开发)、三层服务器注册表、远程服务器 OAuth 2.1 (PRM / PKCE / `resource` / `iss` 校验)、工具发现与 `mcp__{server}__{tool}` 命名空间、MCP 工具默认关闭且委派中禁用、按风险分级的人工确认 (HITL)、不可信结果包裹与污染标记、审计 / 超时 / 重试 / 熔断、Token 加密且不下发 App、iOS「连接的账号 / MCP 服务」、API 与 schema v3、MCP-01~30 测试、里程碑 M0~M5 与开放问题。
+- 设计文档 (未实现，等待 Boss 评审)：[design/MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) — 以记忆为核心的 Bot 成长体系实施方案 v0.1：`memories` 表与 schema v4 迁移、`bots.memory_access` (none / bot / bot_and_global) 与用户总开关、内置记忆工具 `remember` / `forget_memory` 只生成待确认提议 + 对话内确认卡片 (先确认后保存)、规则 + 关键词召回与 `<user_memory>` 包裹注入 (≤ 12 条 / 1000 字，带来源标签)、被委派 Bot 不读写记忆、敏感信息默认不存、`/api/memories*` 接口、iOS「Vera 了解的你」记忆页与 Bot 详情记忆分组、MEM-xx 测试、M1~M5 里程碑与工作量估算、风险与 12 个开放问题。
 - 设计文档 (未实现)：[design/GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) — Gmail 能力方案 (v0.2)，含 HITL 发送确认、权限与委派集成、测试计划和待 Boss 决策的开放问题。
 
 ### 变更 (Changed)

@@ -48,6 +48,7 @@ open frontend/ios/VeraBot.xcodeproj # Xcode 里选 iPhone 模拟器 ⌘R；演�
 | [docs/design/ARCHITECTURE.md](docs/design/ARCHITECTURE.md) | 架构、模块划分、依赖规则、依赖管理 (SPM / uv) |
 | [docs/design/MULTI_AGENT_DESIGN.md](docs/design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限 / 上下文隔离 / 护栏 / 审计 |
 | [docs/design/MCP_CAPABILITY.md](docs/design/MCP_CAPABILITY.md)、[GMAIL_CAPABILITY.md](docs/design/GMAIL_CAPABILITY.md) | 设计稿 (未实现，待 Boss 评审)：MCP 能力与 Gmail 接入 |
+| [docs/design/MEMORY_GROWTH.md](docs/design/MEMORY_GROWTH.md) | 实施方案 (未实现，待 Boss 评审)：以记忆为核心的 Bot 成长体系 |
 | [docs/testing/TEST_CASES_v0.1.md](docs/testing/TEST_CASES_v0.1.md) | 测试用例与结果 |
 
 ## 安全 (Security)
