@@ -44,7 +44,9 @@ struct BotListView: View {
                     }
                 }
             }
-            .navigationTitle("我的 Bot")
+            // 首页不显示导航标题；inline 保留紧凑导航栏，避免大标题占位。
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .onDemandSearchable(active: searchActive, text: $query, isPresented: $searchPresented,
                                 prompt: "搜索 Bot 或消息")
             .onChange(of: searchPresented) { wasPresented, presented in
