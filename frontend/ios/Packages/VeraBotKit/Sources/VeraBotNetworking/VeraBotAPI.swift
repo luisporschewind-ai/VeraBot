@@ -5,6 +5,14 @@ import VeraBotCore
 public protocol VeraBotAPI: Sendable {
     func login(_ c: Credentials) async throws -> AuthResponse
     func register(_ c: Credentials) async throws -> AuthResponse
+    func me() async throws -> User
+    func updateNickname(_ nickname: String) async throws -> User
+    func uploadMyAvatar(jpeg: Data) async throws -> User
+    func myAvatarData() async throws -> Data
+    func deleteMyAvatar() async throws -> User
+    func uploadBotAvatar(botID: Int, jpeg: Data) async throws -> Bot
+    func botAvatarData(botID: Int) async throws -> Data
+    func deleteBotAvatar(botID: Int) async throws -> Bot
     func bots() async throws -> BotsResponse
     func createBot(_ b: BotCreate) async throws -> Bot
     func deleteBot(_ id: Int) async throws -> OKResponse

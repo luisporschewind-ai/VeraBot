@@ -19,8 +19,9 @@ def compute_quota(user: dict) -> dict:
         total = db.row(c.execute(q, (user["id"],)).fetchone())
         today = db.row(c.execute(q + " AND created_at>=?", (user["id"], start_utc)).fetchone())
         per_bot = db.rows(c.execute(
-            "SELECT b.id, b.name, b.avatar, b.color, COUNT(u.id) AS requests, COALESCE(SUM(u.total_tokens),0) AS "
-            "total_tokens FROM bots b LEFT JOIN usage_log u ON u.bot_id=b.id AND u.user_id=b.user_id "
+            "SELECT b.id, b.name, b.avatar, b.color, b.image_updated_at, COUNT(u.id) AS requests, "
+            "COALESCE(SUM(u.total_tokens),0) AS total_tokens FROM bots b "
+            "LEFT JOIN usage_log u ON u.bot_id=b.id AND u.user_id=b.user_id "
             "WHERE b.user_id=? GROUP BY b.id ORDER BY total_tokens DESC", (user["id"],)).fetchall())
         daily_rows = c.execute("SELECT created_at, total_tokens FROM usage_log WHERE user_id=? AND created_at>=?",
                                (user["id"], week_utc)).fetchall()
@@ -35,6 +36,10 @@ def compute_quota(user: dict) -> dict:
         if k in daily:
             daily[k] += r["total_tokens"]
     _, budget = db.token_budget(user["id"])
+    for row in per_bot:
+        updated = row.pop("image_updated_at", None)
+        row["has_avatar"] = bool(updated)
+        row["avatar_updated_at"] = updated
     return {"model": DEEPSEEK_MODEL, "daily_token_quota": budget, "today": today, "total": total,
             "per_bot": per_bot, "daily": [{"date": k, "tokens": v} for k, v in daily.items()],
             "delegations": delegations,

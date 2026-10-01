@@ -37,7 +37,8 @@ struct BotEditView: View {
             if infoMode {
                 Section {
                     VStack(spacing: 8) {
-                        BotAvatar(emoji: avatar.isEmpty ? bot.avatar : avatar, color: bot.color, size: 72)
+                        LiveBotAvatar(botID: bot.id, emoji: avatar.isEmpty ? bot.avatar : avatar, color: bot.color,
+                                      hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 72)
                         Text(name.isEmpty ? bot.name : name).font(.title2.bold())
                         Text(persona.isEmpty ? "暂无人设简介" : persona)
                             .font(.subheadline).foregroundStyle(.secondary)
@@ -55,6 +56,7 @@ struct BotEditView: View {
                         .submitLabel(.next)
                         .onSubmit { focus = .persona }
                 }
+                BotAvatarPhotoControls(botID: bot.id, hasAvatar: bot.hasAvatar)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
                         ForEach(emojis, id: \.self) { e in
@@ -93,7 +95,8 @@ struct BotEditView: View {
                 ForEach(others) { o in
                     Toggle(isOn: targetBinding(o.id)) {
                         HStack {
-                            BotAvatar(emoji: o.avatar, color: o.color, size: 26)
+                            LiveBotAvatar(botID: o.id, emoji: o.avatar, color: o.color,
+                                           hasAvatar: o.hasAvatar, updatedAt: o.avatarUpdatedAt, size: 26)
                             Text(o.name)
                             if !o.acceptDelegation {
                                 Text("未开放委派").font(.caption2).foregroundStyle(.orange)

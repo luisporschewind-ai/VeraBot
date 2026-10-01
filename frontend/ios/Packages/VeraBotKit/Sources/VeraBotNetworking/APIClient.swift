@@ -1,5 +1,8 @@
 // VeraBotNetworking：REST + SSE 客户端。
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking // Linux 上 URLSession 在这个模块；Apple 平台仍由 Foundation 提供
+#endif
 import VeraBotCore
 
 public struct APIError: LocalizedError, Sendable {
@@ -43,6 +46,35 @@ public struct APIClient: VeraBotAPI {
 
     public func register(_ c: Credentials) async throws -> AuthResponse {
         try await call("/api/auth/register", method: "POST", body: try encode(c))
+    }
+
+    public func me() async throws -> User { try await call("/api/me") }
+
+    public func updateNickname(_ nickname: String) async throws -> User {
+        try await call("/api/me", method: "PATCH", body: try encode(["nickname": nickname]))
+    }
+
+    // MARK: - Avatars（multipart JPEG 上传；GET 返回图片字节）
+    public func uploadMyAvatar(jpeg: Data) async throws -> User {
+        try await upload("/api/me/avatar", jpeg: jpeg)
+    }
+
+    public func myAvatarData() async throws -> Data { try await fetchBytes("/api/me/avatar") }
+
+    public func deleteMyAvatar() async throws -> User {
+        try await call("/api/me/avatar", method: "DELETE")
+    }
+
+    public func uploadBotAvatar(botID: Int, jpeg: Data) async throws -> Bot {
+        try await upload("/api/bots/\(botID)/avatar", jpeg: jpeg)
+    }
+
+    public func botAvatarData(botID: Int) async throws -> Data {
+        try await fetchBytes("/api/bots/\(botID)/avatar")
+    }
+
+    public func deleteBotAvatar(botID: Int) async throws -> Bot {
+        try await call("/api/bots/\(botID)/avatar", method: "DELETE")
     }
 
     // MARK: - Bots
@@ -99,6 +131,10 @@ public struct APIClient: VeraBotAPI {
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
+                    // swift-corelibs-foundation（Linux）没有 URLSession.bytes；iOS/macOS 路径不变。
+                    #if os(Linux)
+                    throw APIError(status: 0, message: "当前平台不支持流式聊天")
+                    #else
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
                     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                     guard status == 200 else {
@@ -119,6 +155,7 @@ public struct APIClient: VeraBotAPI {
                         }
                     }
                     continuation.finish()
+                    #endif
                 } catch {
                     continuation.finish(throwing: error)
                 }
@@ -169,6 +206,39 @@ public struct APIClient: VeraBotAPI {
             throw Self.apiError(status: status, data: data)
         }
         return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    private func upload<T: Decodable & Sendable>(_ path: String, jpeg: Data) async throws -> T {
+        let boundary = "VeraBotBoundary-\(UUID().uuidString)"
+        var body = Data()
+        func append(_ string: String) { body.append(Data(string.utf8)) }
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"file\"; filename=\"avatar.jpg\"\r\n")
+        append("Content-Type: image/jpeg\r\n\r\n")
+        body.append(jpeg)
+        append("\r\n--\(boundary)--\r\n")
+        var req = URLRequest(url: baseURL.appending(path: path))
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        req.httpBody = body
+        req.timeoutInterval = 60
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw Self.apiError(status: status, data: data) }
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    private func fetchBytes(_ path: String) async throws -> Data {
+        var req = URLRequest(url: baseURL.appending(path: path))
+        req.httpMethod = "GET"
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        req.timeoutInterval = 30
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw Self.apiError(status: status, data: data) }
+        return data
     }
 
     private static func apiError(status: Int, data: Data) -> APIError {

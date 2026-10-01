@@ -1,10 +1,22 @@
 """请求体校验（Pydantic schemas）。"""
 from pydantic import BaseModel, Field, field_validator
 
+from ..services.users import clean_nickname
+
 
 class Credentials(BaseModel):
     username: str = Field(min_length=3, max_length=32)
     password: str = Field(min_length=6, max_length=128)
+
+
+class NicknameIn(BaseModel):
+    """PATCH /api/me。先 strip，再限制 1–32 个字（过长的原文在 clean_nickname 里拒绝）。"""
+    nickname: str
+
+    @field_validator("nickname", mode="before")
+    @classmethod
+    def _check(cls, v):
+        return clean_nickname(v)
 
 
 def _clean_name(v):

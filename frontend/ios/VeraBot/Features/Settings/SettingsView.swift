@@ -51,21 +51,6 @@ struct VoiceSettingsSection: View {
     }
 }
 
-/// 账号：头像、用户名、服务器（原「用量」页的账号信息已合并至此）
-struct AccountSettingsSection: View {
-    @Environment(AppState.self) private var app
-
-    var body: some View {
-        Section("账号") {
-            HStack(spacing: 12) {
-                UserAvatar(username: app.username ?? "?", size: 44)
-                Text(app.username ?? "未登录").font(.headline)
-            }
-            LabeledContent("服务器", value: app.baseURLString)
-        }
-    }
-}
-
 /// 退出登录：单独一组，固定在设置页最底部
 struct SignOutSettingsSection: View {
     @Environment(AppState.self) private var app

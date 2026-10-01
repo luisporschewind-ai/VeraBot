@@ -28,9 +28,9 @@ frontend/web  (SPA)  ────┘                    │                     
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT) | `config.py`、`security.py` |
 | `db` | SQLite 连接 / 事务、建表与幂等迁移 (schema v2)、查询 | `database.py`、`schema.py`、`repository.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
-| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计 | `llm.py`、`transcribe.py`、`bots.py`、`quota.py` |
+| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理 | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py` |
-| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由 | `deps.py`、`schemas.py`、`routers/{auth,bots,chat,voice,reminders,meta}.py` |
+| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由 | `deps.py`、`schemas.py`、`routers/{auth,avatars,bots,chat,voice,reminders,meta}.py` |
 | `main.py` | 组装 FastAPI app：CORS、422 处理、启动 `init_db`、挂载路由、托管 Web | — |
 
 ### 2.2 依赖规则 (Dependency rules)
@@ -86,8 +86,11 @@ erDiagram
     users ||--o{ delegations : owns
     users ||--o{ usage_log : "token usage"
     users ||--o{ audit_log : "security events"
-    users { int id string username string password_hash int token_budget }
-    bots { int id int user_id string name string avatar string color string persona string instructions json allowed_tools json delegate_to int accept_delegation }
+    users ||--o{ avatars : "owns bytes"
+    bots ||--o| avatars : "optional photo"
+    users { int id string username string password_hash string nickname string avatar_updated_at int token_budget }
+    bots { int id int user_id string name string avatar string color string persona string instructions json allowed_tools json delegate_to int accept_delegation string image_updated_at }
+    avatars { int user_id int bot_id string content_type blob data string updated_at }
     messages { int id int user_id int bot_id string role string content json traces }
     reminders { int id int user_id int bot_id string content string due_at int done }
     delegations { int id int user_id int from_bot_id int to_bot_id string status string reason int depth json payload int total_tokens }
@@ -95,7 +98,7 @@ erDiagram
     audit_log { int id int user_id int bot_id string kind string detail }
 ```
 
-另有 `transcriptions` (Web 语音转写计数，用于用量看板)。`schema_meta` 记录 schema 版本；`init_db()` 建表并做幂等迁移 (v1 → v2)。
+另有 `transcriptions` (Web 语音转写计数，用于用量看板) 和 `avatars` (用户 / Bot 的 512 JPEG)。`schema_meta` 记录 schema 版本；`init_db()` 建表并做幂等迁移 (v1 → v2 → v3)。v3 只加列和头像表，不改 v2 的权限回填。详见下文「资料与头像」。
 
 ## 3. iOS 客户端 (frontend/ios)
 
@@ -104,10 +107,11 @@ erDiagram
 ```
 VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swift Package)
 ├── App/        入口、AppState、AppConfig          ├── VeraBotCore        模型 (Codable)、SettingsKeys   ← 无依赖
-├── Core/UI/    Theme、BotAvatar、UserAvatar       ├── VeraBotNetworking  VeraBotAPI 协议 + APIClient     → Core
+├── Core/UI/    Theme、BotAvatar、UserAvatar、     ├── VeraBotNetworking  VeraBotAPI 协议 + APIClient     → Core
+│               AvatarPicker、LiveBotAvatar      │                      （含头像 multipart / 字节下载）
 ├── Features/   Auth · BotList · BotInfo · Chat    └── VeraBotTTS         TTSEngine 协议 + SpeechPlayer  → Core
 │               Settings · Reminders · Quota
-└── Services/   Keyboard、Speech (语音输入)
+└── Services/   Keyboard、Speech (语音输入)、Avatar (AvatarStore)
 ```
 
 依赖规则：
@@ -133,7 +137,38 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 | 后端回退 | `requirements.txt` (由 uv.lock 导出，版本全部锁定) | 没有 uv 或官方源不可用时，`start.sh` 用清华 tuna 镜像 `uv pip install -r requirements.txt`；也可以直接 `pip install -r` | — |
 | 部署 (可选) | Dockerfile + docker-compose (`python:3.12-slim` + `uv sync --frozen`) | 服务器部署；数据目录挂载 `./data` | — |
 
-当前版本锁定：Python 3.12；fastapi 0.142.1、uvicorn 0.54.0、httpx 0.28.1、pyjwt 2.15.1、bcrypt 5.0.0、python-multipart 0.0.32 (共 44 个包，见 `uv.lock`)。iOS 无第三方依赖；工具链 Xcode 26.0.1 / Swift 6.2，部署目标 iOS 17.0。
+当前版本锁定：Python 3.12；fastapi 0.142.1、uvicorn 0.54.0、httpx 0.28.1、pyjwt 2.15.1、bcrypt 5.0.0、python-multipart 0.0.32、pillow 11.3.0 (共 45 个包，见 `uv.lock`)。iOS 无第三方依赖；工具链 Xcode 26.0.1 / Swift 6.2，部署目标 iOS 17.0。
+
+## 6. 资料与头像 (Profile & avatars) — schema v3
+
+启动时 `init_db()` 幂等执行。已有库从 v2 升到 v3 时**不会**重跑 v2 的「存量 Bot 授予全部工具」逻辑。
+
+### 6.1 表
+
+| 列 / 表 | 含义 |
+|---|---|
+| `users.nickname` | 可空。NULL 或空白 = 未设置，`display_name` 回退 `username` |
+| `users.avatar_updated_at` | 可空。非空表示有自定义用户头像 |
+| `bots.avatar` | 原有 emoji，不变 |
+| `bots.image_updated_at` | 可空。非空表示该 Bot 有照片（API 字段名仍是 `has_avatar` / `avatar_updated_at`） |
+| `avatars` | 主键 `(user_id, bot_id)`。`bot_id = 0` 是用户自己的头像；正数是 Bot id。`data` 为 JPEG BLOB，`content_type` 固定 `image/jpeg`。用户删除时随 `users` 级联；Bot 删除时由触发器 `avatars_delete_with_bot` 删掉对应行 |
+
+公开 JSON（`services/users.public_user`、`services/bots.public_bot`）不包含 `password_hash` 和图片字节。图片只走下面的 GET。
+
+### 6.2 HTTP
+
+均需 Bearer JWT。用户头像没有 user id 路径，只能操作当前 token。Bot 头像先 `require_bot`（他人与不存在都是 404），再按 `user_id` 读写。
+
+| 方法 | 路径 | 行为 |
+|---|---|---|
+| PATCH | `/api/me` | body `{nickname}`。`clean_nickname`：strip、非空、≤ 32 个字、拒绝控制字符。422 文案不带 pydantic 前缀 |
+| POST | `/api/me/avatar`、`/api/bots/{id}/avatar` | `multipart/form-data`，字段名 `file`。不信任 Content-Type，只看文件头：JPEG / PNG / WebP；HEIC 能识别，未装 `pillow-heif` 时 415。大于 8MB → 413。解码失败 → 400。处理：EXIF 转正、居中裁正方形、512×512、JPEG quality 85。成功返回更新后的 user 或 bot |
+| GET | 同上路径 | `image/jpeg`。没有自定义头像 → 404「未设置头像」，客户端显示首字或 emoji |
+| DELETE | 同上路径 | 删 BLOB 并清空时间戳，返回更新后的 user 或 bot（Bot 的 emoji 还在） |
+
+常量在 `services/avatars.py`：`MAX_AVATAR_BYTES = 8 MiB`，`AVATAR_SIZE = 512`。不新增环境变量。
+
+iOS 在上传前用 `AvatarImage.jpegData` 把照片收成边长 1024 的 JPEG（相册里的 HEIC 由系统 `UIImage` 解码后再编码）。圆形预览用系统 sheet，显示区域与服务端中心裁切一致。昵称和用户头像放在 `AppState`；Bot 照片放在 `AvatarStore`。设置页保存后，首页工具栏和对话里的用户昵称读的是同一份 `displayName`，不会各刷各的接口。
 
 ## 5. 关键设计决策
 

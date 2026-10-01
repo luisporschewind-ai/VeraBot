@@ -187,3 +187,37 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | Docker | `docker compose config --quiet` | 🟡 配置校验通过；daemon 未运行，未构建镜像 |
 | demo 数据 | 重构前后 SQLite 对比 | ✅ 完全一致：messages 10 条 (max id 108)、usage_log max id 67、提醒 1、委派 1；Vera 🐼 人设 / 指令不变；只剩 demo 用户 |
 
+## 头像与昵称 (Avatars & nickname) — 2026-10-01
+
+环境：Linux 上的临时 SQLite + FastAPI `TestClient`，不调用 LLM。脚本：`backend/scripts/test/avatar_profile_test.py`。同一轮 `multi_agent_test.py` 仍为 24/24（v1→v3 迁移不破坏权限回填）。iOS 界面本环境没有 Xcode，下表 UI 行标为待 Mac 模拟器验证，步骤见 [RUN_LOCAL.md](../ops/RUN_LOCAL.md)。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| AV-01 | 迁移 | 已有 schema v2 库启动 | 版本变为 3；出现 `nickname`、`avatar_updated_at`、`image_updated_at`、`avatars`；存量 Bot 的工具权限不被改写 | 通过 |
+| AV-02 | 资料 | 注册 | `nickname` 为 null，`display_name` 等于用户名，`has_avatar` 为 false | 通过 |
+| NK-01 | 昵称 | `PATCH /api/me` `{"nickname":"  小云  "}` 再 `GET /api/me` | 存成「小云」，用户名不变 | 通过 |
+| NK-02 | 昵称 | 改完后重新登录 | 登录响应里仍是「小云」 | 通过 |
+| NK-03 | 昵称 | 空白、空串、33 字、含换行、正好 32 字 | 前四项 422（「不能为空」/「最多 32 个字」，无 `Value error` 前缀）；32 字 200 | 通过 |
+| NK-04 | 隔离 | 用户 A 改昵称后看用户 B 的 `/api/me` | B 的昵称仍为空 | 通过 |
+| AV-03 | 用户头像 | 未上传就 GET | 404「未设置头像」 | 通过 |
+| AV-04 | 用户头像 | 不带 Token GET | 401 | 通过 |
+| AV-05 | 用户头像 | 上传 800×400 JPEG | 200，`has_avatar` true；GET 为 512×512 JPEG | 通过 |
+| AV-06 | 用户头像 | 左右红色、中间绿色的宽图 | 中心像素仍是绿色（居中裁切） | 通过 |
+| AV-07 | 用户头像 | 带透明的 PNG、WebP | 都接受，存成 JPEG | 通过 |
+| AV-08 | 用户头像 | GIF、损坏的 JPEG、假 HEIC | GIF 415；损坏 400；未装 HEIC 解码器时 415 并提示改用 JPEG/PNG/WebP | 通过 |
+| AV-09 | 用户头像 | 超过大小上限 | 413 | 通过 |
+| AV-10 | 隔离 | 用户 B `GET /api/me/avatar` | 404，拿不到 A 的字节 | 通过 |
+| AV-11 | 用户头像 | DELETE 后再 GET，并看 `/api/me` | `has_avatar` false，GET 404，昵称还在 | 通过 |
+| AV-12 | Bot 头像 | 新建 Bot | `has_avatar` false，emoji 仍在，GET 404 | 通过 |
+| AV-13 | Bot 头像 | 上传宽图 | 列表 `has_avatar` true，GET 512 JPEG，emoji 仍是原来的 | 通过 |
+| AV-14 | 隔离 | 对方对这个 Bot 做 GET/POST/DELETE；自己对对方 Bot 和不存在的 id 做同样的事 | 全部 404，原图还在 | 通过 |
+| AV-15 | Bot 头像 | DELETE 照片 | emoji 还在，`has_avatar` false，再 GET 404 | 通过 |
+| AV-16 | Bot 头像 | 上传后再删 Bot | `avatars` 里该 Bot 的行没了 | 通过 |
+| AV-17 | 用量 | `GET /api/quota` 的 `per_bot` | 每项带 `has_avatar` 和 emoji `avatar` | 通过 |
+| UI-AV-01 | iOS | 设置页点头像 → 相册 → 圆形预览 → 使用 | 设置页和首页左上角变成该照片；退出再登录（或另一台设备）仍在 | 待 Mac 模拟器 |
+| UI-AV-02 | iOS | 设置页「恢复默认头像」 | 回到昵称首字；GET 头像 404 | 待 Mac 模拟器 |
+| UI-AV-03 | iOS | Bot 详情「从相册设置头像」，再「恢复默认头像」 | 列表、对话标题、气泡马上换成圆形照片；恢复后回到所选表情 | 待 Mac 模拟器 |
+| UI-NK-01 | iOS | 设置页改昵称并保存，回到首页再打开对话 | 首页首字（无照片时）和用户消息上方的名字立刻是新昵称，不用下拉刷新 | 待 Mac 模拟器 |
+
+汇总：API **21/21 通过**（2026-10-01，Linux）。UI 4 条未在模拟器执行。
+

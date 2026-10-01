@@ -2,8 +2,9 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .. import db
 from ..core.security import InvalidToken, decode_token
+from ..services.users import USER_SQL, public_user
+from .. import db
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -16,10 +17,10 @@ def current_user(cred: HTTPAuthorizationCredentials | None = Depends(bearer)) ->
     except InvalidToken:
         raise HTTPException(401, "登录已失效，请重新登录")
     with db.tx() as c:
-        u = db.row(c.execute("SELECT id, username, created_at FROM users WHERE id=?", (int(payload["sub"]),)).fetchone())
+        u = db.row(c.execute(USER_SQL, (int(payload["sub"]),)).fetchone())
     if not u:
         raise HTTPException(401, "用户不存在")
-    return u
+    return public_user(u)
 
 
 def require_bot(user: dict, bot_id: int) -> dict:

@@ -50,10 +50,8 @@ struct BotListView: View {
                         SettingsView()
                             .toolbar(.hidden, for: .tabBar)
                     } label: {
-                        // iOS 26 原生样式：只放首字母，由系统 Liquid Glass 圆形按钮承载（不再自绘背景）
-                        Text(String((app.username ?? "?").prefix(1)).uppercased())
-                            .font(.headline)
-                            .foregroundStyle(Color.brand)
+                        // 无照片时只放首字，由系统圆形按钮承载；有照片时在按钮里显示圆形头像
+                        HomeAvatarLabel(name: app.displayName, image: app.avatars.userImage)
                     }
                     .accessibilityLabel("设置")
                 }
@@ -81,6 +79,9 @@ struct BotListView: View {
             let r = try await app.api.bots()
             bots = r.bots
             limit = r.limit
+            for bot in r.bots {
+                app.avatars.reconcileBot(id: bot.id, hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
+            }
             errorText = nil
         } catch {
             errorText = app.message(for: error)
@@ -100,7 +101,8 @@ struct BotRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            BotAvatar(emoji: bot.avatar, color: bot.color)
+            LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
+                           hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
             VStack(alignment: .leading, spacing: 3) {
                 Text(bot.name).font(.headline)
                 Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)

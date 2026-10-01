@@ -4,6 +4,70 @@ import Foundation
 public struct User: Codable, Sendable, Hashable {
     public let id: Int
     public let username: String
+    /// 用户设置的昵称。nil 表示未设置，界面用 displayName（回退用户名）。
+    public let nickname: String?
+    public let displayName: String
+    public let hasAvatar: Bool
+    public let avatarUpdatedAt: String?
+
+    public init(id: Int, username: String, nickname: String? = nil, displayName: String? = nil,
+                hasAvatar: Bool = false, avatarUpdatedAt: String? = nil) {
+        self.id = id
+        self.username = username
+        let trimmed = nickname?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nick = (trimmed?.isEmpty == false) ? trimmed : nil
+        self.nickname = nick
+        let shown = displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let shown, !shown.isEmpty {
+            self.displayName = shown
+        } else {
+            self.displayName = nick ?? username
+        }
+        self.hasAvatar = hasAvatar
+        self.avatarUpdatedAt = avatarUpdatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, username, nickname
+        case displayName = "display_name"
+        case hasAvatar = "has_avatar"
+        case avatarUpdatedAt = "avatar_updated_at"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try c.decode(Int.self, forKey: .id),
+            username: try c.decode(String.self, forKey: .username),
+            nickname: try c.decodeIfPresent(String.self, forKey: .nickname),
+            displayName: try c.decodeIfPresent(String.self, forKey: .displayName),
+            hasAvatar: try c.decodeIfPresent(Bool.self, forKey: .hasAvatar) ?? false,
+            avatarUpdatedAt: try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(username, forKey: .username)
+        try c.encodeIfPresent(nickname, forKey: .nickname)
+        try c.encode(displayName, forKey: .displayName)
+        try c.encode(hasAvatar, forKey: .hasAvatar)
+        try c.encodeIfPresent(avatarUpdatedAt, forKey: .avatarUpdatedAt)
+    }
+}
+
+/// 昵称规则，与后端 `clean_nickname` 一致：去空白、1…32 个字、不含控制字符。
+public enum NicknameRules {
+    public static let maxCount = 32
+
+    public static func cleaned(_ raw: String) -> String? {
+        if raw.count > 64 { return nil }
+        let v = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !v.isEmpty, v.count <= maxCount else { return nil }
+        if v.unicodeScalars.contains(where: { $0.value < 32 || $0.value == 127 }) { return nil }
+        return v
+    }
 }
 
 public struct AuthResponse: Codable, Sendable {
@@ -44,6 +108,9 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
     public let allowedTools: [String]
     public let delegateTo: [Int]
     public let acceptDelegation: Bool
+    /// 是否设置了照片头像（表情符号仍在 avatar）。
+    public let hasAvatar: Bool
+    public let avatarUpdatedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, avatar, color, persona, instructions
@@ -52,6 +119,8 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         case allowedTools = "allowed_tools"
         case delegateTo = "delegate_to"
         case acceptDelegation = "accept_delegation"
+        case hasAvatar = "has_avatar"
+        case avatarUpdatedAt = "avatar_updated_at"
     }
 
     public init(from decoder: Decoder) throws {
@@ -67,6 +136,8 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         allowedTools = try c.decodeIfPresent([String].self, forKey: .allowedTools) ?? []
         delegateTo = try c.decodeIfPresent([Int].self, forKey: .delegateTo) ?? []
         acceptDelegation = try c.decodeIfPresent(Bool.self, forKey: .acceptDelegation) ?? false
+        hasAvatar = try c.decodeIfPresent(Bool.self, forKey: .hasAvatar) ?? false
+        avatarUpdatedAt = try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt)
     }
 }
 
@@ -251,10 +322,26 @@ public struct BotUsage: Codable, Sendable, Hashable, Identifiable {
     public let color: String
     public let requests: Int
     public let totalTokens: Int
+    public let hasAvatar: Bool
+    public let avatarUpdatedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, avatar, color, requests
         case totalTokens = "total_tokens"
+        case hasAvatar = "has_avatar"
+        case avatarUpdatedAt = "avatar_updated_at"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        avatar = try c.decode(String.self, forKey: .avatar)
+        color = try c.decode(String.self, forKey: .color)
+        requests = try c.decode(Int.self, forKey: .requests)
+        totalTokens = try c.decode(Int.self, forKey: .totalTokens)
+        hasAvatar = try c.decodeIfPresent(Bool.self, forKey: .hasAvatar) ?? false
+        avatarUpdatedAt = try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt)
     }
 }
 

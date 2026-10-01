@@ -50,7 +50,8 @@ struct ChatView: View {
             ToolbarItem(placement: .principal) {
                 Button { focused = false; showInfo = true } label: {   // 弹出 sheet 前收起键盘
                     HStack(spacing: 6) {
-                        BotAvatar(emoji: vm.bot.avatar, color: vm.bot.color, size: 26)
+                        LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
+                                       hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt, size: 26)
                         Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
                         Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     }

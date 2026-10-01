@@ -76,18 +76,20 @@
 3. 清理孤儿委派记录 (orphan delegations)，即 Bot 已被删除的记录。
 4. 回滚：迁移不可逆，升级前请先复制 `backend/data/verabot.db`。(迭代 2 升级时的临时备份 `/tmp/verabot_prefix_backup.db` 已随 Mac 重启被清除。)
 
+当前库版本是 **schema v3**（昵称、用户头像、Bot 照片）。v2 → v3 只 `ALTER` 加列并创建 `avatars` 表，不重跑上面的权限回填。字段与 API 见 [ARCHITECTURE.md](ARCHITECTURE.md)「资料与头像」。
+
 ## 7. iOS 界面
 
 - **Bot 列表**：长按 → 「编辑与权限」；不显示数量页脚 (2026-10-01 移除)，到达上限时右上角 ＋ 置灰。新建表单里有最小权限提示。
-- **BotEditView** (对话页点标题进入 Bot 详情，或 Bot 列表长按「编辑与权限」)：基本信息 (名称 / 头像 / 人设 / 指令)；工具权限开关 (Tool allowlist)；委派目标 (没有开启 `ask_bot` 时不可选)；接受委派开关；guardrail 说明；「协作记录」入口。保存时调用 `PATCH /api/bots/{id}`。
+- **BotEditView** (对话页点标题进入 Bot 详情，或 Bot 列表长按「编辑与权限」)：基本信息 (名称 / 表情 / 人设 / 指令)，另有「从相册设置头像 / 恢复默认」（照片优先于表情）；工具权限开关 (Tool allowlist)；委派目标 (没有开启 `ask_bot` 时不可选)；接受委派开关；guardrail 说明；「协作记录」入口。保存资料时调用 `PATCH /api/bots/{id}`；照片走 `/api/bots/{id}/avatar`，不跟「保存」按钮绑在一起。
 - **Bot 详情** (对话页点标题「头像 + 名称 ›」)：以系统默认 sheet 弹出 (非 push、非全屏、下滑关闭)。它复用 `BotEditView(infoMode: true)`，内嵌完整设置：资料卡片、基本信息、工具权限、委派、协作记录，底部「清空对话」(有二次确认)。对话页导航栏只保留返回和标题。
-- **首页导航栏**：头像 (首字母) 和 ＋ 使用系统 Liquid Glass 圆形 toolbar 按钮，不自绘背景。
+- **首页导航栏**：没有照片时左上角仍是首字，和 ＋ 一样用系统圆形 toolbar 按钮，不自绘背景。有照片时按钮里显示圆形头像。
 
 ## 8. 设置页 (Settings) 与 TTS 扩展性
 
 - 入口：首页 (我的 Bot) **左上角的用户头像** (`UserAvatar`)，点击进入 `SettingsView`。
 - 分组顺序：账号 → 语音 → 关于 → 退出登录 (每组是一个独立的 `struct …Section: View`)：
-  - `AccountSettingsSection`：头像 + 用户名、服务器地址 (原「用量」页的账号分组已合并到这里，用量页不再显示账号信息)。
+  - `AccountSettingsSection`（实现在 `Features/Settings/UserProfileEditor.swift`）：头像（点按打开系统相册，圆形预览后上传；可恢复默认）、昵称（保存后写入 `AppState.displayName`，首页和对话立刻更新）、用户名、服务器地址。原「用量」页的账号分组已合并到这里，用量页不再显示账号信息。
   - `VoiceSettingsSection`：语音播放开关 (`@AppStorage("vb_tts_enabled")`，默认开启，同时控制用户消息和 Bot 回复气泡下方的 🔊 按钮 (共用 `SpeakButton`；用户消息的按钮右对齐))；语音引擎选择 (`vb_tts_engine`)，可选「本机 TTS」，「云端 TTS (即将支持)」用 `selectionDisabled` 置灰。
   - `AboutSettingsSection`：版本号 (CFBundleShortVersionString (CFBundleVersion))。
   - `SignOutSettingsSection`：单独一组，固定在最底部；「退出登录」(destructive，有二次确认)。
@@ -99,5 +101,5 @@
 
 ## 9. 测试 (Tests)
 
-- `backend/scripts/test/multi_agent_test.py`：确定性测试，使用 mock LLM 和临时 DB，**24/24 通过** (MA-01 ~ MA-24，覆盖迁移、最小权限、校验、拒绝与审计、白名单、accept、隔离、截断、深度、环路、单轮上限、预算、软上限，以及 BUG-02/03/04/08/09)。
+- `backend/scripts/test/multi_agent_test.py`：确定性测试，使用 mock LLM 和临时 DB，**24/24 通过** (MA-01 ~ MA-24，覆盖迁移、最小权限、校验、拒绝与审计、白名单、accept、隔离、截断、深度、环路、单轮上限、预算、软上限，以及 BUG-02/03/04/08/09)。头像 / 昵称另见 `avatar_profile_test.py`（不在本文件的多 Agent 范围内）。
 - 真实 LLM 回归：`backend/scripts/test/api_regress.py`、`api_regress2.py`。iOS UI 回归见 [TEST_CASES_v0.1.md](../testing/TEST_CASES_v0.1.md) 的「回归测试」一节。

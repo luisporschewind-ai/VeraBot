@@ -11,7 +11,11 @@ PUBLIC_FIELDS = ("id", "name", "avatar", "color", "persona", "instructions", "cr
 
 
 def public_bot(b: dict) -> dict:
-    return {k: b[k] for k in PUBLIC_FIELDS}
+    out = {k: b[k] for k in PUBLIC_FIELDS}
+    updated = b.get("image_updated_at")
+    out["has_avatar"] = bool(updated)
+    out["avatar_updated_at"] = updated
+    return out
 
 
 def validate_perms(user: dict, body, self_id: int | None) -> dict:

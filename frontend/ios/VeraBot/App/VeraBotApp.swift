@@ -30,6 +30,8 @@ struct RootView: View {
 }
 
 struct MainTabView: View {
+    @Environment(AppState.self) private var app
+
     var body: some View {
         TabView {
             BotListView()
@@ -39,5 +41,6 @@ struct MainTabView: View {
             QuotaView()
                 .tabItem { Label("用量", systemImage: "chart.bar") }
         }
+        .task { await app.refreshProfile() }
     }
 }

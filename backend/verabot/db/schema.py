@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v2）。"""
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v3）。"""
 import json
 
 from .database import tx
@@ -73,10 +73,26 @@ CREATE TABLE IF NOT EXISTS transcriptions (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_tr_user ON transcriptions(user_id, created_at);
+-- 自定义头像（Custom avatars）。bot_id=0 表示用户自己的头像；正数为 Bot id。
+-- 图片统一存成 JPEG。bots.avatar 仍是表情符号（emoji），与照片互不覆盖。
+CREATE TABLE IF NOT EXISTS avatars (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  bot_id INTEGER NOT NULL DEFAULT 0,
+  content_type TEXT NOT NULL,
+  data BLOB NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, bot_id)
+);
+CREATE TRIGGER IF NOT EXISTS avatars_delete_with_bot
+AFTER DELETE ON bots
+FOR EACH ROW
+BEGIN
+  DELETE FROM avatars WHERE user_id = OLD.user_id AND bot_id = OLD.id;
+END;
 """
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ALL_TOOLS_V2 = ["get_weather", "create_reminder", "list_reminders", "ask_bot"]
 
 
@@ -90,7 +106,11 @@ def _add_column(c, table: str, name: str, ddl: str):
 
 
 def init_db():
-    """建表 + 幂等迁移（Idempotent migration）。v1 → v2：多 Agent 权限模型 / 协作审计 / 用户预算。"""
+    """建表 + 幂等迁移（Idempotent migration）。
+
+    v1 → v2：多 Agent 权限模型 / 协作审计 / 用户预算。
+    v2 → v3：用户昵称、用户头像、Bot 照片头像（表情符号字段保持不变）。
+    """
     with tx() as c:
         c.executescript(SCHEMA)
         c.execute("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
@@ -122,4 +142,9 @@ def init_db():
             # 历史委派记录：孤儿清理（被删除 Bot 的记录）
             c.execute("DELETE FROM delegations WHERE from_bot_id NOT IN (SELECT id FROM bots) "
                       "OR to_bot_id NOT IN (SELECT id FROM bots)")
+        # --- v3：昵称与照片头像。NULL = 未设置（昵称回退用户名；头像回退首字母 / 表情） ---
+        _add_column(c, "users", "nickname", "TEXT")
+        _add_column(c, "users", "avatar_updated_at", "TEXT")
+        _add_column(c, "bots", "image_updated_at", "TEXT")
+        if ver < SCHEMA_VERSION:
             c.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES ('version', ?)", (str(SCHEMA_VERSION),))

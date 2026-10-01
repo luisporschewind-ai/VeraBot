@@ -6,6 +6,10 @@
 
 ### 新增 (Added)
 
+- **用户与 Bot 照片头像，以及可编辑昵称**（schema v3，启动时自动迁移）：
+  - 后端：`POST/GET/DELETE /api/me/avatar` 与 `/api/bots/{id}/avatar`（multipart 字段 `file`）。校验 JPEG / PNG / WebP（HEIC 识别文件头；本环境未装 HEIC 解码器时返回 415，iOS 上传前会转成 JPEG）。超过 8MB → 413。服务端按 EXIF 转正、居中裁成正方形、压成 512×512 JPEG，按用户隔离写入 `avatars` 表。`DELETE` 恢复默认（用户回到昵称首字，Bot 回到 emoji）。`PATCH /api/me` 修改昵称（trim、1–32 字、拒绝空白和控制字符）。`GET /api/me`、登录 / 注册的 `user`，以及 Bot JSON 增加 `nickname` / `display_name` / `has_avatar` / `avatar_updated_at`。新依赖 Pillow 11.3.0（HPND，与 MIT 兼容）。
+  - iOS：设置页账号区可改昵称、用系统 PhotosPicker 选图并圆形预览后上传、恢复默认。首页左上角、设置、Bot 列表、对话标题、消息气泡、用量页读取同一份 `AppState` / `AvatarStore`（昵称和照片改完立即反映，不在每个页面单独重拉）。客户端上传前把图收成最长边 1024 的 JPEG。
+  - 测试：`backend/scripts/test/avatar_profile_test.py`（AV-01–17、NK-01–04，21/21，含 v2→v3 迁移与租户隔离）。`multi_agent_test.py` 仍为 24/24。
 - **iOS · App 图标**：新增 `Assets.xcassets/AppIcon.appiconset` (Xcode 26 单尺寸 1024×1024 universal，不透明白底，图案居中留白)，源图保存在 `assets/brand/app-icon-source.png`；工程设置 `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` (pbxproj 与 project.yml 同步)。
 - 设计文档 (未实现)：[design/MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) — MCP 作为一等能力：后端作为 MCP Client (官方 Python SDK `mcp` v2，MCP 规范 2026-07-28)、Streamable HTTP (生产) / stdio (仅本地开发)、三层服务器注册表、远程服务器 OAuth 2.1 (PRM / PKCE / `resource` / `iss` 校验)、工具发现与 `mcp__{server}__{tool}` 命名空间、MCP 工具默认关闭且委派中禁用、按风险分级的人工确认 (HITL)、不可信结果包裹与污染标记、审计 / 超时 / 重试 / 熔断、Token 加密且不下发 App、iOS「连接的账号 / MCP 服务」、API 与 schema v3、MCP-01~30 测试、里程碑 M0~M5 与开放问题。
 - 设计文档 (未实现)：[design/GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) — Gmail 能力方案 (v0.2)，含 HITL 发送确认、权限与委派集成、测试计划和待 Boss 决策的开放问题。

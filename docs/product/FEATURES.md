@@ -4,9 +4,9 @@
 
 | 模块 | 说明 |
 |---|---|
-| 账号 (Accounts) | 用户名 + 密码注册 / 登录；bcrypt 哈希；JWT (HS256) Bearer Token；失效自动退出；设置页底部退出登录 (二次确认) |
+| 账号 (Accounts) | 用户名 + 密码注册 / 登录；bcrypt 哈希；JWT (HS256) Bearer Token；失效自动退出；设置页底部退出登录 (二次确认)。昵称可在设置页修改（1–32 字，去空白），首页左上角和对话里的用户名立刻更新 |
 | 租户隔离 (Per-user isolation) | 所有查询带 `user_id`；访问他人资源统一返回 404 (防枚举) |
-| Bot 管理 | emoji 头像 + 颜色 + 昵称 + 人设 (多行) + 指令 (多行)；＋ 创建 (达到上限时 ＋ 置灰；列表不显示数量页脚)、Bot 详情编辑、长按「编辑与权限」、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`) |
+| Bot 管理 | emoji 头像 + 颜色 + 昵称 + 人设 (多行) + 指令 (多行)；＋ 创建 (达到上限时 ＋ 置灰；列表不显示数量页脚)、Bot 详情编辑、长按「编辑与权限」、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`)。用户和每个 Bot 都可以另设一张圆形照片头像（相册选择、可更换、可恢复默认）；表情字段保留，没有照片时继续显示 |
 | 流式对话 (Streaming, SSE) | `POST /api/bots/{id}/chat` 返回 `text/event-stream`，逐 token 渲染；工具卡片、交接 Trace 卡片、错误气泡 |
 | 记忆 (Memory) | 每个 Bot 独立保存历史，最近 20 条注入上下文；清空对话 (二次确认) |
 | 工具 (Tool calling) | 可插拔注册表：`get_weather` (Open-Meteo，免 Key)、`create_reminder`、`list_reminders`、`ask_bot` |
@@ -15,7 +15,7 @@
 | 提醒 / 用量 (Reminders / Quota) | Tab 页；提醒只落库不推送；用量看板：请求数、Token、7 日趋势、按 Bot 分布 (不含账号信息，账号信息在设置页) |
 | 语音输入 (Voice input) | Web：录音 → `/api/transcribe` (OpenAI) → 填入输入框；iOS：系统 Speech 框架 (zh-CN)；都不自动发送 |
 | 语音播放 (TTS) | 用户消息和 Bot 回复下方 🔊，本机 AVSpeechSynthesizer；设置里可关闭；云端 TTS 占位 |
-| 设置页 (Settings) | 首页左上角头像进入；账号 (头像 / 用户名 / 服务器) → 语音 → 关于 → 退出登录 (单独一组，位于最底部) |
+| 设置页 (Settings) | 首页左上角头像进入；账号 (头像 / 昵称 / 用户名 / 服务器) → 语音 → 关于 → 退出登录 (单独一组，位于最底部)。头像用系统 PhotosPicker，预览为圆形，确认后上传 |
 | 导航 / 键盘 | 二级页面隐藏 Tab 栏；对话标题 → Bot 详情 sheet；首页原生圆形按钮；输入栏随键盘上移、点空白 / 下拉收起 |
 | 附件 (Attachments) | 占位：＋ 菜单 图片 / 相机 / 文件「即将支持」(禁用) |
 
@@ -25,9 +25,14 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/auth/register`、`/api/auth/login` | `{username, password}` → `{token, user}` |
-| GET | `/api/me` | 当前用户 |
-| GET / POST | `/api/bots` | Bot 列表 / 创建 (新 Bot 默认最小权限) |
+| POST | `/api/auth/register`、`/api/auth/login` | `{username, password}` → `{token, user}`。`user` 含 `nickname`、`display_name`、`has_avatar`、`avatar_updated_at` |
+| GET | `/api/me` | 当前用户（字段同上；`nickname` 为空时 `display_name` 等于用户名） |
+| PATCH | `/api/me` | `{nickname}` 修改昵称。先 trim；空 / 纯空白 / 超过 32 字 / 控制字符 → 422 |
+| POST | `/api/me/avatar` | `multipart/form-data` 字段 `file`。JPEG / PNG / WebP（HEIC 仅在服务器装有解码器时）；最大 8MB。服务端居中裁成 512×512 JPEG。返回更新后的 `user` |
+| GET | `/api/me/avatar` | 当前用户的 JPEG；未设置 → 404「未设置头像」 |
+| DELETE | `/api/me/avatar` | 删除自定义头像（恢复默认），返回更新后的 `user` |
+| POST / GET / DELETE | `/api/bots/{id}/avatar` | 与用户头像相同，对象是该用户自己的 Bot。他人或不存在的 Bot → 404。删除后仍保留 emoji `avatar` 字段。删除 Bot 时照片行一并删除 |
+| GET / POST | `/api/bots` | Bot 列表 / 创建 (新 Bot 默认最小权限)。每个 Bot 另有 `has_avatar`、`avatar_updated_at`；`avatar` 仍是 emoji |
 | GET / PATCH / DELETE | `/api/bots/{id}` | 详情 / 修改 (含 `allowed_tools`、`delegate_to`、`accept_delegation`) / 删除 |
 | GET / DELETE | `/api/bots/{id}/messages` | 历史消息 (含 Trace) / 清空记忆 |
 | GET | `/api/bots/{id}/delegations` | 该 Bot 发出和收到的委派记录 |

@@ -5,12 +5,18 @@ struct MessageRow: View {
     let item: ChatViewModel.Item
     let bot: Bot
     @AppStorage(SettingsKeys.ttsEnabled) private var ttsEnabled = true
+    @Environment(AppState.self) private var app
 
     var body: some View {
         if item.isUser {
             HStack {
                 Spacer(minLength: 48)
                 VStack(alignment: .trailing, spacing: 6) {
+                    if !app.displayName.isEmpty {
+                        Text(app.displayName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Text(item.text)
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .foregroundStyle(.white)
@@ -22,7 +28,8 @@ struct MessageRow: View {
             }
         } else {
             HStack(alignment: .top, spacing: 8) {
-                BotAvatar(emoji: bot.avatar, color: bot.color, size: 34)
+                LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
+                               hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 34)
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(item.traces) { TraceView(trace: $0, fromBot: bot.name) }
                     if !item.text.isEmpty || item.streaming {
