@@ -1,4 +1,6 @@
 """请求体校验（Pydantic schemas）。"""
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 from ..services.users import clean_nickname
@@ -36,6 +38,7 @@ class BotPerms(BaseModel):
     allowed_tools: list[str] | None = Field(default=None, max_length=20)   # 工具白名单
     delegate_to: list[int] | None = Field(default=None, max_length=100)    # 可委派的目标 Bot id
     accept_delegation: bool | None = None                                  # 是否接受其他 Bot 委派
+    memory_access: Literal["none", "bot", "bot_and_global"] | None = None   # 记忆授权（v4）；None = 不修改 / 用默认值
 
 
 class BotIn(BotPerms):
@@ -74,3 +77,31 @@ class ChatIn(BaseModel):
         if not v.strip():
             raise ValueError("消息不能为空")
         return v
+
+
+# ---------------- 记忆（Memory，v4） ----------------
+MemoryType = Literal["profile", "preference", "fact"]
+
+
+class MemoryIn(BaseModel):
+    """POST /api/memories：记忆页手动添加（直接生效）。正文的策略检查在 services.memory。"""
+    content: str = Field(min_length=1, max_length=400)
+    type: MemoryType = "fact"
+    scope: Literal["global", "bot"] = "global"
+    bot_id: int | None = None
+
+
+class MemoryPatch(BaseModel):
+    content: str | None = Field(default=None, min_length=1, max_length=400)
+    type: MemoryType | None = None
+    scope: Literal["global", "bot"] | None = None
+    bot_id: int | None = None
+
+
+class MemoryConfirmIn(BaseModel):
+    """POST /api/memories/{id}/confirm：content 可选（编辑后记住）。"""
+    content: str | None = Field(default=None, min_length=1, max_length=400)
+
+
+class MemorySettingsIn(BaseModel):
+    enabled: bool

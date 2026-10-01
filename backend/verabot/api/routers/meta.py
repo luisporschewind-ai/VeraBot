@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Depends
 
 from ...core.config import (DEEPSEEK_MODEL, MAX_BOTS_PER_USER, MAX_DELEGATION_DEPTH, MAX_DELEGATIONS_PER_TURN,
-                            MAX_SHARED_CONTEXT)
+                            MAX_SHARED_CONTEXT, MEMORY_INJECT_MAX, MEMORY_MAX_ACTIVE)
+from ...services import memory
 from ...services.quota import compute_quota
 from ...tools import REGISTRY
 from ..deps import current_user
@@ -19,7 +20,10 @@ def quota(user=Depends(current_user)):
 def tools_list(user=Depends(current_user)):
     labels = {"get_weather": "天气查询", "create_reminder": "创建提醒", "list_reminders": "查看提醒", "ask_bot": "委派其他 Bot"}
     return {"tools": [{"name": t.name, "label": labels.get(t.name, t.name), "description": t.description,
-                       "delegation": t.delegation} for t in REGISTRY.values()],
+                       "delegation": t.delegation} for t in REGISTRY.values() if t.kind != "memory"],
+            # 记忆工具不在工具白名单里（由 Bot 的 memory_access 控制），这里只给摘要信息；旧客户端忽略该字段
+            "memory": {"enabled": memory.enabled_for(user["id"]), "max_active": MEMORY_MAX_ACTIVE,
+                       "inject_max": MEMORY_INJECT_MAX},
             "guardrails": {"max_delegation_depth": MAX_DELEGATION_DEPTH, "max_delegations_per_turn": MAX_DELEGATIONS_PER_TURN,
                            "max_shared_context": MAX_SHARED_CONTEXT, "max_bots_per_user": MAX_BOTS_PER_USER}}
 

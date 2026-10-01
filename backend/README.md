@@ -44,6 +44,9 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 | `VERABOT_TZ` | `Asia/Shanghai` | 提醒 / 统计时区 |
 | `VERABOT_WEB_DIR` | `../frontend/web` | Web 客户端目录 |
 | `VERABOT_LOCAL_STT` / `_MODEL` | `1` / `small` | 安装 `local-stt` 额外依赖后，本地 faster-whisper 回退 |
+| `VERABOT_MEMORY` | `1` | 长期记忆总开关 (服务器级)；`0` 时不召回、不暴露记忆工具，接口仍可查看 / 删除 |
+| `VERABOT_MEMORY_ENC_KEY` | 自动生成到 `data/.memory_key` (权限 600) | 健康 / 财务记忆的 Fernet 密钥；逗号分隔多把用于轮换 (第一把加密)。与数据库分开备份 |
+| `VERABOT_MEMORY_MAX_ACTIVE` / `_MAX_CHARS` / `_INJECT_MAX` / `_INJECT_CHARS` | `200` / `200` / `12` / `1000` | 每用户生效记忆上限 / 单条字数 / 每轮注入条数 / 每轮注入字数 |
 
 ## 3. 依赖管理 (uv)
 
@@ -74,6 +77,7 @@ verabot/
 ```bash
 uv run python scripts/test/multi_agent_test.py   # mock LLM + 临时 DB，确定性，MA-01~24 (24/24)
 uv run python scripts/test/avatar_profile_test.py # 头像 / 昵称 / 迁移 / 隔离，AV-* + NK-* (21/21)，不调用 LLM
+uv run python scripts/test/memory_test.py        # 长期记忆 MEM-01~36 (36/36)，mock LLM + 临时 DB
 uv run python scripts/test/smoke_test.py         # 端到端 (真实 LLM，需后端运行在 :8000)；结束后清理测试账号
 uv run python scripts/test/api_regress.py        # 真实 LLM 回归 REG-*（创建临时用户 qa_reg_*）
 uv run python scripts/test/api_regress2.py       # 续跑（预算 / 软上限 / 422），结束时删除临时用户

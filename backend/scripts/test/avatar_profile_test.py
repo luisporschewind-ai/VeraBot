@@ -76,8 +76,8 @@ bot_cols = {r[1] for r in con.execute("PRAGMA table_info(bots)")}
 legacy_bot = con.execute("SELECT name, allowed_tools, image_updated_at FROM bots WHERE id=1").fetchone()
 has_avatars = con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='avatars'").fetchone()
 con.close()
-check("AV-01", "v2→v3 迁移：版本、列、头像表，且不改写存量 Bot 权限",
-      ver == "3" and {"nickname", "avatar_updated_at"} <= user_cols and "image_updated_at" in bot_cols
+check("AV-01", "v2→v3(→当前版本) 迁移：版本、列、头像表，且不改写存量 Bot 权限",
+      ver == str(db.SCHEMA_VERSION) and {"nickname", "avatar_updated_at"} <= user_cols and "image_updated_at" in bot_cols
       and has_avatars and legacy_bot[0] == "OldBot" and legacy_bot[1] == '["get_weather"]' and legacy_bot[2] is None,
       f"ver={ver} bot={legacy_bot}")
 

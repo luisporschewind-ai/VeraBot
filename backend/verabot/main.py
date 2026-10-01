@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
-from .api.routers import auth, avatars, bots, chat, meta, reminders, voice
+from .api.routers import auth, avatars, bots, chat, memories, meta, reminders, voice
 from .core.config import WEB_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -36,7 +36,8 @@ def _startup():
     db.init_db()
 
 
-for r in (auth.router, avatars.router, bots.router, chat.router, voice.router, reminders.router, meta.router):
+for r in (auth.router, avatars.router, bots.router, chat.router, memories.router, voice.router, reminders.router,
+          meta.router):
     app.include_router(r)
 
 

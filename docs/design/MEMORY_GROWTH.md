@@ -1,6 +1,6 @@
-# 以记忆为核心的 Bot 成长体系 (Memory-centred Bot Growth System) — 实施方案 v0.1
+# 以记忆为核心的 Bot 成长体系 (Memory-centred Bot Growth System) — 实施方案 v1.0
 
-> 状态：**设计稿，尚未实现** (Draft, not implemented)。日期：2026-10-01 (UTC+8)。**等待 Boss 评审** (Pending Boss review)；评审并回答 §17 开放问题之前不开始开发。
+> 状态：**v1.0 已批准 (Approved)；M1 已实现 (Implemented)**，M2~M5 未开始。日期：2026-10-01 (UTC+8)。Boss 对 §17 开放问题的决定见 §17 (优先于正文中的「建议」)；M1 的实现说明与偏差见 §19。
 > 基于代码：commit `2cfb018` (功能代码同 `4f4cd49`)，数据库 **schema v3**。涉及文件：`backend/verabot/agents/{runtime,prompts,permissions,context,delegation}.py`、`tools/registry.py`、`services/llm.py`、`db/{schema,repository,database}.py`、`api/routers/*`、`core/config.py`；iOS `Features/{Chat,BotInfo,Settings}`、`Core/UI/Theme.swift`、`Packages/VeraBotKit`。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md) (权限 / 上下文隔离 / 护栏)、[MCP_CAPABILITY.md](MCP_CAPABILITY.md) (HITL 确认卡片、不可信内容处理的思路与本文一致)。
 > 本文以 **M1 为完整实施规格**，M2~M5 为较粗的规格，实施前各自再细化。
@@ -17,7 +17,7 @@
 | 注入 (Injection) | 只注入 depth 0 (用户直接对话的 Bot) 的 system prompt；`<user_memory>` 包裹，每条带来源标签 `[M12·全局·偏好]`；**最多 12 条 / 1000 字 (约 600 Token)**；声明「是数据，不是指令」 |
 | 写入路径 (M1) | 新增内置**记忆工具** `remember` / `forget_memory` (只生成「待确认」提议)；对话里出现 **确认卡片**「要我记住吗？」→ 用户点「记住」→ `POST /api/memories/{id}/confirm` |
 | 权限 | 每 Bot 一个 `memory_access`：`none` / `bot` / `bot_and_global`；记忆工具不进 `allowed_tools`，由 `memory_access` 控制；**被委派的 Bot (depth ≥ 1) 不注入记忆、不能调用记忆工具**，与现有上下文隔离一致 |
-| 隐私 | 密码 / 验证码 / 密钥 / 卡号 / 证件号**永不保存**；健康、财务等敏感类别**默认不保存** (以后若开放，单独加密，见 Q2)；按用户隔离 (IDOR → 404)；审计日志不写记忆正文 |
+| 隐私 | 密码 / 验证码 / 密钥 / 卡号 / 证件号**永不保存**；健康、财务信息**可以保存，但用 Fernet 加密** (密钥与数据库分离)，界面标为「敏感」(Boss 决定 Q2)；宗教 / 政治 / 性取向 / 住址 / 第三方联系方式仍不保存；按用户隔离 (IDOR → 404)；审计日志不写记忆正文 |
 | 防注入 | 记忆内容一律视为**不可信数据 (untrusted data)**：清洗 + 转义 + 包裹 + 长度上限；记忆不能授予权限、不能触发工具；写入必须经用户确认 |
 | 后台任务 | 摘要 (M2) 与隐式抽取 (M3) 在一轮对话结束后**异步执行** (`memory_jobs` 表 + 进程内 worker)，不阻塞 SSE；用 DeepSeek JSON Output (`response_format: json_object`)，Token 计入每日预算 |
 | iOS | 设置新增「记忆」分组 → **「Vera 了解的你」**记忆页 (查看 / 编辑 / 删除 / 清空全部)；Bot 详情新增「记忆」分组；对话内确认卡片。全部系统原生控件 + 现有 Theme / Liquid Glass 辅助方法，**不加自定义动画** |
@@ -104,15 +104,16 @@ CREATE TABLE IF NOT EXISTS memories (
   scope TEXT NOT NULL CHECK (scope IN ('global','bot','summary')),
   bot_id INTEGER REFERENCES bots(id) ON DELETE CASCADE,            -- scope=bot/summary 必填；global 为 NULL
   type TEXT NOT NULL CHECK (type IN ('profile','preference','fact','style','summary','routine')),
-  content TEXT NOT NULL,                                           -- ≤ 200 字（summary ≤ 400）；rejected/expired 时清空
-  content_hash TEXT NOT NULL,                                      -- sha256(规范化正文)：去重 + 拒绝后不再追问
+  content TEXT NOT NULL,                                           -- ≤ 200 字（summary ≤ 400）；rejected/expired 时清空；敏感记忆只存占位「[健康信息]」/「[财务信息]」
+  content_enc TEXT,                                                -- 敏感记忆（health/finance）的 Fernet 密文；normal 为 NULL
+  content_hash TEXT NOT NULL,                                      -- sha256(规范化正文)：去重 + 拒绝后不再追问；敏感记忆用带密钥的 HMAC（前缀 h1:），库内不留可撞库的明文哈希
   source TEXT NOT NULL,                                            -- explicit_chat / memory_page / feedback / summary_job / implicit_extraction / suggestion
   source_bot_id INTEGER REFERENCES bots(id) ON DELETE SET NULL,    -- 提议它的 Bot（global 记忆也记录）
   source_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL,
   confidence REAL NOT NULL DEFAULT 1.0,                            -- 显式 = 1.0；隐式抽取 0~1
   status TEXT NOT NULL CHECK (status IN ('proposed','candidate','active','rejected','expired')),
-  sensitivity TEXT NOT NULL DEFAULT 'normal',                      -- normal（v1 只允许 normal，见 §8）
-  action TEXT NOT NULL DEFAULT 'create',                           -- 提议的动作：create / update / delete
+  sensitivity TEXT NOT NULL DEFAULT 'normal' CHECK (sensitivity IN ('normal','health','finance')),  -- 见 §8.1
+  action TEXT NOT NULL DEFAULT 'create' CHECK (action IN ('create','update','delete')),  -- 提议的动作
   target_id INTEGER REFERENCES memories(id) ON DELETE CASCADE,     -- update / delete 提议指向的记忆
   meta TEXT,                                                       -- JSON 扩展：摘要覆盖范围、routine 时间等（M2+）
   use_count INTEGER NOT NULL DEFAULT 0,
@@ -140,8 +141,9 @@ _add_column(c, "messages", "memory_ids", "TEXT")                                
 
 - 迁移**不写入任何记忆**，不改动已有 Bot 的 `allowed_tools` / `delegate_to`，不重跑 v2 回填。
 - 回滚：迁移不可逆，升级前复制 `backend/data/verabot.db` (与 v2 / v3 相同)。
-- **版本号协调**：MCP / Gmail 设计稿原计划的「v3」已顺延 (见 [MCP_CAPABILITY.md](MCP_CAPABILITY.md) 文首)。谁先落地谁用 v4，另一个顺延 v5；两者表结构互不依赖。
-- 级联：删除用户 → 全部记忆删除；删除 Bot → 其 `bot` / `summary` 记忆删除，`global` 记忆保留且 `source_bot_id` 置 NULL；清空对话 → 记忆保留 (`source_message_id` 置 NULL)，M2 起同时删除该 Bot 的 `summary` (见 Q3)。
+- **版本号协调**：记忆已落地并占用 **v4** (Boss 决定)。MCP / Gmail 的迁移使用下一个空闲版本 **v5** (已在 [MCP_CAPABILITY.md](MCP_CAPABILITY.md) / [GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) 文首注明)；两者表结构互不依赖。
+- **升级前备份**：`cp backend/data/verabot.db backend/data/verabot.db.bak-before-v4` (本机已于 2026-10-01 执行)。
+- 级联：删除用户 → 全部记忆删除；删除 Bot → 其 `bot` / `summary` 记忆删除，`global` 记忆保留且 `source_bot_id` 置 NULL；清空对话 → 默认记忆保留 (`source_message_id` 置 NULL)；确认框第二个选项「清空对话和「X」的记忆」同时删除该 Bot 的 `bot` 与 `summary` 记忆 (`include_memories=true`，Boss 决定 Q3)，`global` 记忆不受影响。
 
 ### 3.2 M2~M5 预留表 (届时使用下一个 schema 版本，此处只列结构)
 
@@ -378,17 +380,18 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
   "type": "profile", "content": "用户希望被称呼为「小林」",
   "source": "explicit_chat", "source_bot_id": 7, "source_bot_name": "Vera",
   "status": "active", "action": "create", "target_id": null, "target_content": null,
+  "sensitivity": "normal", "sensitive": false,
   "confidence": 1.0, "use_count": 3, "last_used_at": "2026-10-02T01:20:00+00:00",
   "confirmed_at": "2026-10-01T08:00:00+00:00", "expires_at": null,
   "created_at": "2026-10-01T07:59:30+00:00", "updated_at": "2026-10-01T08:00:00+00:00"
 }
 ```
 
-(时间为 UTC ISO，与现有接口一致；iOS 按本地时区显示。)
+(时间为 UTC ISO，与现有接口一致；iOS 按本地时区显示。`sensitivity` 为 `normal` / `health` / `finance`，`sensitive = sensitivity != normal`；敏感记忆的 `content` 在接口中返回**解密后的明文** (只给本人)，密钥错误 / 缺失时返回占位「[健康信息]」/「[财务信息]」。iOS 的 `Memory` CodingKeys 与此一一对应，由 MEM-36 断言。)
 
 | 方法 | 路径 | 请求 | 响应 | 错误 |
 |---|---|---|---|---|
-| GET | `/api/memories` | query：`status` (默认 `active`；可 `proposed,candidate`)、`scope` (`global`/`bot`/`summary`)、`bot_id`、`ids` (逗号分隔，最多 50，供卡片批量刷新状态)、`limit` (≤ 200)、`before_id` (分页) | `{"memories": [Memory], "counts": {"active": 23, "proposed": 1, "candidate": 0, "by_bot": {"7": 9}}, "limits": {"max_active": 200, "max_chars": 200}}` | 422 参数非法 |
+| GET | `/api/memories` | query：`status` (默认 `active`；逗号分隔，如 `proposed,active`，或 `all`)、`scope` (`global`/`bot`/`summary`)、`bot_id`、`ids` (逗号分隔，最多 50，供卡片批量刷新状态)、`visible_to` (Bot id：只返回该 Bot 按其 `memory_access` 能看到的记忆，供 Bot 详情页)、`limit` (≤ 200)、`before_id` (分页) | `{"memories": [Memory], "counts": {"active": 23, "proposed": 1, "candidate": 0, "global": 14, "by_bot": {"7": 9}}, "limits": {"max_active": 200, "max_chars": 200}}` | 422 参数非法 |
 | GET | `/api/memories/{id}` | — | `Memory` | 404 |
 | POST | `/api/memories` | `{"content", "type", "scope", "bot_id"?}` (记忆页手动添加；用户亲手输入即视为确认 → 直接 `active`，`source=memory_page`) | 201 `Memory` | 422 `sensitive_credential` / `sensitive_category` / `blocked_content` / `too_long` / `invalid_scope`；400 `memory_limit`；409 `duplicate` (返回已有 id)；404 bot 不属于本人 |
 | PATCH | `/api/memories/{id}` | `{"content"?, "type"?, "scope"?, "bot_id"?}` (仅 active；重新做策略检查，`source` 保留，`updated_at` 更新) | `Memory` | 404；409 状态不是 active；422 同上 |
@@ -398,7 +401,12 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 | POST | `/api/memories/{id}/reject` | — | `{"ok": true}` (create/update → rejected + 清空正文；delete 提议 → 删除提议本身，目标保留) | 404；409 已处理 |
 | GET | `/api/memory/settings` | — | `{"enabled": true, "server_enabled": true, "active_count": 23, "max_active": 200}` | — |
 | PATCH | `/api/memory/settings` | `{"enabled": false}` | 同上 | — |
-| PATCH | `/api/bots/{id}` | 现有接口新增可选字段 `memory_access` (`none`/`bot`/`bot_and_global`) | `Bot` (新增字段 `memory_access`、`memory_count`) | 422 非法取值 |
+| PATCH | `/api/bots/{id}` | 现有接口新增可选字段 `memory_access` (`none`/`bot`/`bot_and_global`) | `Bot` (新增字段 `memory_access`、`memory_count`) | 422 非法取值；422 `allowed_tools` 中含记忆工具 |
+| DELETE | `/api/bots/{id}/messages` | 现有接口新增可选 query `include_memories` (默认 `false`)：`true` 时同时删除该 Bot 的 `bot` / `summary` 记忆 | `{"ok": true, "deleted_memories": 0}` (旧客户端只读 `ok`，兼容) | 404 |
+| GET | `/api/tools` | 现有接口：记忆工具**不出现在** `tools` 列表 (不进 `allowed_tools`)；新增 `"memory": {"enabled", "max_active", "inject_max"}` | — | — |
+| POST | `/api/bots/{id}/chat` | 现有 SSE：`done` 事件新增 `memory_ids` (本轮注入的记忆 id 列表，可为空)；`tool_result` 里记忆工具的 `result` 含 `memory_id` / `status` / `action` / `scope` / `type` / `sensitive`，敏感提议的 `content` 被替换为占位 (明文按 id 拉取) | — | — |
+
+**兼容性 (Backward compatibility)**：所有新增字段都是可选 / 有默认值；不传 `memory_access` 的旧客户端 (含 Web) 行为不变，Bot 自动拥有 `bot_and_global`；Web 不显示确认卡片，记忆工具的结果按普通工具卡片显示 (Web 暂无记忆 UI，见 STATUS)。
 
 错误体沿用 FastAPI `{"detail": "中文提示"}`；需要区分原因的 (422 / 400) 使用 `{"detail": {"message": "…", "code": "sensitive_category"}}`，iOS `APIClient` 已能把 `detail` 字符串 / 数组 / 对象转成提示文字，需补充读取 `code` (§5.7)。
 
@@ -406,7 +414,7 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 
 ### 5.6 确认交互 (Confirmation UX)
 
-**对话内确认卡片 `MemoryProposalCard`** (`Features/Chat/MemoryProposalCard.swift`)：`MessageRow` 遍历 traces 时，`trace.name == "remember" || "forget_memory"` 且结果里有 `memory_id` → 渲染卡片，否则沿用 `TraceView` (结果是 error / already_known 时显示一行次要文字，如「已在记忆中」)。
+**对话内确认卡片 `MemoryProposalCard`** (`Features/Memory/MemoryProposalCard.swift`)：`MessageRow` 遍历 traces 时，`trace.name == "remember" || "forget_memory"` 且结果里有 `memory_id` → 渲染卡片，否则沿用 `TraceView` (结果是 error / already_known 时显示一行次要文字，如「已在记忆中」)。
 
 | 状态 | 外观 (系统原生控件，颜色取 Theme) |
 |---|---|
@@ -437,11 +445,11 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 | 位置 | 新增 / 修改 | 说明 |
 |---|---|---|
 | `Features/Settings/SettingsView.swift` | 插入 `MemorySettingsSection()` | 顺序：账号 → 用量 → **记忆** → 通用 → 语音 → 关于 → 退出登录 (与 MCP 分组的相对位置见 Q6) |
-| `Features/Settings/MemorySettingsSection.swift` (新) | `Section("记忆")`：`NavigationLink { MemoryListView() } label: { LabeledContent { Text("\(count) 条") } label: { Label("Vera 了解的你", systemImage: "brain.head.profile") } }`；`Toggle` 「允许 Bot 记住」(`PATCH /api/memory/settings`，失败回退)；footer：「Bot 只会在你确认后记住信息。密码、健康、财务等敏感信息不会被记住。清空对话不会删除这里的内容。」 | 开关状态以服务器为准 (不是 `@AppStorage`)，因为影响服务端行为 |
+| `Features/Memory/MemorySettingsSection.swift` (新，放在 Memory 模块以降低耦合) | `Section("记忆")`：`NavigationLink { MemoryListView() } label: { LabeledContent { Text("\(count) 条") } label: { Label("Vera 了解的你", systemImage: "brain.head.profile") } }`；`Toggle` 「允许 Bot 记住」(`PATCH /api/memory/settings`，失败回退)；footer：「Bot 只会在你确认后记住信息。密码、验证码、证件号、卡号永远不会被记住；健康、财务信息会加密保存并标为敏感。清空对话默认不会删除这里的内容。」 | 开关状态以服务器为准 (不是 `@AppStorage`)，因为影响服务端行为 |
 | `Features/Memory/MemoryListView.swift` (新) | 标题「Vera 了解的你」(inline)；`ThemedList`：①「待确认」(有 proposed 时显示，行内「记住 / 不用」按钮)；②「关于你 · 所有 Bot 可用」(global)；③每个有记忆的 Bot 一组「仅 {Bot 名}」(组头带 `LiveBotAvatar` 22pt)；行：正文 (`body`，最多 3 行) + 次要行「偏好 · 来自与 Vera 的对话 · 10/1」(`footnote`/`secondary`)；`swipeActions` 删除 (destructive，无二次确认，与系统邮件一致) + 编辑；点按行 → `MemoryEditView` sheet；`.refreshable`；空状态 `ContentUnavailableView("还没有记住任何内容", systemImage: "brain", description: Text("在对话中说「记住…」，或点右上角 ＋ 添加"))`；工具栏：`＋` (添加) 与 `Menu` (`ellipsis.circle`) 内「清空全部记忆」(destructive) → `confirmationDialog`「清空全部记忆？此操作不能撤销」 | 可选参数 `botFilter: Bot?`：从 Bot 详情进入时只显示该 Bot 可见的记忆 (global + 本 Bot)，标题「{Bot} 记住的内容」，清空只清本 Bot 的 bot 记忆 |
 | `Features/Memory/MemoryEditView.swift` (新) | `NavigationStack` + `ThemedForm`：`TextField(axis: .vertical).lineLimit(2...6)` 正文 (字数 `n/200`)；`Picker` 类型 (资料 / 偏好 / 事实)；`Picker` 适用范围 (所有 Bot / 某个 Bot，列出本人 Bot)；只读信息：来源、确认时间、最近使用、使用次数；底部「删除这条记忆」(destructive)；左上 `DismissToolbarButton`，右上「保存」；服务器 422 文案直接显示在 Section footer (红色) | 与 `BotEditView` 相同的键盘处理 (`@FocusState`，保存 / 关闭先收起键盘，见 KB-12) |
-| `Features/Chat/MemoryProposalCard.swift` (新) + `MessageRow.swift` (改) + `ChatViewModel.swift` (改) | 见 §5.6；`ChatViewModel` 增加 `memoryStates: [Int: MemoryStatus]`、`refreshMemoryStates()`、`confirmMemory(_:content:)`、`rejectMemory(_:)` | 卡片放在该条 Bot 气泡上方 (与 traces 同位置) |
-| `Features/BotInfo/BotEditView.swift` (改) | 新增 `Section("记忆")` (位于「工具权限」之前)：`Picker` 「记忆」：不使用 / 仅本 Bot 的记忆 / 本 Bot + 共享资料 (保存时随 `PATCH /api/bots/{id}`)；`NavigationLink` 「{Bot} 记住的内容 (n)」→ `MemoryListView(botFilter:)`；footer：「被其他 Bot 委派时，不会读取或写入你的记忆。」 | M4 在此处加「了解程度」 |
+| `Features/Memory/MemoryProposalCard.swift` (新) + `Features/Chat/MessageRow.swift` (改) + `ChatViewModel.swift` (改) | 见 §5.6；`ChatViewModel` 增加 `memoryStates: [Int: Memory?]`、`refreshMemoryStates()`、`confirmMemory(_:content:)`、`rejectMemory(_:)` | 卡片放在该条 Bot 气泡上方 (与 traces 同位置) |
+| `Features/BotInfo/BotEditView.swift` (改) | 新增 `Section("记忆")` (位于「工具权限」之前)：`Picker` 「记忆」：不使用 / 仅本 Bot 的记忆 / 本 Bot + 共享资料 (保存时随 `PATCH /api/bots/{id}`)；`NavigationLink` 「{Bot} 记住的内容 (n)」→ `MemoryListView(botFilter:)`；footer：「被其他 Bot 委派时，不会读取或写入你的记忆。」；「清空对话」确认框改为两个选项：「仅清空对话」(保留记忆) /「清空对话和「X」的记忆」 | M4 在此处加「了解程度」 |
 | `Core/UI/Theme.swift` | **不新增颜色**：卡片用 `sectionFill`，品牌强调用 `brand` / `brandSoft`；按钮用现有 `prominentButtonStyle()` / `glassButtonStyle()` | 深色模式自动适配 |
 
 原生与风格约束：全部使用 `List` / `Form` / `Section` / `Toggle` / `Picker` / `swipeActions` / `confirmationDialog` / `alert` / `ContentUnavailableView` / `ProgressView`；iOS 26 Liquid Glass 只通过 Theme 现有辅助方法获得，iOS 17–18 自动回退；**不写自定义动画、转场或手势**。文案中文硬编码 (与现状一致)。
@@ -456,7 +464,7 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 6. 用户 B 无法以任何接口读取或修改用户 A 的记忆 (全部 404)。
 7. 每轮注入 ≤ 12 条、≤ 1000 字；30 条记忆的用户，单轮 prompt_tokens 增量 ≤ 700 (实测记录)。
 8. 关闭「允许 Bot 记住」后不召回、不弹卡片；已有记忆仍可查看 / 删除；重新打开后恢复。
-9. MEM-01~32 全部通过；MA-01~24、AV / NK、`swift test`、smoke 回归通过；Web 客户端对话不受影响 (卡片显示为普通工具卡片)。
+9. MEM-01~36 全部通过；MA-01~24、AV / NK、`swift test`、smoke 回归通过；Web 客户端对话不受影响 (卡片显示为普通工具卡片)。
 
 ## 6. 权限与授权汇总 (Permissions)
 
@@ -485,13 +493,15 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 |---|---|---|
 | 凭据 (credentials) | 关键词：密码 / 口令 / 验证码 / PIN / 密钥 / token / API key / 私钥 / 助记词；模式：`sk-` 等密钥前缀、连续 ≥ 20 位 base64 / hex | **永不保存**，无开关；`sensitive_credential` |
 | 证件与卡号 | 18 位身份证 (含校验位)、护照号模式、13~19 位且通过 Luhn 校验的卡号、银行账号 | 永不保存；`sensitive_credential` |
-| 健康 (health) | 疾病 / 诊断 / 用药 / 怀孕 / 心理健康等关键词表 | **默认不保存**；`sensitive_category`。是否允许用户主动开启 (单独加密存储) 见 Q2 |
-| 财务 (finance) | 收入 / 工资 / 存款 / 负债 / 投资账户 / 余额等 | 默认不保存；同上 |
-| 其他特殊类别 | 宗教、政治倾向、性取向、精确住址 / 门牌号 | 默认不保存；同上 |
+| 健康 (health) | 疾病 / 诊断 / 用药 / 过敏 / 怀孕 / 心理健康等关键词表 | **可保存，加密** (Boss 决定 Q2)：`sensitivity='health'`，正文 Fernet 加密存 `content_enc`，`content` 只存「[健康信息]」；界面标「敏感 · 健康信息」 |
+| 财务 (finance) | 收入 / 工资 / 月薪 / 存款 / 负债 / 投资 / 余额等 | **可保存，加密**：`sensitivity='finance'`，占位「[财务信息]」；其余同上 |
+| 其他特殊类别 | 宗教、政治倾向、性取向、精确住址 / 门牌号 | 不保存；`sensitive_category` |
 | 第三方隐私 | 「我同事 xx 的手机号是…」 | 由 prompt 规则约束 + 手机号 / 邮箱模式检测 → `sensitive_category` |
 
 - 关键词表放在 `policy.py` 常量里，配单元测试；误杀可以接受 (用户可在记忆页改写措辞后手动添加，仍走同一检查)。
-- 若 Boss 选择 Q2 的「可开启」：新增 `sensitivity='sensitive'`，正文用 Fernet (`VERABOT_MEMORY_KEY`) 加密存在 `content_enc`，`content` 只存「[健康信息]」占位；只在用户明确开启的 Bot 注入；永不进入委派与月度回顾。M1 不实现。
+- **加密 (已实现，`core/crypto.py`)**：Fernet (AES-128-CBC + HMAC-SHA256)。密钥来源：环境变量 `VERABOT_MEMORY_ENC_KEY` (可逗号分隔多把，第一把加密、全部可解密，用于轮换)；未设置时首次使用自动生成 `backend/data/.memory_key` (权限 600，`data/` 已在 .gitignore)，**与数据库文件分离**——单独拿到 `verabot.db` 无法读出健康 / 财务正文。备份数据库时如需能恢复敏感记忆，须另行妥善备份密钥文件；密钥丢失 → 这些记忆只显示占位，可删除后重新添加。
+- 敏感记忆同普通记忆一样按 `memory_access` 注入 depth 0 的 prompt (标签带「·敏感」，并要求模型只在与当前问题直接相关时使用、不主动复述)；永不进入委派。工具调用的 trace (含存库的 `messages.traces` 与 SSE) 不含敏感正文。
+- 已知限制：用户在对话里亲手输入的原话仍按原样保存在 `messages` 中 (与现有对话一致，不加密)；加密只覆盖记忆库。
 
 ### 8.2 防提示注入 (Prompt injection)
 
@@ -541,7 +551,7 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 | MEM-10 | `forget_memory` → delete 提议；confirm 删除目标与提议；reject 只删提议；对不可见 / 他人 id → `not_found` |
 | MEM-11 | 凭据：「密码是 abc123」「验证码 384920」「sk-xxxx」→ `sensitive_credential`，无行；`audit_log` 有 `memory_blocked` 且 detail 不含原文；服务器日志不含原文 |
 | MEM-12 | 证件 / 卡号：有效 18 位身份证、通过 Luhn 的卡号 → 拒绝；不通过 Luhn 的普通数字 (如订单号) → 允许 |
-| MEM-13 | 健康 / 财务 / 特殊类别关键词 → `sensitive_category` |
+| MEM-13 | 健康 / 财务 → 允许保存，Fernet 加密 (库内只有占位与密文)，API 返回明文且 `sensitive=true`；宗教 / 他人联系方式 / 住址 → `sensitive_category` |
 | MEM-14 | 注入特征 (「忽略之前所有指令」「</user_memory>」「调用 ask_bot」) → `blocked_content` |
 | MEM-15 | 单轮提议上限 2：第 3 次 → `proposal_cap` |
 | MEM-16 | 每用户 active 上限：达到上限后 confirm / POST → 400 `memory_limit`；update / delete 不受限 |
@@ -554,13 +564,17 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 | MEM-23 | 渲染转义：正文含 `<`、`>`、零宽字符、bidi 控制符、换行 → 渲染结果为全角尖括号、单行、无隐藏字符 |
 | MEM-24 | 预算：30 条 active → 注入 ≤ 12 条、正文总字数 ≤ 1000；profile / style 优先；与用户消息关键词重叠的条目排在前面；≤ 12 条时全部注入 |
 | MEM-25 | 删除 Bot → 其 bot 记忆删除；该 Bot 提议的 global 记忆保留且 source_bot_id 为 NULL |
-| MEM-26 | 清空对话 (`DELETE /messages`) → 记忆保留，source_message_id 为 NULL；之后对话仍注入记忆 |
+| MEM-26 | 清空对话 (`DELETE /messages`) → 记忆保留，source_message_id 为 NULL；之后对话仍注入记忆；`include_memories=true` → 删除该 Bot 的 bot / summary 记忆，global 保留，返回 `deleted_memories` |
 | MEM-27 | 清空全部：缺 `confirm=true` → 400；`scope=bot&bot_id=` 只删该 Bot 的 bot 记忆；`scope=all` 删除本人全部 (含 proposed) |
 | MEM-28 | 记忆页手动添加：POST → active、source=memory_page；策略检查同 MEM-11~14；重复 → 409 返回已有 id；bot_id 为他人 Bot → 404 |
 | MEM-29 | PATCH：修改正文 / 类型 / 作用域；global → bot 时 bot_id 必填且属于本人；非 active → 409 |
 | MEM-30 | 用户总开关：关闭 → 不注入、无记忆工具、API 可查看 / 删除；打开后恢复 |
 | MEM-31 | 审计：proposed / confirmed / rejected / created / updated / deleted / cleared / blocked / settings 都有记录，且 detail 中无正文 |
 | MEM-32 | 回归：MA-01~24、AV-01~17、NK-01~04 通过；旧客户端 (不认识 `memory_ids` / 新字段) 解析 SSE 与 Bot JSON 正常 |
+| MEM-33 | 加密密钥与数据库分离 (`data/.memory_key` 权限 600)；换错密钥解密返回 None (界面显示占位) |
+| MEM-34 | 健康类提议：SSE trace 与存库的 `messages.traces` 不含明文，按 `memory_id` 拉取得到明文 |
+| MEM-35 | `confirm` 接受空 body (带 JSON Content-Type，iOS 无编辑时的请求) 与 `{}` |
+| MEM-36 | 前后端契约：Memory JSON 键 ⊇ iOS `Memory` CodingKeys；列表 / settings / 清空对话响应字段与 iOS 模型一致 |
 
 ### 10.2 M1 iOS (`swift test` + 模拟器 / Boss 验收)
 
@@ -576,6 +590,8 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 | MEM-UI-08 | Bot 详情「记忆」分组：Picker 三个选项保存后生效；「{Bot} 记住的内容」只显示该 Bot 可见的记忆 |
 | MEM-UI-09 | 关闭「允许 Bot 记住」→ 服务器失败时开关回退并提示；成功后对话中不再出现卡片 |
 | MEM-UI-10 | VoiceOver 朗读卡片与按钮；Dynamic Type 大字号下卡片不截断；编辑 sheet 键盘行为同 KB-06 / KB-12 |
+| MEM-UI-11 | Bot 详情「清空对话」确认框有两个选项：「仅清空对话」后记忆页内容不变；「清空对话和「X」的记忆」后该 Bot 的记忆消失、「关于你」不变 |
+| MEM-UI-12 | 记住健康 / 财务信息 (如「我对青霉素过敏」) → 卡片与记忆页标「敏感 · 健康信息」；首次打开「Vera 了解的你」弹出一次 DeepSeek 说明 |
 
 ### 10.3 M2~M5 (实施时细化)
 
@@ -744,8 +760,37 @@ FEATURES (记忆 / API 表)、ARCHITECTURE (§2.1 模块、§2.2 插件注册例
 | Q11 | 长期未使用的记忆是否自动归档 / 提醒清理 (如 180 天未用)？ | M4 在月度回顾中提示，不自动删除 |
 | Q12 | 与 MCP 能力的实施顺序：先 Memory M1 还是先 MCP M0/M1？ | Memory M1 不依赖外部预览计划、风险低，可先做；两者可并行，schema 版本按落地顺序分配 |
 
+### 17.1 Boss 决定 (Decisions，2026-10-01，优先于上表「建议」)
+
+| # | 决定 | 落实 |
+|---|---|---|
+| Q1 | **记忆默认开启**：新 Bot 与存量 Bot 一律 `memory_access=bot_and_global`；用户总开关默认开启 | 列默认值 + 迁移；`users.memory_enabled DEFAULT 1` |
+| Q2 | **健康、财务信息可以保存**，用 Fernet 加密，密钥与数据库分离；界面标为「敏感」。密码、验证码、密钥、证件号、卡号**永不保存** | `core/crypto.py`、`content_enc`、`sensitivity` 列；§8.1 |
+| Q3 | **清空对话默认保留记忆**；确认框提供第二个选项，同时删除该 Bot 的记忆与摘要 | `DELETE /api/bots/{id}/messages?include_memories=true`；BotEditView 两个按钮 |
+| Q4 | **接受**记忆随 prompt 发送给 DeepSeek；「Vera 了解的你」首次打开时显示一次说明 | `SettingsKeys.memoryIntroShown` |
+| Q5 | M5 再定 (沿用建议：本地 `bge-small-zh` 起步) | — |
+| Q6 | 采用建议：设置分组「记忆」位于「用量」之后；页面名「Vera 了解的你」 | `SettingsView` |
+| Q7 / Q8 / Q11 | M3 / M4 再定 (沿用建议) | — |
+| Q9 | 采用建议：Bot 可在用户没说「记住」时主动提议，但**必须用户确认**；单轮 ≤ 2 次，被拒 30 天不再问 | `MEMORY_RULE`、`PROPOSALS_PER_TURN`、`REJECT_COOLDOWN_DAYS` |
+| Q10 | 采用建议：Web 不做记忆 UI，后端保持向后兼容 | STATUS 注明 Web 落后 |
+| Q12 | 先做 Memory M1；**记忆占用 schema v4**，MCP / Gmail 的迁移使用下一个空闲版本 v5 | MCP / GMAIL 文档文首注明 |
+
 ## 18. 参考 (References，2026-10-01 查阅)
 
 - DeepSeek API JSON Output：<https://api-docs.deepseek.com/guides/json_mode> (`response_format: {"type": "json_object"}`，prompt 中需包含「json」并给出示例，设置足够的 `max_tokens`，偶发空内容需处理)。
 - DeepSeek 的 OpenAI 兼容范围只含 Chat Completions，无 Embedding 接口 (第三方整理：<https://deepseekai.guide/api/deepseek-openai-compatibility/>)。
 - 现有设计：[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md) §2~§5、[MCP_CAPABILITY.md](MCP_CAPABILITY.md) §7 (HITL)、§9 (不可信结果处理)。
+
+## 19. M1 实现说明与偏差 (Implementation notes & deviations，2026-10-01)
+
+- **后端**：`core/crypto.py` (新)、`services/memory/{__init__,errors,policy,recall,repository}.py` (新)、`agents/memory_tools.py` (新)、`api/routers/memories.py` (新)；改动 `db/schema.py` (v4)、`db/repository.py`、`agents/{permissions,prompts,runtime}.py`、`tools/registry.py`、`services/bots.py`、`api/routers/{bots,chat,meta}.py`、`api/schemas.py`、`core/config.py`、`main.py`。新增依赖 `cryptography` (连同 `cffi`、`pycparser`，共 48 个包)。
+- **服务层错误类型**名为 `MemoryServiceError(status, code, message, **extra)` (避免与 Python 内置 `MemoryError` 重名)；路由统一转成 `{"detail": {"message", "code", ...}}`。
+- **审计在同一事务中写入** (`_audit(c, …)`)，避免 SQLite「database is locked」；`detail` 不含正文。
+- **`propose` 的结果** 除 `proposed` 外还有 `already_known` (已有相同 active 记忆) 与 `previously_declined` (30 天冷却内)，均不建行、不出卡片；iOS 显示一行次要文字。
+- **`confirm`** 先在独立事务中把过期提议置为 `expired` 再返回 410，保证过期状态落库。
+- **敏感类别**：只开放健康 / 财务 (Boss Q2)；宗教、政治、性取向、住址、第三方手机号 / 邮箱仍按 `sensitive_category` 拒绝。
+- **iOS**：Kit `VeraBotCore/Memory.swift`、`MemoryTests.swift`；App `Features/Memory/{MemoryProposalCard,MemoryListView,MemoryEditView,MemorySettingsSection}.swift`；改动 `Features/Chat/{ChatViewModel,ChatView,MessageRow,TraceView}.swift`、`Features/BotInfo/{BotEditView,BotInfoView}.swift`、`Features/Settings/SettingsView.swift`。`MemorySettingsSection` 放在 `Features/Memory/` (正文 §5.7 原写 Settings 目录)。
+- **Web 前端未改动** (`frontend/web`)，记忆工具结果在 Web 中显示为普通工具卡片；API 全部向后兼容。
+- **Token 估算**：30 条记忆时注入块约 374 字 (≈ 224 Token，按 0.6 Token/字估算)，未用 DeepSeek 实测 `prompt_tokens`。
+- **测试**：`backend/scripts/test/memory_test.py` MEM-01~36 (mock LLM + 临时 DB)；`swift test` 含 14 个 Memory 用例。真实 DeepSeek 下「是否会主动提议、话术是否得当」需 Boss 按 MEM-UI 用例验收。
+

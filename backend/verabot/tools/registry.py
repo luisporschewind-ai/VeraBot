@@ -16,6 +16,7 @@ log = logging.getLogger("verabot.tools")
 class TurnState:
     """一次用户请求（一轮对话 turn）内、跨整棵委派树共享的计数器。"""
     delegations: int = 0
+    memory_proposals: int = 0     # 本轮记忆提议次数（remember / forget_memory），上限 VERABOT_MEMORY_PROPOSALS_PER_TURN
 
 
 @dataclass
@@ -26,6 +27,7 @@ class ToolContext:
     chain: list = field(default_factory=list)      # 委派链上的 Bot id（用于环路检测 Loop detection）
     turn: TurnState = field(default_factory=TurnState)
     usage: list = field(default_factory=list)      # 子调用产生的 token 用量
+    user_message_id: int | None = None             # 本轮用户消息 id（记忆提议的来源 source_message_id）
 
 
 @dataclass
@@ -35,6 +37,7 @@ class Tool:
     parameters: dict
     handler: Callable[..., Awaitable[Any]]
     delegation: bool = False       # 是否为委派类工具（受 MAX_DELEGATION_DEPTH 约束）
+    kind: str = "builtin"          # builtin / memory。memory 类工具不进 allowed_tools，由 bots.memory_access 控制
 
     def schema(self) -> dict:
         return {"type": "function",
@@ -44,9 +47,9 @@ class Tool:
 REGISTRY: dict[str, Tool] = {}
 
 
-def tool(name: str, description: str, parameters: dict, delegation: bool = False):
+def tool(name: str, description: str, parameters: dict, delegation: bool = False, kind: str = "builtin"):
     def deco(fn):
-        REGISTRY[name] = Tool(name, description, parameters, fn, delegation)
+        REGISTRY[name] = Tool(name, description, parameters, fn, delegation, kind)
         return fn
     return deco
 
@@ -59,7 +62,8 @@ async def run_tool(ctx: ToolContext, name: str, raw_args: str) -> dict:
         log.warning("tool denied: user=%s bot=%s tool=%s reason=%s", ctx.user_id, ctx.bot.get("id"), name, reason)
         db.audit(ctx.user_id, ctx.bot.get("id"), "tool_denied", {"tool": name, "reason": reason, "depth": ctx.depth})
         msg = {"unknown_tool": f"未知工具: {name}", "tool_not_allowed": "当前 Bot 未被授权使用该能力",
-               "max_depth": "已达到最大委派深度，不能继续转交"}[reason]
+               "max_depth": "已达到最大委派深度，不能继续转交",
+               "memory_not_delegable": "被委派时不能读写用户记忆", "memory_disabled": "这个 Bot 未开启记忆"}[reason]
         return {"error": msg, "code": reason}
     try:
         args = json.loads(raw_args or "{}")

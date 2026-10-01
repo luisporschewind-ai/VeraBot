@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 
 from ... import db
 from ...agents.runtime import run_chat
+from ...services import memory
 from ..deps import current_user, require_bot
 from ..schemas import ChatIn
 
@@ -24,16 +25,21 @@ def messages_list(bot_id: int, limit: int = 100, user=Depends(current_user)):
 
 
 @router.delete("/api/bots/{bot_id}/messages")
-def messages_clear(bot_id: int, user=Depends(current_user)):
+def messages_clear(bot_id: int, include_memories: bool = False, user=Depends(current_user)):
+    """清空对话。默认**保留**记忆（Boss 决策 Q3）；include_memories=true 时同时删除该 Bot 的
+    「本 Bot 记忆」与对话摘要（全局资料保留）。记忆的 source_message_id 随外键置 NULL。"""
     require_bot(user, bot_id)
     with db.tx() as c:
         c.execute("DELETE FROM messages WHERE user_id=? AND bot_id=?", (user["id"], bot_id))
-    return {"ok": True}
+    out = {"ok": True, "deleted_memories": 0}
+    if include_memories:
+        out["deleted_memories"] = memory.clear_for_bot(user["id"], bot_id)
+    return out
 
 
 @router.post("/api/bots/{bot_id}/chat")
 async def chat(bot_id: int, body: ChatIn, user=Depends(current_user)):
-    """SSE 流式对话。事件：delta / tool_start / tool_result / error / done"""
+    """SSE 流式对话。事件：delta / tool_start / tool_result / error / done（done 含 message_id、usage、memory_ids）"""
     bot = require_bot(user, bot_id)
     used, budget = db.token_budget(user["id"])
     if used >= budget:   # BUG-06：每用户每日 Token 预算（Token budget）服务端强制

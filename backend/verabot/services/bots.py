@@ -1,4 +1,4 @@
-"""Bot 业务逻辑：公开字段、权限配置校验、删除后的委派白名单清理。"""
+"""Bot 业务逻辑：公开字段、权限配置校验（含记忆授权）、删除后的委派白名单清理。"""
 import json
 
 from fastapi import HTTPException
@@ -7,11 +7,16 @@ from .. import db
 from ..tools import REGISTRY
 
 PUBLIC_FIELDS = ("id", "name", "avatar", "color", "persona", "instructions", "created_at",
-                 "allowed_tools", "delegate_to", "accept_delegation")
+                 "allowed_tools", "delegate_to", "accept_delegation", "memory_access")
 
 
-def public_bot(b: dict) -> dict:
+def public_bot(b: dict, memory_count: int | None = None) -> dict:
+    """memory_count：该 Bot 的生效「本 Bot 记忆」条数（不含全局资料）；None 时按需查询。"""
     out = {k: b[k] for k in PUBLIC_FIELDS}
+    if memory_count is None:
+        from . import memory
+        memory_count = memory.bot_counts(b["user_id"]).get(b["id"], 0)
+    out["memory_count"] = memory_count
     updated = b.get("image_updated_at")
     out["has_avatar"] = bool(updated)
     out["avatar_updated_at"] = updated
@@ -25,6 +30,8 @@ def validate_perms(user: dict, body, self_id: int | None) -> dict:
         bad = [t for t in body.allowed_tools if t not in REGISTRY]
         if bad:
             raise HTTPException(422, f"未知工具：{', '.join(bad)}")
+        if any(REGISTRY[t].kind == "memory" for t in body.allowed_tools):
+            raise HTTPException(422, "记忆能力在「记忆」设置中管理，不能放进工具白名单")
         out["allowed_tools"] = json.dumps(sorted(set(body.allowed_tools)))
     if body.delegate_to is not None:
         mine = {b["id"] for b in db.list_bots(user["id"])}
@@ -36,6 +43,8 @@ def validate_perms(user: dict, body, self_id: int | None) -> dict:
         out["delegate_to"] = json.dumps(ids)
     if body.accept_delegation is not None:
         out["accept_delegation"] = int(body.accept_delegation)
+    if getattr(body, "memory_access", None) is not None:
+        out["memory_access"] = body.memory_access
     return out
 
 

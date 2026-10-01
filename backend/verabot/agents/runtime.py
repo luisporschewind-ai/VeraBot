@@ -4,7 +4,7 @@ import logging
 
 from .. import db
 from ..core.config import EMPTY_REPLY_RETRIES, HISTORY_WINDOW, MAX_TOOL_ROUNDS
-from ..services import llm
+from ..services import llm, memory
 from ..tools.registry import ToolContext, TurnState, run_tool
 from .context import delegation_message
 from .permissions import get_schemas
@@ -40,14 +40,41 @@ def _history(user_id: int, bot_id: int) -> list[dict]:
     return out
 
 
+MEMORY_TOOLS = ("remember", "forget_memory")
+
+
+def _redact_memory_trace(trace: dict) -> dict:
+    """记忆工具的 trace 会写入 messages.traces 并下发客户端：凭据类被拦截时隐藏参数原文；
+    敏感（健康 / 财务）提议的正文只以密文保存在 memories，trace 里换成占位，客户端按 memory_id 拉取明文。"""
+    result = trace.get("result") or {}
+    args = dict(trace.get("args") or {})
+    if result.get("code") in ("sensitive_credential", "sensitive_category", "blocked_content") or result.get("sensitive"):
+        if "content" in args:
+            args["content"] = "（已隐藏）"
+        if result.get("sensitive"):
+            result = {**result, "content": "（敏感内容，已加密）"}
+            if "target_content" in result:
+                result["target_content"] = "（敏感内容，已加密）"
+    return {**trace, "args": args, "result": result}
+
+
+def _memory_query(history: list[dict], user_text: str) -> str:
+    """召回查询文本：本轮用户消息 + 最近 2 条用户消息。"""
+    recent = [m["content"] for m in history if m.get("role") == "user" and m.get("content")][-2:]
+    return "\n".join([*recent, user_text])
+
+
 async def run_chat(user_id: int, bot: dict, user_text: str):
     """流式对话主循环，产出给前端的 SSE 事件 dict。"""
     history = _history(user_id, bot["id"])
-    db.add_message(user_id, bot["id"], "user", user_text)
-    messages = [{"role": "system", "content": system_prompt(user_id, bot)}, *history,
-                {"role": "user", "content": user_text}]
-    ctx = ToolContext(user_id=user_id, bot=bot, depth=0, chain=[], turn=TurnState())
-    tools = get_schemas(bot, 0)
+    memory_on = memory.enabled_for(user_id)
+    rec = memory.recall(user_id, bot, _memory_query(history, user_text)) if memory_on else memory.EMPTY
+    user_mid = db.add_message(user_id, bot["id"], "user", user_text)
+    memory_tools = memory_on and (bot.get("memory_access") or "none") != "none"
+    messages = [{"role": "system", "content": system_prompt(user_id, bot, memory_block=rec.block, memory_tools=memory_tools)},
+                *history, {"role": "user", "content": user_text}]
+    ctx = ToolContext(user_id=user_id, bot=bot, depth=0, chain=[], turn=TurnState(), user_message_id=user_mid)
+    tools = get_schemas(bot, 0, memory_on=memory_on)
     usage_total: dict = {}
     traces: list = []
     answer = ""
@@ -87,6 +114,8 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
                 yield {"event": "tool_start", "data": {"id": tc["id"], "name": tc["name"], "args": args}}
                 result = await run_tool(ctx, tc["name"], tc["arguments"])
                 trace = {"id": tc["id"], "name": tc["name"], "args": args, "result": result}
+                if tc["name"] in MEMORY_TOOLS:
+                    trace = _redact_memory_trace(trace)
                 traces.append(trace)
                 yield {"event": "tool_result", "data": trace}
                 messages.append({"role": "tool", "tool_call_id": tc["id"],
@@ -104,8 +133,9 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
         # ask_bot 子调用用量已由工具单独记账；这里只记本 Bot 的主调用
         db.log_usage(user_id, bot["id"], "chat", usage_total)
         stored = answer if answer.strip() else ("⚠️ " + EMPTY_REPLY_MSG if errored else "（无回复）")
-        mid = db.add_message(user_id, bot["id"], "assistant", stored, traces or None)
-    yield {"event": "done", "data": {"message_id": mid, "usage": usage_total}}
+        mid = db.add_message(user_id, bot["id"], "assistant", stored, traces or None, memory_ids=rec.ids or None)
+        memory.mark_used(user_id, rec.ids)
+    yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memory_ids": rec.ids}}
 
 
 async def run_once(user_id: int, bot: dict, question: str, shared_context: str,

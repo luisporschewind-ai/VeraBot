@@ -13,6 +13,7 @@ def _bot(r):
     b["allowed_tools"] = json.loads(b.get("allowed_tools") or "[]")
     b["delegate_to"] = json.loads(b.get("delegate_to") or "[]")
     b["accept_delegation"] = bool(b.get("accept_delegation"))
+    b["memory_access"] = b.get("memory_access") or "bot_and_global"
     return b
 
 
@@ -59,11 +60,12 @@ def recent_messages(user_id: int, bot_id: int, limit: int):
     return [dict(r) for r in reversed(rs)]
 
 
-def add_message(user_id, bot_id, role, content, traces=None):
+def add_message(user_id, bot_id, role, content, traces=None, memory_ids=None):
     with tx() as c:
         cur = c.execute(
-            "INSERT INTO messages(user_id,bot_id,role,content,traces,created_at) VALUES (?,?,?,?,?,?)",
-            (user_id, bot_id, role, content, json.dumps(traces, ensure_ascii=False) if traces else None, now_iso()),
+            "INSERT INTO messages(user_id,bot_id,role,content,traces,created_at,memory_ids) VALUES (?,?,?,?,?,?,?)",
+            (user_id, bot_id, role, content, json.dumps(traces, ensure_ascii=False) if traces else None, now_iso(),
+             json.dumps(memory_ids) if memory_ids else None),
         )
         return cur.lastrowid
 

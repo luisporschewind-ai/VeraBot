@@ -3,6 +3,7 @@
 > 状态：**设计稿，尚未实现** (Draft, not implemented)。日期：2026-10-01 (UTC+8)。**开发暂停，等待 Boss 评审** (Development paused pending Boss review)。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
 > **版本号说明 (2026-10-01 文档同步)**：撰写后 schema v3 已被「昵称 + 照片头像」(commit `07d0716`) 占用。本文 §12.2 所写的「schema v3」在实施时顺延为**下一个可用版本** (v4；若 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) M1 先落地占用 v4，则为 v5)。表结构不变。
+> **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，本文的迁移使用下一个空闲版本 **v5**。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密可复用，但应使用独立密钥。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
 > 规范依据 (2026-10-01 核实)：MCP 规范 **2026-07-28** 版 (当前最新稳定版，上一版 2025-11-25)；官方 Python SDK **`mcp` v2.2.0** (2026-09-07 发布，MIT，Python ≥ 3.10)。见 §17 参考资料。
 

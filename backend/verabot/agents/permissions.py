@@ -1,4 +1,4 @@
-"""权限（Permissions）：工具白名单 + 委派深度 + 委派目标。所有判定都在服务端执行，不依赖 prompt。"""
+"""权限（Permissions）：工具白名单 + 委派深度 + 委派目标 + 记忆授权。所有判定都在服务端执行，不依赖 prompt。"""
 from .. import db
 from ..tools.registry import REGISTRY
 
@@ -9,6 +9,12 @@ def is_permitted(bot: dict, name: str, depth: int) -> tuple[bool, str]:
     t = REGISTRY.get(name)
     if t is None:
         return False, "unknown_tool"
+    if t.kind == "memory":                       # 记忆工具：不看 allowed_tools，看 memory_access；被委派时一律禁止
+        if depth >= 1:
+            return False, "memory_not_delegable"
+        if (bot.get("memory_access") or "none") == "none":
+            return False, "memory_disabled"
+        return True, ""
     if name not in (bot.get("allowed_tools") or []):
         return False, "tool_not_allowed"
     if t.delegation and depth >= MAX_DELEGATION_DEPTH:
@@ -16,9 +22,11 @@ def is_permitted(bot: dict, name: str, depth: int) -> tuple[bool, str]:
     return True, ""
 
 
-def get_schemas(bot: dict, depth: int) -> list[dict]:
-    """只向模型暴露该 Bot 有权使用的工具（最小暴露面）；真正的拦截在 run_tool。"""
-    return [t.schema() for t in REGISTRY.values() if is_permitted(bot, t.name, depth)[0]]
+def get_schemas(bot: dict, depth: int, memory_on: bool = False) -> list[dict]:
+    """只向模型暴露该 Bot 有权使用的工具（最小暴露面）；真正的拦截在 run_tool。
+    memory_on = VERABOT_MEMORY 且用户总开关打开（run_chat 开头读一次）；False 时不暴露记忆工具。"""
+    return [t.schema() for t in REGISTRY.values()
+            if is_permitted(bot, t.name, depth)[0] and (t.kind != "memory" or memory_on)]
 
 
 def delegation_targets(user_id: int, bot: dict) -> list[dict]:

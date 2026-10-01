@@ -25,12 +25,12 @@ frontend/web  (SPA)  ────┘                    │                     
 
 | 包 | 职责 | 主要文件 |
 |---|---|---|
-| `core` | 配置 (环境变量)、安全 (bcrypt + JWT) | `config.py`、`security.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v3：v1 → v2 → v3)、查询 | `database.py`、`schema.py`、`repository.py` |
-| `tools` | 工具注册表 (`@tool`、schema 导出、安全执行) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
-| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理 | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py` |
-| `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py` |
-| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由 | `deps.py`、`schemas.py`、`routers/{auth,avatars,bots,chat,voice,reminders,meta}.py` |
+| `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v4：v1 → v2 → v3 → v4)、查询 | `database.py`、`schema.py`、`repository.py` |
+| `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
+| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆 (`services/memory/` 子包：策略检查、召回、确认流程、SQL) | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/{__init__,policy,recall,repository,errors}.py` |
+| `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
+| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由 | `deps.py`、`schemas.py`、`routers/{auth,avatars,bots,chat,voice,reminders,meta,memories}.py` |
 | `main.py` | 组装 FastAPI app：CORS、422 处理、启动 `init_db`、挂载路由、托管 Web | — |
 
 ### 2.2 依赖规则 (Dependency rules)
@@ -45,7 +45,7 @@ main ──▶ api ──▶ services ──▶ db ──▶ core
 - HTTP 细节 (FastAPI、`HTTPException`、pydantic 请求模型) 只出现在 `api/` 和 `main.py`。
 - 模块通过包引用调用 (`from ..services import llm` → `llm.complete(...)`)，测试可以直接替换 (monkeypatch) 模块属性，例如 `multi_agent_test.py` 用 mock LLM 替换 `llm.stream_chat`。
 - 两处**有意的例外** (插件注册，都有注释)：
-  1. `tools/__init__.py` 导入 `agents.delegation`，让 `ask_bot` 按原顺序注册到工具表 (`get_weather`、`create_reminder`、`list_reminders`、`ask_bot`)。
+  1. `tools/__init__.py` 导入 `agents.delegation` 与 `agents.memory_tools`，让 `ask_bot`、`remember`、`forget_memory` 按顺序注册到工具表 (`get_weather`、`create_reminder`、`list_reminders`、`ask_bot`，之后是 `kind="memory"` 的记忆工具；记忆工具不进 `allowed_tools`，由 `bots.memory_access` 控制，详见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §5.3)。
   2. `tools/registry.run_tool` 在函数内延迟导入 `agents.permissions.is_permitted` (执行前的二次权限检查)，避免循环导入。
 - 新增工具：在 `tools/` 新建模块并用 `@tool` 注册，在 `tools/__init__.py` import；权限白名单 `ALL_TOOLS_V2` 在 `db/schema.py`。
 
@@ -87,18 +87,21 @@ erDiagram
     users ||--o{ usage_log : "token usage"
     users ||--o{ audit_log : "security events"
     users ||--o{ avatars : "owns bytes"
+    users ||--o{ memories : "long-term memory"
+    bots ||--o{ memories : "bot / summary scope"
     bots ||--o| avatars : "optional photo"
-    users { int id string username string password_hash string nickname string avatar_updated_at int token_budget }
-    bots { int id int user_id string name string avatar string color string persona string instructions json allowed_tools json delegate_to int accept_delegation string image_updated_at }
+    users { int id string username string password_hash string nickname string avatar_updated_at int token_budget int memory_enabled }
+    bots { int id int user_id string name string avatar string color string persona string instructions json allowed_tools json delegate_to int accept_delegation string image_updated_at string memory_access }
     avatars { int user_id int bot_id string content_type blob data string updated_at }
-    messages { int id int user_id int bot_id string role string content json traces }
+    messages { int id int user_id int bot_id string role string content json traces json memory_ids }
+    memories { int id int user_id string scope int bot_id string type string content string content_enc string content_hash string status string sensitivity string action int target_id int use_count }
     reminders { int id int user_id int bot_id string content string due_at int done }
     delegations { int id int user_id int from_bot_id int to_bot_id string status string reason int depth json payload int total_tokens }
     usage_log { int id int user_id int bot_id string kind int prompt_tokens int completion_tokens int total_tokens }
     audit_log { int id int user_id int bot_id string kind string detail }
 ```
 
-另有 `transcriptions` (Web 语音转写计数，用于用量看板) 和 `avatars` (用户 / Bot 的 512 JPEG)。`schema_meta` 记录 schema 版本；`init_db()` 建表并做幂等迁移 (v1 → v2 → v3)。v3 只加列和头像表，不改 v2 的权限回填。详见下文「资料与头像」。
+另有 `transcriptions` (Web 语音转写计数，用于用量看板) 和 `avatars` (用户 / Bot 的 512 JPEG)。`schema_meta` 记录 schema 版本；`init_db()` 建表并做幂等迁移 (v1 → v2 → v3 → v4)。v3 只加列和头像表，不改 v2 的权限回填。v4 新增 `memories` 表和 `bots.memory_access` (默认 `bot_and_global`)、`users.memory_enabled` (默认 1)、`messages.memory_ids` 三列，不写入任何记忆。详见下文「资料与头像」与 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §3。
 
 ## 3. iOS 客户端 (frontend/ios)
 
@@ -114,6 +117,7 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 │               Haptics、AvatarImage              │
 ├── Features/   Auth · BotList · BotInfo · Chat    └── VeraBotTTS         TTSEngine 协议 + SpeechPlayer  → Core
 │               Settings (含 DebugView) · Reminders · Quota (由 设置 › 用量 push)
+│               Memory (确认卡片、「Vera 了解的你」、编辑页、设置分组)
 └── Services/   Keyboard、Speech (语音输入)、Avatar (AvatarStore)
 ```
 
@@ -166,7 +170,7 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 | 后端回退 | `requirements.txt` (由 uv.lock 导出，版本全部锁定) | 没有 uv 或官方源不可用时，`start.sh` 用清华 tuna 镜像 `uv pip install -r requirements.txt`；也可以直接 `pip install -r` | — |
 | 部署 (可选) | Dockerfile + docker-compose (`python:3.12-slim` + `uv sync --frozen`) | 服务器部署；数据目录挂载 `./data` | — |
 
-当前版本锁定：Python 3.12；fastapi 0.142.1、uvicorn 0.54.0、httpx 0.28.1、pyjwt 2.15.1、bcrypt 5.0.0、python-multipart 0.0.32、pillow 11.3.0 (共 45 个包，见 `uv.lock`)。iOS 无第三方依赖；工具链 Xcode 26.0.1 / Swift 6.2，部署目标 iOS 17.0。
+当前版本锁定：Python 3.12；fastapi 0.142.1、uvicorn 0.54.0、httpx 0.28.1、pyjwt 2.15.1、bcrypt 5.0.0、python-multipart 0.0.32、pillow 11.3.0、cryptography 50.0.2 (共 48 个包，见 `uv.lock`)。iOS 无第三方依赖；工具链 Xcode 26.0.1 / Swift 6.2，部署目标 iOS 17.0。
 
 ## 5. 资料与头像 (Profile & avatars) — schema v3
 
@@ -205,7 +209,7 @@ iOS 在上传前用 `AvatarImage.jpegData` 把照片收成边长 1024 的 JPEG�
 |---|---|---|
 | 模型接入 | 服务端统一持有 `DEEPSEEK_API_KEY`，OpenAI 兼容协议 | 用户零配置；可切换其他 OpenAI 兼容模型 |
 | 租户隔离 | 每条 SQL 带 `user_id`；他人资源返回 404 | 简单可审计，防枚举 |
-| 记忆隔离 | 历史按 `(user_id, bot_id)` 存取；当前只有滑动窗口 (最近 `VERABOT_HISTORY_WINDOW`=20 条)，没有摘要 / 长期记忆 (方案见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md)，未实现) | Bot 之间人格与上下文互不串扰 |
+| 记忆隔离 | 历史按 `(user_id, bot_id)` 存取；当前只有滑动窗口 (最近 `VERABOT_HISTORY_WINDOW`=20 条)，另有经用户确认的长期记忆 (M1 已实现：`memories` 表，按 `memory_access` 注入 depth 0 的 prompt，被委派方不读写；摘要等见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) M2+) | Bot 之间人格与上下文互不串扰 |
 | 多 Agent | Agent-as-a-Tool (`ask_bot`)，最小权限 + 服务端强制 + 上下文隔离 + 护栏 + 审计 | 可控、可观测；详见 MULTI_AGENT_DESIGN |
 | 工具轮次 | 每轮最多 4 轮工具调用 (`VERABOT_MAX_TOOL_ROUNDS`) | 防止工具循环 |
 | 流式协议 | SSE (`event:` + `data:` JSON) | 浏览器 `fetch` 与 iOS `URLSession.bytes` 都能直接解析 |

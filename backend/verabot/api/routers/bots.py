@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ... import db
 from ...core.config import MAX_BOTS_PER_USER
+from ...services import memory
 from ...services.bots import public_bot, remove_from_delegate_lists, validate_perms
 from ..deps import current_user, require_bot
 from ..schemas import BotIn, BotPatch
@@ -15,11 +16,12 @@ router = APIRouter(tags=["bots"])
 @router.get("/api/bots")
 def bots_list(user=Depends(current_user)):
     out = []
+    counts = memory.bot_counts(user["id"])
     with db.tx() as c:
         for b in db.list_bots(user["id"]):
             last = db.row(c.execute("SELECT content, created_at FROM messages WHERE user_id=? AND bot_id=? "
                                     "ORDER BY id DESC LIMIT 1", (user["id"], b["id"])).fetchone())
-            out.append({**public_bot(b), "last_message": last})
+            out.append({**public_bot(b, counts.get(b["id"], 0)), "last_message": last})
     return {"bots": out, "limit": MAX_BOTS_PER_USER}
 
 
@@ -47,7 +49,7 @@ def bots_get(bot_id: int, user=Depends(current_user)):
 @router.patch("/api/bots/{bot_id}")
 def bots_patch(bot_id: int, body: BotPatch, user=Depends(current_user)):
     require_bot(user, bot_id)
-    fields = {k: v for k, v in body.model_dump(exclude={"allowed_tools", "delegate_to", "accept_delegation"}).items()
+    fields = {k: v for k, v in body.model_dump(exclude={"allowed_tools", "delegate_to", "accept_delegation", "memory_access"}).items()
               if v is not None}
     fields.update(validate_perms(user, body, bot_id))
     if fields:
@@ -62,6 +64,7 @@ def bots_patch(bot_id: int, body: BotPatch, user=Depends(current_user)):
 
 @router.delete("/api/bots/{bot_id}")
 def bots_delete(bot_id: int, user=Depends(current_user)):
+    """删除 Bot：其 bot / summary 记忆随外键级联删除；它提议的全局记忆保留（source_bot_id 置 NULL）。"""
     require_bot(user, bot_id)
     with db.tx() as c:
         c.execute("DELETE FROM bots WHERE id=? AND user_id=?", (bot_id, user["id"]))

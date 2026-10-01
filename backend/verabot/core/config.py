@@ -52,3 +52,14 @@ TRANSCRIBE_MAX_SECONDS = float(os.getenv("VERABOT_TRANSCRIBE_MAX_SECONDS", "60")
 # 可选本地回退：安装 faster-whisper 后，OpenAI 不可用（如额度耗尽）时使用本地模型；VERABOT_LOCAL_STT=0 关闭
 LOCAL_STT = os.getenv("VERABOT_LOCAL_STT", "1") != "0"
 LOCAL_STT_MODEL = os.getenv("VERABOT_LOCAL_STT_MODEL", "small")
+
+# ---- 记忆（Memory，schema v4，见 docs/design/MEMORY_GROWTH.md）----
+MEMORY_ENABLED = os.getenv("VERABOT_MEMORY", "1") != "0"                         # 全局功能开关（运维）
+MEMORY_MAX_ACTIVE = int(os.getenv("VERABOT_MEMORY_MAX_ACTIVE", "200"))           # 每用户生效记忆上限（不含 summary）
+MEMORY_MAX_CHARS = int(os.getenv("VERABOT_MEMORY_MAX_CHARS", "200"))             # 单条正文上限
+MEMORY_INJECT_MAX = int(os.getenv("VERABOT_MEMORY_INJECT_MAX", "12"))            # 每轮最多注入条数
+MEMORY_INJECT_CHARS = int(os.getenv("VERABOT_MEMORY_INJECT_CHARS", "1000"))      # 每轮注入正文总字数
+MEMORY_PROPOSALS_PER_TURN = int(os.getenv("VERABOT_MEMORY_PROPOSALS_PER_TURN", "2"))
+MEMORY_PROPOSAL_TTL_DAYS = int(os.getenv("VERABOT_MEMORY_PROPOSAL_TTL_DAYS", "7"))
+MEMORY_REJECT_COOLDOWN_DAYS = int(os.getenv("VERABOT_MEMORY_REJECT_COOLDOWN_DAYS", "30"))
+# 敏感记忆（健康 / 财务）加密密钥：VERABOT_MEMORY_ENC_KEY，留空则自动生成 data/.memory_key（见 core/crypto.py）
