@@ -6,6 +6,11 @@
 
 ### 新增 (Added)
 
+- **长期记忆 M1 (Memory，schema v4，启动时自动迁移)** — 方案 [design/MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) 升为 v1.0 (Boss 已批准，决定见 §17.1，实现说明见 §19)：
+  - 后端：新表 `memories` 与 `bots.memory_access` (默认 `bot_and_global`，存量 Bot 同)、`users.memory_enabled` (默认开)、`messages.memory_ids`。新模块 `services/memory/` (策略检查、召回、确认流程、SQL)、`core/crypto.py` (Fernet；密钥 `VERABOT_MEMORY_ENC_KEY` 或自动生成的 `data/.memory_key`，与数据库分离)、`agents/memory_tools.py` (`remember` / `forget_memory` 只生成待确认提议；不进 `allowed_tools`；被委派时拒绝)。depth 0 的 system prompt 注入 `<user_memory>` (≤ 12 条 / 1000 字，带来源标签，声明是数据不是指令)。密码 / 验证码 / 密钥 / 证件号 / 卡号永不保存；健康 / 财务加密保存并标记敏感；trace 不含敏感正文；审计不写正文。新接口 `/api/memories*`、`/api/memory/settings`；`DELETE /api/bots/{id}/messages` 新增可选 `include_memories`；`done` 事件新增 `memory_ids`；`/api/tools` 新增 `memory`。全部向后兼容。新依赖 `cryptography` 50.0.2 (+ `cffi`、`pycparser`，共 48 个包)。
+  - iOS：Kit `VeraBotCore/Memory.swift` (模型，未知枚举回退) 与 `VeraBotAPI` 记忆方法、`APIError.code`；`Features/Memory/`：对话内确认卡片 (记住 / 不用 / 编辑后记住，已记住可跳转)、「Vera 了解的你」(待确认 / 关于你 / 仅某 Bot 分组，左滑删除、编辑、＋ 添加、清空，首次打开说明会发送给 DeepSeek)、编辑页、设置 › 记忆 分组 (位于用量之后，含「允许 Bot 记住」总开关)。Bot 详情新增「记忆」分组 (`memory_access` Picker +「{Bot} 记住的内容」)；「清空对话」确认框改为「仅清空对话」/「清空对话和「X」的记忆」两个选项。全部原生控件 + Theme 现有样式，无自定义动画。
+  - 测试：`backend/scripts/test/memory_test.py` MEM-01~36 (36/36，含前后端字段契约)；`MemoryTests` 14 个 (`swift test` 共 34/34)；MA 24/24、AV/NK 21/21 回归通过 (AV-01 改为断言当前 `SCHEMA_VERSION`)。
+  - 文档：ARCHITECTURE、MULTI_AGENT_DESIGN、FEATURES、TEST_CASES、RUN_LOCAL、STATUS、backend README / `.env.example` 同步；MCP / Gmail 设计稿注明其迁移改用 schema v5。**Web 前端未改动** (无记忆 UI，见 STATUS)。
 - **iOS · Bot 消息富文本 + App 内网页**：
   - Bot 回复气泡支持 Markdown：标题、段落（保留单换行）、粗体 / 斜体、行内代码、代码块（含语言标记，横向滚动，流式输出中未闭合也按代码块显示）、引用、有序 / 无序列表（含缩进）、表格（横向滚动）、分隔线；自动识别网址、电话、邮箱为可点链接。BUG-01 保持修复：行内代码以外的 `~` 一律按原文显示，不会变成删除线。
   - 解析在 `VeraBotCore/MessageMarkdown.swift`（纯 Foundation：块级解析自写，行内交给 `AttributedString(markdown:)`，自动链接用 `NSDataDetector`；无第三方依赖），新增 10 个 `swift test` 用例（`MessageMarkdownTests`）。排版在 `Core/UI/MessageContentView.swift`（原生 Text / Grid / ScrollView），替代原 `MessageRow.swift` 里的全局 `markdown()`；交接 Trace 的回答也改用 `MessageMarkdown.inline`。

@@ -242,3 +242,49 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 
 汇总：API **21/21 通过**（2026-10-01，Linux）。UI 4 条未在模拟器执行。
 
+## 长期记忆 M1 (Memory) — 2026-10-01
+
+自动化：`backend/scripts/test/memory_test.py` (mock LLM + 临时 DB；用例定义见 [MEMORY_GROWTH.md](../design/MEMORY_GROWTH.md) §10)。iOS：`swift test` (`MemoryTests` 14 个) + 模拟器构建。
+
+| ID | 模块 | 用例 | 结果 |
+|---|---|---|---|
+| MEM-01 | 迁移 | v3 库 → v4：`memories` 表、`bots.memory_access` (= bot_and_global)、`users.memory_enabled` (= 1)、`messages.memory_ids` 出现；连续执行两次幂等；`schema_meta.version = 4`；已有 Bot 的 allowed_tools / delegate_to、头像、昵称不变 | 通过 |
+| MEM-02 | 权限 | `get_schemas`：memory_on 且 depth 0 才含 `remember` / `forget_memory`；`memory_access=none`、用户关闭、`VERABOT_MEMORY=0`、depth 1 时都不含；`/api/tools` 不列出记忆工具 | 通过 |
+| MEM-03 | 权限 | `PATCH /api/bots/{id}` 把 `remember` 放进 `allowed_tools` → 422；`memory_access` 非法值 → 422；合法值保存并在 `GET` 中返回 | 通过 |
+| MEM-04 | 提议 / 确认 | mock LLM 调用 `remember` → 生成 proposed 行 (source=explicit_chat, source_bot_id, source_message_id, expires_at +7d)；trace 含 memory_id；**下一轮 system prompt 不含该内容** | 通过 |
+| MEM-05 | 提议 / 确认 | confirm → active, confirmed_at；下一轮 system prompt 含 `[M{id}·全局·资料]`；`done` 事件与 `messages.memory_ids` 含该 id；use_count +1、last_used_at 更新 | 通过 |
+| MEM-06 | 提议 / 确认 | 编辑后确认：保存编辑后的正文与新 hash；编辑成敏感内容 → 422 且仍为 proposed | 通过 |
+| MEM-07 | 提议 / 确认 | reject → status=rejected、content 为空、hash 保留；30 天内相同 remember → `previously_declined`，无新行；冷却期后可再次提议 | 通过 |
+| MEM-08 | 提议 / 确认 | 去重：已有 active 同内容 → `already_known`，无新行；全角 / 空白差异规范化后视为相同 | 通过 |
+| MEM-09 | 提议 / 确认 | 更新：`replaces_memory_id` → action=update 提议；confirm 后旧行被物理删除、新行 active；reject 后旧行不变 | 通过 |
+| MEM-10 | 提议 / 确认 | `forget_memory` → delete 提议；confirm 删除目标与提议；reject 只删提议；对不可见 / 他人 id → `not_found` | 通过 |
+| MEM-11 | 提议 / 确认 | 凭据：「密码是 abc123」「验证码 384920」「sk-xxxx」→ `sensitive_credential`，无行；`audit_log` 有 `memory_blocked` 且 detail 不含原文；服务器日志不含原文 | 通过 |
+| MEM-12 | 提议 / 确认 | 证件 / 卡号：有效 18 位身份证、通过 Luhn 的卡号 → 拒绝；不通过 Luhn 的普通数字 (如订单号) → 允许 | 通过 |
+| MEM-13 | 提议 / 确认 | 健康 / 财务 → 允许保存，Fernet 加密 (库内只有占位与密文)，API 返回明文且 `sensitive=true`；宗教 / 他人联系方式 / 住址 → `sensitive_category` | 通过 |
+| MEM-14 | 提议 / 确认 | 注入特征 (「忽略之前所有指令」「</user_memory>」「调用 ask_bot」) → `blocked_content` | 通过 |
+| MEM-15 | 提议 / 确认 | 单轮提议上限 2：第 3 次 → `proposal_cap` | 通过 |
+| MEM-16 | 提议 / 确认 | 每用户 active 上限：达到上限后 confirm / POST → 400 `memory_limit`；update / delete 不受限 | 通过 |
+| MEM-17 | 提议 / 确认 | 过期：proposed 超过 7 天 → confirm 返回 410 并置 expired、正文清空 | 通过 |
+| MEM-18 | 提议 / 确认 | 重复处理：已 active 再 confirm / reject → 409 | 通过 |
+| MEM-19 | 隔离 | 租户隔离：用户 B 对 A 的记忆 GET / PATCH / DELETE / confirm / reject → 404；列表与 counts 只含本人；`DELETE /api/memories?scope=all` 只删本人 | 通过 |
+| MEM-20 | 召回 | 作用域：Vera 的 bot 记忆不注入小研；global 注入所有 `bot_and_global` 的 Bot；`memory_access=bot` 的 Bot 不注入 global、提议 global 被降为 bot；`none` 无注入 | 通过 |
+| MEM-21 | 委派 | 委派：小研 (被委派) 的 `run_once` system prompt 不含 `<user_memory>`，即使小研有自己的 bot 记忆；mock 让小研调用 `remember` → `memory_not_delegable` + `tool_denied` 审计；无新行 | 通过 |
+| MEM-22 | 委派 | 委派载荷：调用方把记忆写进 shared_context 时，`delegations.payload` 如实记录；未写时 payload 中无记忆内容 | 通过 |
+| MEM-23 | 注入 | 渲染转义：正文含 `<`、`>`、零宽字符、bidi 控制符、换行 → 渲染结果为全角尖括号、单行、无隐藏字符 | 通过 |
+| MEM-24 | 召回 | 预算：30 条 active → 注入 ≤ 12 条、正文总字数 ≤ 1000；profile / style 优先；与用户消息关键词重叠的条目排在前面；≤ 12 条时全部注入 | 通过 |
+| MEM-25 | 记忆页 / API | 删除 Bot → 其 bot 记忆删除；该 Bot 提议的 global 记忆保留且 source_bot_id 为 NULL | 通过 |
+| MEM-26 | 记忆页 / API | 清空对话 (`DELETE /messages`) → 记忆保留，source_message_id 为 NULL；之后对话仍注入记忆；`include_memories=true` → 删除该 Bot 的 bot / summary 记忆，global 保留，返回 `deleted_memories` | 通过 |
+| MEM-27 | 记忆页 / API | 清空全部：缺 `confirm=true` → 400；`scope=bot&bot_id=` 只删该 Bot 的 bot 记忆；`scope=all` 删除本人全部 (含 proposed) | 通过 |
+| MEM-28 | 记忆页 / API | 记忆页手动添加：POST → active、source=memory_page；策略检查同 MEM-11~14；重复 → 409 返回已有 id；bot_id 为他人 Bot → 404 | 通过 |
+| MEM-29 | 记忆页 / API | PATCH：修改正文 / 类型 / 作用域；global → bot 时 bot_id 必填且属于本人；非 active → 409 | 通过 |
+| MEM-30 | 记忆页 / API | 用户总开关：关闭 → 不注入、无记忆工具、API 可查看 / 删除；打开后恢复 | 通过 |
+| MEM-31 | 审计 | 审计：proposed / confirmed / rejected / created / updated / deleted / cleared / blocked / settings 都有记录，且 detail 中无正文 | 通过 |
+| MEM-32 | 兼容 | 回归：MA-01~24、AV-01~17、NK-01~04 通过；旧客户端 (不认识 `memory_ids` / 新字段) 解析 SSE 与 Bot JSON 正常 | 通过 |
+| MEM-33 | 加密 | 加密密钥与数据库分离 (`data/.memory_key` 权限 600)；换错密钥解密返回 None (界面显示占位) | 通过 |
+| MEM-34 | 加密 | 健康类提议：SSE trace 与存库的 `messages.traces` 不含明文，按 `memory_id` 拉取得到明文 | 通过 |
+| MEM-35 | 契约 | `confirm` 接受空 body (带 JSON Content-Type，iOS 无编辑时的请求) 与 `{}` | 通过 |
+| MEM-36 | 契约 | 前后端契约：Memory JSON 键 ⊇ iOS `Memory` CodingKeys；列表 / settings / 清空对话响应字段与 iOS 模型一致 | 通过 |
+| MEM-UI-01 | iOS Kit | `MemoryTests` 解码 / 未知枚举 / trace 解析 / 旧 Bot JSON 默认值 | 通过 (`swift test` 34/34) |
+| MEM-UI-02~12 | iOS | 确认卡片、设置分组、记忆页、编辑页、Bot 详情记忆分组、清空对话两个选项、敏感标记、首次说明 (见 MEMORY_GROWTH §10.2) | 待 Boss 在模拟器 / 真机验收 (模拟器已构建并安装，未做 UI 自动化) |
+
+汇总：MEM **36/36 通过**；回归 MA 24/24、AV/NK 21/21 通过 (2026-10-01)。
