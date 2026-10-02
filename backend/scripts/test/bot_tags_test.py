@@ -88,8 +88,8 @@ db.init_db()  # 已有标签不能被第二次迁移清掉
 kept = sqlite3.connect(DB).execute("SELECT tags FROM bots WHERE id=1").fetchone()[0]
 check(
     "TAG-01",
-    "v4→v5 幂等：出现 tags 且默认 []；存量权限 / 记忆授权 / 头像不变；再跑一次不覆盖已写入的标签",
-    ver == "5" and db.SCHEMA_VERSION == 5 and "tags" in bot_cols
+    "v4→当前版本幂等：出现 tags 且默认 []；存量权限 / 记忆授权 / 头像不变；再跑一次不覆盖已写入的标签",
+    ver == str(db.SCHEMA_VERSION) and "tags" in bot_cols
     and legacy == ("OldBot", '["get_weather"]', "[2]", "t1", "bot", "[]")
     and json.loads(kept) == ["研究"],
     f"ver={ver} legacy={legacy} kept={kept}",

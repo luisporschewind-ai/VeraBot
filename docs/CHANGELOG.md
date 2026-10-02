@@ -6,6 +6,7 @@
 
 ### 新增 (Added)
 
+- **Bot 置顶 (schema v6)**：新增 nullable `bots.pinned_at`，v5 → v6 幂等迁移且迁移前备份本地数据库。PATCH `/api/bots/{id}` 接受严格布尔 `pinned`，重复置顶保留原时间，取消置顶置空；Bot JSON 返回 `pinned_at`，仅列表 API 按置顶时间倒序、同时间 id 升序，其余 id 升序。iOS 首页支持左滑和长按置顶 / 取消置顶，置顶行使用主题浅灰底；搜索结果保持同序。Web 冻结。PIN-01~08、Kit 解码 / 编码 / 排序用例覆盖。
 - **Bot 标签 (tags，schema v5，启动时自动迁移)**：每个 Bot 有一组短标签。最新 main 上长期记忆已占用 schema v4，因此本迁移是 **v4 → v5**（任务描述里的 v3 → v4 对应的是记忆落地之前的库）。
   - 后端：`bots.tags`（JSON 字符串数组，默认 `[]`）。`init_db()` 幂等加列，不改写已有权限、记忆授权、头像或已写入的标签。`GET /api/bots`、`GET /api/bots/{id}` 的 Bot JSON 增加 `tags`。`POST /api/bots`、`PATCH /api/bots/{id}` 接受 `tags`；省略时创建为 `[]`、更新表示不修改；`[]` 清空。校验：trim，丢掉空白和重复（保留首次出现的顺序），最多 5 个，每个最多 12 个字，拒绝控制字符；422 中文（`标签必须是列表` / `标签必须是文字` / `标签不能包含控制字符` / `每个标签最多 12 个字` / `每个 Bot 最多 5 个标签`），不带 pydantic 的 `Value error` 前缀。仍按 `user_id` 隔离，他人访问 404。无新依赖、不改 `.env`。
   - iOS：`VeraBotCore` 的 `Bot.tags`（旧 JSON 缺字段或 null 时为 `[]`）、`BotCreate` / `BotPatch`，以及与后端一致的 `BotTagRules`。首页列表在名称右侧显示小胶囊（最多 2 个，其余 `+N`，过长截断）；对话页胶囊标题在名称右侧同样显示（最多 1 个）。创建 Bot、Bot 设置 / 详情用系统 Form「标签」分组添加、修改、左滑删除。对话页只改标题按钮，未改消息列表、记忆卡片或设置页。Web 未改。
@@ -207,4 +208,3 @@ v0.1 测试 (31 条用例) 发现 9 个缺陷，均已修复并回归通过，�
 - 提醒 Tab、用量看板 (Quota Dashboard)、附件 ＋ 菜单占位 (即将支持)、语音输入 (Web: `/api/transcribe`；iOS: Speech 框架)。
 - 客户端：Web SPA (后端托管) + SwiftUI iOS App (iOS 17+，Swift 6 严格并发)。
 - 测试：31 条用例 (TC-01 ~ TC-31)：26 通过、4 失败、1 跳过，发现 BUG-01 ~ 09。
-

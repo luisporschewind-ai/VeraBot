@@ -20,14 +20,17 @@ struct BotListView: View {
                 ForEach(filteredBots) { bot in
                     NavigationLink(value: bot) { BotRow(bot: bot) }
                         .contextMenu {
+                            pinButton(for: bot)
                             Button { editing = bot } label: { Label("编辑与权限", systemImage: "slider.horizontal.3") }
                         }
+                        .swipeActions(edge: .leading) { pinButton(for: bot) }
                         // 不用 .onDelete / role: .destructive：它们会先把行动画移除，这里只弹确认框
                         .swipeActions(edge: .trailing) {
                             Button { pendingDelete = bot } label: { Label("删除", systemImage: "trash") }
                                 .tint(.red)
                         }
                         .plainListRow()
+                        .listRowBackground(bot.isPinned ? Color.sectionFill : Color.appBackground)
                 }
                 if let errorText {
                     Text(errorText).foregroundStyle(.red).font(.footnote)
@@ -141,7 +144,7 @@ struct BotListView: View {
     private func load() async {
         do {
             let r = try await app.api.bots()
-            bots = r.bots
+            bots = BotOrdering.sorted(r.bots)
             limit = r.limit
             for bot in r.bots {
                 app.avatars.reconcileBot(id: bot.id, hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
@@ -161,6 +164,29 @@ struct BotListView: View {
             errorText = app.message(for: error)
         }
     }
+
+    @ViewBuilder
+    private func pinButton(for bot: Bot) -> some View {
+        Button { Task { await togglePin(bot) } } label: {
+            Label(bot.isPinned ? "取消置顶" : "置顶", systemImage: bot.isPinned ? "pin.slash" : "pin")
+        }
+    }
+
+    private func togglePin(_ bot: Bot) async {
+        do {
+            let updated = try await app.api.updateBot(bot.id, BotPatch(pinned: !bot.isPinned))
+            withAnimation {
+                bots = BotOrdering.sorted(bots.map { item in
+                    guard item.id == bot.id else { return item }
+                    return item.replacingPinnedAt(updated.pinnedAt)
+                })
+            }
+            errorText = nil
+        } catch {
+            errorText = app.message(for: error)
+        }
+    }
+
 }
 
 private extension View {
@@ -187,6 +213,12 @@ struct BotRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(bot.name).font(.headline).lineLimit(1).layoutPriority(1)
+                    if bot.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("已置顶")
+                    }
                     BotTagChip(tags: bot.tags)   // 一个浅灰圆角矩形，「搜索, 查询, 调研」，放不下尾部截断
                     Spacer(minLength: 8)
                     if let date = ListTimestamp.rowDate(for: bot) {

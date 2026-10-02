@@ -26,7 +26,7 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v5：v1 → v2 → v3 → v4 → v5)、查询 | `database.py`、`schema.py`、`repository.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v6：v1 → v2 → v3 → v4 → v5 → v6)、查询 | `database.py`、`schema.py`、`repository.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
 | `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆 (`services/memory/` 子包：策略检查、召回、确认流程、SQL) | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/{__init__,policy,recall,repository,errors}.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |

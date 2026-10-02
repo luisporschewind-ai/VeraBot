@@ -5,46 +5,48 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v5**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签）。iOS `0.1.0 (1)` |
-| 测试 | v0.1.0：**91 条用例：通过 90 / 失败 0 / 跳过 1** (TC-31 语音输入按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；重构后回归见同文档末尾。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；此前 `swift test` 38 条，标签新增 `BotTagTests`（本环境无可用 Swift 工具链，未重跑）；UI-* / MSG-* 大多待 Boss 验收 (见下节) |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v6**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶）。iOS `0.1.0 (1)` |
+| 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
 
-## 🔁 交接 (Handoff for the next agent) — 2026-10-01 21:40 UTC+8
+## 🔁 交接 (Handoff for the next agent) — 2026-10-01 21:50 UTC+8
 
-- **HEAD**：本交接文档所在提交 (上一功能提交 `82ee633` 删除 Bot 二次确认)，分支 `main`，仓库 `/Users/admin/Desktop/VeraBot-v0.1` (Mac)，origin `github.com/luisporschewind-ai/VeraBot`。先 `git pull --ff-only`。
+- **HEAD**：功能与文档改动当前未提交，分支 `main`，仓库 `/Users/admin/Desktop/VeraBot-v0.1` (Mac)，origin `github.com/luisporschewind-ai/VeraBot`。
 - **不要提交的本地改动**：`frontend/ios/VeraBot.xcodeproj/project.pbxproj` (`DEVELOPMENT_TEAM = 4M4EACBGAJ`，Boss 签名) 与 `frontend/ios/VeraBot/InfoPlist.xcstrings`。只 `git add` 自己的文件。不动 tag `v0.1.0`。
 - **规则**：前后端同步 (字段 / 文案 / 上限改动要有契约测试并写对照表)；Web 冻结 (只在 STATUS 记落后项)；iOS 只用原生默认样式、无自定义动画、Theme 语义色、头像正圆 (照片或表情 + 底色)；代码、测试、文档 (CHANGELOG / FEATURES / TEST_CASES / STATUS) 同一提交；作者 `Luis <luisporschewind@gmail.com>`；不做 UI 自动化 / 点按 / 截图；只装 **iPhone 17 模拟器** (UDID `6FD1E62D-DA65-42B1-81F5-554042006671`)，不装真机；不用 Homebrew。
-- **构建 / 测试**：`frontend/ios`：`xcodebuild -project VeraBot.xcodeproj -scheme VeraBot -sdk iphonesimulator -destination "id=<UDID>" -derivedDataPath /tmp/verabot_dd build`，再 `xcrun simctl install/launch <UDID> com.verabot.app`；Kit：`frontend/ios/Packages/VeraBotKit && swift test` (当前 54/54)；后端 (在 `backend/`)：`uv run python scripts/test/{bot_tags_test,multi_agent_test,avatar_profile_test,memory_test}.py`。
+- **构建 / 测试**：`frontend/ios`：`xcodebuild -project VeraBot.xcodeproj -scheme VeraBot -sdk iphonesimulator -destination "id=<UDID>" -derivedDataPath /tmp/verabot_dd build`；Kit `swift test` (当前 55 条)；后端置顶/标签用例：`uv run python scripts/test/{bot_pin_test,bot_tags_test}.py`。
 - **后端启动**：`backend/stop.sh` 后 `backend/start.sh --detach` (默认 `0.0.0.0:8000`，日志 `data/server.log`)；健康检查 `curl http://192.168.0.104:8000/api/health`；demo / verabot2026。
+- **近期更新**：Bot 置顶已实现 (schema v6；见 [BOT_PIN.md](design/BOT_PIN.md))，本机数据库迁移前备份 `backend/data/verabot.db.bak-before-v6`。
+- **验收记录 (2026-10-01)**：Boss 确认 Bot 置顶功能无问题；TC-07 无效 token 返回 401 后自动回登录页；TC-29/30、设置、首页与导航、主要列表、消息、头像/昵称，以及触感反馈、语音、键盘相关验收通过。余下详情/创建页、长期记忆、用量、标签细节、删除流程及部分视觉页验收由 Boss 同意延期，不阻塞当前任务。详见测试用例记录。
 - **待办**：
-  1. **Bot 置顶** (Boss 已批准，规格 [BOT_PIN.md](design/BOT_PIN.md)，schema v6，未开工；迁移前备份数据库)。
   2. **执行状态机** (只读评估已完成，未决定)：iOS 现在无状态枚举，靠 `sending` / `streaming` / traces 推断；建议在 `VeraBotCore` 用现有 SSE 事件 (delta / tool_start / tool_result / error / done) 推导状态并原生显示「正在思考 / 正在调用… / 正在请教…」，可选后端 `status` 事件。
   3. **遗留英文**：对话页委派 Trace 行 (`Features/Chat/TraceView.swift`) 仍显示「N tokens」。
   4. **头像动画** (Boss 桌面的 `LiveBotAvatar.swift` 卡通头像)：**未决定**；与项目同名类 / `Color(hex:)` 冲突，且是自定义动画，违反现有规则，需 Boss 拍板是否例外。
 
-## 📍 当前进度 (Current progress) — 截至 commit `4f4cd49` (2026-10-01 14:44 UTC+8)
+## 📍 当前进度 (Current progress) — main 工作区 (2026-10-01)
 
-v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v5** (v4 长期记忆；v5 Bot 标签。记忆升级前已备份 `backend/data/verabot.db.bak-before-v4`)；iOS 版本号仍为 `0.1.0 (1)`。
+v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v6** (v4 长期记忆；v5 Bot 标签；v6 Bot 置顶，迁移前备份 `backend/data/verabot.db.bak-before-v6`)；iOS 版本号仍为 `0.1.0 (1)`.
 
-### 已完成，待 Boss 验收 (Done, pending Boss verification)
+### 功能实现与验收状态 (Implementation and acceptance status)
 
 | 项 | Commit | 验证情况 | 对应用例 |
 |---|---|---|---|
-| 浮动 Liquid Glass 输入栏 (圆形 ＋、胶囊输入框「向 {Bot 名} 提问」、🎙，无发送按钮、return 发送) | `46cb977` | 已构建、安装、启动；按 Boss 要求未做模拟器点测 | UI-20 |
-| 消息富文本 (Markdown：标题 / 列表 / 代码块 / 引用 / 表格等，`~` 原文显示) | `4f4cd49` | `swift test` 通过 (`MessageMarkdownTests` 10 条)；界面未点测 | MSG-01、MSG-02 |
-| 链接：网址在 App 内 `SFSafariViewController` 打开，电话 / 邮箱交给系统；长按复制全文 / 复制链接 | `4f4cd49` | 同上 | MSG-03、MSG-04 |
-| 白底 + Liquid Glass 视觉风格、沉浸式助理列表、主题语义色 (theme tokens，`Core/UI/Theme.swift`)、深色模式 | `c94e26b` | 模拟器目视：首页 / 设置 / 对话 / Bot 详情 (浅色 + 深色)；其余页面待验收 | UI-16~19 |
-| 对话标题胶囊按钮 | `b59bf7a` | 模拟器目视 | UI-15 |
-| 正圆头像、圆形 X 取消 / 关闭、列表行时间、首页按需搜索 (范围暂定) | `36d96a7`、`8e0c585`、`3139826` | 模拟器构建 / 截图；待验收 | UI-11~14 |
-| 设置页重排 (账号 → 用量 → 通用 → 语音 → 关于 → 退出登录)、调试页 🐞、用量移入设置、通用 (外观 / 通知 / 触感反馈 / 语言) | `15cfbe8` | 待验收 | UI-04~09、SET-10 |
-| 用户 / Bot 照片头像 + 可编辑昵称 (Stuart 实现，schema v3) | `07d0716` | 后端 `avatar_profile_test.py` 21/21；iOS 待 Mac 模拟器点测 | AV-*、NK-*、UI-AV-01/03、UI-NK-01 |
-| **长期记忆 M1** (先确认后保存的记忆、确认卡片、「Vera 了解的你」、Bot 详情记忆分组、健康 / 财务加密、清空对话可选删记忆；schema v4) | 见 CHANGELOG | 后端 `memory_test.py` 36/36、MA 24/24、AV/NK 21/21；`swift test` 34/34；模拟器已构建 / 安装 / 启动，未点测 | MEM-*、MEM-UI-01~12、[MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §5.8 |
-| 设置 › 用量 行右侧「已用 N%」(今日 Token / 今日额度，iOS 计算，后端未改) | 见 CHANGELOG | MA-25 契约 25/25、`QuotaTests` 4 个；模拟器已构建 / 安装 / 启动，未点测 | QUOTA-03、QUOTA-04、UI-21 |
-| **Bot 标签** (schema v5；同日重新设计：3 个 / 4 字，首页一个浅灰圆角矩形、详情卡片一行、对话标题不显示、「基本信息」内单输入框) | 见 CHANGELOG | 后端 `bot_tags_test.py` 10/10 (含存量收敛与前后端契约)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；`swift test` 46/46；模拟器已构建 / 安装 / 启动，未点测 | TAG-01~10、TAG-UI-01~04 |
-| **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动，未点测 | DETAIL-UI-01~08 |
+| 浮动 Liquid Glass 输入栏 (圆形 ＋、胶囊输入框「向 {Bot 名} 提问」、🎙，无发送按钮、return 发送) | `46cb977` | Boss 手工验收通过 | UI-20 |
+| 消息富文本 (Markdown：标题 / 列表 / 代码块 / 引用 / 表格等，`~` 原文显示) | `4f4cd49` | `swift test` 通过；Boss 手工验收通过 | MSG-01、MSG-02 |
+| 链接：网址在 App 内 `SFSafariViewController` 打开，电话 / 邮箱交给系统；长按复制全文 / 复制链接 | `4f4cd49` | Boss 手工验收通过 | MSG-03、MSG-04 |
+| 白底 + Liquid Glass 视觉风格、沉浸式助理列表、主题语义色 (theme tokens，`Core/UI/Theme.swift`)、深色模式 | `c94e26b` | 首页、设置、对话和主要列表已验收；登录、提醒、调试等其他页面验收延期 | UI-16~19 |
+| 对话标题胶囊按钮 | `b59bf7a` | Boss 手工验收通过 | UI-15 |
+| 正圆头像、圆形 X 取消 / 关闭、列表行时间、首页按需搜索 (范围暂定) | `36d96a7`、`8e0c585`、`3139826` | Boss 手工验收通过 | UI-11~14 |
+| 设置页重排 (账号 → 用量 → 通用 → 语音 → 关于 → 退出登录)、调试页 🐞、用量移入设置、通用 (外观 / 通知 / 触感反馈 / 语言) | `15cfbe8` | Boss 手工验收通过 | UI-04~09、SET-10 |
+| 用户 / Bot 照片头像 + 可编辑昵称 (Stuart 实现，schema v3) | `07d0716` | 后端 `avatar_profile_test.py` 21/21；Boss 手工验收通过 | AV-*、NK-*、UI-AV-01/03、UI-NK-01 |
+| **长期记忆 M1** (先确认后保存的记忆、确认卡片、「Vera 了解的你」、Bot 详情记忆分组、健康 / 财务加密、清空对话可选删记忆；schema v4) | 见 CHANGELOG | 后端 `memory_test.py` 36/36、MA 24/24、AV/NK 21/21；`swift test` 34/34；模拟器已构建 / 安装 / 启动；UI 验收延期 | MEM-*、MEM-UI-01~12、[MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §5.8 |
+| 设置 › 用量 行右侧「已用 N%」(今日 Token / 今日额度，iOS 计算，后端未改) | 见 CHANGELOG | MA-25 契约 25/25、`QuotaTests` 4 个；模拟器已构建 / 安装 / 启动；UI 验收延期 | QUOTA-03、QUOTA-04、UI-21 |
+| **Bot 标签** (schema v5；同日重新设计：3 个 / 4 字，首页一个浅灰圆角矩形、详情卡片一行、对话标题不显示、「基本信息」内单输入框) | 见 CHANGELOG | 后端 `bot_tags_test.py` 10/10 (含存量收敛与前后端契约)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；Kit 已测；iOS 标签 UI 验收延期 | TAG-01~10、TAG-UI-01~04 |
+| **Bot 置顶** (schema v6；列表排序、名称旁 pin 标识、左滑 / 长按入口、置顶行浅灰底) | 当前工作区，未提交 | 后端 `bot_pin_test.py` PIN-01~08 通过；回归 MA 25/25、AV/NK 21/21、MEM 36/36、TAG 10/10；`swift test` 55 项通过；Boss 确认功能无问题 | PIN-01~08、PIN-UI-01~03 |
+| **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动；详情/创建 UI 验收延期 | DETAIL-UI-01~09 |
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
-| 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 待验收 | UI-01~03、UI-10 |
+| 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 对应 UI 验收延期 | UI-01~03、UI-10 |
 
 ### 暂停 / 延期 (Paused / deferred)
 
@@ -56,10 +58,9 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 ### 已知遗留 (Known leftovers，仅列出，未处理)
 
-- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签没有 Web UI** (Web 冻结；后端 `tags` 字段向后兼容)。Bot 置顶实现后同样不做 Web。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。
+- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签与置顶没有 Web UI** (Web 冻结；后端字段向后兼容)。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。
 - **截图过时**：`assets/screenshots/ios/` 下全部截图早于 2026-10-01 的界面改动；其中 `R34_form_keyboard`、`R11_settings` 与当时的界面也已不符。新 UI 用例 (UI-*、MSG-*) 尚无截图。
-- **`frontend/ios/VeraBot/File.txt`** 仍在仓库中 (8 字节，内容「QA回归」，NEW-03)，待确认是否删除。
-- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶 (预留，[BOT_PIN.md](design/BOT_PIN.md)，未实现)**。MCP / Gmail 设计稿 (v1.0) 已改为 **v7**。
+- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶**、MCP / Gmail 设计稿 (v1.0) 使用 **v7**。
 
 ## ⏸ 设计已定稿：MCP 开发等待额度重置 (Design approved, development waits for quota reset)
 
@@ -71,7 +72,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准 (§16 Q1~Q12 已决定) | M4 之前：创建 Google Cloud 项目 (Testing 模式) 并加入 Google Workspace Developer Preview Program (§14) |
 | 以记忆为核心的 Bot 成长体系 (显式记忆 + 记忆页 → 摘要 / 风格校准 → 隐式候选 / 主动建议 / 快捷提问 → 成长界面 / 月度回顾 → 向量检索 / 协作优化) | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1 已实现 (决定见 §17.1) | 按 MEM-UI-01~12 与 §5.8 验收 M1；决定是否开始 M2 |
 
-**MCP / Gmail 设计已于 2026-10-01 由 Boss 批准为 v1.0，尚未写任何实现代码；开发等待额度重置后按 MCP 文档 §15 的 M1~M7 进行** (M1 = MCP Client 核心 + 公网免授权只读服务；Gmail 在 M4~M6)。原 M0 / G0 技术验证已取消，Google 相关验证在 M4 开始时进行。记忆 M1 占用 schema v4，Bot 标签占用 v5；MCP / Gmail 使用 **v6**。
+**MCP / Gmail 设计已于 2026-10-01 由 Boss 批准为 v1.0，尚未写任何实现代码；开发等待额度重置后按 MCP 文档 §15 的 M1~M7 进行** (M1 = MCP Client 核心 + 公网免授权只读服务；Gmail 在 M4~M6)。原 M0 / G0 技术验证已取消，Google 相关验证在 M4 开始时进行。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6；MCP / Gmail 使用 **v7**。
 
 ## 1. 已完成功能 (Features done)
 
@@ -79,22 +80,22 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 |---|---|---|
 | 账号 Accounts | ✅ | 注册 / 登录 (bcrypt + JWT)，Token 持久化，失效自动退出，设置页底部退出登录 (二次确认)。昵称 `PATCH /api/me`（设置页可编辑；首页与对话读同一 `AppState`） |
 | 租户隔离 Isolation | ✅ | 所有查询带 `user_id`，越权 (IDOR) 返回 404 |
-| Bot 管理 | ✅ (API) / 🟡 (iOS 标签待模拟器点测) | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；软上限 20 (`MAX_BOTS_PER_USER`，达到上限 ＋ 置灰)；列表不显示数量页脚；名称右侧显示标签，行右上角显示最后消息时间；右上角 🔍 搜索入口保留但范围暂定：当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览）；完整聊天历史搜索、搜索历史等移至后续迭代 |
+| Bot 管理 | ✅ (API) / 🟡 (标签部分 UI 延期) | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；置顶支持左滑 / 长按，置顶项优先排序且 Boss 已验收；标签 UI 与 Bot 详情/删除流程验收延期；软上限 20 (`MAX_BOTS_PER_USER`)；名称右侧显示标签，行右上角显示最后消息时间；搜索只过滤已加载的 Bot 名称与最后消息预览，完整聊天历史搜索、搜索历史等延期 |
 | 流式对话 SSE | ✅ | 逐 token 渲染、工具卡片、交接 Trace 卡片、错误气泡 |
-| 记忆 Memory | ✅ | 每 Bot 独立，最近 20 条；清空对话 (二次确认) |
+| 记忆 Memory | ✅ | 显式长期记忆 M1、每 Bot 记忆分组、最近 20 条对话窗口；M1 UI 验收延期，M2+ 摘要 / 向量检索尚未开始 |
 | 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot` |
 | 多 Agent 协作 | ✅ | 工具白名单、委派白名单、接受委派、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 |
 | 每日 Token 预算 | ✅ | 超额 429，委派也被拒 |
 | 提醒 Reminders / 用量 Quota | ✅ | 提醒为 Tab 页，只落库、不推送；用量看板从设置页「用量」进入 (不再是 Tab)，不显示账号分组 |
-| 语音输入 Voice input | ✅ (未实测) | Web `/api/transcribe`；iOS Speech 框架 |
+| 语音输入 Voice input | ✅ (Boss 手工验收通过) | Web `/api/transcribe`；iOS Speech 框架 |
 | 语音播放 TTS | ✅ | 用户 + Bot 气泡 🔊，本机 TTS；设置里可关闭 |
 | 设置页 Settings | ✅ | 首页头像入口；账号 → 用量 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (最底部)。右上角 🐞 进入「调试」页：服务器地址、健康检查、版本 / 构建信息 |
-| 照片头像 Avatars | ✅ (API) / 🟡 (iOS 待 Mac 模拟器点测) | 用户与每个 Bot：相册设置、更换（iOS 不再提供「恢复默认」入口，后端 DELETE 保留）；服务端 512 JPEG、按用户隔离。iOS 用 PhotosPicker；Linux 上未做 Xcode / 模拟器点测 |
+| 照片头像 Avatars | ✅ | 用户与每个 Bot：相册设置、更换（iOS 不再提供「恢复默认」入口，后端 DELETE 保留）；服务端 512 JPEG、按用户隔离。Boss 已验收头像与昵称相关 iOS 流程 |
 | 导航 Navigation | ✅ | 二级页面隐藏 Tab 栏；对话标题 → Bot 详情 sheet；首页原生圆形按钮；头像统一正圆 (`CircleAvatar`)；工具栏取消 / 关闭为系统圆形 X (`DismissToolbarButton`) |
 | 键盘 Keyboard | ✅ | 输入栏随键盘上移、点空白 / 下拉收起、表单 next、多行人设 / 指令、sheet 保存后布局正常 |
-| 视觉风格 Visual style | 🟡 待验收 | 白底 + 灰分组、iOS 26 Liquid Glass (旧系统回退)、主题语义色集中在 `Core/UI/Theme.swift`、深色模式 |
-| 输入栏 Composer | 🟡 待验收 | 浮动玻璃：圆形 ＋ (附件占位菜单) + 胶囊输入框 + 🎙；无发送按钮，return 发送 |
-| 消息富文本 Rich messages | 🟡 待验收 | Markdown 排版、自动识别网址 / 电话 / 邮箱、网页在 App 内打开、长按复制；解析有单元测试 |
+| 视觉风格 Visual style | 🟡 部分验收 | 白底 + 灰分组、iOS 26 Liquid Glass (旧系统回退)、主题语义色集中在 `Core/UI/Theme.swift`、深色模式；未覆盖页面验收延期 |
+| 输入栏 Composer | ✅ | 浮动玻璃：圆形 ＋ (附件占位菜单) + 胶囊输入框 + 🎙；无发送按钮，return 发送；Boss 已验收 |
+| 消息富文本 Rich messages | ✅ | Markdown 排版、自动识别网址 / 电话 / 邮箱、网页在 App 内打开、长按复制；解析有单元测试，Boss 已验收 |
 | App 图标 / 名称 | ✅ | 主屏「Vera Bot」；AppIcon 1024 单尺寸 |
 | 附件 Attachments | 🟡 占位 | ＋ 菜单：图片 / 相机 / 文件「即将支持」(禁用) |
 
@@ -107,44 +108,33 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 - **语言**：App 声明了 zh-Hans 与 en 本地化（仅 `InfoPlist.xcstrings`：显示名与权限文案），系统设置中可按 App 切换语言；但界面文案仍是中文硬编码，切到英文后 App 内界面仍为中文。
 - **列表时间不会自动跨天刷新**：停留在首页跨过午夜时，「HH:mm」不会自己变成「昨天」；回到首页或下拉刷新后更新。「本周」按系统日历的周（中文地区周一开始）计算。
 - **首页搜索暂延期扩展**：搜索入口保留；当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览），完整聊天历史搜索、搜索历史等移至后续迭代。
-- **记忆**：滑动窗口 (最近 N 条)，没有长期记忆、摘要 / 向量检索 (方案见 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md)，待评审)。
+- **记忆**：长期记忆 M1 已实现但 UI 验收延期；摘要 / 向量检索属于 M2+，尚未开始 (方案见 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md))。
 - **安全**：Token 存 UserDefaults / localStorage (生产应改 Keychain / HttpOnly Cookie)，没有刷新 Token、没有速率限制 (Rate limit)，CORS `*`，ATS 允许本地 HTTP。
 - **云端 TTS**：只是占位 (stub)，设置里置灰。
 - **后端不会开机自启**：Mac 重启后需要重新运行 `backend/start.sh --detach` (或双击 `start.command`)；日志在 `backend/data/server.log`。
 - **Docker 未实测**：`Dockerfile` / `docker-compose.yml` 已提供，`docker compose config` 校验通过；但测试机的 Docker daemon 未运行，镜像没有实际构建 / 运行过。
 - **Bot 详情 sheet 内没有键盘「完成」按钮** (KB-12 修复所致)：用 下拉表单 / 保存 / 关闭 收起键盘。
 - **截图过时**：全部 iOS 截图早于 2026-10-01 的界面改动；`R34_form_keyboard` 仍显示已移除的键盘工具栏「完成」；`R11_settings` 是旧的分组顺序 (语音在前)。
-- **来源不明的文件**：`frontend/ios/VeraBot/File.txt` (8 字节，内容「QA回归」)，重构时原样保留，待确认是否删除 (NEW-03)。
 
 ## 3. 未测 / 仅代码审查 (Untested / code review only)
 
 | 项目 | 状态 |
 |---|---|
-| TC-31 语音输入 (`/api/transcribe`、iOS 麦克风) | 跳过 (按要求) |
-| KB-04 交互式下拉收起键盘 | 代码审查 (模拟器鼠标拖动难以复现) |
-| KB-08 进入后台收起键盘 | 代码审查 |
-| KB-09 登录 / 新建 Bot 表单键盘行为 | 代码审查 |
-| TC-07 Token 失效、TC-29 ＋ 菜单、TC-30 断网气泡 | 沿用迭代 1 结果，迭代 2 未重新点测 |
+| TC-07 Token 失效处理 | 通过：无效 token 时 `/api/me` 返回 401，App 自动跳转登录页 (iPhone 17 模拟器，2026-10-01) |
+| 真机 (Real device) | 设备型号 / 环境未记录；不要据此推断 iPhone 17 模拟器之外的平台都已覆盖 |
 | 真机 (Real device) | 未测，只在 iPhone 17 模拟器 (iOS 26) 上测试 |
-| 昵称 / 照片头像的 iOS 界面 | 代码已接上 API；本环境没有 Xcode，模拟器点测留到 Mac（步骤见 [RUN_LOCAL.md](ops/RUN_LOCAL.md)） |
-| 首页正圆头像、圆形 X 取消 / 关闭、行时间、首页搜索 (UI-11~14) | 已在 iPhone 17 模拟器 (iOS 26) 构建、安装、启动；界面效果待 Boss 验收 |
+| 昵称 / 照片头像的 iOS 界面 | Boss 手工验收通过 (2026-10-01) |
+| 首页正圆头像、圆形 X 取消 / 关闭、行时间、首页搜索 (UI-11~14) | Boss 手工验收通过 |
 | iOS 17 / 18 旧系统 | 未测 (`defaultScrollAnchor` 等 iOS 18+ API 已做版本判断) |
-| 白底 + Liquid Glass、深色模式 (UI-16~19) | 已在 iPhone 17 模拟器 (iOS 26) 构建、安装，浅色 / 深色目视检查首页、设置、对话、Bot 详情；新建 Bot / 提醒 / 登录 / 调试页待 Boss 验收 |
-| 浮动玻璃输入栏 (UI-20)、return 发送 | 已构建、安装、启动；按 Boss 要求本轮不做模拟器点测，待 Boss 验收 |
-| 消息富文本 / App 内网页 / 长按复制 (MSG-01~04) | 解析 `swift test` 通过；App 已构建、安装、启动；按 Boss 要求本轮不做模拟器点测，界面待 Boss 验收 |
+| 白底 + Liquid Glass、深色模式 (UI-16~19) | 首页、设置、对话、主要列表已验收；新建 Bot / 提醒 / 登录 / 调试页验收延期 |
+| 浮动玻璃输入栏 (UI-20)、return 发送 | Boss 手工验收通过 |
+| 消息富文本 / App 内网页 / 长按复制 (MSG-01~04) | 解析 `swift test` 通过；Boss 手工验收通过 |
 | 动态字体 (Dynamic Type)、iPad | 未测 |
 
 ## 4. 下一步 (Next steps)
 
-0. **(等待额度重置)** 按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §15 的 M1 → M7 实施 MCP 能力与 Gmail (设计 v1.0 已批准；Gmail 在 M4~M6，M4 前 Boss 需完成 Google Cloud 准备)。
-1. Boss 验收 2026-10-01 的界面改动 (UI-04~20、MSG-01~04、UI-AV / UI-NK)；修正新建 Bot 表单页脚的过时文案；按新界面重新截图 (至少 R11、R34 与新 UI 用例)。
-2. 补测 TC-07 / TC-29 / TC-30、KB-04 / 08 / 09，以及真机测试 (语音输入、TTS、键盘)。
-3. 提醒推送：本地通知 (UNUserNotificationCenter) 或 APNs。
-4. 附件：图片上传 + 多模态模型。
-5. 云端 TTS：后端 `/api/tts` + 实现 `CloudTTSEngine`。
-6. 安全加固：Keychain、刷新 Token、Rate limit、HTTPS / 移除 ATS 例外、收紧 CORS。
-7. 后端常驻：launchd plist (开机自启 + 崩溃重启)；实测 Docker 镜像。
-8. 记忆：按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) 实施 (等待 Boss 评审；M2 含长对话摘要)。
-9. Web SPA 跟进 iOS 的权限编辑 / 协作记录 UI (如果还需要 Web)。
-10. 确认 `frontend/ios/VeraBot/File.txt` 是否删除 (NEW-03)。
-11. 配置 CI (后端 mock 测试 + `swift test` + xcodebuild)。远程仓库已配置 (GitHub `luisporschewind-ai/VeraBot`)。
+1. **执行状态提示**：评估是否在 iOS Core 根据现有 SSE 事件显示思考、工具调用和 Bot 委派状态；尚未进入实现。
+2. **遗留英文**：对话页委派 Trace 行仍显示 `N tokens`，待改为中文。
+3. **(等待额度重置)** 按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §15 的 M1 → M7 实施 MCP 能力与 Gmail (设计 v1.0 已批准；Gmail 在 M4~M6，M4 前 Boss 需完成 Google Cloud 准备)。
+4. 记忆 M1 UI 验收延期；完成后再决定是否开始 M2。
+5. 其余 UI 验收、过时截图更新及提醒通知、图片附件 / 多模态、云端 TTS、安全与部署、CI、Web 方向暂缓；规划见 [ROADMAP_NEXT.md](ROADMAP_NEXT.md)。

@@ -6,6 +6,7 @@
 |---|---|---|
 | — | [STATUS.md](STATUS.md) | **项目状态**：v0.1.0 原型验证完成、当前进度 (已完成待 Boss 验收的项、暂停 / 延期项、已知遗留)、设计评审 (待 Boss 评审 MCP / Gmail / Memory 设计稿)、功能状态、已知限制、未测项、下一步 |
 | — | [CHANGELOG.md](CHANGELOG.md) | 更新日志 (Keep a Changelog + SemVer) |
+| — | [ROADMAP_NEXT.md](ROADMAP_NEXT.md) | 提醒、附件、多模态、TTS、安全、部署、CI 与 Web 的后续规划草案；未授权开工 |
 | product/ | [FEATURES.md](product/FEATURES.md) | 功能清单、API 摘要、SSE 事件格式 |
 | design/ | [ARCHITECTURE.md](design/ARCHITECTURE.md) | 两个项目的架构、模块、依赖规则、依赖管理 (SPM / uv)、数据模型 |
 | design/ | [MULTI_AGENT_DESIGN.md](design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限模型、上下文隔离、护栏、审计、迁移、设置页 / TTS 扩展 |

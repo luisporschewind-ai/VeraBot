@@ -36,6 +36,27 @@ import Testing
     #expect(bot.acceptDelegation == false)
     #expect(bot.hasAvatar == false)
     #expect(bot.avatarUpdatedAt == nil)
+    #expect(bot.pinnedAt == nil)
+    #expect(!bot.isPinned)
+}
+
+@Test func botPinDecodingPatchAndOrdering() throws {
+    let decoder = JSONDecoder()
+    let a = try decoder.decode(Bot.self, from: Data(##"{"id":1,"name":"A","avatar":"🤖","color":"#000","pinned_at":"2026-10-01T10:00:00+00:00"}"##.utf8))
+    let b = try decoder.decode(Bot.self, from: Data(##"{"id":2,"name":"B","avatar":"🤖","color":"#000","pinned_at":"2026-10-01T11:00:00+00:00"}"##.utf8))
+    let c = try decoder.decode(Bot.self, from: Data(##"{"id":3,"name":"C","avatar":"🤖","color":"#000","pinned_at":null}"##.utf8))
+    let tied = try decoder.decode(Bot.self, from: Data(##"{"id":0,"name":"Tied","avatar":"🤖","color":"#000","pinned_at":"2026-10-01T10:00:00+00:00"}"##.utf8))
+    #expect(a.pinnedAt != nil && a.isPinned)
+    #expect(!c.isPinned)
+    #expect(BotOrdering.sorted([c, a, b]).map(\.id) == [2, 1, 3])
+    #expect(BotOrdering.sorted([a, tied]).map(\.id) == [0, 1])
+    let data = try JSONEncoder().encode(BotPatch(pinned: true))
+    let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    #expect(obj?[
+        "pinned"] as? Bool == true)
+    let empty = try JSONEncoder().encode(BotPatch(name: "A"))
+    let emptyObj = try JSONSerialization.jsonObject(with: empty) as? [String: Any]
+    #expect(emptyObj?.keys.sorted() == ["name"])
 }
 
 @Test func decodesBotAvatarFlags() throws {

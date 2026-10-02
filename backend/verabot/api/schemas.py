@@ -2,7 +2,7 @@
 import unicodedata
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictBool, field_validator
 
 from ..core.tags import MAX_BOT_TAGS, MAX_TAG_CHARS   # 3 个 / 每个 4 字
 from ..services.users import clean_nickname
@@ -101,6 +101,14 @@ class BotPatch(BotPerms):
     persona: str | None = Field(default=None, max_length=1000)
     instructions: str | None = Field(default=None, max_length=2000)
     tags: list[str] | None = None   # None = 不修改；[] = 清空
+    pinned: StrictBool | None = None  # None = 不修改；true / false = 置顶 / 取消
+
+    @field_validator("pinned", mode="before")
+    @classmethod
+    def _check_pinned(cls, value):
+        if value is not None and type(value) is not bool:
+            raise ValueError("pinned 必须是布尔值")
+        return value
 
     @field_validator("name")
     @classmethod

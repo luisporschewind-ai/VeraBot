@@ -117,6 +117,15 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
     public let memoryCount: Int?
     /// 标签。旧后端没有该字段时为空列表。
     public let tags: [String]
+    /// 置顶时间（UTC ISO 8601）；旧后端缺失或 null 时未置顶。
+    public private(set) var pinnedAt: String?
+    public var isPinned: Bool { pinnedAt != nil }
+
+    public func replacingPinnedAt(_ value: String?) -> Bot {
+        var copy = self
+        copy.pinnedAt = value
+        return copy
+    }
 
     enum CodingKeys: String, CodingKey {
         case id, name, avatar, color, persona, instructions
@@ -130,6 +139,7 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         case memoryAccess = "memory_access"
         case memoryCount = "memory_count"
         case tags
+        case pinnedAt = "pinned_at"
     }
 
     public init(from decoder: Decoder) throws {
@@ -150,6 +160,7 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         memoryAccess = try c.decodeIfPresent(MemoryAccess.self, forKey: .memoryAccess) ?? .botAndGlobal
         memoryCount = try c.decodeIfPresent(Int.self, forKey: .memoryCount)
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        pinnedAt = try c.decodeIfPresent(String.self, forKey: .pinnedAt)
     }
 }
 
@@ -166,10 +177,12 @@ public struct BotPatch: Codable, Sendable {
     public var memoryAccess: MemoryAccess?
     /// nil = 不修改；空数组 = 清空。
     public var tags: [String]?
+    public var pinned: Bool?
 
     public init(name: String? = nil, avatar: String? = nil, color: String? = nil, persona: String? = nil,
                 instructions: String? = nil, allowedTools: [String]? = nil, delegateTo: [Int]? = nil,
-                acceptDelegation: Bool? = nil, memoryAccess: MemoryAccess? = nil, tags: [String]? = nil) {
+                acceptDelegation: Bool? = nil, memoryAccess: MemoryAccess? = nil, tags: [String]? = nil,
+                pinned: Bool? = nil) {
         self.name = name
         self.avatar = avatar
         self.color = color
@@ -180,6 +193,7 @@ public struct BotPatch: Codable, Sendable {
         self.acceptDelegation = acceptDelegation
         self.memoryAccess = memoryAccess
         self.tags = tags
+        self.pinned = pinned
     }
 
     enum CodingKeys: String, CodingKey {
@@ -189,6 +203,22 @@ public struct BotPatch: Codable, Sendable {
         case acceptDelegation = "accept_delegation"
         case memoryAccess = "memory_access"
         case tags
+        case pinned
+    }
+}
+
+/// 与后端 GET /api/bots 一致：置顶按时间倒序（并列按 id 升序），其余按 id 升序。
+public enum BotOrdering {
+    public static func sorted(_ bots: [Bot]) -> [Bot] {
+        bots.sorted { lhs, rhs in
+            switch (lhs.pinnedAt, rhs.pinnedAt) {
+            case let (l?, r?):
+                return l == r ? lhs.id < rhs.id : l > r
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return lhs.id < rhs.id
+            }
+        }
     }
 }
 

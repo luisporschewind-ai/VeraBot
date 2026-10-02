@@ -7,7 +7,7 @@ from .. import db
 from ..tools import REGISTRY
 
 PUBLIC_FIELDS = ("id", "name", "avatar", "color", "persona", "instructions", "created_at",
-                 "allowed_tools", "delegate_to", "accept_delegation", "memory_access", "tags")
+                 "allowed_tools", "delegate_to", "accept_delegation", "memory_access", "tags", "pinned_at")
 
 
 def public_bot(b: dict, memory_count: int | None = None) -> dict:

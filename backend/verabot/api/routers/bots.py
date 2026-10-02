@@ -19,7 +19,11 @@ def bots_list(user=Depends(current_user)):
     out = []
     counts = memory.bot_counts(user["id"])
     with db.tx() as c:
-        for b in db.list_bots(user["id"]):
+        all_bots = db.list_bots(user["id"])
+        pinned_bots = sorted((b for b in all_bots if b.get("pinned_at")),
+                             key=lambda b: (b["pinned_at"], -b["id"]), reverse=True)
+        unpinned_bots = sorted((b for b in all_bots if not b.get("pinned_at")), key=lambda b: b["id"])
+        for b in pinned_bots + unpinned_bots:
             last = db.row(c.execute("SELECT content, created_at FROM messages WHERE user_id=? AND bot_id=? "
                                     "ORDER BY id DESC LIMIT 1", (user["id"], b["id"])).fetchone())
             out.append({**public_bot(b, counts.get(b["id"], 0)), "last_message": last})
@@ -51,16 +55,25 @@ def bots_get(bot_id: int, user=Depends(current_user)):
 @router.patch("/api/bots/{bot_id}")
 def bots_patch(bot_id: int, body: BotPatch, user=Depends(current_user)):
     require_bot(user, bot_id)
-    fields = {k: v for k, v in body.model_dump(exclude={"allowed_tools", "delegate_to", "accept_delegation", "memory_access"}).items()
+    pinned = body.pinned
+    fields = {k: v for k, v in body.model_dump(exclude={"allowed_tools", "delegate_to", "accept_delegation", "memory_access", "pinned"}).items()
               if v is not None}
     if "tags" in fields:
         fields["tags"] = json.dumps(fields["tags"], ensure_ascii=False)
     fields.update(validate_perms(user, body, bot_id))
-    if fields:
-        sets = ",".join(f"{k}=?" for k in fields)
+    if pinned is False:
+        fields["pinned_at"] = None
+    if pinned is True:
+        sets = [f"{k}=?" for k in fields]
+        sets.append("pinned_at=COALESCE(pinned_at, ?)")
+        values = [*fields.values(), db.now_iso(), bot_id, user["id"]]
+    else:
+        sets = [f"{k}=?" for k in fields]
+        values = [*fields.values(), bot_id, user["id"]]
+    if sets:
         try:
             with db.tx() as c:
-                c.execute(f"UPDATE bots SET {sets} WHERE id=? AND user_id=?", (*fields.values(), bot_id, user["id"]))
+                c.execute(f"UPDATE bots SET {','.join(sets)} WHERE id=? AND user_id=?", values)
         except sqlite3.IntegrityError:   # BUG-03：只有唯一约束冲突才是 409
             raise HTTPException(409, "已有同名 Bot")
     return public_bot(db.get_bot(user["id"], bot_id))

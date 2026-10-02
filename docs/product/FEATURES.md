@@ -1,6 +1,6 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-> 与代码同步至 commit `4f4cd49` (2026-10-01)，并包含其后的 Bot 标签（schema v5）。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。
+> 与代码同步至 main 工作区 (2026-10-01)：包含 Bot 标签 (schema v5) 与 Bot 置顶 (schema v6)。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。
 
 ## 功能 (Features)
 
@@ -27,7 +27,7 @@
 | App 图标 / 名称 (App icon & name) | 主屏显示名「Vera Bot」(`INFOPLIST_KEY_CFBundleDisplayName`，`InfoPlist.xcstrings` zh-Hans / en 均为「Vera Bot」)；App 图标为 `Assets.xcassets/AppIcon.appiconset` 单尺寸 1024×1024 (源图 `assets/brand/app-icon-source.png`)。设置 › 关于 中的应用简介仍写「VeraBot · 你的私人 AI 助理团队」 |
 | Web 客户端 | 只作为 API 验收客户端，功能落后于 iOS (见 [STATUS.md](../STATUS.md) 已知限制) |
 
-> **计划中 (Planned)**：Bot 置顶 (schema v6，`pinned_at` + PATCH `pinned`，首页左滑 / 长按「置顶」，置顶行浅灰底)，规格见 [BOT_PIN.md](../design/BOT_PIN.md)，未实现。
+> **已实现**：Bot 置顶 (schema v6，`pinned_at` + PATCH `pinned`，首页左滑 / 长按「置顶」，置顶行浅灰底)，规格与测试见 [BOT_PIN.md](../design/BOT_PIN.md) 和 [STATUS.md](../STATUS.md)。
 
 ## API 摘要
 
@@ -56,6 +56,8 @@
 | POST | `/api/memories/{id}/confirm`、`/api/memories/{id}/reject` | 确认提议 (可带 `{content}` 编辑后确认；删除提议返回 `{ok, deleted_id}`) / 拒绝 |
 | GET / PATCH | `/api/memory/settings` | `{enabled, server_enabled, active_count, max_active, max_chars}`；PATCH `{enabled}` |
 | GET | `/api/health` | 健康检查 `{ok, model}` |
+
+Bot 置顶 (schema v6)：Bot JSON 含 `pinned_at` (UTC ISO 8601 或 null)；PATCH `/api/bots/{id}` 接受 `pinned: true/false`，省略或 null 不修改。GET `/api/bots` 将置顶项按时间倒序、同时间按 id 升序排列，再列出未置顶项 (id 升序)。Web 客户端冻结，不实现置顶 UI。
 
 Bot 详情改版字段映射 (2026-10-01，**无 API 变更**，全部是已有接口与字段)：
 

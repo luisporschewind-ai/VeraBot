@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v5）。"""
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v6）。"""
 import json
 
 from .database import tx
@@ -122,7 +122,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mem_dedupe
 """
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 ALL_TOOLS_V2 = ["get_weather", "create_reminder", "list_reminders", "ask_bot"]
 
 
@@ -142,6 +142,7 @@ def init_db():
     v2 → v3：用户昵称、用户头像、Bot 照片头像（表情符号字段保持不变）。
     v3 → v4：长期记忆 memories 表 + bots.memory_access / users.memory_enabled / messages.memory_ids。
     v4 → v5：bots.tags（JSON 数组，默认 []）。不改权限、记忆、头像。
+    v5 → v6：bots.pinned_at（UTC ISO 8601，NULL = 未置顶）。
     """
     with tx() as c:
         c.executescript(SCHEMA)
@@ -185,6 +186,8 @@ def init_db():
         _add_column(c, "messages", "memory_ids", "TEXT")                                    # 本条回复注入了哪些记忆（JSON list）
         # --- v5：Bot 标签。JSON 字符串数组，默认 []。不回填、不改写已有权限 / 记忆 / 头像 ---
         _add_column(c, "bots", "tags", "TEXT NOT NULL DEFAULT '[]'")
+        # --- v6：Bot 置顶。NULL 表示未置顶，不回填其他数据 ---
+        _add_column(c, "bots", "pinned_at", "TEXT")
         # 标签上限收紧 (2026-10-01：最多 3 个、每个 4 字)。结构不变 (仍是 v5)；每次启动把超限的存量标签收敛：
         # 保留前 3 个、每个截断到 4 字、去重。幂等，只改写确实变化的行。
         from ..core.tags import coerce_stored_tags
