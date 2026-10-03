@@ -28,7 +28,7 @@ struct MCPServicesSection: View {
         } header: {
             Text("连接的账号 / MCP 服务")
         } footer: {
-            Text("Microsoft Learn 默认开启，AWS Knowledge 默认关闭。工具按每个 Bot 单独开关，默认全部关闭。")
+            Text("Microsoft Learn 默认开启，AWS Knowledge 默认关闭。工具按每个 Bot 单独开关，默认全部关闭。Bot 调用这些工具时，返回的内容会发送给 DeepSeek 用来生成回答。")
         }
         .task { await reload() }
     }
@@ -68,7 +68,7 @@ struct MCPServerDetailView: View {
                     Button("刷新工具") { Task { await refresh() } }
                         .disabled(busy || !server.enabled)
                 } footer: {
-                    Text(server.enabled ? "已连接的工具可以按 Bot 打开。" : "停用后，这个服务的工具不会提供给任何 Bot。")
+                    Text(server.enabled ? "已连接的工具可以按 Bot 打开。工具返回的内容会发送给 DeepSeek 用来生成回答。" : "停用后，这个服务的工具不会提供给任何 Bot。")
                 }
 
                 Section {

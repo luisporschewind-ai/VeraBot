@@ -652,6 +652,9 @@ M1 已落地。本节只记录实现与上文的差异，以及前后端字段�
 | 非只读工具 | 不调用远程服务，直接返回 `needs_confirmation`（确认卡片属于 M3）。目录里写明的 Learn 三个工具和 `aws___list_regions`，在注解没有把 `readOnlyHint` 设为 false 时按只读 |
 | 同步时机 | 只在 MCP 接口（列表 / 启用 / 刷新）同步。`GET /api/tools` 和对话组 schema 不连外网 |
 | 地址不下发 | 公开 JSON 只有 `url_configured`，没有原始 URL |
+| 结果长度 | 结果在 `sanitize.wrap` 截到 `VERABOT_MCP_MAX_RESULT_CHARS` 再包裹；`runtime` 写 tool 消息时对 `mcp__` 结果不再二次截断 (内置工具仍 6000 字) |
+| 会话 | 每次 `tools/call` 新建会话 (initialize + initialized + call)，中国大陆网络实测 initialize 约 1.3 s；会话复用留到 M2 |
+| 同意记录 (D4) | M1 只在设置页说明结果会发送给 DeepSeek，**尚未记录同意时间**；按 D4 需要在 M2「连接」流程里补上 |
 | 设置页 | M1 同时做了设置 › MCP 服务（启用、刷新、按 Bot 开关）和 Bot 详情「MCP 服务」。设计稿把设置列表放在 M2；本次按实现范围提前了只读开关，不含 OAuth |
 
 ### 18.2 前后端字段

@@ -508,11 +508,13 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MCP-02 | 命名 | 同步工具名 | `microsoft_docs_search` → `mcp__learn__microsoft_docs_search`；`code.sample` → `mcp__learn__code_sample`；非法名丢弃 | 通过 |
 | MCP-04 | 权限 | 新 Bot；保存具体工具名；未知 MCP 名 | 新 Bot 的 `allowed_tools` 为空；合法全名可保存；`mcp__learn__nope` → 422 | 通过 |
 | MCP-CALL | 调用 | 允许的只读工具 | 结果包在清洗后的 `<untrusted_tool_result>` 里，并标记本轮不可再委派 | 通过 |
+| MCP-CALL-LONG | 调用 | 长结果 (2 万字) 进入 tool 消息 | 截到 8000 字并保留 `</untrusted_tool_result>` 结束标记；内置工具仍截到 6000 字 | 通过 (2026-10-03 合并评审时新增；之前 runtime 统一截 6000 字会切掉结束标记，真实 Learn 搜索约 3.6 万字) |
+| MCP-KIT | iOS Kit | `MCPTests.swift`：服务器 / 目录 / 同步结果解码 (忽略多余键)、旧 `/api/tools` 无 `source` 当内置、「开启全部只读」保留内置工具、跳过写工具和已移除工具、遵守 20 个上限 | 通过 (`swift test` 92/92，Mac) |
 | MCP-05 | 权限 | 白名单为空时调用 | `tool_not_allowed` | 通过 |
 | MCP-07 | 委派 | depth 1 调用 MCP | `not_delegable`，不访问 MCP | 通过 |
 | MCP-08 | 污染 | 读过 MCP 后再 `ask_bot` | `untrusted_tainted` | 通过 |
 | MCP-06 | 停用 | 把 AWS 保持关闭 | 状态仍是 disabled，不连外网 | 通过 |
 | MCP-25 | 隔离 | 其他用户读工具列表 | 404「未找到该 MCP 服务」 | 通过 |
 | MCP-CONTRACT | 契约 | iOS CodingKeys 对照 `/api/mcp/catalog`、服务器、工具、`/api/tools` | iOS 键都是 JSON 键的子集；MCP 项 `source=mcp`，内置项 `source=builtin` | 通过 |
-| MCP-LIVE-LEARN | 公网 | `tools/call` `microsoft_docs_fetch`，参数 `{"url":"https://learn.microsoft.com/en-us/training/support/mcp"}` | `isError` 为 false，正文去掉前导空白后以 `# Microsoft Learn MCP Server overview` 开头 | 默认跳过。设置 `VERABOT_MCP_LIVE_TESTS=1` 才执行 |
-| MCP-LIVE-AWS | 公网 | `tools/call` `aws___list_regions`，参数 `{}` | `isError` 为 false，去掉空白后的正文含 `"region_id":"af-south-1"` | 默认跳过。同上 |
+| MCP-LIVE-LEARN | 公网 | `tools/call` `microsoft_docs_fetch`，参数 `{"url":"https://learn.microsoft.com/en-us/training/support/mcp"}` | `isError` 为 false，正文去掉前导空白后以 `# Microsoft Learn MCP Server overview` 开头 | 默认跳过。设置 `VERABOT_MCP_LIVE_TESTS=1` 才执行。2026-10-03 Boss 的 Mac (中国大陆网络) 实测 **通过**；单次 initialize ≈ 1.2–1.5 s、tools/list ≈ 0.4 s、tools/call (search) ≈ 1.0–1.6 s，合计中位数 2.9 s |
+| MCP-LIVE-AWS | 公网 | `tools/call` `aws___list_regions`，参数 `{}` | `isError` 为 false，去掉空白后的正文含 `"region_id":"af-south-1"` | 默认跳过。同上。2026-10-03 Mac 实测 **通过**；协商到 2025-03-26，合计中位数 2.4 s |

@@ -305,8 +305,6 @@ try:
 
     from verabot.agents.tool_router import dispatch
     from verabot.tools.registry import ToolContext, TurnState
-    bot_row = db.get_bot(int(bot["user_id"]) if False else None, bot["id"]) if False else None
-    # get_bot needs user id from the token's user, not the legacy row
     me = cli.get("/api/me", headers=H).json()
     fresh = db.get_bot(me["id"], bot["id"])
     ctx = ToolContext(user_id=me["id"], bot=fresh, depth=0, turn=TurnState())
@@ -328,6 +326,18 @@ try:
     other_row = db.get_bot(me["id"], other["id"])
     rejection = check_delegation(ctx, other_row)
     check("MCP-08 taint blocks ask_bot", rejection is not None and rejection.reason == "untrusted_tainted", str(rejection))
+
+    # 长结果：MCP 结果已在 sanitize 里截到 VERABOT_MCP_MAX_RESULT_CHARS (默认 8000)，tool 消息不能再按 6000 字截断，
+    # 否则会切掉 </untrusted_tool_result>（真实 Learn 搜索一次返回约 3.6 万字）。
+    import json as _json
+    from verabot.agents.runtime import _tool_content
+    from verabot.services.mcp.sanitize import wrap
+    long_wrapped, long_cut = wrap("learn", "microsoft_docs_search", "c1", "文" * 20000)
+    mcp_msg = _tool_content(full, {"content": long_wrapped, "code": "ok"})
+    builtin_msg = _tool_content("get_weather", {"text": "x" * 9000})
+    check("MCP-CALL long result keeps closing marker",
+          long_cut and _json.loads(mcp_msg)["content"].endswith("</untrusted_tool_result>") and len(builtin_msg) == 6000,
+          f"len={len(mcp_msg)} builtin={len(builtin_msg)}")
 
     aws_id = aws["id"]
     turned = cli.patch(f"/api/mcp/servers/{aws_id}", json={"enabled": False}, headers=H)
