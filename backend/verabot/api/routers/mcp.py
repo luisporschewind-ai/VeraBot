@@ -1,4 +1,7 @@
-"""MCP 服务器与工具 API。OAuth 不在 M1。"""
+"""MCP 服务器与工具 API。OAuth 不在 M1。
+
+P1 起这些路径保留，行为除「不再自动补未安装插件」外不变，文档标注为已弃用。新客户端走 /api/plugins/*。
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -47,10 +50,16 @@ def add_server(body: ServerIn, user=Depends(current_user)):
         raise HTTPException(422, "未知的 MCP 服务")
     if not spec["url"]:
         raise HTTPException(422, "尚未配置 MCP 服务地址")
-    existing = mcp_store.get_server_by_slug(user["id"], spec["slug"])
-    if existing:
-        raise HTTPException(409, "已经添加过这个服务")
-    mcp.ensure_servers(user["id"])
+    from ...services.plugins.service import PluginError
+    from ...services.plugins import service as plugins
+    try:
+        plugins.install(user["id"], body.catalog_id)
+    except PluginError as exc:
+        if exc.status == 409:
+            raise HTTPException(409, "已经添加过这个服务") from exc
+        if exc.status == 404:
+            raise HTTPException(422, "未知的 MCP 服务") from exc
+        raise HTTPException(exc.status, exc.message) from exc
     row = mcp_store.get_server_by_slug(user["id"], spec["slug"])
     return mcp.public_server(row)
 

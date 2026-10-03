@@ -6,6 +6,7 @@
 
 ### 修复 (Fixed)
 
+- **插件 · 卸载时进行中的调用要等满 MCP 超时**（PR #7 合并复核发现，`PLG-14` 在 Boss 的 Mac 上失败）：卸载会关掉池里的 httpx 客户端，但 macOS 上关闭套接字不会唤醒另一线程里阻塞的读取，进行中的调用要等 15 s 超时才返回 `plugin_uninstalled`。`services/mcp/service.py` 新增 `_interruptible`：单次调用放到后台线程，每 0.1 s 检查服务行，没了就立刻按「已发出」返回（只读 → `plugin_uninstalled`，非只读 → `result_unknown`，规则不变），后台线程结果丢弃。`plugin_test.py` 全部通过（PLG-14 卸载 < 0.5 s 返回）。
 - **安全 · 账号隔离：HTTP 缓存与换账号竞态** (2026-10-03 隔离审计发现的漏洞 2 + 建议 #3；邮箱抢注问题按 Boss 决定延后，未改)：
   - 问题：iOS 所有请求走 `URLSession.shared` (默认 URLCache)，后端又不发缓存头，登录 / 刷新响应 (访问令牌 + 刷新令牌)、聊天记录、已解密的健康记忆被明文写进 `Library/Caches/com.verabot.app/Cache.db`，退出登录、换账号后仍在 (界面不显示，属于设备上的数据残留)。另外 `refreshProfile` / 头像下载只判断「有没有登录」，A 的请求在 B 登录后才回来时，可能把 A 的资料或头像写到 B 的界面上。
   - 后端：新中间件 `core/http_cache.py` (纯 ASGI，不缓冲 SSE)：所有 `/api/*` 响应 (含错误、CORS 预检、SSE) 带 `Cache-Control: no-store` + `Pragma: no-cache`；SSE 原来的 `no-cache` 换成 `no-store`。头像接口从 `private, max-age=86400` 改为 **`private, no-store`**：头像是用户照片，`/api/me/avatar` 的 URL 人人相同，不能进 HTTP 缓存；iOS 本来就按账号缓存在 `Caches/verabot-avatars`，退出时整个删除，所以不影响加载速度。`/`、`/static`、`/docs` 不变。
@@ -24,6 +25,14 @@
 
 ### 新增 (Added)
 
+- **插件 P1（schema v10）**：用户看到的是「插件」，MCP 仍是实现。设计见 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。Q4 / Q7 按建议采纳；**Q6 改为新账号不预装任何插件**（含 Microsoft Learn）。`frontend/web` 未改。
+  - 数据：新表 `user_plugins`（只记安装关系）；`mcp_servers.plugin_id`。启用、同意、同步、熔断仍在 `mcp_servers`。迁移把用过的目录服务（`consent_at`、`last_synced_at`，或任一 Bot 白名单含 `mcp__{slug}__`）记为 `installed`；没用过的不写 `uninstalled` 墓碑。演示账号已同意的 Learn 因此保持已安装。`plugin_default_installed()` 返回空集。`VERABOT_MCP_*_ENABLED` 不再预装（只改了 `.env.example` 注释）。
+  - API：`GET /api/plugins/catalog`、`GET /api/plugins`、`GET /api/plugins/{id}`、`POST .../install`（201，已安装 409）、`DELETE`（清同意、从所有 Bot 和工具缓存去掉工具）、`PATCH {enabled}`、`POST .../consent`、`GET .../tools`、`POST .../sync`（停用时 409）。`GET /api/plugins` 含内置天气 / 提醒和已安装的外部插件，不在请求里联网。`/api/tools` 每项增加 `plugin_id`。缓存沿用 main 上的 `NoStoreAPIMiddleware`（`/api/*` 一律 `Cache-Control: no-store`）；iOS 插件方法都走 `APIClient.call`，使用 `APITransport.session`。
+  - `/api/mcp/*` 保留并标为已弃用。`GET /api/mcp/servers` 不再补未安装的目录行。`POST /api/mcp/servers` 改为走插件安装（已添加 → 409「已经添加过这个服务」）。
+  - 卸载与进行中调用：先删服务行再关会话。只读调用返回 `plugin_uninstalled`（不重试、不计熔断、不污染本轮）；审计 `status=cancelled`。同一轮再次调用也是 `plugin_uninstalled`。后台同步若服务行已没了，只记调试日志，不把外键错误打成 ERROR。
+  - 重新同步不再把本服务已有的工具名当成冲突而改掉 `full_name`。
+  - iOS：设置「插件」（已安装 N 个，只数外部插件）→「内置 / 外部 / 浏览插件」。内置详情说明开关在「工具权限」，并可前往该 Bot。卸载前系统确认框。Bot 详情分组改名「插件」。界面不出现「MCP」。Kit 增加 `PluginTests.swift`。本环境没有 Swift / Xcode，未编译。
+  - 测试：`plugin_test.py`（进程内假 MCP，无外网）PLG-01～15 与契约通过。回归 `mcp_test`、`auth_test`、`bot_pin_test`、`bot_tags_test`、`memory_test`、`avatar_profile_test`、`status_event_test`、`multi_agent_test` 通过。本机库升级前请备份 `backend/data/verabot.db.bak-before-v10-<时间戳>`。
 - **iOS · 默认形象合并复核 (PR #6)**：Xcode 26 / Swift 6 下 `AvatarGlobalFrameKey.defaultValue` 是可变静态属性，编译报错 (not concurrency-safe)，改为 `static let`；首页列表 / 消息里的静态形象对 VoiceOver 隐藏 (行本身已读 Bot 名，之前每行多读「方糖，空闲」)，对话导航栏的动画形象仍读姿态。Mac 上 `swift test` 126/126、xcodebuild 通过，模拟器看过首页、创建页、Bot 详情、对话导航栏 (已完成 → 空闲)。
 - **iOS · 默认 Bot 头像改为头像实验室形象**：没有相册照片时，首页列表、对话页导航栏、Bot 详情（以及消息气泡、用量、记忆、委派列表里的同一个 `LiveBotAvatar`）用 V豆 / 芽芽 / 星点 / 云朵 / 方糖，不再用表情加底色圆。照片优先。创建页和详情「默认形象」改为这五款；选中的 id 写入已有 `avatar`（`veraBean` 等，均不超过 8 字），不新增接口。旧表情仍能对应到一款形象，不强制改写。对话页导航栏按 SSE 已有事件驱动的 10 个执行状态动画（复用实验室的 `phaseAnimator`，没有新动画框架）；首页和详情只显示静态空闲形象。正常结束后「已完成」保持 1.5 s 再回空闲；等你确认和整轮失败不自动回空闲。后端 `status` 字段未改。`frontend/web` 未改（冻结；形象 id 会当文字显示）。测试：`avatar_profile_test.py` 22/22（新增 AV-18），`status_event_test.py` 8/8；回归 PIN 8/8、TAG 10/10、AUTH 16/16、MEM 36/36、MA 25/25、MCP 本地用例失败 0。Kit 新增映射 / 计时用例（EXEC-34~40）。Linux 上 `swift test` 仍因既有 `MessageMarkdown.swift`（swift-corelibs-foundation 没有 `NSDataDetector`）编不过整个包；排除该文件后 Core 类型检查通过，并用与这些用例相同的断言跑通映射和计时。iOS 模拟器未编译、未点按。
 - **账号 v9：邮箱 / 手机号登录 (AUTH-M1，schema v9)**：按 Boss 决定实现 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) v1.0。

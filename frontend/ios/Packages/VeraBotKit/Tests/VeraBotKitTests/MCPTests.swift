@@ -96,4 +96,5 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
     #expect(MCPTraceText.errorText(code: "mcp_consent_required", error: "尚未同意把这个 MCP 服务的工具结果发送给 DeepSeek，因此没有调用它。") == "尚未同意把工具结果发送给 DeepSeek")
     #expect(MCPTraceText.errorText(code: "mcp_circuit_open", error: "连续失败") == "该服务连续失败，已暂时停止连接")
     #expect(MCPTraceText.errorText(code: "result_unknown", error: "请求可能已执行") == "请求结果未知，请到对应服务核实")
+    #expect(MCPTraceText.errorText(code: "plugin_uninstalled", error: "插件已卸载，本次调用已取消") == "插件已卸载，本次调用已取消")
 }

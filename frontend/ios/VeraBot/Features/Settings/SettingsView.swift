@@ -15,7 +15,7 @@ struct SettingsView: View {
             AccountSettingsSection()   // 账号置顶
             UsageSettingsSection()     // 用量（push 用量看板）
             MemorySettingsSection()    // 记忆：「Vera 了解的你」+ 允许 Bot 记住（Features/Memory）
-            MCPServicesSection()       // 连接的账号 / MCP 服务（Microsoft Learn 默认开，AWS 默认关）
+            PluginsSettingsSection()   // 插件（内置 + 外部）。新用户不预装外部插件
             GeneralSettingsSection()   // 外观 / 通知 / 触感反馈 / 语言
             VoiceSettingsSection()     // 语音播放 + 语音引擎
             AboutSettingsSection()

@@ -212,6 +212,39 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/mcp/servers/\(serverID)/tools")
     }
 
+    // 插件与其他 /api 请求一样走 call，使用同一个 URLSession。
+    public func pluginCatalog() async throws -> PluginCatalogResponse {
+        try await call("/api/plugins/catalog")
+    }
+
+    public func plugins() async throws -> PluginsResponse { try await call("/api/plugins") }
+
+    public func plugin(id: String) async throws -> Plugin { try await call("/api/plugins/\(id)") }
+
+    public func installPlugin(id: String) async throws -> Plugin {
+        try await call("/api/plugins/\(id)/install", method: "POST")
+    }
+
+    public func uninstallPlugin(id: String) async throws -> PluginUninstallResult {
+        try await call("/api/plugins/\(id)", method: "DELETE")
+    }
+
+    public func updatePlugin(id: String, enabled: Bool) async throws -> Plugin {
+        try await call("/api/plugins/\(id)", method: "PATCH", body: try encode(["enabled": enabled]))
+    }
+
+    public func setPluginConsent(id: String, granted: Bool) async throws -> Plugin {
+        try await call("/api/plugins/\(id)/consent", method: "POST", body: try encode(["granted": granted]))
+    }
+
+    public func pluginTools(id: String) async throws -> PluginToolsResponse {
+        try await call("/api/plugins/\(id)/tools")
+    }
+
+    public func syncPlugin(id: String) async throws -> PluginSyncResult {
+        try await call("/api/plugins/\(id)/sync", method: "POST")
+    }
+
     public func delegations(botID: Int) async throws -> DelegationsResponse {
         try await call("/api/bots/\(botID)/delegations")
     }

@@ -289,6 +289,8 @@ public struct ToolInfo: Codable, Sendable, Hashable, Identifiable {
     public let requiresConfirmation: Bool?
     public let delegable: Bool?
     public let status: String?
+    /// 所属插件。内置天气 / 提醒为 builtin_weather / builtin_reminder；其余内置工具为 nil。旧响应没有该字段时为 nil。
+    public let pluginId: String?
     public var id: String { name }
     public var isMCP: Bool { source == "mcp" }
 
@@ -304,6 +306,7 @@ public struct ToolInfo: Codable, Sendable, Hashable, Identifiable {
         case requiresConfirmation = "requires_confirmation"
         case delegable
         case status
+        case pluginId = "plugin_id"
     }
 }
 

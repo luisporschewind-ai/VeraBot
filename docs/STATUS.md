@@ -5,7 +5,7 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v9**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表；v8 MCP 同意 / 同步状态 / 熔断；v9 邮箱 / 手机号账号 + 刷新令牌）。iOS `0.1.0 (1)` |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v10**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表；v8 MCP 同意 / 同步状态 / 熔断；v9 邮箱 / 手机号账号 + 刷新令牌；v10 插件安装表 `user_plugins` + `mcp_servers.plugin_id`）。iOS `0.1.0 (1)` |
 | 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
@@ -15,7 +15,7 @@
 - **HEAD**：功能与文档均已提交并推送 (置顶 `c5529ce`、首页头像正圆 `3504fef`、App 图标亮 / 暗色 `832cdb0`，及本次文档对齐)，分支 `main`，仓库 `/Users/admin/Desktop/VeraBot-v0.1` (Mac)，origin `github.com/luisporschewind-ai/VeraBot`。
 - **不要提交的本地改动**：`frontend/ios/VeraBot.xcodeproj/project.pbxproj` (`DEVELOPMENT_TEAM = 4M4EACBGAJ`，Boss 签名) 与 `frontend/ios/VeraBot/InfoPlist.xcstrings`。只 `git add` 自己的文件。不动 tag `v0.1.0`。
 - **规则**：前后端同步 (字段 / 文案 / 上限改动要有契约测试并写对照表)；Web 冻结 (只在 STATUS 记落后项)；iOS 只用原生默认样式、无自定义动画、Theme 语义色、头像正圆 (照片或表情 + 底色)；代码、测试、文档 (CHANGELOG / FEATURES / TEST_CASES / STATUS) 同一提交；作者 `Luis <luisporschewind@gmail.com>`；不做 UI 自动化 / 点按 / 截图；只装 **iPhone 17 模拟器** (UDID `6FD1E62D-DA65-42B1-81F5-554042006671`)，不装真机；不用 Homebrew。
-- **构建 / 测试**：`frontend/ios`：`xcodebuild -project VeraBot.xcodeproj -scheme VeraBot -sdk iphonesimulator -destination "id=<UDID>" -derivedDataPath /tmp/verabot_dd build`；Kit `swift test` (当前 112 条)；后端确定性用例 (在 `backend/`)：`uv run python scripts/test/{cache_headers_test,auth_test,avatar_profile_test,bot_pin_test,bot_tags_test,memory_test,multi_agent_test,status_event_test,mcp_test}.py`。
+- **构建 / 测试**：`frontend/ios`：`xcodebuild -project VeraBot.xcodeproj -scheme VeraBot -sdk iphonesimulator -destination "id=<UDID>" -derivedDataPath /tmp/verabot_dd build`；Kit `swift test` (当前 112 条)；后端确定性用例 (在 `backend/`)：`uv run python scripts/test/{cache_headers_test,auth_test,avatar_profile_test,bot_pin_test,bot_tags_test,memory_test,multi_agent_test,status_event_test,mcp_test,plugin_test}.py`。
 - **后端启动**：`backend/stop.sh` 后 `backend/start.sh --detach` (默认 `0.0.0.0:8000`，日志 `data/server.log`)；健康检查 `curl http://192.168.0.104:8000/api/health`；demo / verabot2026。
 - **近期更新 (2026-10-03)**：首页置顶改为乐观更新 + 系统 List 行移动动画，置顶图标改为品牌色实心 pin；首页头像左边距与右侧按钮一致；设置页昵称改为点按弹窗修改；登录页用 App 图标并显示清楚的登录中状态；新增账号体系改造方案 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) (已定稿 v1.0 并实现，见下方「账号 v9」)。
 - **近期更新**：Bot 置顶已实现 (schema v6；见 [BOT_PIN.md](design/BOT_PIN.md))，本机数据库迁移前备份 `backend/data/verabot.db.bak-before-v6`。
@@ -33,6 +33,7 @@
 - **账号 v9 (AUTH-M1，2026-10-03)**：邮箱 + 密码、邮箱 + 验证码、手机号 + 密码登录；刷新令牌 (访问 7 天 / 刷新 60 天，iOS 透明刷新，Keychain)；登录限流与锁定；发信 console / SMTP 可插拔 (Gmail 应用专用密码未配置，验证码目前在 `backend/data/server.log`)。本机库已迁到 v9，迁移前备份 `backend/data/verabot.db.bak-before-v9-20261003-154936`。`auth_test.py` 16/16。**Web 落后**：Web 登录页仍是用户名 + 密码，没有刷新令牌 (7 天后要重新登录)、没有邮箱 / 手机号 / 验证码登录和邮箱验证 (冻结；旧接口兼容，不报错)。见 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md)。
 - **账号隔离 · HTTP 缓存 (2026-10-03)**：审计结论服务端隔离完好 (136 次跨账号请求全部 404 / 422)；修复设备侧两处：后端所有 `/api/*` 带 `Cache-Control: no-store` (头像 `private, no-store`)，iOS API 改走无缓存的 `APITransport.session`，退出 / 登录 / 升级后首次启动清 `Cache.db`；异步资料 / 头像结果按登录会话代号丢弃。`cache_headers_test.py` 8/8、Kit `swift test` 112/112；模拟器验证换账号后 Cache.db 无 API 响应。**延后**：邮箱抢注 (见 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) §10)。**Web 落后**：Web 端自己不缓存 API，后端头对它同样生效，无需改。
 - **主题色 (2026-10-03)**：iOS 品牌色改为 Vera CLI 青绿 (浅色 `#3A7485` / 深色 `#548EA0`，白字实色底深色 `#3D7A8C`，品牌文字 `#D7E4EE`)。**Web 落后**：仍是旧的 `#0F766E` (冻结)。
+- **插件 P1（schema v10，2026-10-03）**：设置「MCP 服务」改为「插件」。页内两组「内置」（天气、提醒，不可卸载、无需同意）和「外部」（已安装的 Microsoft Learn / AWS Knowledge）。新账号不预装外部插件。用过的老数据迁成已安装（演示账号已同意的 Learn 仍在）；没用过的不写卸载墓碑。卸载会清同意并从所有 Bot 去掉工具，iOS 先确认。设计 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。本机升级前备份 `backend/data/verabot.db.bak-before-v10-<时间戳>`。`plugin_test.py` 通过。iOS 未在本环境编译。**Web 落后：插件 P1 没有 Web 对应**（`frontend/web` 冻结；`/api/mcp/*` 仍可用，`/api/tools` 多了可忽略的 `plugin_id`）。
 - **待办**：
   1. **执行状态机**：v1.1 已接到对话页导航栏头像（见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md)）。首页列表只显示静态形象。`completed` 后 1.5 s 回空闲。先前三处遗留已修：68pt 角标符号、滚出屏幕后循环不停、`reset` 取消受阻计时。
   2. **头像动画**：采用头像实验室的五款形象和系统 `phaseAnimator`，不采用另一套自定义卡通动画。有相册照片时仍显示照片。
@@ -40,7 +41,7 @@
 
 ## 📍 当前进度 (Current progress) — main 工作区 (2026-10-01)
 
-v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v9** (v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号邮箱 / 手机号 / 刷新令牌。置顶迁移前备份 `backend/data/verabot.db.bak-before-v6`)；iOS 版本号仍为 `0.1.0 (1)`.
+v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v10** (v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号邮箱 / 手机号 / 刷新令牌；v10 插件安装表。置顶迁移前备份 `backend/data/verabot.db.bak-before-v6`；插件迁移前建议 `backend/data/verabot.db.bak-before-v10-<时间戳>`)；iOS 版本号仍为 `0.1.0 (1)`.
 
 ### 功能实现与验收状态 (Implementation and acceptance status)
 
@@ -76,9 +77,8 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 ### 已知遗留 (Known leftovers，仅列出，未处理)
 
-- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**默认 Bot 形象没有 Web 对应** (Web 冻结)：iOS 无照片时画五款实验室形象，`bots.avatar` 可能是 `veraBean` 等 id；Web 仍把该字段当文字 / 表情显示，不播状态动画。`/api` 未新增字段。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签与置顶没有 Web UI** (Web 冻结；后端字段向后兼容)。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。**MCP M1 / M2 没有 Web UI**（`frontend/web` 冻结，落后于这项功能）：没有服务列表、同意开关、同步状态、熔断状态或工具开关。`/api/mcp/servers` 多了 `consent_at` / `sync_status` / `circuit_state` 等字段，`/api/tools` 的可选字段仍可忽略。对话若模型调用了 MCP 工具，Web 仍只显示普通工具卡片。
-- **截图过时**：`assets/screenshots/ios/` 下全部截图早于 2026-10-01 的界面改动；其中 `R34_form_keyboard`、`R11_settings` 与当时的界面也已不符。新 UI 用例 (UI-*、MSG-*) 尚无截图。
-- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶**、MCP 表是 **v7**，M2 的同意 / 同步 / 熔断列是 **v8**，账号邮箱 / 手机号是 **v9**。Gmail 设计稿仍写与 MCP 共用 v7 表。
+- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**默认 Bot 形象没有 Web 对应** (Web 冻结)：iOS 无照片时画五款实验室形象，`bots.avatar` 可能是 `veraBean` 等 id；Web 仍把该字段当文字 / 表情显示，不播状态动画。`/api` 未新增字段。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签与置顶没有 Web UI** (Web 冻结；后端字段向后兼容)。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。**MCP M1 / M2 没有 Web UI**（`frontend/web` 冻结，落后于这项功能）：没有服务列表、同意开关、同步状态、熔断状态或工具开关。`/api/mcp/servers` 多了 `consent_at` / `sync_status` / `circuit_state` 等字段，`/api/tools` 的可选字段仍可忽略。对话若模型调用了 MCP 工具，Web 仍只显示普通工具卡片。**插件 P1 没有 Web 对应**（`frontend/web` 冻结）：没有插件页。`/api/plugins/*` 是新接口；`/api/tools` 增加可忽略的 `plugin_id`；`GET /api/mcp/servers` 不再自动补未安装的目录行。
+- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶**、MCP 表是 **v7**，M2 的同意 / 同步 / 熔断列是 **v8**，账号邮箱 / 手机号是 **v9**，插件安装表是 **v10**。Gmail 设计稿仍写与 MCP 共用 v7 表。
 
 ## MCP M1 已实现；M2 起与 Gmail 仍待做
 
@@ -88,11 +88,12 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 |---|---|---|---|
 | MCP M1（Client、目录、只读工具开关、防注入） | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §18 | ✅ 已实现（schema v7） | 验收设置页与 Bot 详情的 MCP 开关。真实公网用例需 `VERABOT_MCP_LIVE_TESTS=1` |
 | MCP M2（同意时间、会话复用、审计、后台同步、重试与熔断） | 同上 §18.3 | ✅ 已实现（schema v8） | 验收设置页的同意 / 同步 / 熔断。`frontend/web` 冻结，没有对应界面 |
+| 插件 P1（安装关系、内置 / 外部入口、卸载） | [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0；进度见 MCP §18.4 | ✅ 已实现（schema v10） | 新账号不预装。验收设置 › 插件、内置详情的工具权限导航、卸载确认。`frontend/web` 冻结，插件 P1 没有 Web 对应 |
 | MCP M3~M7（OAuth、HITL、变更审阅、Gmail、自定义 URL） | 同上 §15 | 设计已批准，未实现 | M4 之前：创建 Google Cloud 项目并加入 Workspace Developer Preview |
 | Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准，未实现 | 同上，在 M4 之前 |
 | 以记忆为核心的 Bot 成长体系 | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1 已实现 | 按 MEM-UI-01~12 验收 M1；决定是否开始记忆 M2 |
 
-**MCP M1 与 M2 已实现**（免授权 Microsoft Learn，默认开；AWS Knowledge 在目录里默认关；M2 为 schema v8）。**M3~M7 与 Gmail 未写实现代码**。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**。`frontend/web` 冻结，落后于这项功能。
+**MCP M1 与 M2 已实现**，其上的 **插件 P1 已实现**（schema v10：新账号不预装 Learn / AWS；用过的才迁移为已安装）。**M3~M7 与 Gmail 未写实现代码**。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**，账号占用 **v9**，插件安装表占用 **v10**。`frontend/web` 冻结，插件 P1 没有 Web 对应。
 
 ## 1. 已完成功能 (Features done)
 
@@ -103,13 +104,13 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | Bot 管理 | ✅ (API) / 🟡 (标签部分 UI 延期) | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；置顶支持左滑 / 长按，置顶项优先排序且 Boss 已验收；标签 UI 与 Bot 详情/删除流程验收延期；软上限 20 (`MAX_BOTS_PER_USER`)；名称右侧显示标签，行右上角显示最后消息时间；搜索只过滤已加载的 Bot 名称与最后消息预览，完整聊天历史搜索、搜索历史等延期 |
 | 流式对话 SSE | ✅ | 逐 token 渲染、工具卡片、交接 Trace 卡片、错误气泡 |
 | 记忆 Memory | ✅ | 显式长期记忆 M1、每 Bot 记忆分组、最近 20 条对话窗口；M1 UI 验收延期，M2+ 摘要 / 向量检索尚未开始 |
-| 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot`；MCP 只读工具需在 Bot 里单独打开（默认关） |
+| 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot`；外部插件（Learn / AWS）需先安装并同意，再在 Bot 里单独打开 |
 | 多 Agent 协作 | ✅ | 工具白名单、委派白名单、接受委派、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 |
 | 每日 Token 预算 | ✅ | 超额 429，委派也被拒 |
 | 提醒 Reminders / 用量 Quota | ✅ | 提醒为 Tab 页，只落库、不推送；用量看板从设置页「用量」进入 (不再是 Tab)，不显示账号分组 |
 | 语音输入 Voice input | ✅ (Boss 手工验收通过) | Web `/api/transcribe`；iOS Speech 框架 |
 | 语音播放 TTS | ✅ | 用户 + Bot 气泡 🔊，本机 TTS；设置里可关闭 |
-| 设置页 Settings | ✅ | 首页头像入口；账号 → 用量 → 记忆 → MCP 服务 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (最底部)。右上角 🐞 进入「调试」页：服务器地址、健康检查、版本 / 构建信息。MCP 分组的界面验收未做 |
+| 设置页 Settings | ✅ | 首页头像入口；账号 → 用量 → 记忆 → 插件 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (最底部)。右上角 🐞 进入「调试」页：服务器地址、健康检查、版本 / 构建信息。插件页界面验收未做 |
 | 照片头像 Avatars | ✅ | 用户与每个 Bot：相册设置、更换（iOS 不再提供「恢复默认」入口，后端 DELETE 保留）；服务端 512 JPEG、按用户隔离。Boss 已验收头像与昵称相关 iOS 流程 |
 | 导航 Navigation | ✅ | 二级页面隐藏 Tab 栏；对话标题 → Bot 详情 sheet；首页原生圆形按钮；头像统一正圆 (`CircleAvatar`)；工具栏取消 / 关闭为系统圆形 X (`DismissToolbarButton`) |
 | 键盘 Keyboard | ✅ | 输入栏随键盘上移、点空白 / 下拉收起、表单 next、多行人设 / 指令、sheet 保存后布局正常 |

@@ -1,0 +1,94 @@
+"""内置插件目录。P1 只有两个免授权 MCP 插件，以及天气 / 提醒两个只读内置插件。
+
+不从网络拉取。`default_installed` 不在这里：见 `core.config.plugin_default_installed`（当前为空）。
+"""
+from __future__ import annotations
+
+DATA_NOTICE = "工具返回的内容会发送给 DeepSeek 用来生成回答。"
+BUILTIN_NOTICE = "内置能力由 VeraBot 提供，不需要单独同意。"
+
+
+def mcp_plugins() -> list[dict]:
+    return [
+        {
+            "plugin_id": "microsoft_learn",
+            "kind": "mcp",
+            "name": "Microsoft Learn",
+            "description": "查询微软官方技术文档与代码示例。",
+            "category": "知识与文档",
+            "publisher": "Microsoft",
+            "version": "1.0.0",
+            "icon": "book.closed",
+            "auth_mode": "none",
+            "trust": "verified",
+            "data_notice": DATA_NOTICE,
+            "catalog_id": "microsoft_learn",
+            "removable": True,
+            "consent_required": True,
+            "tools": [],
+        },
+        {
+            "plugin_id": "aws_knowledge",
+            "kind": "mcp",
+            "name": "AWS Knowledge",
+            "description": "查询 AWS 官方文档与区域等信息。",
+            "category": "知识与文档",
+            "publisher": "Amazon Web Services",
+            "version": "1.0.0",
+            "icon": "cloud",
+            "auth_mode": "none",
+            "trust": "verified",
+            "data_notice": DATA_NOTICE,
+            "catalog_id": "aws_knowledge",
+            "removable": True,
+            "consent_required": True,
+            "tools": [],
+        },
+    ]
+
+
+def builtins() -> list[dict]:
+    return [
+        {
+            "plugin_id": "builtin_weather",
+            "kind": "builtin",
+            "name": "天气",
+            "description": "查询天气。数据来自 Open-Meteo。",
+            "category": "",
+            "publisher": "VeraBot",
+            "version": "1.0.0",
+            "icon": "cloud.sun",
+            "auth_mode": "none",
+            "trust": "verified",
+            "data_notice": BUILTIN_NOTICE,
+            "catalog_id": None,
+            "removable": False,
+            "consent_required": False,
+            "tools": ["get_weather"],
+        },
+        {
+            "plugin_id": "builtin_reminder",
+            "kind": "builtin",
+            "name": "提醒",
+            "description": "创建提醒，查看还没完成的提醒。",
+            "category": "",
+            "publisher": "VeraBot",
+            "version": "1.0.0",
+            "icon": "bell",
+            "auth_mode": "none",
+            "trust": "verified",
+            "data_notice": BUILTIN_NOTICE,
+            "catalog_id": None,
+            "removable": False,
+            "consent_required": False,
+            "tools": ["create_reminder", "list_reminders"],
+        },
+    ]
+
+
+def entries() -> list[dict]:
+    return builtins() + mcp_plugins()
+
+
+def by_id(plugin_id: str) -> dict | None:
+    return next((item for item in entries() if item["plugin_id"] == plugin_id), None)

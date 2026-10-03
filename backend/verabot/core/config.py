@@ -86,3 +86,14 @@ MCP_RETRY_MAX_DEFAULT = 2            # 可重试错误的额外次数（不含�
 MCP_RETRY_BACKOFF_DEFAULT = "0.5,2"  # 秒，按尝试序号取，用完后沿用最后一档；另加最多 25% 抖动
 MCP_BREAKER_THRESHOLD_DEFAULT = 5    # 同一服务器连续传输失败这么多次后打开熔断
 MCP_BREAKER_COOLDOWN_DEFAULT = 60    # 秒。打开期间不发请求；到期后放行一次探测
+
+
+def plugin_default_installed() -> set[str]:
+    """新用户预装的插件 id。
+
+    Q6（2026-10-03）：全部不预装，包括 Microsoft Learn。
+    `VERABOT_MCP_LEARN_ENABLED` / `VERABOT_MCP_AWS_ENABLED` 不再决定预装；
+    地址仍由对应的 `*_URL` 环境变量提供。返回空集合时，迁移也不会为「没用过」的
+    目录行写 uninstalled 墓碑，避免以后若重新打开预装却永远装不上。
+    """
+    return set()
