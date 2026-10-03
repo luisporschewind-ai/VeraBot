@@ -1,5 +1,6 @@
 import SwiftUI
 import VeraBotCore
+import VeraBotNetworking
 
 struct MessageRow: View {
     let item: ChatViewModel.Item
@@ -36,16 +37,22 @@ struct MessageRow: View {
             HStack {
                 Spacer(minLength: 48)
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text(item.text)
-                        .padding(.horizontal, 14).padding(.vertical, 10)
-                        .foregroundStyle(Color.userBubbleText)
-                        .background(Color.userBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .contextMenu { messageMenu }   // 长按：复制 / 复制链接 / 删除
+                    ForEach(item.attachments) { attachment in
+                        AttachmentBubble(attachment: attachment, api: vm.api)
+                    }
+                    if !item.text.isEmpty || item.attachments.isEmpty {
+                        Text(item.text)
+                            .padding(.horizontal, 14).padding(.vertical, 10)
+                            .foregroundStyle(Color.userBubbleText)
+                            .background(Color.userBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
                     if ttsEnabled && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)
                     }
                 }
+                // 长按整条用户消息（图片 + 文字）：复制 / 复制链接（有文字时）/ 删除；只有图片的消息也能删除
+                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .contextMenu { messageMenu }
             }
         } else {
             HStack(alignment: .top, spacing: 8) {

@@ -78,6 +78,11 @@ async def ask_bot(ctx: ToolContext, bot_name: str, question: str, shared_context
     db.log_usage(ctx.user_id, target["id"], "delegation", usage)
     did = _record(ctx, target, question, shared, status="ok", answer=answer, payload=payload,
                   truncated=truncated, usage=usage)
-    return {"from_bot": ctx.bot["name"], "to_bot": target["name"], "to_avatar": target["avatar"],
-            "question": question, "shared_context": shared, "shared_truncated": truncated,
-            "answer": answer, "delegation_id": did, "tokens": int(usage.get("total_tokens") or 0)}
+    out = {"from_bot": ctx.bot["name"], "to_bot": target["name"], "to_avatar": target["avatar"],
+           "question": question, "shared_context": shared, "shared_truncated": truncated,
+           "answer": answer, "delegation_id": did, "tokens": int(usage.get("total_tokens") or 0)}
+    if ctx.turn.image_ids:   # 图片附件 v12：本轮图片按引用转给了被委派 Bot（同一用户，同一 attachment_id）
+        out["attachment_ids"] = list(ctx.turn.image_ids)
+        db.audit(ctx.user_id, ctx.bot["id"], "delegation_attachments",
+                 {"delegation_id": did, "to": target["id"], "attachment_ids": out["attachment_ids"]})
+    return out

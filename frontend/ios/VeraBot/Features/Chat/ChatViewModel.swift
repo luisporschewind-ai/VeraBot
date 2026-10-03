@@ -12,10 +12,11 @@ final class ChatViewModel {
         var traces: [ToolTrace] = []
         var streaming = false
         var messageID: Int?
+        var attachments: [Attachment] = []   // 用户消息里的图片（v12）
     }
 
     var bot: Bot
-    private let api: any VeraBotAPI
+    let api: any VeraBotAPI   // 气泡里的图片也用它下载（鉴权、no-store）
     var items: [Item] = []
     var sending = false
     var errorText: String?
@@ -74,7 +75,8 @@ final class ChatViewModel {
         do {
             let r = try await api.messages(botID: bot.id)
             items = r.messages.map {
-                Item(isUser: $0.role == "user", text: $0.content, traces: $0.traces ?? [], messageID: $0.id)
+                Item(isUser: $0.role == "user", text: $0.content, traces: $0.traces ?? [], messageID: $0.id,
+                     attachments: $0.attachments)
             }
             if items.isEmpty {
                 items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
@@ -177,18 +179,19 @@ final class ChatViewModel {
         }
     }
 
-    func send(_ text: String) async {
+    func send(_ text: String, attachment: Attachment? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !sending else { return }
+        guard !trimmed.isEmpty || attachment != nil, !sending else { return }
         sending = true
         errorText = nil
         feed(.sent)
-        items.append(Item(isUser: true, text: trimmed))
+        let images = attachment.map { [$0] } ?? []
+        items.append(Item(isUser: true, text: trimmed, attachments: images))
         items.append(Item(isUser: false, text: "", streaming: true))
         let idx = items.count - 1
         scrollTick += 1
         do {
-            for try await event in api.chatStream(botID: bot.id, message: trimmed) {
+            for try await event in api.chatStream(botID: bot.id, message: trimmed, attachmentIDs: images.map(\.id)) {
                 feed(event.executionEvent)
                 switch event {
                 case .delta(let t):

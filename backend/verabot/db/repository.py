@@ -56,7 +56,7 @@ def token_budget(user_id: int) -> tuple[int, int]:
 def recent_messages(user_id: int, bot_id: int, limit: int):
     with tx() as c:
         rs = c.execute(
-            "SELECT role, content, traces FROM messages WHERE user_id=? AND bot_id=? ORDER BY id DESC LIMIT ?",
+            "SELECT id, role, content, traces FROM messages WHERE user_id=? AND bot_id=? ORDER BY id DESC LIMIT ?",
             (user_id, bot_id, limit),
         ).fetchall()
     return [dict(r) for r in reversed(rs)]

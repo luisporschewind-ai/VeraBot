@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v11）。"""
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v12）。"""
 import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -127,7 +127,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mem_dedupe
 """
 
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12  # v11 = 提醒 R1，v12 = 图片附件
 
 # v9：账号。邮箱存小写、手机号存 E.164；NULL 不参与唯一约束。
 AUTH_SCHEMA = """
@@ -443,6 +443,7 @@ def init_db():
     v10 → v11：提醒补列（状态、时区、重复、归属）并回填；新建 reminder_events、notifications、
              notification_deliveries、notification_prefs、push_devices、idempotency_keys。
              不改其他表的数据。迁移前备份 verabot.db.bak-before-v11-<时间戳>。
+    v11 → v12：attachments 表（图片元数据；文件在 DATA_DIR/attachments）。v11 是提醒 R1。
     """
     _backup_before_v11()
     with tx() as c:
@@ -597,5 +598,8 @@ def init_db():
             new = coerce_stored_tags(old)
             if new != old:
                 c.execute("UPDATE bots SET tags=? WHERE id=?", (json.dumps(new, ensure_ascii=False), bid))
+        # --- v12：图片附件（在 v11 提醒 R1 之后）。只建表 ---
+        from .attachment_schema import migrate_attachments
+        migrate_attachments(c)
         if ver < SCHEMA_VERSION:
             c.execute("INSERT OR REPLACE INTO schema_meta(key,value) VALUES ('version', ?)", (str(SCHEMA_VERSION),))

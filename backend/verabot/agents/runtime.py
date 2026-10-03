@@ -6,6 +6,8 @@ import logging
 from .. import db
 from ..core.config import EMPTY_REPLY_RETRIES, HISTORY_WINDOW, MAX_TOOL_ROUNDS
 from ..services import llm, memory
+from ..services.attachments import repo as attachments
+from ..services.attachments import vision
 from ..tools.registry import ToolContext, TurnState
 from .context import delegation_message
 from .prompts import system_prompt
@@ -74,12 +76,15 @@ def _add_usage(total: dict, u: dict):
         total[k] = total.get(k, 0) + int(u.get(k) or 0)
 
 
-def _history(user_id: int, bot_id: int) -> list[dict]:
+def _history(user_id: int, bot_id: int) -> tuple[list[dict], dict | None]:
     """历史消息 → LLM messages。曾调用工具的回复按真实协议还原为
     assistant(tool_calls) → tool(result) → assistant(content)，
-    避免模型从纯文本历史中"学会"不调用工具就声称已查询 / 已咨询。"""
+    避免模型从纯文本历史中"学会"不调用工具就声称已查询 / 已咨询。
+    带图的用户消息只放文字描述（按需召回）；同时返回窗口里最近一张图（没有则 None）。"""
     out = []
-    for m in db.recent_messages(user_id, bot_id, HISTORY_WINDOW):
+    recent = db.recent_messages(user_id, bot_id, HISTORY_WINDOW)
+    att_map = attachments.for_messages(user_id, [m["id"] for m in recent if m["role"] == "user"])
+    for m in recent:
         traces = json.loads(m["traces"]) if m.get("traces") else []
         if m["role"] == "assistant" and traces:
             calls = [t for t in traces if t.get("id") and t.get("name")]
@@ -91,8 +96,11 @@ def _history(user_id: int, bot_id: int) -> list[dict]:
                 for t in calls:
                     out.append({"role": "tool", "tool_call_id": t["id"],
                                 "content": json.dumps(t.get("result") or {}, ensure_ascii=False)[:1500]})
-        out.append({"role": m["role"], "content": m["content"]})
-    return out
+        content = vision.history_text(m["content"], att_map[m["id"]]) if m["id"] in att_map else m["content"]
+        out.append({"role": m["role"], "content": content})
+    latest = max((r for rs in att_map.values() for r in rs), key=lambda r: (r["message_id"], r["created_at"]),
+                 default=None)
+    return out, latest
 
 
 MEMORY_TOOLS = ("remember", "forget_memory")
@@ -119,24 +127,33 @@ def _memory_query(history: list[dict], user_text: str) -> str:
     return "\n".join([*recent, user_text])
 
 
-async def run_chat(user_id: int, bot: dict, user_text: str):
-    """流式对话主循环，产出给前端的 SSE 事件 dict。"""
-    history = _history(user_id, bot["id"])
+async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list[str] | None = None):
+    """流式对话主循环，产出给前端的 SSE 事件 dict。attachment_ids 由路由预先校验（check_pending）。"""
+    history, latest_image = _history(user_id, bot["id"])
     memory_on = memory.enabled_for(user_id)
     if memory_on:
         yield {"event": "status", "data": status_data("recalling", depth=0, bot_name=bot.get("name"))}
     rec = memory.recall(user_id, bot, _memory_query(history, user_text)) if memory_on else memory.EMPTY
     user_mid = db.add_message(user_id, bot["id"], "user", user_text)
+    new_images = attachments.attach(user_id, bot["id"], list(attachment_ids or []), user_mid)
+    turn = TurnState()
+    images = new_images or ([latest_image] if latest_image and vision.wants_recall(user_text) else [])
+    if images:
+        turn.image_ids, turn.image_tainted = [r["id"] for r in images], True
+        turn.recalls = 0 if new_images else 1   # 关键词兜底也算本轮的 1 次召回
     memory_tools = memory_on and (bot.get("memory_access") or "none") != "none"
-    messages = [{"role": "system", "content": system_prompt(user_id, bot, memory_block=rec.block, memory_tools=memory_tools)},
-                *history, {"role": "user", "content": user_text}]
-    ctx = ToolContext(user_id=user_id, bot=bot, depth=0, chain=[], turn=TurnState(), user_message_id=user_mid)
-    tools = schemas_for(bot, 0, memory_on, user_id)
+    system = system_prompt(user_id, bot, memory_block=rec.block, memory_tools=memory_tools)
+    if images or latest_image:
+        system += vision.PROMPT_RULES
+    messages = [{"role": "system", "content": system}, *history]
+    ctx = ToolContext(user_id=user_id, bot=bot, depth=0, chain=[], turn=turn, user_message_id=user_mid)
+    tools = schemas_for(bot, 0, memory_on, user_id) + vision.schema_for_history(latest_image is not None)
     usage_total: dict = {}
     traces: list = []
     answer = ""
     errored = False
     try:
+        messages.append({"role": "user", "content": vision.user_content(user_text, images)})
         for _round in range(MAX_TOOL_ROUNDS + 1):
             use_tools = (tools or None) if _round < MAX_TOOL_ROUNDS else None
             for attempt in range(EMPTY_REPLY_RETRIES + 1):
@@ -183,12 +200,19 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
                 yield {"event": "tool_result", "data": trace}
                 messages.append({"role": "tool", "tool_call_id": tc["id"],
                                  "content": _tool_content(tc["name"], result)})
+            if turn.pending_images:   # view_image：原图作为额外 user 消息附上
+                messages.append(vision.recall_message(turn.pending_images))
+                turn.image_ids += [r["id"] for r in turn.pending_images]
+                turn.image_tainted, turn.pending_images = True, []
         if not answer.strip():
             errored = True
             yield {"event": "error", "data": {"message": EMPTY_REPLY_MSG, "code": "empty_reply"}}
     except llm.LLMError as e:
         errored = True
-        yield {"event": "error", "data": {"message": str(e)}}
+        yield {"event": "error", "data": vision.vision_error(e) if turn.image_ids else {"message": str(e)}}
+    except FileNotFoundError:   # 图片文件已被删除（410 语义）
+        errored = True
+        yield {"event": "error", "data": {"message": attachments.GONE_MESSAGE, "code": "attachment_gone"}}
     except Exception as e:  # 网络等异常
         errored = True
         yield {"event": "error", "data": {"message": f"{type(e).__name__}: {e}"}}
@@ -200,6 +224,8 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
         memory.mark_used(user_id, rec.ids)
     # user_message_id：本轮用户消息的 id（新增字段，旧客户端忽略），客户端据此可立即删除刚发出的消息
     yield {"event": "done", "data": {"message_id": mid, "user_message_id": user_mid, "usage": usage_total, "memory_ids": rec.ids}}
+    if new_images and not errored:   # 首次看图后生成描述（按需召回用），放在 done 之后不拖慢回复
+        await vision.ensure_captions(user_id, bot["id"], new_images)
 
 
 async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
@@ -208,8 +234,10 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
     """被委派 Bot 的非流式执行：独立上下文（Context isolation）——只含 question + shared_context + 发起方公开资料，
     绝不携带任何一方的聊天历史。仅可使用目标 Bot 自身白名单内、且深度允许的工具。返回 (answer, usage, payload)。"""
     user_msg = delegation_message(from_bot, question, shared_context)
-    messages = [{"role": "system", "content": system_prompt(user_id, bot, delegated_by=from_bot, depth=depth)},
-                {"role": "user", "content": user_msg}]
+    images = [r for r in (attachments.get(user_id, i) for i in (turn.image_ids if turn else [])) if r]
+    system = system_prompt(user_id, bot, delegated_by=from_bot, depth=depth) + (vision.PROMPT_RULES if images else "")
+    messages = [{"role": "system", "content": system},
+                {"role": "user", "content": vision.user_content(user_msg, images)}]   # 委派：本轮图片按引用转给对方
     ctx = ToolContext(user_id=user_id, bot=bot, depth=depth, chain=list(chain or []), turn=turn or TurnState())
     tools = schemas_for(bot, depth, False, user_id)
     usage_total: dict = {}

@@ -32,6 +32,12 @@ MAX_DELEGATIONS_PER_TURN = int(os.getenv("VERABOT_MAX_DELEGATIONS_PER_TURN", "3"
 MAX_SHARED_CONTEXT = int(os.getenv("VERABOT_MAX_SHARED_CONTEXT", "2000"))          # shared_context 字符上限
 EMPTY_REPLY_RETRIES = int(os.getenv("VERABOT_EMPTY_REPLY_RETRIES", "1"))            # LLM 空回复自动重试次数
 TIMEZONE = os.getenv("VERABOT_TZ", "Asia/Shanghai")
+# 图片附件（schema v12，见 docs/design/ATTACHMENTS_DESIGN.md）：文件在 DATA_DIR/attachments，元数据在 SQLite
+ATTACHMENTS_DIR = Path(os.getenv("VERABOT_ATTACHMENTS_DIR", DATA_DIR / "attachments"))
+ATTACHMENT_MAX_BYTES = int(os.getenv("VERABOT_ATTACHMENT_MAX_BYTES", str(10 * 1024 * 1024)))  # 单张上限 10MB
+ATTACHMENTS_PER_DAY = int(os.getenv("VERABOT_ATTACHMENTS_PER_DAY", "50"))                   # 每人每天张数
+ATTACHMENT_USER_QUOTA_BYTES = int(os.getenv("VERABOT_ATTACHMENT_USER_QUOTA", str(500 * 1024 * 1024)))  # 每人总量
+ATTACHMENT_PENDING_TTL_HOURS = 24                                                            # 未发送的上传保留时间
 # 账号（schema v9，见 docs/design/AUTH_REFACTOR.md）：访问令牌 7 天，刷新令牌 60 天（每次刷新轮换并重新计时）
 TOKEN_TTL_HOURS = int(os.getenv("VERABOT_TOKEN_TTL_HOURS", str(24 * 7)))
 REFRESH_TTL_DAYS = int(os.getenv("VERABOT_REFRESH_TTL_DAYS", "60"))

@@ -1,6 +1,6 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-> 与代码同步至 main (2026-10-03)：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1 (schema v7)、MCP M2 (schema v8) 与独立的头像实验室试验页。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。`frontend/web` 冻结，没有 MCP 界面。
+> 与代码同步至 main (2026-10-03)，另含分支 `feat/attachments-p1` 的图片附件 P1 (schema v12)：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1 (schema v7)、MCP M2 (schema v8) 与独立的头像实验室试验页。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。`frontend/web` 冻结，没有 MCP 界面。
 
 ## 功能 (Features)
 
@@ -23,7 +23,7 @@
 | 调试页 (Debug) | 设置页导航栏右上角 🐞 (`ladybug`) push 进入：服务器地址、后端健康检查 (`GET /api/health`)、版本 / 构建号 / Bundle ID / 系统版本 / 构建配置；另有「头像实验室」独立试验页，可切换五款角色、八种状态 (与执行状态机对应) 与三种尺寸，并可「按状态机演示一轮对话」；支持深色模式与减弱动态效果，预览选择不会保存到 Bot 资料 |
 | 导航 / 键盘 | 二级页面隐藏 Tab 栏；对话标题为可点击的原生胶囊按钮（iOS 26 Liquid Glass，旧系统 bordered 回退；头像 + 名称，不显示标签）并打开 Bot 详情 sheet；首页原生圆形按钮（左上角头像为正圆，iOS 26 隐藏系统共享玻璃底 (`.sharedBackgroundVisibility(.hidden)`) 并放大到 44pt，与右侧圆形按钮等大，旧系统 30pt；右上角 放大镜 搜索 与 ＋ 创建 为两个独立圆形按钮，iOS 26 用 `ToolbarSpacer(.fixed)` 分开）；工具栏 / sheet 的取消、关闭为系统圆形 X（iOS 26 `Button(role: .cancel / .close)`，确认框里的取消仍是文字）；输入栏随键盘上移、点空白 / 下拉收起。对话输入栏为浮动 Liquid Glass：圆形玻璃 ＋ 附件按钮 + 胶囊玻璃输入框（占位「向 {Bot 名} 提问」，尾部 🎙 语音输入），无发送按钮，键盘 return 发送；iOS 26 输入栏用 `safeAreaBar(edge: .bottom)`，消息滚到输入栏下方有系统底部滚动边缘效果（渐隐模糊，与顶部导航栏一致），旧系统 `safeAreaInset` |
 | 视觉风格 (Visual style) | 页面白底（深色黑底），分组 / 卡片 / Bot 气泡浅灰 `#EFEFEE` (RGB 239, 239, 238)（深色 `secondarySystemBackground`）；「助理」列表为白底全宽平铺、无分隔线；iOS 26 Liquid Glass（系统导航栏 / Tab 栏 / 工具栏按钮，`.glass` 胶囊、`.glassProminent` 主按钮，旧系统 bordered 回退）。颜色集中在 `Core/UI/Theme.swift` 语义色，设置 › 外观 切换时全局一致；所有开关为缩小 85% 的系统 Toggle (`CompactToggle`) |
-| 附件 (Attachments) | 占位：＋ 菜单 图片 / 相机 / 文件「即将支持」(禁用) |
+| 附件 (Attachments) | **图片 (P1，schema v12)**：＋ 菜单「图片」用系统 PhotosPicker 选 1 张 (再选替换)，本机压缩后上传，输入栏显示缩略图 (上传中不能发送，可只发图片)；气泡始终显示真实图片，GIF 播放动画，点按 Quick Look 全屏 / 分享；模型 `deepseek-flash` 看图，之后按需召回 (描述 + `view_image` / 回指时重发原图)；委派时图片转给被委派 Bot；带图轮次创建提醒需文字确认；图片随清空对话 / 删除 Bot 删除。相机、文件仍「即将支持」(禁用)。Web 不支持 |
 | App 图标 / 名称 (App icon & name) | 主屏显示名「Vera Bot」(`INFOPLIST_KEY_CFBundleDisplayName`，`InfoPlist.xcstrings` zh-Hans / en 均为「Vera Bot」)；App 图标为 `Assets.xcassets/AppIcon.appiconset` 单尺寸 1024×1024 (源图 `assets/brand/app-icon-source.png`)。设置 › 关于 中的应用简介仍写「VeraBot · 你的私人 AI 助理团队」 |
 | Web 客户端 | 只作为 API 验收客户端，功能落后于 iOS (见 [STATUS.md](../STATUS.md) 已知限制) |
 
@@ -49,10 +49,13 @@
 | POST / GET / DELETE | `/api/bots/{id}/avatar` | 与用户头像相同，对象是该用户自己的 Bot。他人或不存在的 Bot → 404。删除后仍保留 emoji `avatar` 字段。删除 Bot 时照片行一并删除 |
 | GET / POST | `/api/bots` | Bot 列表 / 创建 (新 Bot 默认最小权限)。每个 Bot 另有 `has_avatar`、`avatar_updated_at`、`tags`（字符串数组，缺省 `[]`）；`avatar` 仍是 emoji。创建时可带 `tags` |
 | GET / PATCH / DELETE | `/api/bots/{id}` | 详情 / 修改 (含 `allowed_tools`、`delegate_to`、`accept_delegation`、`memory_access`、`tags`) / 删除。Bot JSON 另有 `memory_access` (`none`/`bot`/`bot_and_global`)、`memory_count`、`tags`。`tags` 省略 = 不修改，`[]` = 清空。非法标签 → 422 中文 |
-| GET / DELETE | `/api/bots/{id}/messages` | 历史消息 (含 Trace) / 清空对话。DELETE 可选 `?include_memories=true` 同时删除该 Bot 的记忆与摘要，返回 `{ok, deleted_memories}` |
+| GET / DELETE | `/api/bots/{id}/messages` | 历史消息 (含 Trace；每条另有 `attachments` 数组，字段同上传返回) / 清空对话 (同时删除该 Bot 的图片行和文件)。DELETE 可选 `?include_memories=true` 同时删除该 Bot 的记忆与摘要，返回 `{ok, deleted_memories}` |
 | DELETE | `/api/bots/{bot_id}/messages/{message_id}` | 删除单条消息（物理删除，只删这一条，不连带同一轮的另一条）→ `{ok: true}`。按 `user_id` + `bot_id` + `id` 限定：他人的 Bot / 消息、Bot 与消息不匹配、不存在或已删除一律 404「消息不存在」(相同响应)。`memories.source_message_id`、`notifications.message_id`、`reminders.source_message_id` 置 NULL；**已提取的记忆不删除**。无 schema 变更 (仍为 v11)。Web 未接入 |
 | GET | `/api/bots/{id}/delegations` | 该 Bot 发出和收到的委派记录 |
-| POST | `/api/bots/{id}/chat` | **SSE** 流式对话 `{message}` |
+| POST | `/api/bots/{id}/chat` | **SSE** 流式对话 `{message, attachment_ids?}`；`attachment_ids` 最多 1 个 (多 → 422)，有图时 `message` 可为空；附件他人 / 不存在 404、已发送 409、过期 410、属于其他 Bot 422。带图失败时 `error` 事件含 `code`：`vision_unsupported` / `vision_failed` |
+| POST | `/api/attachments` | 图片上传 (v12)：multipart `file` + 可选 `bot_id` → 201 `{id, kind, mime, width, height, bytes, status:"pending", expires_at}`。JPEG / PNG / WebP / GIF (HEIC 需服务器解码器)；415 类型、413 超 10 MB 或存储满、400 超 4000 万像素 / 无法解析、429 每天超 50 张 |
+| GET | `/api/attachments/{id}`、`/content`、`/thumb` | 元数据 / 原图 / 320 px 缩略图；`Cache-Control: private, no-store`、`nosniff`；他人或不存在 404，文件已删 410 |
+| DELETE | `/api/attachments/{id}` | 删除未发送的图；已发送 409 (随消息删除) |
 | POST | `/api/transcribe` | 语音转写 (multipart `file` + `language`) → `{text, model, duration_s}` |
 | GET / POST / PATCH / DELETE | `/api/reminders`、`/api/reminders/{id}`、`.../complete`、`.../done`、`.../snooze`、`.../reopen`、`.../skip`、`.../restore`、`.../events` | 提醒列表与单条操作。写接口认 `Idempotency-Key`。`/done` 仍是完成的别名。字段见 [REMINDER_PUSH_DESIGN.md](../design/REMINDER_PUSH_DESIGN.md) §8 |
 | GET / POST / PATCH / DELETE | `/api/notifications`、`/summary`、`/read-all`、`/{id}/read`、`/{id}/unread`、`/{id}/events`、`/api/notification-settings`、`/api/devices` | 收件箱、偏好、设备。R1 不发 APNs。响应 `Cache-Control: no-store` |
@@ -110,6 +113,24 @@ Bot 详情改版字段映射 (2026-10-01，**无 API 变更**，全部是已有�
 | `DELETE /api/bots/{bot_id}/messages/{message_id}` | `VeraBotAPI.deleteMessage(botID:messageID:)` → `OKResponse` | 404 时 `APIError.status == 404`，`ChatViewModel.delete` 按已删除处理并移除该条 |
 | `GET …/messages` 的 `messages[].id` / SSE `done.message_id` | `ChatDone.messageID` → `ChatViewModel.Item.messageID` (回复) | 有 id 才显示「删除」；流式输出中不显示 |
 | SSE `done.user_message_id` (新增，仅追加字段；旧客户端 / Web 忽略) | `ChatDone.userMessageID` (`decodeIfPresent`，旧后端为 nil) → 刚发出的用户消息的 `messageID` | 回复结束即可删除刚发出的用户消息 |
+
+图片附件字段映射 (schema v12，`services/attachments/repo.py` `public()` ↔ iOS `VeraBotCore.Attachment`，由 `attachments_test.py` ATT-CONTRACT 读取 Swift 源码断言键名一致)：
+
+| 后端键 | iOS 属性 | 说明 |
+|---|---|---|
+| `id` | `id` | `att_` + 26 位 base32 |
+| `kind` | `kind` | 目前只有 `image` |
+| `mime` | `mime` (`isGIF`) | `image/jpeg` / `image/png` / `image/gif` |
+| `width` / `height` | `width` / `height` (`aspectRatio`) | 处理后的像素尺寸 |
+| `bytes` | `bytes` | 存储的文件大小 |
+| `status` | `status` | `pending` / `attached` |
+| `expires_at` | `expiresAt` | 仅 pending；已发送为 `null` |
+| 消息 `attachments` | `ChatMessage.attachments` | 旧后端缺键时为 `[]` (`decodeIfPresent`) |
+| 请求 `attachment_ids` | `ChatRequest.attachmentIDs` | 最多 1 个 |
+| 上传字段 `file` / `bot_id` | `uploadAttachment(data:mime:botID:)` | multipart |
+| SSE `error.code` `vision_unsupported` / `vision_failed` | `ChatEvent.error(message)` | iOS 原样显示中文 `message`，不按 code 分支 |
+
+自查清单：☑ 后端 pydantic (`ChatIn.attachment_ids`) ☑ Swift 模型与 CodingKeys ☑ `VeraBotAPI` 方法 (`uploadAttachment`、`attachmentContent`、`attachmentThumb`、`deleteAttachment`、`chatStream(…attachmentIDs:)`) ☑ ATT-CONTRACT ☑ 本表与 API 摘要 ☑ CHANGELOG ☑ TEST_CASES ☑ STATUS (含 Web 落后)。
 
 SSE `status` 事件字段映射 (`agents/runtime.py` `status_data` ↔ iOS `VeraBotCore.ChatStatus`，由 `status_event_test.py` STAT-08 读取 Swift 源码断言键名与 phase 取值一致)：
 

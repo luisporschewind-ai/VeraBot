@@ -86,6 +86,12 @@ public protocol VeraBotAPI: Sendable {
     func quota() async throws -> Quota
     func health() async throws -> HealthStatus
     func chatStream(botID: Int, message: String) -> AsyncThrowingStream<ChatEvent, Error>
+    // 图片附件（v12）：先上传拿 id，再随消息发送；原图 / 缩略图走鉴权下载（no-store）
+    func chatStream(botID: Int, message: String, attachmentIDs: [String]) -> AsyncThrowingStream<ChatEvent, Error>
+    func uploadAttachment(data: Data, mime: String, botID: Int?) async throws -> Attachment
+    func attachmentContent(id: String) async throws -> Data
+    func attachmentThumb(id: String) async throws -> Data
+    func deleteAttachment(id: String) async throws -> OKResponse
 }
 
 /// 创建 / 修改提醒。未设置的字段不发送；`clearDue` / `clearRrule` / `clearAssignee` 显式写成 null。

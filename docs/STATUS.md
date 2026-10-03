@@ -35,9 +35,10 @@
 - **账号隔离 · HTTP 缓存 (2026-10-03)**：审计结论服务端隔离完好 (136 次跨账号请求全部 404 / 422)；修复设备侧两处：后端所有 `/api/*` 带 `Cache-Control: no-store` (头像 `private, no-store`)，iOS API 改走无缓存的 `APITransport.session`，退出 / 登录 / 升级后首次启动清 `Cache.db`；异步资料 / 头像结果按登录会话代号丢弃。`cache_headers_test.py` 8/8、Kit `swift test` 112/112；模拟器验证换账号后 Cache.db 无 API 响应。邮箱抢注已另修 (见上一条)。**Web 落后**：Web 端自己不缓存 API，后端头对它同样生效，无需改。
 - **主题色 (2026-10-03)**：iOS 改为「薰衣草 × 青绿」(Boss 选定试色方案 C，替换上午的纯青绿主题 `502e11e`)：品牌主色浅色 `#6461D1` / 深色 `#D7D7FF`，用户气泡 `#D7D7FF` / `#3F3D9E`，主按钮 `#6461D1` / `#4B48B8`，开关与置顶用青绿 `#3D7A8C` / `#4E9AAE`、`#5FA3B6`。只改 Theme 语义色、AccentColor 和用户气泡，见 [ARCHITECTURE.md](design/ARCHITECTURE.md) 色板。**Web 落后**：仍是旧的 `#0F766E` (冻结)。
 - **插件 P1（schema v10，2026-10-03）**：设置「MCP 服务」改为「插件」。页内两组「内置」（天气、提醒，不可卸载、无需同意）和「外部」（已安装的 Microsoft Learn / AWS Knowledge）。新账号不预装外部插件。用过的老数据迁成已安装（演示账号已同意的 Learn 仍在）；没用过的不写卸载墓碑。卸载会清同意并从所有 Bot 去掉工具，iOS 先确认。设计 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。本机升级前备份 `backend/data/verabot.db.bak-before-v10-<时间戳>`。`plugin_test.py` 通过。iOS 未在本环境编译。**Web 落后：插件 P1 没有 Web 对应**（`frontend/web` 冻结；`/api/mcp/*` 仍可用，`/api/tools` 多了可忽略的 `plugin_id`）。
-- **提醒与推送 R1（schema v11，2026-10-03）**：设计 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) v1.0。提醒状态机、30 秒调度与睡眠补跑、CRUD、三个 Bot 工具、收件箱、通知偏好、iOS 本地通知。SQL 在 `db/reminder_store.py`。APNs 不做。升级前备份 `backend/data/verabot.db.bak-before-v11-<时间戳>`。`reminder_test.py`、`notify_test.py` 用假时钟、不访问外网。合并复核（Boss 的 Mac）修了 Swift 6 并发编译错误和两处 Kit 测试，`swift test` 140 通过、`xcodebuild` 成功；模拟器验证了提醒 / 通知分段、设置 › 通知、本地通知按时弹出及「完成」「稍后 10 分钟」、免打扰不影响提醒。APNs 和真机未验证。**Web 冻结**：没有新的提醒界面；`POST /api/reminders/{id}/done` 和列表里的 `content` / `done` / `bot_name` / `due_at` 仍可用。
+- **提醒与推送 R1（schema v11，2026-10-03）**：设计 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) v1.0。提醒状态机、30 秒调度与睡眠补跑、CRUD、三个 Bot 工具、收件箱、通知偏好、iOS 本地通知。SQL 在 `db/reminder_store.py`。APNs 不做。升级前备份 `backend/data/verabot.db.bak-before-v11-<时间戳>`。`reminder_test.py`、`notify_test.py` 用假时钟、不访问外网。合并复核（Boss 的 Mac）修了 Swift 6 并发编译错误和两处 Kit 测试，`swift test` 140 通过、`xcodebuild` 成功；模拟器验证了提醒 / 通知分段、设置 › 通知、本地通知按时弹出及「完成」「稍后 10 分钟」、免打扰不影响提醒。之后发现复核时的并发修复让通知代理在非主线程回调 completionHandler，点通知后切后台会崩溃，已改为在主线程回调（修复 PR 见 CHANGELOG）。APNs 和真机未验证。**Web 冻结**：没有新的提醒界面；`POST /api/reminders/{id}/done` 和列表里的 `content` / `done` / `bot_name` / `due_at` 仍可用。
 - **模型 P0 (2026-10-03)**：后端默认模型 `deepseek-chat` (官方已停用的旧名) → `deepseek-flash`，请求体固定 `thinking: {"type":"disabled"}` (`VERABOT_DEEPSEEK_THINKING=0`)。`.env` 未覆盖模型、未改；`/api/health` 现为 `deepseek-flash`。`llm_body_test.py` 5/5；模拟器普通对话与工具调用 (天气 + Learn) 正常。图片附件 P1 仍未实现 (设计见 [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md))。
 - **图片附件设计 v1.0 (2026-10-03，未实现)**：[ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md) Q1–Q12 全部由 Boss 决定：`deepseek-flash` + 关闭思考 (P0 已完成)；看图失败直接提示不降级；每条 1 张；相机 P2；存储采纳 [ATTACHMENT_STORAGE_RESEARCH.md](design/ATTACHMENT_STORAGE_RESEARCH.md) (本地磁盘 + SQLite 元数据 + 薄存储接口，鉴权代理 `no-store`，不用签名 URL，原子写入，孤儿对账，FileVault + 0700)；界面始终显示原图，发给模型按需召回 (首轮存描述、之后只发描述、回指时重发原图)；不弹首次说明；委派必须转发图片 (P1)；GIF 完整播放；记忆提议需确认、图片不进记忆；带图轮次写操作需确认；图片随消息删除。预计 schema v12，约 4.5 人日。**下一步**：等 Boss 排期 P1。
+- **图片附件 P1（schema v12，分支 `feat/attachments-p1`，Draft PR）**：后端 + iOS 已实现（见 CHANGELOG）。已 rebase 到含提醒 R1（v11，`f9e39c6`）的 main，迁移为 v11 → v12。本机库升级前先备份 `backend/data/verabot.db.bak-before-v12-<时间戳>`，附件目录 `backend/data/attachments/` 需一起备份（FileVault 需在 Mac 上确认已开启）。`attachments_test.py` 28/28，后端回归通过。**未验证**：Xcode 编译、PhotosPicker / GIF 播放 / Quick Look 实机或模拟器、ATT-LIVE-01 真实 `deepseek-flash` 带图请求。**限制**：带图轮次的写操作用文字「确认」代替确认卡片；没有删除单条消息 / 删除账号接口（级联 + 对账清文件）。**Web 落后**：Web 不能发送或查看图片附件（冻结；带图消息在 Web 里只显示文字，空文字消息显示为空气泡）。
 - **待办**：
   1. **执行状态机**：v1.1 已接到对话页导航栏头像（见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md)）。首页列表只显示静态形象。`completed` 后 1.5 s 回空闲。先前三处遗留已修：68pt 角标符号、滚出屏幕后循环不停、`reset` 取消受阻计时。
   2. **头像动画**：采用头像实验室的五款形象和系统 `phaseAnimator`，不采用另一套自定义卡通动画。有相册照片时仍显示照片。
@@ -68,6 +69,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动；详情/创建 UI 验收延期 | DETAIL-UI-01~09 |
 | **头像实验室** (独立页面；五款角色、八种状态、三种尺寸、按状态机演示；不写入 Bot 资料) | `7ebe99d`、`a29536f` 及之后 | 离屏检查 13/13；模拟器截图 / 录屏通过 (浅色 / 深色、演示、减弱动态效果)；观感待 Boss 验收 | AVLAB-01、AVLAB-02、AVLAB-T01~T14 |
 | **默认 Bot 形象** (实验室五款；照片优先；对话导航栏按 10 个执行状态动画，完成后 1.5 s 回空闲；首页 / 详情静态) | 见 CHANGELOG | 后端 AV-18。Kit 用例 EXEC-34~40 已加。iOS 模拟器未在本环境编译 | AV-18、EXEC-34~40、AVFIG-UI |
+| **图片附件 P1** (schema v12，v11 → v12；PhotosPicker 1 张、磁盘存储 + SQLite 元数据、鉴权下载 no-store、去 EXIF、GIF 播放、按需召回、委派带图、带图写操作需确认) | `feat/attachments-p1` (Draft PR) | 后端 `attachments_test.py` 28/28 + 回归；Kit 附件用例在 Linux 通过；iOS App 未编译、未上模拟器 | ATT-01~18、ISO-ATT-01、ATT-CONTRACT、ATT-UI-01~04、ATT-LIVE-01 |
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
 | 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 对应 UI 验收延期 | UI-01~03、UI-10 |
 
@@ -112,7 +114,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 多 Agent 协作 | ✅ | 工具白名单、委派白名单、接受委派、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 |
 | 每日 Token 预算 | ✅ | 超额 429，委派也被拒 |
 | 提醒 Reminders / 用量 Quota | ✅（R1，模拟器已验证；真机未测） | 提醒 Tab 分段「提醒 / 通知」；服务端到时与补跑；本地通知；APNs 未做。用量看板从设置页「用量」进入 (不再是 Tab)，不显示账号分组。Web 冻结，没有新界面 |
-| 语音输入 Voice input | ✅ (Boss 手工验收通过) | Web `/api/transcribe`；iOS Speech 框架 |
+| 语音输入 Voice input | ✅ (Boss 手工验收通过) | Web `/api/transcribe`；iOS Speech 框架。启动失败、页面消失、进入后台时释放麦克风和音频会话（修复疑似闲置高 CPU，待观察） |
 | 语音播放 TTS | ✅ | 用户 + Bot 气泡 🔊，本机 TTS；设置里可关闭 |
 | 设置页 Settings | ✅ | 首页头像入口；账号 → 用量 → 记忆 → 插件 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (最底部)。右上角 🐞 进入「调试」页：服务器地址、健康检查、版本 / 构建信息。插件页界面验收未做 |
 | 照片头像 Avatars | ✅ | 用户与每个 Bot：相册设置、更换（iOS 不再提供「恢复默认」入口，后端 DELETE 保留）；服务端 512 JPEG、按用户隔离。Boss 已验收头像与昵称相关 iOS 流程 |

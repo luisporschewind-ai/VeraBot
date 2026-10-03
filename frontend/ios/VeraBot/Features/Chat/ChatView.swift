@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import VeraBotCore
 import VeraBotNetworking
@@ -10,12 +11,17 @@ struct ChatView: View {
     @FocusState private var focused: Bool
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
     @State private var sendCount = 0            // 触感反馈触发器：每次发送 +1
+    @State private var attachment: ComposerAttachmentModel   // 待发送图片（最多 1 张）
+    @State private var showPhotos = false
+    @State private var photoItem: PhotosPickerItem?
     @Environment(AppState.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
     let highlightMessageID: Int?
 
     init(bot: Bot, api: any VeraBotAPI, highlightMessageID: Int? = nil) {
         self.highlightMessageID = highlightMessageID
         _vm = State(initialValue: ChatViewModel(bot: bot, api: api))
+        _attachment = State(initialValue: ComposerAttachmentModel(botID: bot.id, api: api))
     }
 
     var body: some View {
@@ -72,6 +78,13 @@ struct ChatView: View {
             .environment(app)
         }
         .task { await vm.load() }
+        // 只用系统相册选择器（PhotosPicker，单选；再选替换），不需要相册权限
+        .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            attachment.pick(item)
+            photoItem = nil
+        }
         .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）
         .onDisappear { focused = false }   // 返回 / 离开页面时收起键盘
     }
@@ -107,12 +120,15 @@ struct ChatView: View {
                     .padding(.horizontal, 12).padding(.vertical, 6)
                     .glassSurface(in: Capsule(), interactive: false)
             }
+            if !attachment.isEmpty {
+                ComposerAttachmentChip(model: attachment)
+            }
             GlassGroup(spacing: 10) {
                 HStack(alignment: .bottom, spacing: 10) {
-                    // 附件占位菜单（图片 / 相机 / 文件，均即将支持，暂不上传）
+                    // 附件菜单：图片（相册，每条 1 张）；相机 / 文件暂不支持
                     Menu {
                         Section("添加附件") {
-                            Button {} label: { Label("图片（即将支持）", systemImage: "photo") }.disabled(true)
+                            Button { focused = false; showPhotos = true } label: { Label("图片", systemImage: "photo") }
                             Button {} label: { Label("相机（即将支持）", systemImage: "camera") }.disabled(true)
                             Button {} label: { Label("文件（即将支持）", systemImage: "paperclip") }.disabled(true)
                         }
@@ -167,22 +183,28 @@ struct ChatView: View {
                 input = speechBase + speech.transcript   // 实时写入部分识别结果，由用户确认后发送
             }
         }
-        .onDisappear { speech.stop() }
+        .onDisappear { speech.cancel() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { speech.cancel() }   // 进入后台立即释放麦克风 / 音频会话
+        }
         .hapticFeedback(.impact(weight: .light), trigger: sendCount)   // 发送消息（受「触感反馈」开关控制）
         .hapticFeedback(.selection, trigger: speech.isRecording)        // 开始 / 结束语音输入
     }
 
     private static let barHeight: CGFloat = 48
 
-    /// 发送：键盘 return 键触发；空内容或上一条仍在回复时忽略（文字保留）
+    /// 发送：键盘 return 键触发；空内容或上一条仍在回复时忽略（文字保留）。
+    /// 有图时可以只发图片；图片处理 / 上传中或上传失败时不发送（输入栏上方显示状态）。
     private func send() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !vm.sending else { return }
+        guard !vm.sending, !attachment.blocksSend else { return }
+        guard !text.isEmpty || attachment.ready != nil else { return }
         if speech.isRecording { speech.stop() }
+        let image = attachment.consume()
         input = ""
         focused = true   // 发送后键盘保持弹出，便于连续输入
         sendCount += 1
-        Task { await vm.send(text) }
+        Task { await vm.send(text, attachment: image) }
     }
 
     private func toggleSpeech() {

@@ -402,9 +402,14 @@ public struct APIClient: VeraBotAPI {
 
     // MARK: - Streaming chat (SSE)
     public func chatStream(botID: Int, message: String) -> AsyncThrowingStream<ChatEvent, Error> {
+        chatStream(botID: botID, message: message, attachmentIDs: [])
+    }
+
+    /// attachmentIDs：先 `uploadAttachment` 拿到的 id（最多 1 个）；有图时 message 可以为空。
+    public func chatStream(botID: Int, message: String, attachmentIDs: [String]) -> AsyncThrowingStream<ChatEvent, Error> {
         let body: Data
         do {
-            body = try encode(["message": message])
+            body = try encode(ChatRequest(message: message, attachmentIDs: attachmentIDs))
         } catch {
             return AsyncThrowingStream { $0.finish(throwing: error) }
         }
@@ -480,11 +485,11 @@ public struct APIClient: VeraBotAPI {
     }
 
     // MARK: - Plumbing
-    private func encode<T: Encodable>(_ value: T) throws -> Data {
+    func encode<T: Encodable>(_ value: T) throws -> Data {
         try JSONEncoder().encode(value)
     }
 
-    private func makeRequest(_ path: String, method: String, body: Data?, query: [URLQueryItem] = [],
+    func makeRequest(_ path: String, method: String, body: Data?, query: [URLQueryItem] = [],
                              token: String?, headers: [String: String] = [:]) -> URLRequest {
         var url = baseURL.appending(path: path)
         if !query.isEmpty { url = url.appending(queryItems: query) }
@@ -504,14 +509,14 @@ public struct APIClient: VeraBotAPI {
     }
 
     /// 401 后的透明刷新：只对非 /api/auth/ 请求、且有 session + 刷新令牌时生效；返回新访问令牌或 nil。
-    private func refreshedToken(after sent: String?, path: String) async -> String? {
+    func refreshedToken(after sent: String?, path: String) async -> String? {
         guard let session, !path.hasPrefix("/api/auth/") else { return nil }
         if case .refreshed(let t) = await session.refresh(after: sent, baseURL: baseURL) { return t.access }
         return nil
     }
 
     /// 发送请求；401 时刷新一次令牌后用同样的请求重试。
-    private func send(_ path: String, _ build: (String?) -> URLRequest) async throws -> (Data, Int) {
+    func send(_ path: String, _ build: (String?) -> URLRequest) async throws -> (Data, Int) {
         let sent = token
         var (data, response) = try await urlSession.data(for: build(sent))
         var status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -522,7 +527,7 @@ public struct APIClient: VeraBotAPI {
         return (data, status)
     }
 
-    private func call<T: Decodable & Sendable>(_ path: String, method: String = "GET", body: Data? = nil,
+    func call<T: Decodable & Sendable>(_ path: String, method: String = "GET", body: Data? = nil,
                                                query: [URLQueryItem] = [], headers: [String: String] = [:]) async throws -> T {
         let (data, status) = try await send(path) {
             makeRequest(path, method: method, body: body, query: query, token: $0, headers: headers)

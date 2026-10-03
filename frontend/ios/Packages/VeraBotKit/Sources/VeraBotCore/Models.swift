@@ -406,10 +406,13 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
     public let content: String
     public let traces: [ToolTrace]?
     public let createdAt: String?
+    /// 图片附件（v12；旧后端无此键时为 []，见 Attachment.swift）
+    public let attachments: [Attachment]
 
     enum CodingKeys: String, CodingKey {
         case id, role, content, traces
         case createdAt = "created_at"
+        case attachments
     }
 }
 
