@@ -414,3 +414,29 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
 | UI-EN-01 | iOS | 对话里触发一次委派，看委派 Trace 行；设置 › 用量 看板；额度用完时的对话错误提示 | Trace 行「协作记录 #N · 用量 M」；看板分组「今日额度」「累计」「近 7 日用量」，「用量 已用 / 额度 · 今日请求 N 次」、「输入用量 / 输出用量 / 总用量」、按 Bot「N 次 · 用量 M」；错误提示「今日额度已用完…」；界面无英文 tokens | 待 Boss 手工验收 |
+
+## 执行状态机 (Execution state) — 2026-10-03
+
+仅 iOS Kit，后端未改，界面未改。自动化：`ExecutionStateTests.swift` (trace JSON 与后端 `agents/runtime.py` 同形)。设计见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md)。
+
+| ID | 模块 | 用例 | 结果 |
+|---|---|---|---|
+| EXEC-01 | iOS Kit | 初始 idle；sent → thinking | 通过 (`swift test` 74/74，Mac) |
+| EXEC-02 | iOS Kit | 纯文字回复：delta → replying，done → completed，reset → idle | 通过 (`swift test` 74/74，Mac) |
+| EXEC-03 | iOS Kit | 空 delta 不改变 thinking | 通过 (`swift test` 74/74，Mac) |
+| EXEC-04 | iOS Kit | 工具：tool_start → callingTool，tool_result → thinking，再 delta → replying → completed | 通过 (`swift test` 74/74，Mac) |
+| EXEC-05 | iOS Kit | 先出字再调工具 → callingTool | 通过 (`swift test` 74/74，Mac) |
+| EXEC-06 | iOS Kit | ask_bot → delegating(小研)，返回后 thinking | 通过 (`swift test` 74/74，Mac) |
+| EXEC-07 | iOS Kit | ask_bot 缺 bot_name → delegating("") | 通过 (`swift test` 74/74，Mac) |
+| EXEC-08 | iOS Kit | 两个未返回工具：先返回后开始的，回落到仍在进行的那个 | 通过 (`swift test` 74/74，Mac) |
+| EXEC-09 | iOS Kit | tool_result 无对应 start 也接受 | 通过 (`swift test` 74/74，Mac) |
+| EXEC-10 | iOS Kit | remember 提议卡片 → done 后 awaitingConfirmation；无关 id 忽略；处理后 idle | 通过 (`swift test` 74/74，Mac) |
+| EXEC-11 | iOS Kit | 两张卡片都处理后才回 idle | 通过 (`swift test` 74/74，Mac) |
+| EXEC-12 | iOS Kit | already_known 等非卡片结果 → completed | 通过 (`swift test` 74/74，Mac) |
+| EXEC-13 | iOS Kit | error 后 done / streamEnded 保持 failed | 通过 (`swift test` 74/74，Mac) |
+| EXEC-14 | iOS Kit | 出错优先于待确认 | 通过 (`swift test` 74/74，Mac) |
+| EXEC-15 | iOS Kit | 未收到 done 的流结束按 done 处理 | 通过 (`swift test` 74/74，Mac) |
+| EXEC-16 | iOS Kit | 非活跃状态的迟到事件全部忽略 | 通过 (`swift test` 74/74，Mac) |
+| EXEC-17 | iOS Kit | 新一轮 sent 清掉上一轮待确认 / 出错 | 通过 (`swift test` 74/74，Mac) |
+| EXEC-18 | iOS Kit | 任意状态 reset 回到初始值 | 通过 (`swift test` 74/74，Mac) |
+| EXEC-19 | iOS Kit | ChatEvent → ExecutionEvent 映射 (5 种 SSE 事件) | 通过 (`swift test` 74/74，Mac) |

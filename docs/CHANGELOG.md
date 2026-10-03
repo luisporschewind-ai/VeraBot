@@ -6,6 +6,7 @@
 
 ### 新增 (Added)
 
+- **iOS Core · 执行状态机**：`VeraBotCore/ExecutionState.swift` 新增 `ExecutionState` (idle / thinking / callingTool / delegating / replying / awaitingConfirmation / completed / failed)、`ExecutionEvent` 与值类型 `ExecutionStateMachine`，由现有 SSE 事件 (delta / tool_start / tool_result / error / done) 加客户端事件 (发送、流结束、记忆卡片处理、重置) 推导；`ask_bot` → 委派，记忆提议卡片 → 等你确认，error 后的 done 保持出错，迟到事件忽略。`VeraBotNetworking` 新增 `ChatEvent.executionEvent`。`ChatViewModel` 只读暴露 `executionState`，**界面未改、后端未改**。设计与转移表见 [design/EXECUTION_STATE.md](design/EXECUTION_STATE.md)。`swift test` 新增 19 个 (共 74/74)，用例 EXEC-01~19。
 - **iOS · 头像实验室 (独立试验页)**：在「设置 › 调试 › 头像实验室」加入五款可交互角色预览（V豆、芽芽、星点、云朵、方糖），可切换六种状态、三种尺寸并重播状态动作；本页选择仅用于预览，不会写入 Bot 头像或资料。云朵从参考图提取轮廓并去除原图蓝色背景，使用实验页配色与柔和高光。仅影响独立实验页，不改现有 Bot 头像方案；iPhone 17 模拟器构建、安装、启动通过，视觉手工验收待进行。
 - **Bot 置顶 (schema v6)**：新增 nullable `bots.pinned_at`，v5 → v6 幂等迁移且迁移前备份本地数据库。PATCH `/api/bots/{id}` 接受严格布尔 `pinned`，重复置顶保留原时间，取消置顶置空；Bot JSON 返回 `pinned_at`，仅列表 API 按置顶时间倒序、同时间 id 升序，其余 id 升序。iOS 首页支持左滑和长按置顶 / 取消置顶，置顶行使用主题浅灰底；搜索结果保持同序。Web 冻结。PIN-01~08、Kit 解码 / 编码 / 排序用例覆盖。
 - **Bot 标签 (tags，schema v5，启动时自动迁移)**：每个 Bot 有一组短标签。最新 main 上长期记忆已占用 schema v4，因此本迁移是 **v4 → v5**（任务描述里的 v3 → v4 对应的是记忆落地之前的库）。

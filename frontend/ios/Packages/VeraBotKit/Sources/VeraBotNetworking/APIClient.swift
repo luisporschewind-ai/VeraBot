@@ -28,6 +28,19 @@ public enum ChatEvent: Sendable {
     case done(ChatDone)
 }
 
+extension ChatEvent {
+    /// 对应的执行状态机输入（见 VeraBotCore `ExecutionStateMachine`）。
+    public var executionEvent: ExecutionEvent {
+        switch self {
+        case .delta(let t): .delta(t)
+        case .toolStart(let trace): .toolStart(trace)
+        case .toolResult(let trace): .toolResult(trace)
+        case .error(let msg): .error(msg)
+        case .done: .done
+        }
+    }
+}
+
 /// SSE done 事件：本条回复的消息 id，以及本轮注入了哪些记忆（v4 起，旧后端为空）。
 public struct ChatDone: Decodable, Sendable, Hashable {
     public let messageID: Int?

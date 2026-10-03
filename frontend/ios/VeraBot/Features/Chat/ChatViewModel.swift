@@ -25,6 +25,9 @@ final class ChatViewModel {
     var memoryOutcomes: [Int: String] = [:]
     var memoryBusy: Set<Int> = []
     var memoryConfirmTick = 0   // 触感反馈触发器：确认记住 +1
+    /// 执行状态机（由 SSE 事件推导，只读；目前界面未使用，见 docs/design/EXECUTION_STATE.md）
+    private(set) var execution = ExecutionStateMachine()
+    var executionState: ExecutionState { execution.state }
 
     init(bot: Bot, api: any VeraBotAPI) {
         self.bot = bot
@@ -79,6 +82,7 @@ final class ChatViewModel {
                 memoryOutcomes[id] = "已忘掉"
             }
             memoryConfirmTick += 1
+            execution.send(.confirmationResolved(memoryID: id))
         } catch {
             await handleMemoryError(error, id: id)
         }
@@ -90,6 +94,7 @@ final class ChatViewModel {
         do {
             _ = try await api.rejectMemory(id: id)
             memoryOutcomes[id] = "已忽略"
+            execution.send(.confirmationResolved(memoryID: id))
             await refreshMemoryStates()
         } catch {
             await handleMemoryError(error, id: id)
@@ -117,6 +122,7 @@ final class ChatViewModel {
         _ = try? await api.clearMessages(botID: bot.id, includeMemories: includeMemories)
         memoryStates = [:]
         memoryOutcomes = [:]
+        execution.send(.reset)
         await load()
     }
 
@@ -125,12 +131,14 @@ final class ChatViewModel {
         guard !trimmed.isEmpty, !sending else { return }
         sending = true
         errorText = nil
+        execution.send(.sent)
         items.append(Item(isUser: true, text: trimmed))
         items.append(Item(isUser: false, text: "", streaming: true))
         let idx = items.count - 1
         scrollTick += 1
         do {
             for try await event in api.chatStream(botID: bot.id, message: trimmed) {
+                execution.send(event.executionEvent)
                 switch event {
                 case .delta(let t):
                     items[idx].text += t
@@ -150,10 +158,14 @@ final class ChatViewModel {
                 scrollTick += 1
             }
         } catch let e as APIError where e.status == 429 {
-            appendError("今日额度已用完，请明天再试（可在「设置 › 用量」查看今日用量）", at: idx)
+            let msg = "今日额度已用完，请明天再试（可在「设置 › 用量」查看今日用量）"
+            execution.send(.error(msg))
+            appendError(msg, at: idx)
         } catch {
+            execution.send(.error(error.localizedDescription))
             appendError(error.localizedDescription, at: idx)
         }
+        execution.send(.streamEnded)
         if items[idx].text.isEmpty && items[idx].traces.isEmpty { items[idx].text = "（无回复）" }
         items[idx].streaming = false
         sending = false
