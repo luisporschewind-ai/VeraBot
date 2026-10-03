@@ -10,8 +10,9 @@ struct AvatarLabCharacterView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    /// 只在屏幕上可见、App 在前台时循环播放持续状态，离开屏幕即停止（省电）。
+    /// 只在滚动视图里可见、且 App 在前台时循环。普通 ScrollView 滚出屏幕不会走 onDisappear。
     @State private var isVisible = false
+    @State private var scrollVisibilityKnown = false
 
     /// 单次动作的触发键：状态切换或点「重播」都会重新播放一次。
     private struct OneShotKey: Equatable {
@@ -22,6 +23,12 @@ struct AvatarLabCharacterView: View {
     /// 读屏文字：「角色，状态」。
     static func accessibilityText(kind: AvatarLabCharacterKind, state: AvatarLabState) -> String {
         "\(kind.title)，\(state.title)"
+    }
+
+    /// 角标符号边长。68pt 时旧字号 `side * 0.13` 约 8.8pt，符号还有内边距，看起来过小。
+    /// 改为按角标直径的 70% 铺满：68pt → 约 12.4pt（角标直径约 17.7pt）。
+    static func badgeGlyphSide(_ side: CGFloat) -> CGFloat {
+        side * 0.26 * 0.70
     }
 
     var body: some View {
@@ -47,8 +54,14 @@ struct AvatarLabCharacterView: View {
                 }
             }
         }
-        .onAppear { isVisible = true }
-        .onDisappear { isVisible = false }
+        .modifier(AvatarScrollVisibility(enabled: animated, isVisible: $isVisible, scrollVisibilityKnown: $scrollVisibilityKnown))
+        .onAppear {
+            if animated, !scrollVisibilityKnown { isVisible = true }
+        }
+        .onDisappear {
+            isVisible = false
+            scrollVisibilityKnown = false
+        }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Self.accessibilityText(kind: kind, state: state))
@@ -300,7 +313,10 @@ struct AvatarLabCharacterView: View {
                 Circle().fill(Color.avatarMarkFill)
                 Circle().stroke(kind.backdropColor, lineWidth: side * 0.014)
                 Image(systemName: state.symbol)
-                    .font(.system(size: side * 0.13, weight: .bold))
+                    .resizable()
+                    .scaledToFit()
+                    .fontWeight(.bold)
+                    .frame(width: Self.badgeGlyphSide(side), height: Self.badgeGlyphSide(side))
                     .foregroundStyle(state == .blocked ? Color.avatarBlockedMark : kind.accentColor)
             }
             .frame(width: side * 0.26, height: side * 0.26)
@@ -330,6 +346,51 @@ struct AvatarLabCharacterView: View {
             content.offset(x: phase ? size * 0.03 : -size * 0.015)   // 轻摇一下
         }
     }
+}
+
+/// 滚出滚动视图时把 `isVisible` 设为 false，持续状态的 `phaseAnimator` 会被卸掉。
+/// iOS 18+ 用系统 `onScrollVisibilityChange`（按滚动视口，而不是整屏）；更早系统用全局 frame 与屏幕是否相交。
+private struct AvatarScrollVisibility: ViewModifier {
+    var enabled: Bool
+    @Binding var isVisible: Bool
+    @Binding var scrollVisibilityKnown: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            tracked(content)
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder
+    private func tracked(_ content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollVisibilityChange(threshold: 0) { visible in
+                scrollVisibilityKnown = true
+                if isVisible != visible { isVisible = visible }
+            }
+        } else {
+            content.background {
+                GeometryReader { proxy in
+                    Color.clear.preference(key: AvatarGlobalFrameKey.self, value: proxy.frame(in: .global))
+                }
+            }
+            .onPreferenceChange(AvatarGlobalFrameKey.self) { frame in
+                guard frame.width > 1, frame.height > 1 else { return }
+                let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                guard let bounds = scenes.first?.screen.bounds else { return }
+                scrollVisibilityKnown = true
+                let visible = frame.intersects(bounds)
+                if isVisible != visible { isVisible = visible }
+            }
+        }
+    }
+}
+
+private struct AvatarGlobalFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
 }
 
 @MainActor

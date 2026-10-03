@@ -1,7 +1,7 @@
 import SwiftUI
 import VeraBotCore
 
-/// 仅供设计试验的头像预览页。选择和状态只保存在本页面，不会写入 Bot 配置。
+/// 调试页：预览五款默认形象和执行状态动画。本页的选择不会写入 Bot 资料。
 struct AvatarLabView: View {
     @State private var selectedCharacter: AvatarLabCharacterKind = .veraBean
     @State private var selectedState: AvatarLabState = .idle
@@ -23,7 +23,7 @@ struct AvatarLabView: View {
                 sizePicker
                 replayButton
                 demoSection
-                Text("此页面只用于比较新形象和状态表现，不会更改 Bot 的头像或资料。")
+                Text("这五款形象是 Bot 的默认头像。本页的选择和状态只用于预览，不会写入 Bot 资料。相册照片仍然优先于默认形象。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -218,13 +218,15 @@ enum AvatarLabCharacterKind: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
-        switch self {
-        case .veraBean: "V豆"
-        case .sprout: "芽芽"
-        case .star: "星点"
-        case .cloud: "云朵"
-        case .sugar: "方糖"
+    var title: String { BotAvatarFigure(rawValue: rawValue)?.title ?? rawValue }
+
+    init(_ figure: BotAvatarFigure) {
+        switch figure {
+        case .veraBean: self = .veraBean
+        case .sprout: self = .sprout
+        case .star: self = .star
+        case .cloud: self = .cloud
+        case .sugar: self = .sugar
         }
     }
 
@@ -353,17 +355,21 @@ extension AvatarLabState {
         }
     }
 
-    /// 执行状态机 → 头像状态（对照表见 docs/design/EXECUTION_STATE.md §6）。
+    /// 执行状态机 → 头像状态（对照表见 docs/design/EXECUTION_STATE.md §6，映射在 `BotAvatarPose`）。
     init(_ execution: ExecutionState) {
-        switch execution {
+        self.init(BotAvatarPose(execution))
+    }
+
+    init(_ pose: BotAvatarPose) {
+        switch pose {
         case .idle: self = .idle
-        case .recalling, .thinking: self = .thinking
-        case .callingTool: self = .working
+        case .thinking: self = .thinking
+        case .working: self = .working
         case .delegating: self = .delegating
         case .replying: self = .replying
-        case .blocked, .failed: self = .blocked
-        case .awaitingConfirmation: self = .waiting
-        case .completed: self = .done
+        case .waiting: self = .waiting
+        case .done: self = .done
+        case .blocked: self = .blocked
         }
     }
 }
