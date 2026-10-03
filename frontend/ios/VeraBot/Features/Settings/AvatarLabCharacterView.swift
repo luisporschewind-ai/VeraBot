@@ -19,6 +19,11 @@ struct AvatarLabCharacterView: View {
         let state: AvatarLabState
     }
 
+    /// 读屏文字：「角色，状态」。
+    static func accessibilityText(kind: AvatarLabCharacterKind, state: AvatarLabState) -> String {
+        "\(kind.title)，\(state.title)"
+    }
+
     var body: some View {
         Group {
             if !animated || reduceMotion {
@@ -46,7 +51,7 @@ struct AvatarLabCharacterView: View {
         .onDisappear { isVisible = false }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(kind.title)，\(state.title)")
+        .accessibilityLabel(Self.accessibilityText(kind: kind, state: state))
     }
 
     private var art: some View {
@@ -249,9 +254,9 @@ struct AvatarLabCharacterView: View {
 
         return VStack(spacing: side * 0.075) {
             HStack(spacing: side * 0.16) {
-                Capsule().fill(Color(hex: "#344047"))
+                Capsule().fill(Color.avatarInk)
                     .frame(width: side * 0.06, height: eyeHeight)
-                Capsule().fill(Color(hex: "#344047"))
+                Capsule().fill(Color.avatarInk)
                     .frame(width: side * 0.06, height: eyeHeight)
             }
             .offset(x: gaze, y: side * (state == .thinking ? -0.018 : 0))
@@ -261,8 +266,8 @@ struct AvatarLabCharacterView: View {
         }
         .overlay(alignment: .top) {
             HStack(spacing: side * 0.16) {
-                Circle().fill(Color(hex: "#FF8293").opacity(0.5)).frame(width: side * 0.07, height: side * 0.045)
-                Circle().fill(Color(hex: "#FF8293").opacity(0.5)).frame(width: side * 0.07, height: side * 0.045)
+                Circle().fill(Color.avatarBlush.opacity(0.5)).frame(width: side * 0.07, height: side * 0.045)
+                Circle().fill(Color.avatarBlush.opacity(0.5)).frame(width: side * 0.07, height: side * 0.045)
             }
             .offset(y: side * 0.065)
         }
@@ -274,33 +279,33 @@ struct AvatarLabCharacterView: View {
         switch state {
         case .idle, .done:
             AvatarLabSmileShape()
-                .stroke(Color(hex: "#344047"), style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
+                .stroke(Color.avatarInk, style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
         case .thinking, .working, .delegating:
-            Capsule().fill(Color(hex: "#344047")).frame(width: side * 0.07, height: side * 0.018)
+            Capsule().fill(Color.avatarInk).frame(width: side * 0.07, height: side * 0.018)
         case .replying:
-            Ellipse().fill(Color(hex: "#344047")).frame(width: side * 0.06, height: side * 0.04)
+            Ellipse().fill(Color.avatarInk).frame(width: side * 0.06, height: side * 0.04)
         case .waiting:
-            Circle().fill(Color(hex: "#344047")).frame(width: side * 0.025, height: side * 0.025)
+            Circle().fill(Color.avatarInk).frame(width: side * 0.025, height: side * 0.025)
         case .blocked:
             AvatarLabFrownShape()
-                .stroke(Color(hex: "#344047"), style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
+                .stroke(Color.avatarInk, style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
         }
     }
 
     @ViewBuilder
     private func stateMark(in side: CGFloat) -> some View {
         if state != .idle {
+            // 右下角状态角标：避开顶部的配件（V豆的圆点、星点的闪光）；底色用语义色，深色模式下符号仍清晰
             ZStack {
-                Circle()
-                    .fill(LinearGradient(colors: [.white, kind.backdropColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Circle().stroke(.white.opacity(0.95), lineWidth: side * 0.012)
+                Circle().fill(Color.avatarMarkFill)
+                Circle().stroke(kind.backdropColor, lineWidth: side * 0.014)
                 Image(systemName: state.symbol)
-                    .font(.system(size: side * 0.12, weight: .bold))
-                    .foregroundStyle(state == .blocked ? Color.orange : kind.accentColor)
+                    .font(.system(size: side * 0.13, weight: .bold))
+                    .foregroundStyle(state == .blocked ? Color.avatarBlockedMark : kind.accentColor)
             }
-            .frame(width: side * 0.24, height: side * 0.24)
-            .shadow(color: kind.accentColor.opacity(0.2), radius: side * 0.03, y: side * 0.015)
-            .offset(x: side * 0.32, y: -side * 0.31)
+            .frame(width: side * 0.26, height: side * 0.26)
+            .shadow(color: .black.opacity(0.12), radius: side * 0.025, y: side * 0.01)
+            .offset(x: side * 0.33, y: side * 0.33)
         }
     }
 

@@ -7,8 +7,9 @@ struct AvatarLabView: View {
     @State private var selectedState: AvatarLabState = .idle
     @State private var selectedSize: AvatarLabSize = .medium
     @State private var replayID = 0
-    @State private var machine = ExecutionStateMachine()
     @State private var demo: Task<Void, Never>?
+    /// 每次开始 / 停止演示 +1；旧任务看到不一致就退出，避免快速「停止→开始」时两个演示并行或误清状态
+    @State private var demoRun = 0
     @State private var demoCaption: String?
 
     private let stateColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
@@ -57,31 +58,28 @@ struct AvatarLabView: View {
     }
 
     private func startDemo() {
+        demoRun += 1
+        let run = demoRun
         demo = Task { @MainActor in
-            machine = ExecutionStateMachine()
-            for step in AvatarLabDemo.script {
-                guard !Task.isCancelled else { break }
-                apply(step.event)
-                if case .blocked = machine.state {
-                    try? await Task.sleep(for: ExecutionStateMachine.blockedDisplayDuration)
-                    apply(.blockedElapsed(serial: machine.blockedSerial))
-                }
-                try? await Task.sleep(for: .milliseconds(step.holdMS))
+            for frame in AvatarLabDemo.frames {
+                guard !Task.isCancelled, run == demoRun else { return }
+                show(frame.state)
+                try? await Task.sleep(for: .milliseconds(frame.holdMS))
             }
-            demo = nil
+            if run == demoRun { demo = nil }
         }
     }
 
     private func stopDemo() {
+        demoRun += 1
         demo?.cancel()
         demo = nil
     }
 
-    private func apply(_ event: ExecutionEvent) {
-        machine.send(event)
-        let next = AvatarLabState(machine.state)
-        if next != selectedState { selectedState = next } else { replayID += 1 }
-        demoCaption = "状态机：\(AvatarLabDemo.caption(machine.state)) → 头像：\(next.title)"
+    private func show(_ execution: ExecutionState) {
+        let next = AvatarLabState(execution)
+        if next != selectedState { selectedState = next } else if !next.isContinuous { replayID += 1 }
+        demoCaption = "状态机：\(AvatarLabDemo.caption(execution)) → 头像：\(next.title)"
     }
 
     private var previewCard: some View {
@@ -137,6 +135,7 @@ struct AvatarLabView: View {
             LazyVGrid(columns: stateColumns, spacing: 8) {
                 ForEach(AvatarLabState.allCases) { state in
                     Button {
+                        stopDemo()
                         selectedState = state
                         replayID += 1
                     } label: {
@@ -241,31 +240,31 @@ enum AvatarLabCharacterKind: String, CaseIterable, Identifiable {
 
     var bodyColor: Color {
         switch self {
-        case .veraBean: Color(hex: "#FFD783")
-        case .sprout: Color(hex: "#8EE3A1")
-        case .star: Color(hex: "#74D3F2")
-        case .cloud: Color(hex: "#C4A0F5")
-        case .sugar: Color(hex: "#FF9FC5")
+        case .veraBean: .avatarBeanBody
+        case .sprout: .avatarSproutBody
+        case .star: .avatarStarBody
+        case .cloud: .avatarCloudBody
+        case .sugar: .avatarSugarBody
         }
     }
 
     var backdropColor: Color {
         switch self {
-        case .veraBean: Color(hex: "#FFF4D9")
-        case .sprout: Color(hex: "#E7FAE9")
-        case .star: Color(hex: "#E5F8FD")
-        case .cloud: Color(hex: "#F2EAFE")
-        case .sugar: Color(hex: "#FFF0F6")
+        case .veraBean: .avatarBeanBackdrop
+        case .sprout: .avatarSproutBackdrop
+        case .star: .avatarStarBackdrop
+        case .cloud: .avatarCloudBackdrop
+        case .sugar: .avatarSugarBackdrop
         }
     }
 
     var accentColor: Color {
         switch self {
-        case .veraBean: Color(hex: "#E89A28")
-        case .sprout: Color(hex: "#32B85E")
-        case .star: Color(hex: "#159BC5")
-        case .cloud: Color(hex: "#8652D2")
-        case .sugar: Color(hex: "#E94F91")
+        case .veraBean: .avatarBeanAccent
+        case .sprout: .avatarSproutAccent
+        case .star: .avatarStarAccent
+        case .cloud: .avatarCloudAccent
+        case .sugar: .avatarSugarAccent
         }
     }
 }
@@ -370,11 +369,37 @@ extension AvatarLabState {
 }
 
 /// 演示脚本：模拟后端一轮带召回、委派进度、被拒工具的 SSE 事件（字段与后端一致）。
-private enum AvatarLabDemo {
+enum AvatarLabDemo {
     struct Step {
         let event: ExecutionEvent
         let holdMS: Int
     }
+
+    struct Frame {
+        let state: ExecutionState
+        let holdMS: Int
+    }
+
+    /// 受阻帧的展示时长，与 `ExecutionStateMachine.blockedDisplayDuration` 一致。
+    static let blockedHoldMS: Int = {
+        let c = ExecutionStateMachine.blockedDisplayDuration.components
+        return Int(c.seconds) * 1000 + Int(c.attoseconds / 1_000_000_000_000_000)
+    }()
+
+    /// 用真实状态机跑脚本得到的画面序列；受阻时插入一帧并自动回到原流程。界面播放和测试共用这一份。
+    static let frames: [Frame] = {
+        var machine = ExecutionStateMachine()
+        var out: [Frame] = []
+        for step in script {
+            machine.send(step.event)
+            if case .blocked = machine.state {
+                out.append(Frame(state: machine.state, holdMS: blockedHoldMS))
+                machine.send(.blockedElapsed(serial: machine.blockedSerial))
+            }
+            out.append(Frame(state: machine.state, holdMS: step.holdMS))
+        }
+        return out
+    }()
 
     private static func trace(_ json: String) -> ToolTrace? {
         try? JSONDecoder().decode(ToolTrace.self, from: Data(json.utf8))

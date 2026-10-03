@@ -23,8 +23,9 @@
 - **2026-10-03**：iOS 界面残留英文 tokens 已改为「用量」(委派 Trace 行、用量看板、额度用完提示)；待 Boss 验收 (UI-EN-01)。
 - **2026-10-03**：VeraBotCore 新增执行状态机 `ExecutionStateMachine` (8 种状态，由现有 SSE 事件推导，`ChatViewModel` 只读暴露，界面未改，后端未改)；`swift test` 74/74 (EXEC-01~19)。
 - **2026-10-03**：执行状态机 v1.1：后端新增 SSE `status` 事件 (`recalling` / 委派内部 `thinking` / `tool`，`{phase, depth, bot_name, tool, parent_id}`)，`status_event_test.py` 8/8 (含契约)；Core 新增 `recalling`、`delegating.progress`、短暂受阻 `blocked` (1.2 s 自动回到原流程)；头像实验室新增「回复中」「委派中」、持续状态可见时循环、按状态机演示。`swift test` 88/88；回归 MA 25/25、MEM 36/36、AV/NK 21/21、TAG 10/10、PIN 8/8。**Web 落后**：不处理 `status` 事件 (冻结，忽略即可，无报错)。
+- **2026-10-03**：头像实验室测试与修复：iPhone 17 模拟器截图 / 录屏 (浅色 + 深色、演示一轮、减弱动态效果、退到后台再回来) + 新离屏检查 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，约 2.5 分钟，AVLAB-T01~T13 13/13，输出浅色 / 深色 × 68 / 104 / 148 的对照图到 `/tmp/avatarlab_harness`)。修复：深色模式状态角标几乎看不清；角标挡住 V豆 顶部圆点、星点星光 (移到右下角)；演示「停止 → 再开始」可能两轮叠加 (运行令牌)；角色色改为 Theme 语义色 (支持深色)；文档里演示顺序漏了中间的「思考中」。持续状态循环、离开 / 回来、减弱动态效果静止：模拟器复测正常。待 Boss 看观感。
 - **待办**：
-  1. **执行状态机**：v1.1 已完成 (后端 `status` 事件 + Core 新状态 + 头像实验室映射，见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md))；对话页尚未显示状态，界面方案待 Boss 决定；实验室角色色仍为固定色值，正式使用前需换 Theme 语义色、支持深色模式。
+  1. **执行状态机**：v1.1 已完成 (后端 `status` 事件 + Core 新状态 + 头像实验室映射，见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md))；对话页尚未显示状态，界面方案待 Boss 决定。头像实验室小问题 (未改)：68pt 尺寸角标符号偏小；实验室是普通 ScrollView，把大预览滚出屏幕时循环不会停 (离开页面 / 退到后台会停)；`ChatViewModel` 的阻塞计时任务在 reset 时没有取消 (有 serial 校验，无实际影响)。
   2. **头像动画** (Boss 桌面的 `LiveBotAvatar.swift` 卡通头像)：**未决定**；与项目同名类 / `Color(hex:)` 冲突，且是自定义动画，违反现有规则，需 Boss 拍板是否例外。
   3. **仓库清理记录**：`frontend/ios/VeraBot/File.txt` (QA 遗留，内容「QA回归」) 已在 `c5529ce` 删除，工作区无残留 (见 TEST_CASES NEW-03)。
 
@@ -49,7 +50,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | **Bot 标签** (schema v5；同日重新设计：3 个 / 4 字，首页一个浅灰圆角矩形、详情卡片一行、对话标题不显示、「基本信息」内单输入框) | 见 CHANGELOG | 后端 `bot_tags_test.py` 10/10 (含存量收敛与前后端契约)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；Kit 已测；iOS 标签 UI 验收延期 | TAG-01~10、TAG-UI-01~04 |
 | **Bot 置顶** (schema v6；列表排序、名称旁 pin 标识、左滑 / 长按入口、置顶行浅灰底) | `c5529ce` | 后端 `bot_pin_test.py` PIN-01~08 通过；回归 MA 25/25、AV/NK 21/21、MEM 36/36、TAG 10/10；`swift test` 55 项通过；Boss 确认功能无问题 | PIN-01~08、PIN-UI-01~03 |
 | **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动；详情/创建 UI 验收延期 | DETAIL-UI-01~09 |
-| **头像实验室** (独立页面；五款角色、六种状态、三种尺寸；不写入 Bot 资料) | `codex/avatar-lab-experiment`，未提交 | iPhone 17 模拟器构建 / 安装 / 启动通过；视觉手工验收待进行 | AVLAB-01 |
+| **头像实验室** (独立页面；五款角色、八种状态、三种尺寸、按状态机演示；不写入 Bot 资料) | `7ebe99d`、`a29536f` 及之后 | 离屏检查 13/13；模拟器截图 / 录屏通过 (浅色 / 深色、演示、减弱动态效果)；观感待 Boss 验收 | AVLAB-01、AVLAB-02、AVLAB-T01~T14 |
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
 | 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 对应 UI 验收延期 | UI-01~03、UI-10 |
 

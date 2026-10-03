@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 修复 (Fixed)
+
+- **iOS · 头像实验室**：深色模式状态角标几乎看不清 (改为实色底 `avatarMarkFill` + 角色背景色描边 + 阴影)；角标挡住 V豆 顶部圆点和星点的星光 (移到右下角，尺寸 0.26)；「按状态机演示」停止后马上再开始可能两轮叠加、按钮状态错乱 (加运行令牌，手动选状态也会停止演示；演示帧事先由真实 `ExecutionStateMachine` 算好 `AvatarLabDemo.frames`)；角色固定 hex 色改为 `Theme.swift` 头像语义色 (浅色 / 深色各一套)。文档里演示顺序更正为 思考 → 委派 → 思考 → 执行 → 阻塞 → 思考 → 回复 → 完成 → 空闲。
+- **工具**：新增 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，离屏渲染 + 检查 AVLAB-T01~T13，输出浅色 / 深色对照图)，不进 App target。iPhone 17 模拟器截图 / 录屏复测 (AVLAB-02、T14)。
+
 ### 新增 (Added)
 
 - **执行状态机 v1.1 (前后端)**：后端 SSE 新增 `status` 事件 `{phase, depth, bot_name, tool, parent_id}`：`recalling` (每轮召回记忆前，仅开启记忆时，depth 0)，以及被委派 Bot 的 `thinking` / `tool` (经 `TurnState.status_queue` 实时转发，位于外层 `tool_start` 与 `tool_result` 之间，`parent_id` = 外层 tool id，支持多跳 depth)；不写入 traces，旧客户端 / Web 忽略。iOS：`VeraBotCore.ChatStatus`、`ChatEvent.status`；`ExecutionState` 新增 `recalling`、`delegating(botName:progress:)`、`blocked(code:message:)` (tool_result 带 `error` 时短暂受阻，`ChatViewModel` 1.2 s 后发 `blockedElapsed` 回到原流程，整轮失败仍是 `failed`)。头像实验室：新增「委派中」「回复中」两种状态 (共 8 种)，`AvatarLabState(ExecutionState)` 映射，思考 / 执行 / 委派 / 回复在可见且前台时用系统 `phaseAnimator` 循环、离屏停止，减弱动态效果时静态，「遇到阻塞」改为轻摇一次，新增「按状态机演示一轮对话」。对话界面未改。测试：`status_event_test.py` STAT-01~08、`swift test` 新增 14 个 (共 88)。设计见 [design/EXECUTION_STATE.md](design/EXECUTION_STATE.md) v1.1。

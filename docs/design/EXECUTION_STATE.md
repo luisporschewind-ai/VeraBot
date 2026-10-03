@@ -108,8 +108,9 @@ event: status   data: {"phase", "depth", "bot_name", "tool", "parent_id"}   # �
 
 - 持续状态只在**视图可见且 App 在前台**时循环 (`onAppear` / `onDisappear` + `scenePhase`)，离开屏幕即停止；其余状态在状态切换或「重播」时播放一次。
 - 「减弱动态效果」开启时全部静态。
-- 实验室新增「按状态机演示一轮对话」：用与后端同形的事件 (召回 → 委派 + 进度 → 被拒工具 → 回复 → 完成) 驱动真实 `ExecutionStateMachine`，下方显示「状态机 → 头像」。
-- 颜色：新状态未新增颜色，沿用实验室角色色；实验室的角色色仍是固定色值，正式接入前需换 Theme 语义色 (见 STATUS)。
+- 实验室「按状态机演示一轮对话」：用与后端同形的事件 (召回 → 委派 + 进度 → 被拒工具 → 回复 → 完成) 驱动真实 `ExecutionStateMachine`，事先算好帧序列 (`AvatarLabDemo.frames`) 再按时间播放，下方显示「状态机：… → 头像：…」。实际头像顺序：**思考中 → 委派中 (进度文字变化) → 思考中 → 执行中 → 遇到阻塞 (1.2 s) → 思考中 → 回复中 → 已完成 → 空闲** (委派结束、阻塞结束后都会先回到思考中)。停止 / 重新开始 / 手动选状态会让旧的演示作废 (运行令牌)，不会两轮叠加。
+- 状态角标在头像**右下角** (尺寸 0.26，避开 V豆 顶部圆点和星点右上角的星光)，底色 `avatarMarkFill` (浅色白 / 深色 #2C2C2E)，描边用角色背景色。
+- 颜色：角色色已换为 `Theme.swift` 的头像语义色 (`avatarBeanBody` 等，浅色 / 深色各一套)，以及 `avatarInk`、`avatarBlush`、`avatarBlockedMark` (systemOrange)、`avatarMarkFill`；实验室不再有固定 hex。
 
 ## 7. 未做 / 待定
 
