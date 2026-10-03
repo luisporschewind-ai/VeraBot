@@ -9,19 +9,41 @@ struct AvatarLabCharacterView: View {
     var replayID = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    /// 只在屏幕上可见、App 在前台时循环播放持续状态，离开屏幕即停止（省电）。
+    @State private var isVisible = false
+
+    /// 单次动作的触发键：状态切换或点「重播」都会重新播放一次。
+    private struct OneShotKey: Equatable {
+        let replay: Int
+        let state: AvatarLabState
+    }
 
     var body: some View {
         Group {
-            if animated && !reduceMotion && state != .blocked {
-                art.phaseAnimator([false, true], trigger: replayID) { content, phase in
+            if !animated || reduceMotion {
+                art   // 减弱动态效果：只保留静态表情
+            } else if state.isContinuous {
+                if isVisible && scenePhase == .active {
+                    // 持续状态（思考 / 执行 / 委派 / 回复）：系统 phaseAnimator 无 trigger 时循环播放
+                    art.phaseAnimator([false, true]) { content, phase in
+                        moving(content, phase: phase)
+                    } animation: { _ in
+                        .easeInOut(duration: state.motionDuration / 2)
+                    }
+                } else {
+                    art
+                }
+            } else {
+                art.phaseAnimator([false, true], trigger: OneShotKey(replay: replayID, state: state)) { content, phase in
                     moving(content, phase: phase)
                 } animation: { _ in
                     .spring(response: state.motionDuration, dampingFraction: 0.58)
                 }
-            } else {
-                art
             }
         }
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(kind.title)，\(state.title)")
@@ -221,7 +243,8 @@ struct AvatarLabCharacterView: View {
     }
 
     private func face(in side: CGFloat) -> some View {
-        let gaze = state == .thinking ? side * 0.025 : 0
+        // 思考时看向一侧；委派时看向另一侧（看向被委派的 Bot）
+        let gaze = state == .thinking ? side * 0.025 : (state == .delegating ? -side * 0.035 : 0)
         let eyeHeight = side * (state == .done ? 0.075 : 0.095)
 
         return VStack(spacing: side * 0.075) {
@@ -252,8 +275,10 @@ struct AvatarLabCharacterView: View {
         case .idle, .done:
             AvatarLabSmileShape()
                 .stroke(Color(hex: "#344047"), style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
-        case .thinking, .working:
+        case .thinking, .working, .delegating:
             Capsule().fill(Color(hex: "#344047")).frame(width: side * 0.07, height: side * 0.018)
+        case .replying:
+            Ellipse().fill(Color(hex: "#344047")).frame(width: side * 0.06, height: side * 0.04)
         case .waiting:
             Circle().fill(Color(hex: "#344047")).frame(width: side * 0.025, height: side * 0.025)
         case .blocked:
@@ -288,12 +313,16 @@ struct AvatarLabCharacterView: View {
             content.rotationEffect(.degrees(phase ? 2 : -2))
         case .working:
             content.offset(y: phase ? -size * 0.025 : size * 0.02)
+        case .delegating:
+            content.offset(x: phase ? -size * 0.03 : size * 0.01).rotationEffect(.degrees(phase ? -3 : 0))
+        case .replying:
+            content.scaleEffect(x: phase ? 0.99 : 1.0, y: phase ? 1.035 : 0.985, anchor: .bottom)
         case .waiting:
             content.rotationEffect(.degrees(phase ? -2.5 : 2.5))
         case .done:
             content.scaleEffect(phase ? 1.045 : 0.98)
         case .blocked:
-            content
+            content.offset(x: phase ? size * 0.03 : -size * 0.015)   // 轻摇一下
         }
     }
 }

@@ -17,6 +17,9 @@ class TurnState:
     """一次用户请求（一轮对话 turn）内、跨整棵委派树共享的计数器。"""
     delegations: int = 0
     memory_proposals: int = 0     # 本轮记忆提议次数（remember / forget_memory），上限 VERABOT_MEMORY_PROPOSALS_PER_TURN
+    # SSE status 事件（委派内部进度）：外层工具执行期间由 run_chat 设置；None = 不推送（如测试直接调用 run_tool）
+    status_queue: Any = None
+    parent_id: str | None = None  # 外层（depth 0）工具调用 id，委派树内所有 status 事件都带它
 
 
 @dataclass

@@ -28,6 +28,19 @@ final class ChatViewModel {
     /// 执行状态机（由 SSE 事件推导，只读；目前界面未使用，见 docs/design/EXECUTION_STATE.md）
     private(set) var execution = ExecutionStateMachine()
     var executionState: ExecutionState { execution.state }
+    private var scheduledBlockedSerial = 0
+
+    /// 状态机输入的唯一入口：进入「短暂受阻」时计时，到点后回到原流程。
+    private func feed(_ event: ExecutionEvent) {
+        execution.send(event)
+        guard case .blocked = execution.state, execution.blockedSerial != scheduledBlockedSerial else { return }
+        let serial = execution.blockedSerial
+        scheduledBlockedSerial = serial
+        Task { [weak self] in
+            try? await Task.sleep(for: ExecutionStateMachine.blockedDisplayDuration)
+            self?.execution.send(.blockedElapsed(serial: serial))
+        }
+    }
 
     init(bot: Bot, api: any VeraBotAPI) {
         self.bot = bot
@@ -82,7 +95,7 @@ final class ChatViewModel {
                 memoryOutcomes[id] = "已忘掉"
             }
             memoryConfirmTick += 1
-            execution.send(.confirmationResolved(memoryID: id))
+            feed(.confirmationResolved(memoryID: id))
         } catch {
             await handleMemoryError(error, id: id)
         }
@@ -94,7 +107,7 @@ final class ChatViewModel {
         do {
             _ = try await api.rejectMemory(id: id)
             memoryOutcomes[id] = "已忽略"
-            execution.send(.confirmationResolved(memoryID: id))
+            feed(.confirmationResolved(memoryID: id))
             await refreshMemoryStates()
         } catch {
             await handleMemoryError(error, id: id)
@@ -122,7 +135,7 @@ final class ChatViewModel {
         _ = try? await api.clearMessages(botID: bot.id, includeMemories: includeMemories)
         memoryStates = [:]
         memoryOutcomes = [:]
-        execution.send(.reset)
+        feed(.reset)
         await load()
     }
 
@@ -131,14 +144,14 @@ final class ChatViewModel {
         guard !trimmed.isEmpty, !sending else { return }
         sending = true
         errorText = nil
-        execution.send(.sent)
+        feed(.sent)
         items.append(Item(isUser: true, text: trimmed))
         items.append(Item(isUser: false, text: "", streaming: true))
         let idx = items.count - 1
         scrollTick += 1
         do {
             for try await event in api.chatStream(botID: bot.id, message: trimmed) {
-                execution.send(event.executionEvent)
+                feed(event.executionEvent)
                 switch event {
                 case .delta(let t):
                     items[idx].text += t
@@ -152,20 +165,20 @@ final class ChatViewModel {
                     }
                 case .error(let msg):
                     appendError(msg, at: idx)
-                case .done:
-                    break
+                case .status, .done:
+                    break   // status 只驱动执行状态机，界面不变
                 }
                 scrollTick += 1
             }
         } catch let e as APIError where e.status == 429 {
             let msg = "今日额度已用完，请明天再试（可在「设置 › 用量」查看今日用量）"
-            execution.send(.error(msg))
+            feed(.error(msg))
             appendError(msg, at: idx)
         } catch {
-            execution.send(.error(error.localizedDescription))
+            feed(.error(error.localizedDescription))
             appendError(error.localizedDescription, at: idx)
         }
-        execution.send(.streamEnded)
+        feed(.streamEnded)
         if items[idx].text.isEmpty && items[idx].traces.isEmpty { items[idx].text = "（无回复）" }
         items[idx].streaming = false
         sending = false

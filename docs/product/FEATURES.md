@@ -78,12 +78,25 @@ Bot 详情改版字段映射 (2026-10-01，**无 API 变更**，全部是已有�
 | — (iOS 计算) | `Quota.usedPercent` / `usedPercentText` | 设置 › 用量 行右侧「已用 N%」 |
 | `model` / `total` / `per_bot` / `daily` / `delegations` / `transcribe` | `model` / `total` / `perBot` / `daily` / `delegations` / `transcribe` | 用量看板其余内容 (不变) |
 
+SSE `status` 事件字段映射 (`agents/runtime.py` `status_data` ↔ iOS `VeraBotCore.ChatStatus`，由 `status_event_test.py` STAT-08 读取 Swift 源码断言键名与 phase 取值一致)：
+
+| 后端键 | iOS 属性 | 说明 |
+|---|---|---|
+| `phase` | `ChatStatus.phase` / `knownPhase` (`Phase`: `recalling` / `thinking` / `tool`) | 未知值保留原文，状态机忽略 |
+| `depth` | `depth` (缺失 = 0) | 0 = 当前 Bot；≥1 = 委派链 |
+| `bot_name` | `botName` | 正在工作的 Bot |
+| `tool` | `tool` | `phase = tool` 时的工具名 |
+| `parent_id` | `parentID` | 外层 `tool_start.id`；状态机据此更新 `delegating.progress` |
+
+状态机与头像映射见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md)。Web 冻结，忽略该事件。
+
 SSE 事件：
 
 ```
 event: delta        data: {"text": "…"}
 event: tool_start   data: {"id", "name", "args"}
 event: tool_result  data: {"id", "name", "args", "result"}
+event: status       data: {"phase": "recalling" | "thinking" | "tool", "depth", "bot_name", "tool", "parent_id"}   # 新增，旧客户端忽略
 event: error        data: {"message": "…", "code"?: "empty_reply"}
 event: done         data: {"message_id", "usage": {prompt_tokens, completion_tokens, total_tokens}, "memory_ids": [本轮注入的记忆 id]}
 ```

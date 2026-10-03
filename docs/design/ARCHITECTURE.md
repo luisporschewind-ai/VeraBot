@@ -62,9 +62,11 @@ sequenceDiagram
     U->>S: POST /api/bots/7/chat (Bearer JWT)
     S->>S: 校验 Token 预算 (超额 429)
     S->>A: 最近 20 条历史 (仅该用户、该 Bot)
+    A-->>U: event: status (phase recalling，开启记忆时)
     A->>L: messages + 有权限的工具 schema (stream)
     L-->>A: tool_calls: ask_bot(小研, question, shared_context)
     A-->>U: event: tool_start
+    Note over A,B: 委派期间 B 的进度经队列转发为 event: status (phase thinking / tool，parent_id = 外层 tool_start.id)
     A->>B: guardrails.check_delegation → 只发 question + 限长 shared_context + 公开资料
     B->>L: 非流式 (全新会话，无历史)
     L-->>B: answer
