@@ -209,9 +209,11 @@ def schedule_sync(user_id: int, server_id: int) -> bool:
             else:
                 log.exception("mcp background sync failed user=%s server=%s", user_id, server_id)
                 try:
-                    mcp_store.update_server(
+                    # 停用优先：已停用的服务不改成 error，只把 syncing 收回 pending
+                    if not mcp_store.update_server_unless_disabled(
                         user_id, server_id, status="error", sync_status="error", last_error="同步失败",
-                    )
+                    ):
+                        mcp_store.settle_disabled_sync(user_id, server_id)
                 except sqlite3.IntegrityError:
                     log.debug("mcp background sync could not record failure, server gone")
                 except Exception:
@@ -255,10 +257,13 @@ def _sync_body(user_id: int, server_id: int) -> dict:
         )
         return {**_empty_summary(), "server": public_server(fresh)}
     if not url:
-        fresh = mcp_store.update_server(
+        # 检查与写入在同一条 SQL 里：读取 row 之后才停用的，也不会被改成 error
+        if not mcp_store.update_server_unless_disabled(
             user_id, server_id, status="error", sync_status="error",
             last_error="尚未配置 MCP 服务地址", url=None,
-        )
+        ):
+            mcp_store.settle_disabled_sync(user_id, server_id)
+        fresh = mcp_store.get_server(user_id, server_id)
         return {**_empty_summary(), "server": public_server(fresh)}
     if not _server_alive(user_id, server_id):
         return _empty_summary()
@@ -277,12 +282,15 @@ def _sync_body(user_id: int, server_id: int) -> dict:
         if not _server_alive(user_id, server_id):
             return _empty_summary()
         _record_success(user_id, server_id)
-        current = mcp_store.get_server(user_id, server_id) or row
-        fields = {"url": url, "last_error": None, "last_synced_at": db.now_iso(), "sync_status": "ok"}
         # 同步过程中用户可能已经停用。停用优先，不要被这次结果改回已连接。
-        if current.get("status") != "disabled":
-            fields["status"] = "connected"
-        fresh = mcp_store.update_server(user_id, server_id, **fields)
+        # 先读后写会漏掉「读完才停用」的情况，所以检查和写入放在同一条 SQL 里；
+        # 已停用时这次结果不写进服务行，只把 syncing 收回 pending。
+        if not mcp_store.update_server_unless_disabled(
+            user_id, server_id, url=url, last_error=None, last_synced_at=db.now_iso(),
+            sync_status="ok", status="connected",
+        ):
+            mcp_store.settle_disabled_sync(user_id, server_id)
+        fresh = mcp_store.get_server(user_id, server_id)
         if fresh is None:
             return _empty_summary()
     except PluginUninstalled:
@@ -297,12 +305,16 @@ def _sync_body(user_id: int, server_id: int) -> dict:
             return _empty_summary()
         current = mcp_store.get_server(user_id, server_id)
         if current and current["status"] == "disabled":
-            return {**_empty_summary(), "server": public_server(current)}
+            mcp_store.settle_disabled_sync(user_id, server_id)
+            return {**_empty_summary(), "server": public_server(mcp_store.get_server(user_id, server_id) or current)}
         if _counts_toward_breaker(exc):
             _record_failure(user_id, server_id)
-        fresh = mcp_store.update_server(
+        # 上面的检查和这里的写入之间仍可能被停用：写入本身带 status!='disabled' 条件
+        if not mcp_store.update_server_unless_disabled(
             user_id, server_id, status="error", url=url, sync_status="error",
             last_error=_safe_error(exc),
-        )
+        ):
+            mcp_store.settle_disabled_sync(user_id, server_id)
+        fresh = mcp_store.get_server(user_id, server_id)
         summary = _empty_summary()
     return {**summary, "server": public_server(fresh)}
