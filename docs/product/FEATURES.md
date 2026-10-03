@@ -10,7 +10,7 @@
 | 租户隔离 (Per-user isolation) | 所有查询带 `user_id`；访问他人资源统一返回 404 (防枚举) |
 | Bot 管理 | emoji 头像 + 颜色 + 昵称 + 人设 (多行) + 指令 (多行) + 标签 (最多 3 个，每个最多 4 个字，逗号 / 顿号 / 空格分隔；创建页一个输入框，Bot 详情点卡片上的标签行弹窗修改；首页行名称后显示为一个浅灰圆角矩形「搜索, 查询, 调研」，Bot 详情卡片名称下方一行)；＋ 创建 (达到上限时 ＋ 置灰；列表不显示数量页脚)、Bot 详情编辑、长按「编辑与权限」、左滑删除 (系统确认框二次确认，说明删除 / 保留的数据)、左滑 / 长按置顶 (品牌色实心 pin 图标，点按后行立即用系统动画移到新位置，再同步服务端，失败回滚)；软上限 20 (`MAX_BOTS_PER_USER`)。列表每行名称右侧显示标签（放不下时尾部截断），右上角显示最后消息时间（今天 HH:mm / 昨天 / 本周星期几 / M/d / 非今年 yyyy/M/d，无消息回退创建时间）；首页不显示大导航标题；右上角放大镜点按后才出现系统搜索栏（平时不显示搜索框，下拉也不出现；取消后收起并清空），当前只过滤屏幕上已加载的列表（Bot 名称和最后一条消息预览）；完整聊天历史搜索、搜索历史等移至后续迭代。所有头像（用户 / Bot，照片或表情 / 首字）都显示为正圆。用户和每个 Bot 都可以另设一张圆形照片头像（相册选择、可更换；Bot 可在详情页点头像选「使用默认形象」移除照片，用户头像不提供该入口）；表情字段保留，没有照片时继续显示。Bot 详情页：顶部卡片 (点头像换照片 / 恢复默认形象，点昵称、标签弹窗修改，均在「保存」时才提交，「取消」丢弃) → 默认形象 (表情 + 颜色) → 人设 → 自定义指令 → 记忆 → 工具权限 (只显示中文名) → 委派 → 协作记录 (本机时间) → 清空对话；界面无英文 |
 | 流式对话 (Streaming, SSE) | `POST /api/bots/{id}/chat` 返回 `text/event-stream`，逐 token 渲染；工具卡片、交接 Trace 卡片、错误气泡 |
-| 消息富文本 (Rich messages) | iOS Bot 气泡支持 Markdown（标题 / 粗体 / 斜体 / 行内代码 / 代码块 / 引用 / 列表 / 表格 / 分隔线），自动识别网址 / 电话 / 邮箱；网页链接在 App 内 SFSafariViewController 打开，电话 / 邮件交给系统；长按气泡可复制全文或复制链接；`~` 按原文显示 (BUG-01) |
+| 消息富文本 (Rich messages) | iOS Bot 气泡支持 Markdown（标题 / 粗体 / 斜体 / 行内代码 / 代码块 / 引用 / 列表 / 表格 / 分隔线），自动识别网址 / 电话 / 邮箱；网页链接在 App 内 SFSafariViewController 打开，电话 / 邮件交给系统；长按气泡可复制全文或复制链接，用户 / Bot 气泡长按均有「删除」(系统确认框二次确认，只删这一条；欢迎语与正在生成的回复不显示)；`~` 按原文显示 (BUG-01) |
 | 对话历史 (History) | 每个 Bot 独立保存历史，最近 20 条 (`VERABOT_HISTORY_WINDOW`) 注入上下文；清空对话 (二次确认：「仅清空对话」保留记忆 /「清空对话和「X」的记忆」) |
 | 长期记忆 (Memory, M1) | **先确认、后保存**：Bot 用 `remember` / `forget_memory` 只生成提议，对话里出现「要我记住吗？」卡片 (记住 / 不用 / 编辑后记住)，确认后生效。作用域：所有 Bot 共享的「关于你」(global) 或仅某个 Bot；每个 Bot 的 `memory_access` (不使用 / 仅本 Bot / 本 Bot + 共享资料，默认后者)；每轮最多注入 12 条 / 1000 字，被委派的 Bot 不读写记忆。密码 / 验证码 / 密钥 / 证件号 / 卡号永不保存；健康、财务信息加密保存并标为敏感。设置 › 记忆：「Vera 了解的你」(查看 / 编辑 / 删除 / 手动添加 / 清空，首次打开说明会发送给 DeepSeek) + 「允许 Bot 记住」总开关。Bot 详情 › 记忆。方案与契约见 [MEMORY_GROWTH.md](../design/MEMORY_GROWTH.md)。Web 无记忆 UI |
 | 工具 (Tool calling) | 可插拔注册表：`get_weather` (Open-Meteo，免 Key)、`create_reminder`、`list_reminders`、`manage_reminder`、`ask_bot`；记忆工具 `remember`、`forget_memory` 不在白名单里，由 `memory_access` 控制。`list_reminders` 只返回这个 Bot 创建的或指派给它的提醒。`manage_reminder` 只做单条的修改、完成、稍后、重开、跳过；取消和批量要用户在提醒页确认。MCP 工具名形如 `mcp__learn__microsoft_docs_search`，默认不授权，在 Bot 详情按服务打开 |
@@ -50,6 +50,7 @@
 | GET / POST | `/api/bots` | Bot 列表 / 创建 (新 Bot 默认最小权限)。每个 Bot 另有 `has_avatar`、`avatar_updated_at`、`tags`（字符串数组，缺省 `[]`）；`avatar` 仍是 emoji。创建时可带 `tags` |
 | GET / PATCH / DELETE | `/api/bots/{id}` | 详情 / 修改 (含 `allowed_tools`、`delegate_to`、`accept_delegation`、`memory_access`、`tags`) / 删除。Bot JSON 另有 `memory_access` (`none`/`bot`/`bot_and_global`)、`memory_count`、`tags`。`tags` 省略 = 不修改，`[]` = 清空。非法标签 → 422 中文 |
 | GET / DELETE | `/api/bots/{id}/messages` | 历史消息 (含 Trace；每条另有 `attachments` 数组，字段同上传返回) / 清空对话 (同时删除该 Bot 的图片行和文件)。DELETE 可选 `?include_memories=true` 同时删除该 Bot 的记忆与摘要，返回 `{ok, deleted_memories}` |
+| DELETE | `/api/bots/{bot_id}/messages/{message_id}` | 删除单条消息（物理删除，只删这一条，不连带同一轮的另一条）→ `{ok: true}`。按 `user_id` + `bot_id` + `id` 限定：他人的 Bot / 消息、Bot 与消息不匹配、不存在或已删除一律 404「消息不存在」(相同响应)。`memories.source_message_id`、`notifications.message_id`、`reminders.source_message_id` 置 NULL；**已提取的记忆不删除**。带图消息：`attachments` 行同事务删除，提交后立即删除原图 / 缩略图 (GIF 另有第一帧)，之后 `GET /api/attachments/{id}`、`/content`、`/thumb` 均 404。无 schema 变更 (v12 不变)。Web 未接入 |
 | GET | `/api/bots/{id}/delegations` | 该 Bot 发出和收到的委派记录 |
 | POST | `/api/bots/{id}/chat` | **SSE** 流式对话 `{message, attachment_ids?}`；`attachment_ids` 最多 1 个 (多 → 422)，有图时 `message` 可为空；附件他人 / 不存在 404、已发送 409、过期 410、属于其他 Bot 422。带图失败时 `error` 事件含 `code`：`vision_unsupported` / `vision_failed` |
 | POST | `/api/attachments` | 图片上传 (v12)：multipart `file` + 可选 `bot_id` → 201 `{id, kind, mime, width, height, bytes, status:"pending", expires_at}`。JPEG / PNG / WebP / GIF (HEIC 需服务器解码器)；415 类型、413 超 10 MB 或存储满、400 超 4000 万像素 / 无法解析、429 每天超 50 张 |
@@ -104,6 +105,14 @@ Bot 详情改版字段映射 (2026-10-01，**无 API 变更**，全部是已有�
 | `today.total_tokens` | `Quota.today.totalTokens` | 今日已用 (分子)；与 `db.token_budget` 的已用相同 |
 | — (iOS 计算) | `Quota.usedPercent` / `usedPercentText` | 设置 › 用量 行右侧「已用 N%」 |
 | `model` / `total` / `per_bot` / `daily` / `delegations` / `transcribe` | `model` / `total` / `perBot` / `daily` / `delegations` / `transcribe` | 用量看板其余内容 (不变) |
+
+删除单条消息字段映射 (由 `message_delete_test.py` MSG-DEL-07 / 09 读取 Swift 源码断言路径、方法与键名一致；MSG-DEL-08 断言后端实际发出该字段)：
+
+| 后端 | iOS | 说明 |
+|---|---|---|
+| `DELETE /api/bots/{bot_id}/messages/{message_id}` | `VeraBotAPI.deleteMessage(botID:messageID:)` → `OKResponse` | 404 时 `APIError.status == 404`，`ChatViewModel.delete` 按已删除处理并移除该条 |
+| `GET …/messages` 的 `messages[].id` / SSE `done.message_id` | `ChatDone.messageID` → `ChatViewModel.Item.messageID` (回复) | 有 id 才显示「删除」；流式输出中不显示 |
+| SSE `done.user_message_id` (新增，仅追加字段；旧客户端 / Web 忽略) | `ChatDone.userMessageID` (`decodeIfPresent`，旧后端为 nil) → 刚发出的用户消息的 `messageID` | 回复结束即可删除刚发出的用户消息 |
 
 图片附件字段映射 (schema v12，`services/attachments/repo.py` `public()` ↔ iOS `VeraBotCore.Attachment`，由 `attachments_test.py` ATT-CONTRACT 读取 Swift 源码断言键名一致)：
 

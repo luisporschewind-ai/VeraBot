@@ -199,6 +199,13 @@ def keys_for_bot(user_id: int, bot_id: int) -> list[str]:
     return [k for r in rs for k in file_keys(r)]
 
 
+def keys_for_message(user_id: int, bot_id: int, message_id: int) -> list[str]:
+    """删除单条消息前调用（Q12）：先拿到该消息图片的文件 key，消息删除（行随外键级联）提交后再 delete_files。"""
+    with db.tx() as c:
+        rs = store_sql.list_for_message(c, user_id, bot_id, message_id)
+    return [k for r in rs for k in file_keys(r)]
+
+
 def keys_for_user(user_id: int) -> list[str]:
     """删除账号前调用（目前没有删除账号接口；用户行级联删除后由对账清理文件）。"""
     with db.tx() as c:

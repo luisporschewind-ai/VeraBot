@@ -222,7 +222,8 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
         stored = answer if answer.strip() else ("⚠️ " + EMPTY_REPLY_MSG if errored else "（无回复）")
         mid = db.add_message(user_id, bot["id"], "assistant", stored, traces or None, memory_ids=rec.ids or None)
         memory.mark_used(user_id, rec.ids)
-    yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memory_ids": rec.ids}}
+    # user_message_id：本轮用户消息的 id（新增字段，旧客户端忽略），客户端据此可立即删除刚发出的消息
+    yield {"event": "done", "data": {"message_id": mid, "user_message_id": user_mid, "usage": usage_total, "memory_ids": rec.ids}}
     if new_images and not errored:   # 首次看图后生成描述（按需召回用），放在 done 之后不拖慢回复
         await vision.ensure_captions(user_id, bot["id"], new_images)
 

@@ -166,6 +166,19 @@ final class ChatViewModel {
         await load()
     }
 
+    /// 删除单条消息：只对已落库（有 messageID）且不在流式输出中的条目生效；成功后从列表移除，失败按其他错误一样显示在 errorText。
+    func delete(_ item: Item) async {
+        guard let mid = item.messageID, !item.streaming else { return }
+        do {
+            _ = try await api.deleteMessage(botID: bot.id, messageID: mid)
+            items.removeAll { $0.messageID == mid }
+        } catch let e as APIError where e.status == 404 {
+            items.removeAll { $0.messageID == mid }   // 服务器上已不存在（如另一台设备已删除），以服务器为准
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
     func send(_ text: String, attachment: Attachment? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || attachment != nil, !sending else { return }
@@ -196,7 +209,11 @@ final class ChatViewModel {
                     }
                 case .error(let msg):
                     appendError(msg, at: idx)
-                case .status, .done:
+                case .done(let d):
+                    // 落库后的 id：刚收到的回复与刚发出的用户消息（idx - 1）都能立即长按删除；旧后端不发 user_message_id
+                    items[idx].messageID = d.messageID
+                    if let uid = d.userMessageID { items[idx - 1].messageID = uid }
+                case .status:
                     break   // 只驱动导航栏头像；消息正文不显示 status
                 case .notification:
                     NotificationCenter.default.post(name: .verabotRemindersChanged, object: nil)
