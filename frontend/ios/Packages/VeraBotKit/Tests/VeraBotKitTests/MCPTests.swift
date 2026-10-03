@@ -21,6 +21,32 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
      "account_label":null,"tools_count":3,"last_error":null,"last_synced_at":"2026-10-03T05:00:00Z"}
     """)
     #expect(s.statusText == "已连接" && s.toolsCount == 3 && s.enabled && s.catalogId == "microsoft_learn")
+    #expect(!s.consented && s.circuitText == "正常")
+}
+
+@Test func mcpServerShowsConsentSyncAndBreaker() throws {
+    let waiting = try decode(MCPServer.self, """
+    {"id":1,"slug":"learn","catalog_id":"microsoft_learn","name":"Microsoft Learn","source":"catalog",
+     "transport":"streamable_http","trust":"verified","auth_type":"none","status":"needs_auth","enabled":true,
+     "account_label":null,"tools_count":0,"last_error":null,"last_synced_at":null,
+     "consent_at":null,"sync_status":"syncing","circuit_state":"closed","circuit_open_until":null,"consecutive_failures":0}
+    """)
+    #expect(waiting.statusText == "正在同步" && waiting.syncStatusText == "正在同步")
+    let ready = try decode(MCPServer.self, """
+    {"id":1,"slug":"learn","catalog_id":"microsoft_learn","name":"Microsoft Learn","source":"catalog",
+     "transport":"streamable_http","trust":"verified","auth_type":"none","status":"connected","enabled":true,
+     "account_label":null,"tools_count":2,"last_error":null,"last_synced_at":"2026-10-03T05:00:00+00:00",
+     "consent_at":null,"sync_status":"ok","circuit_state":"closed","circuit_open_until":null,"consecutive_failures":0}
+    """)
+    #expect(ready.statusText == "未同意" && !ready.consented)
+    let open = try decode(MCPServer.self, """
+    {"id":1,"slug":"learn","catalog_id":"microsoft_learn","name":"Microsoft Learn","source":"catalog",
+     "transport":"streamable_http","trust":"verified","auth_type":"none","status":"connected","enabled":true,
+     "account_label":null,"tools_count":2,"last_error":"连续失败","last_synced_at":"2026-10-03T05:00:00+00:00",
+     "consent_at":"2026-10-03T05:01:00+00:00","sync_status":"ok","circuit_state":"open",
+     "circuit_open_until":"2026-10-03T05:02:00+00:00","consecutive_failures":5}
+    """)
+    #expect(open.statusText == "已熔断" && open.consented && open.circuitText == "已熔断" && open.consecutiveFailures == 5)
 }
 
 @Test func mcpCatalogAndSyncDecodeIgnoringExtraKeys() throws {
@@ -33,9 +59,10 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
     {"added":["mcp__learn__a"],"changed":[],"removed":[],"rejected":[{"name":"bad","reason":"name"}],
      "server":{"id":1,"slug":"learn","catalog_id":null,"name":"L","source":"catalog","transport":"streamable_http",
      "trust":"verified","auth_type":"none","status":"error","enabled":true,"account_label":null,"tools_count":0,
-     "last_error":"MCP 服务超时","last_synced_at":null}}
+     "last_error":"MCP 服务超时","last_synced_at":null,"sync_status":"error","circuit_state":"closed",
+     "consecutive_failures":1}}
     """)
-    #expect(r.added == ["mcp__learn__a"] && r.server.statusText == "异常" && r.server.lastError == "MCP 服务超时")
+    #expect(r.added == ["mcp__learn__a"] && r.server.syncStatusText == "同步失败" && r.server.lastError == "MCP 服务超时")
 }
 
 @Test func toolInfoOldPayloadIsBuiltin() throws {
@@ -66,4 +93,7 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
     #expect(MCPTraceText.errorText(code: "mcp_tool_error", error: "<untrusted_tool_result>…") == "外部服务返回了错误")
     #expect(MCPTraceText.errorText(code: "mcp_timeout", error: "MCP 服务超时") == "外部服务超时")
     #expect(MCPTraceText.errorText(code: "tool_not_allowed", error: "当前 Bot 未被授权使用该能力") == "当前 Bot 未被授权使用该能力")
+    #expect(MCPTraceText.errorText(code: "mcp_consent_required", error: "尚未同意把这个 MCP 服务的工具结果发送给 DeepSeek，因此没有调用它。") == "尚未同意把工具结果发送给 DeepSeek")
+    #expect(MCPTraceText.errorText(code: "mcp_circuit_open", error: "连续失败") == "该服务连续失败，已暂时停止连接")
+    #expect(MCPTraceText.errorText(code: "result_unknown", error: "请求可能已执行") == "请求结果未知，请到对应服务核实")
 }

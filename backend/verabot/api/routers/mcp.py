@@ -18,6 +18,10 @@ class ServerPatch(BaseModel):
     enabled: bool
 
 
+class ConsentIn(BaseModel):
+    granted: bool
+
+
 def _require(user_id: int, server_id: int) -> dict:
     row = mcp_store.get_server(user_id, server_id)
     if row is None:
@@ -62,6 +66,12 @@ def delete_server(server_id: int, user=Depends(current_user)):
     if not mcp.remove_server(user["id"], server_id):
         raise HTTPException(404, "未找到该 MCP 服务")
     return {"ok": True}
+
+
+@router.post("/api/mcp/servers/{server_id}/consent")
+def set_consent(server_id: int, body: ConsentIn, user=Depends(current_user)):
+    _require(user["id"], server_id)
+    return mcp.set_consent(user["id"], server_id, body.granted)
 
 
 @router.post("/api/mcp/servers/{server_id}/sync")

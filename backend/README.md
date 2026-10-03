@@ -19,7 +19,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 2. **Python**：按 `.python-version` (3.12) 由 uv 安装；失败时用 npmmirror 镜像 (`UV_PYTHON_INSTALL_MIRROR`)。
 3. **依赖**：`uv sync --frozen --no-dev`，严格按 `uv.lock` 安装到 `.venv/`；失败 (或 `VERABOT_FORCE_MIRROR=1`) 时改用清华 tuna 镜像 (`UV_INDEX_URL`，可用 `VERABOT_PYPI_MIRROR` 覆盖) 按 `requirements.txt` (同样锁定版本) 安装。
 4. **配置**：没有 `.env` 就从 `.env.example` 复制，并提示输入 DeepSeek Key (不回显，写入 `.env`，权限 600)。已 export 的环境变量优先于 `.env`。
-5. **数据库**：`init_db()` 建表 + 幂等迁移 (当前 schema v7：v3 昵称与头像、v4 长期记忆、v5 Bot 标签、v6 Bot 置顶、v7 MCP 表)，数据在 `data/verabot.db`。已有库会在下次启动时自动升级，不用手写 SQL。v7 不改已有 Bot 的工具白名单。
+5. **数据库**：`init_db()` 建表 + 幂等迁移 (当前 schema v8：v3 昵称与头像、v4 长期记忆、v5 Bot 标签、v6 Bot 置顶、v7 MCP 表、v8 MCP 同意 / 同步状态 / 熔断)，数据在 `data/verabot.db`。已有库会在下次启动时自动升级，不用手写 SQL。v7 / v8 不改已有 Bot 的工具白名单。
 6. **启动** uvicorn，默认 `0.0.0.0:8000` (`HOST` / `PORT` 可改)。
 
 启动后：API 文档 <http://127.0.0.1:8000/docs>，健康检查 `GET /api/health` → `{"ok":true,...}`。
@@ -46,9 +46,11 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 | `VERABOT_LOCAL_STT` / `_MODEL` | `1` / `small` | 安装 `local-stt` 额外依赖后，本地 faster-whisper 回退 |
 | `VERABOT_MEMORY` | `1` | 长期记忆总开关 (服务器级)；`0` 时不召回、不暴露记忆工具，接口仍可查看 / 删除 |
 | `VERABOT_MEMORY_ENC_KEY` | 自动生成到 `data/.memory_key` (权限 600) | 健康 / 财务记忆的 Fernet 密钥；逗号分隔多把用于轮换 (第一把加密)。与数据库分开备份 |
-| `VERABOT_MCP_LEARN_URL` / `VERABOT_MCP_LEARN_ENABLED` | `https://learn.microsoft.com/api/mcp` / `1` | Microsoft Learn MCP。默认开启，首次打开 MCP 列表时同步 |
+| `VERABOT_MCP_LEARN_URL` / `VERABOT_MCP_LEARN_ENABLED` | `https://learn.microsoft.com/api/mcp` / `1` | Microsoft Learn MCP。默认开启，打开列表时在后台同步 |
 | `VERABOT_MCP_AWS_URL` / `VERABOT_MCP_AWS_ENABLED` | `https://knowledge-mcp.global.api.aws` / `0` | AWS Knowledge MCP。默认关闭，不访问网络 |
-| `VERABOT_MCP_PROTOCOL_VERSION` / `VERABOT_MCP_TIMEOUT` | `2025-06-18` / `15` | 请求的协议版本（秒级超时，建议 10–15） |
+| `VERABOT_MCP_PROTOCOL_VERSION` / `VERABOT_MCP_TIMEOUT` | `2025-06-18` / `15` | 请求的协议版本（单次 HTTP 超时，秒，建议 10–15） |
+| `VERABOT_MCP_RETRY_MAX` / `VERABOT_MCP_RETRY_BACKOFF` | `2` / `0.5,2` | 可重试错误的额外次数 / 退避秒数（另加最多 25% 抖动） |
+| `VERABOT_MCP_BREAKER_THRESHOLD` / `VERABOT_MCP_BREAKER_COOLDOWN` | `5` / `60` | 连续传输失败多少次打开熔断 / 冷却秒数 |
 | `VERABOT_MCP_CALLS_PER_TURN` / `VERABOT_MCP_MAX_RESULT_CHARS` / `VERABOT_MCP_MAX_TOOLS_PER_SERVER` | `8` / `8000` / `50` | 单轮调用上限 / 结果截断 / 每服务工具上限 |
 | `VERABOT_MEMORY_MAX_ACTIVE` / `_MAX_CHARS` / `_INJECT_MAX` / `_INJECT_CHARS` | `200` / `200` / `12` / `1000` | 每用户生效记忆上限 / 单条字数 / 每轮注入条数 / 每轮注入字数 |
 

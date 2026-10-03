@@ -147,6 +147,10 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/mcp/servers/\(id)", method: "PATCH", body: try encode(["enabled": enabled]))
     }
 
+    public func setMCPConsent(id: Int, granted: Bool) async throws -> MCPServer {
+        try await call("/api/mcp/servers/\(id)/consent", method: "POST", body: try encode(["granted": granted]))
+    }
+
     public func deleteMCPServer(id: Int) async throws -> OKResponse {
         try await call("/api/mcp/servers/\(id)", method: "DELETE")
     }

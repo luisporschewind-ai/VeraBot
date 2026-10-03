@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from dataclasses import dataclass, field
 
 import httpx
@@ -45,9 +46,26 @@ class MCPTimeoutError(MCPClientError):
         super().__init__("mcp_timeout", message)
 
 
+class MCPUnavailableError(MCPClientError):
+    """连接失败、HTTP 5xx、429。可以按策略重试。`retry_after` 来自 Retry-After 头（秒）。"""
+
+    def __init__(self, message: str = "MCP 服务不可用", retry_after: float | None = None):
+        super().__init__("mcp_unavailable", message)
+        self.retry_after = retry_after
+
+
 class MCPProtocolError(MCPClientError):
+    """HTTP 4xx（除会话失效的 404）以及无法解析的响应。不重试。"""
+
     def __init__(self, message: str):
         super().__init__("mcp_protocol", message)
+
+
+class MCPSessionExpiredError(MCPClientError):
+    """带了 Mcp-Session-Id 却收到 HTTP 404：会话已被服务器丢掉。调用方应重新 initialize 并再试一次。"""
+
+    def __init__(self, message: str = "MCP 会话已失效"):
+        super().__init__("mcp_session_expired", message)
 
 
 @dataclass
@@ -167,6 +185,7 @@ class MCPSession:
     protocol_version: str | None = None
     _next_id: int = 1
     _http: httpx.Client = field(init=False, repr=False)
+    _lock: threading.Lock = field(init=False, repr=False)
 
     def __post_init__(self):
         self.timeout = self.timeout if self.timeout is not None else timeout_seconds()
@@ -175,6 +194,7 @@ class MCPSession:
             follow_redirects=False,
             headers={"User-Agent": "VeraBot/0.1.0"},
         )
+        self._lock = threading.Lock()
 
     def close(self):
         self._http.close()
@@ -201,6 +221,30 @@ class MCPSession:
         return self.protocol_version
 
     def list_tools(self) -> list[dict]:
+        with self._lock:
+            try:
+                return self._list_tools_once()
+            except MCPSessionExpiredError:
+                self._reset_handshake()
+                self.initialize()
+                return self._list_tools_once()
+
+    def call_tool(self, name: str, arguments: dict | None = None) -> CallResult:
+        with self._lock:
+            try:
+                return self._call_tool_once(name, arguments)
+            except MCPSessionExpiredError:
+                # 会话失效说明这次请求没有被执行。重新握手后再发一次，多了不再试。
+                self._reset_handshake()
+                self.initialize()
+                return self._call_tool_once(name, arguments)
+
+    def _reset_handshake(self):
+        """丢掉会话号和协议版本，保留底层连接。"""
+        self.session_id = None
+        self.protocol_version = None
+
+    def _list_tools_once(self) -> list[dict]:
         self._ensure()
         tools: list[dict] = []
         cursor = None
@@ -223,7 +267,7 @@ class MCPSession:
                 break
         return tools
 
-    def call_tool(self, name: str, arguments: dict | None = None) -> CallResult:
+    def _call_tool_once(self, name: str, arguments: dict | None = None) -> CallResult:
         self._ensure()
         message = self._post("tools/call", {"name": name, "arguments": arguments or {}})
         result = (message or {}).get("result")
@@ -255,21 +299,67 @@ class MCPSession:
             headers[SESSION_HEADER] = self.session_id
         if negotiated and self.protocol_version:
             headers[PROTOCOL_HEADER] = self.protocol_version
+        sent_session = bool(self.session_id)
         try:
-            response = self._http.post(self.url, json=payload, headers=headers)
+            response = self._http.post(
+                self.url, json=payload, headers=headers, timeout=httpx.Timeout(self.timeout),
+            )
         except httpx.TimeoutException as exc:
             raise MCPTimeoutError() from exc
         except httpx.TransportError as exc:
-            raise MCPClientError("mcp_unavailable", f"MCP 服务不可用（{type(exc).__name__}）") from exc
+            raise MCPUnavailableError(f"MCP 服务不可用（{type(exc).__name__}）") from exc
+        # 404 只在「我们带了会话号」时当成会话失效。没带会话号的 404 是地址错误，不能反复握手。
+        if response.status_code == 404 and sent_session:
+            raise MCPSessionExpiredError()
         session = response.headers.get(SESSION_HEADER)
         if session:
             self.session_id = session
+        if response.status_code == 429 or response.status_code >= 500:
+            raise MCPUnavailableError(
+                f"MCP 服务返回 HTTP {response.status_code}",
+                retry_after=_retry_after(response),
+            )
+        if response.status_code >= 400:
+            raise MCPProtocolError(f"MCP 服务返回 HTTP {response.status_code}")
         message = parse_message(response.headers.get("content-type", ""), response.text)
         if message and message.get("error"):
             err = message["error"] if isinstance(message["error"], dict) else {"message": str(message["error"])}
             raise MCPRPCError(str(err.get("message") or "MCP 请求被拒绝"), err.get("code"))
-        if response.status_code >= 400 and message is None:
-            if response.status_code >= 500:
-                raise MCPClientError("mcp_unavailable", f"MCP 服务返回 HTTP {response.status_code}")
-            raise MCPProtocolError(f"MCP 服务返回 HTTP {response.status_code}")
         return message
+
+
+def _retry_after(response: httpx.Response) -> float | None:
+    raw = response.headers.get("Retry-After")
+    if not raw:
+        return None
+    try:
+        return min(5.0, max(0.0, float(raw.strip())))
+    except ValueError:
+        return None
+
+
+# 按 (user_id, server_id) 复用会话与连接。URL 变了就丢掉旧的。
+_POOL: dict[tuple, MCPSession] = {}
+_POOL_LOCK = threading.Lock()
+
+
+def borrow_session(key: tuple, url: str, timeout: float | None = None) -> MCPSession:
+    """取出或创建一条可跨调用复用的会话。调用方不要 close。"""
+    timeout = timeout if timeout is not None else timeout_seconds()
+    with _POOL_LOCK:
+        session = _POOL.get(key)
+        if session is None or session.url != url:
+            if session is not None:
+                session.close()
+            session = MCPSession(url, timeout=timeout)
+            _POOL[key] = session
+        else:
+            session.timeout = timeout
+        return session
+
+
+def drop_session(key: tuple):
+    with _POOL_LOCK:
+        session = _POOL.pop(key, None)
+    if session is not None:
+        session.close()

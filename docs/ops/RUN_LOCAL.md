@@ -56,9 +56,13 @@ curl -s --noproxy '*' http://127.0.0.1:8000/api/health
 5. 打开某个 Bot → 点标题进详情 →「从相册设置头像」→ 使用。回到对话，标题和对方气泡是圆形照片；返回列表，这一行也是。（iOS 不再提供「恢复默认头像」入口。）
 6. 换一个账号登录（或另一台模拟器连同一后端），看不到 demo 的头像字节；demo 再登录，自己的昵称和头像还在。
 
+### 拉到 MCP M2 (schema v8) 之后
+
+无新依赖。`./stop.sh` 后 `./start.sh --detach`，`init_db()` 自动从 v7 迁到 v8（补 `consent_at`、`sync_status`、熔断列）。不改已有 Bot 的工具白名单。已经连上的服务不会被当成已经同意，需要在设置里重新同意后才会调用工具。建议先 `cp data/verabot.db data/verabot.db.bak-before-v8`。列表接口不再同步时连外网。
+
 ### 拉到 MCP M1 (schema v7) 之后
 
-有新依赖（`mcp`、`jsonschema`）。`./stop.sh` 后 `./start.sh --detach`，`uv sync` 会装上，`init_db()` 自动迁到 v7。迁移不改已有 Bot 的工具白名单。建议先 `cp data/verabot.db data/verabot.db.bak-before-v7`。不用填密钥。默认会在用户第一次打开 MCP 列表时连接 Microsoft Learn；AWS 默认关闭。地址见 `.env.example` 里的 `VERABOT_MCP_*`。
+有新依赖（`mcp`、`jsonschema`）。`./stop.sh` 后 `./start.sh --detach`，`uv sync` 会装上，`init_db()` 自动迁到 v7（若已拉到 M2，则会继续迁到 v8）。迁移不改已有 Bot 的工具白名单。建议先 `cp data/verabot.db data/verabot.db.bak-before-v7`。不用填密钥。Microsoft Learn 默认开启，打开列表时在后台同步；AWS 默认关闭。地址见 `.env.example` 里的 `VERABOT_MCP_*`。
 
 ### 拉到 Bot 标签 / 置顶 (schema v5 / v6) 之后
 

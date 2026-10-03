@@ -12,6 +12,13 @@
 
 ### 新增 (Added)
 
+- **MCP M2 (schema v8)**：在 M1 上补产品确认的五项。不改已有 Bot 的 `allowed_tools`，也不把 M1 里已经连上的服务当成已经同意。`frontend/web` 未改，仍然没有 MCP 界面。
+  - **D4 同意**：按服务器记录 `consent_at`（不是全账号一个时间，因为决定写的是「每连接一个服务」）。`POST /api/mcp/servers/{id}/consent`，正文 `{"granted": true|false}`。未同意时工具不进模型 schema；若仍被调用，返回 `mcp_consent_required`，不访问网络。可撤回。iOS 设置详情用系统开关显示状态和同意时间。
+  - **会话**：按用户和服务复用连接与 `Mcp-Session-Id`。HTTP 404（带了会话号）时重新 initialize 并再试一次。
+  - **审计**：每次调用写 `mcp_tool_call`（成功、超时、错误、未同意、熔断），含工具、服务、耗时、`status` / `error_class`、起止时间、`user_id` / `bot_id`、`call_id`。不存外部原文。
+  - **同步**：`GET /api/mcp/servers` 不再在请求里连外网。后台同步，`sync_status` 为 `pending` / `syncing` / `ok` / `error`，并带 `last_synced_at`。手动刷新仍是 `POST .../sync`。
+  - **重试与熔断**：超时、5xx、429、连接错误才重试，默认再试 2 次，退避 `0.5,2` 秒加抖动。工具 `isError` 和 4xx 不重试。非只读且未标幂等的传输失败返回 `result_unknown` 且不重试。连续 5 次传输失败打开熔断 60 秒；到期后探测一次。字段 `circuit_state` / `circuit_open_until` / `consecutive_failures`。配置键见 `.env.example`。
+  - 测试：`mcp_test.py` 假服务器增加 404、5xx 和超时；v6→v8、空库 v8、已有 v7 库升级。公网用例仍要 `VERABOT_MCP_LIVE_TESTS=1`。字段对照见 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §18.3。
 - **MCP M1 (schema v7)**：后端作为 MCP 客户端，连接免授权的公网服务。默认 Microsoft Learn（`VERABOT_MCP_LEARN_URL`，开）；备用 AWS Knowledge（`VERABOT_MCP_AWS_URL`，默认关，不访问网络）。地址可改，见 `backend/.env.example`。不改已有 Bot 的 `allowed_tools`。
   - 传输：自研 Streamable HTTP（`Accept` 同时接受 JSON 与 SSE；有 `Mcp-Session-Id` 才回传；接受服务器协商的更低 `protocolVersion`，之后放进 `MCP-Protocol-Version`）。超时 `VERABOT_MCP_TIMEOUT` 默认 15 秒。工具级 `isError`（`mcp_tool_error`）与 JSON-RPC `error`（`mcp_rpc_error`）分开。官方 SDK `mcp==2.2.0` 已锁定，握手不用它的自动模式。
   - API：`GET /api/mcp/catalog`、`GET/POST /api/mcp/servers`、`PATCH/DELETE /api/mcp/servers/{id}`、`POST /api/mcp/servers/{id}/sync`、`GET /api/mcp/servers/{id}/tools`、`POST /api/mcp/tools/{id}/accept-change`。`GET /api/tools` 增加 `source` / `server` / `server_id` / `risk` / `requires_confirmation` / `delegable` / `status`，并附上已连接且 active 的 MCP 工具；此接口不连外网。公开 JSON 不返回原始 URL。
