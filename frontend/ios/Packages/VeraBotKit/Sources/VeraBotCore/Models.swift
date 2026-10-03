@@ -220,6 +220,38 @@ public enum BotOrdering {
             }
         }
     }
+
+    /// 与后端 db.now_iso() 同格式（UTC、精确到秒、+00:00），便于乐观置顶后与服务端值按字符串排序一致。
+    public static func pinTimestamp(_ date: Date = Date()) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f.string(from: date).replacingOccurrences(of: "Z", with: "+00:00")
+    }
+
+    /// 乐观置顶 / 取消置顶：先在本地改 pinnedAt 并重排，再与服务端同步。
+    /// 新置顶时间取 now；若本机时钟不晚于已有最新置顶，则取其 +1 秒，保证即使本机时钟偏慢也排在最前（与服务端「最新置顶在前」一致）。
+    public static func togglingPin(_ bots: [Bot], id: Int, now: Date = Date()) -> [Bot] {
+        guard let target = bots.first(where: { $0.id == id }) else { return bots }
+        let value: String?
+        if target.isPinned {
+            value = nil
+        } else {
+            let stamp = pinTimestamp(now)
+            if let newest = bots.compactMap(\.pinnedAt).max(), newest >= stamp,
+               let date = ISO8601DateFormatter().date(from: newest) {
+                value = pinTimestamp(date.addingTimeInterval(1))
+            } else {
+                value = stamp
+            }
+        }
+        return sorted(replacingPinnedAt(bots, id: id, value: value))
+    }
+
+    /// 用服务端返回值校正某个 Bot 的 pinnedAt 并重排。
+    public static func replacingPinnedAt(_ bots: [Bot], id: Int, value: String?) -> [Bot] {
+        sorted(bots.map { $0.id == id ? $0.replacingPinnedAt(value) : $0 })
+    }
 }
 
 public struct ToolInfo: Codable, Sendable, Hashable, Identifiable {

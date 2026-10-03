@@ -17,12 +17,13 @@ struct LoginView: View {
         @Bindable var app = app
         VStack(spacing: 18) {
             Spacer()
-            Text("V")
-                .font(.system(size: 40, weight: .heavy))
-                .foregroundStyle(.white)
+            // 与主屏图标一致：AppLogo 由 AppIcon 1024 图生成，含深色外观变体
+            Image("AppLogo")
+                .resizable()
+                .scaledToFit()
                 .frame(width: 76, height: 76)
-                .background(Color.brand,
-                            in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+                .accessibilityHidden(true)
             Text("Vera Bot").font(.largeTitle.bold())
             Text("你的私人 AI 助理团队").foregroundStyle(.secondary)
 
@@ -56,16 +57,26 @@ struct LoginView: View {
                 Task { await submit() }
             } label: {
                 Group {
-                    if loading { ProgressView() } else { Text(isRegister ? "注册并登录" : "登录") }
+                    if loading {
+                        // 白色转圈 + 文案：按钮保持品牌色，不会因禁用变灰导致转圈看不清
+                        HStack(spacing: 8) {
+                            ProgressView().tint(.white)
+                            Text(isRegister ? "正在注册…" : "正在登录…")
+                        }
+                    } else {
+                        Text(isRegister ? "注册并登录" : "登录")
+                    }
                 }
                 .frame(maxWidth: .infinity)
             }
             .prominentButtonStyle()
             .controlSize(.large)
-            .disabled(!canSubmit)
+            .disabled(!canSubmit && !loading)   // 加载中不置灰；由 allowsHitTesting + submit 守卫防重复提交
+            .allowsHitTesting(!loading)
 
             Button(isRegister ? "已有账号？登录" : "还没有账号？注册") { isRegister.toggle() }
                 .font(.footnote)
+                .disabled(loading)
 
             Spacer()
             DisclosureGroup("服务器地址", isExpanded: $showServer) {
@@ -89,6 +100,7 @@ struct LoginView: View {
     }
 
     private func submit() async {
+        guard !loading else { return }
         loading = true
         errorText = nil
         defer { loading = false }

@@ -38,6 +38,9 @@ extension Color {
     static let codeFill = insetFill
     /// 消息里引用块左侧竖条
     static let quoteBar = brandLight
+    /// 置顶：左滑「置顶」按钮底色与行内置顶标记（品牌色）；「取消置顶」用系统灰
+    static let pinTint = brand
+    static let unpinTint = Color(uiColor: .systemGray)
 
     static func dynamic(light: UIColor, dark: UIColor) -> Color {
         Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? dark : light })

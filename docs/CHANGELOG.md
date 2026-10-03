@@ -6,12 +6,17 @@
 
 ### 修复 (Fixed)
 
+- **iOS · 首页置顶动画卡顿 + 置顶图标**：原因是先等 `PATCH /api/bots/{id}` 返回再重排 (点按后要等一次网络往返才动)，而且重排正好撞上左滑按钮收起的动画，录屏里被移动的行会空白约 0.5 s 再跳到新位置。改为乐观更新：等滑动按钮收起 (0.25 s) 后立即 `withAnimation(.snappy)` 用系统 List 行移动，再同步服务端；返回后只校正 `pinned_at` (顺序没变就不再动画)，失败时动画回滚并显示错误；同一 Bot 同步中忽略重复点按。`ForEach` 仍以 `bot.id` 为身份。新增 `BotOrdering.togglingPin` / `replacingPinnedAt` / `pinTimestamp` (与后端 `now_iso()` 同格式，本机时钟偏慢时取已有最新置顶 +1 s)。图标改为 `pin.fill` / `pin.slash.fill`：「置顶」按钮品牌色 `Color.pinTint`，「取消置顶」系统灰 `Color.unpinTint`，行内置顶标记由灰色改为 `pinTint` (出现 / 消失带缩放淡入)。后端未改。Kit 测试 94/94。
+- **iOS · 首页左上角头像左边距**：隐藏共享玻璃底后头像仍按玻璃按钮内边距排版，左边距约 30pt，右侧＋按钮右边距约 16pt；iOS 26 分支左移 14pt，两侧现在都约 16pt。
+- **iOS · 设置 › 账号**：去掉单独的「昵称」输入行和「保存昵称」按钮；点头像仍从相册更换，点昵称弹出系统输入框「修改昵称」(取消 / 保存，规则与接口不变)。头像和昵称是两个独立的点按区域。
+- **iOS · 登录页**：Logo 由「V」字方块改为 App 图标 (新 `AppLogo` 图片集，含深色外观变体)；登录 / 注册中按钮保持品牌色，显示白色转圈 +「正在登录…」/「正在注册…」(之前按钮被禁用变灰，灰色转圈几乎看不见)，加载中不可重复提交、不可切换注册。
 - **iOS · 对话里的 MCP 工具调用**：之前 Trace 标题显示 `🔧 mcp__learn__microsoft_docs_search`，下面直接铺出最长 8000 字的外部原文 (含 `<untrusted_tool_result>` 标记和转义字符)；工具自身错误时把外部原文当错误显示。现在标题为「🔌 Microsoft Learn · 搜索微软文档」，正文只显示一行「已读取外部资料（约 N 字，已截断）」，错误按 code 显示固定说明 (`VeraBotCore.MCPTraceText`)。后端 `label_for` 优先用目录里的中文名 (Learn 服务器自带英文 title，之前界面显示英文)。Kit 测试 93/93。
 - **iOS · 头像实验室**：深色模式状态角标几乎看不清 (改为实色底 `avatarMarkFill` + 角色背景色描边 + 阴影)；角标挡住 V豆 顶部圆点和星点的星光 (移到右下角，尺寸 0.26)；「按状态机演示」停止后马上再开始可能两轮叠加、按钮状态错乱 (加运行令牌，手动选状态也会停止演示；演示帧事先由真实 `ExecutionStateMachine` 算好 `AvatarLabDemo.frames`)；角色固定 hex 色改为 `Theme.swift` 头像语义色 (浅色 / 深色各一套)。文档里演示顺序更正为 思考 → 委派 → 思考 → 执行 → 阻塞 → 思考 → 回复 → 完成 → 空闲。
 - **工具**：新增 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，离屏渲染 + 检查 AVLAB-T01~T13，输出浅色 / 深色对照图)，不进 App target。iPhone 17 模拟器截图 / 录屏复测 (AVLAB-02、T14)。
 
 ### 新增 (Added)
 
+- **方案文档**：[design/AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) 账号体系改为邮箱 / 手机号登录的方案草案 (现状审计、目标模型、分阶段流程、demo 迁移、API 与 iOS 同步、限流等安全措施、里程碑、待 Boss 决定事项)，未改代码。
 - **MCP M1 (schema v7)**：后端作为 MCP 客户端，连接免授权的公网服务。默认 Microsoft Learn（`VERABOT_MCP_LEARN_URL`，开）；备用 AWS Knowledge（`VERABOT_MCP_AWS_URL`，默认关，不访问网络）。地址可改，见 `backend/.env.example`。不改已有 Bot 的 `allowed_tools`。
   - 传输：自研 Streamable HTTP（`Accept` 同时接受 JSON 与 SSE；有 `Mcp-Session-Id` 才回传；接受服务器协商的更低 `protocolVersion`，之后放进 `MCP-Protocol-Version`）。超时 `VERABOT_MCP_TIMEOUT` 默认 15 秒。工具级 `isError`（`mcp_tool_error`）与 JSON-RPC `error`（`mcp_rpc_error`）分开。官方 SDK `mcp==2.2.0` 已锁定，握手不用它的自动模式。
   - API：`GET /api/mcp/catalog`、`GET/POST /api/mcp/servers`、`PATCH/DELETE /api/mcp/servers/{id}`、`POST /api/mcp/servers/{id}/sync`、`GET /api/mcp/servers/{id}/tools`、`POST /api/mcp/tools/{id}/accept-change`。`GET /api/tools` 增加 `source` / `server` / `server_id` / `risk` / `requires_confirmation` / `delegable` / `status`，并附上已连接且 active 的 MCP 工具；此接口不连外网。公开 JSON 不返回原始 URL。

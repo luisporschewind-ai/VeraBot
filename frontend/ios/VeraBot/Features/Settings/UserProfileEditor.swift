@@ -3,52 +3,60 @@ import UIKit
 import VeraBotCore
 import VeraBotNetworking
 
-/// 设置页「账号」分组：头像（从相册更换）、昵称。服务器地址见调试页。改完写入 AppState，首页和对话立刻跟着变。
+/// 设置页「账号」分组：点头像从相册更换，点昵称弹窗修改。服务器地址见调试页。改完写入 AppState，首页和对话立刻跟着变。
 struct AccountSettingsSection: View {
     @Environment(AppState.self) private var app
     @State private var draft = ""
-    @State private var baseline = ""
+    @State private var editingNickname = false
     @State private var errorText: String?
     @State private var saving = false
 
     var body: some View {
         Section {
-        HStack(spacing: 12) {
-            AvatarPhotoPicker { image in
-                try await upload(image)
-            } label: {
-                UserAvatar(name: app.displayName, image: app.avatars.userImage, size: 44)
-            }
-            .accessibilityLabel("更换头像")
-            VStack(alignment: .leading, spacing: 2) {
-                Text(app.displayName).font(.headline)
-                Text("用户名 \(app.username ?? "")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .onAppear { syncIfClean(force: true) }
-        .onChange(of: app.displayName) { _, _ in syncIfClean(force: false) }
-        TextField("昵称", text: $draft)
-            .textInputAutocapitalization(.never)
-            .submitLabel(.done)
-            .onSubmit { Task { await saveNickname() } }
-        if draft.trimmingCharacters(in: .whitespacesAndNewlines) != baseline {
-            Button(saving ? "正在保存…" : "保存昵称") { Task { await saveNickname() } }
+            HStack(spacing: 12) {
+                // 点头像：从相册更换；点昵称：弹出系统输入框修改。两者是独立的点按区域（borderless）。
+                AvatarPhotoPicker { image in
+                    try await upload(image)
+                } label: {
+                    UserAvatar(name: app.displayName, image: app.avatars.userImage, size: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("更换头像")
+                Button {
+                    draft = app.displayName
+                    editingNickname = true
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            // 按钮内 .primary 会被解析成强调色，这里显式用系统文字色，保持与普通行一致
+                            Text(app.displayName).font(.headline).foregroundStyle(Color.primary)
+                            Text("用户名 \(app.username ?? "")")
+                                .font(.caption)
+                                .foregroundStyle(Color.secondary)
+                        }
+                        Spacer(minLength: 8)
+                        if saving { ProgressView() }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
                 .disabled(saving)
-        }
-        if let errorText {
-            Text(errorText).font(.footnote).foregroundStyle(.red)
-        }
+                .accessibilityLabel("昵称 \(app.displayName)")
+                .accessibilityHint("点按修改昵称")
+            }
+            if let errorText {
+                Text(errorText).font(.footnote).foregroundStyle(.red)
+            }
         } header: {
             Text("账号")
         }
-    }
-
-    private func syncIfClean(force: Bool) {
-        if force || draft == baseline {
-            draft = app.displayName
-            baseline = app.displayName
+        .alert("修改昵称", isPresented: $editingNickname) {
+            TextField("昵称", text: $draft)
+                .textInputAutocapitalization(.never)
+            Button("取消", role: .cancel) {}
+            Button("保存") { Task { await saveNickname() } }
+        } message: {
+            Text("最多 32 个字")
         }
     }
 
@@ -59,8 +67,6 @@ struct AccountSettingsSection: View {
             return
         }
         if cleaned == app.displayName && app.nickname != nil {
-            baseline = cleaned
-            draft = cleaned
             errorText = nil
             return
         }
@@ -69,8 +75,6 @@ struct AccountSettingsSection: View {
         do {
             let user = try await app.api.updateNickname(cleaned)
             app.applyUser(user)
-            draft = app.displayName
-            baseline = app.displayName
             errorText = nil
         } catch {
             errorText = app.message(for: error)
