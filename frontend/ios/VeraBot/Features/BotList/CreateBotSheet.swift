@@ -6,22 +6,19 @@ struct CreateBotSheet: View {
     @Environment(\.dismiss) private var dismiss
     let onCreated: @MainActor () -> Void
 
-    @State private var draft = BotCreate(name: "", avatar: "🤖", color: "#0f766e", persona: "", instructions: "")
+    @State private var draft = BotCreate(name: "", avatar: BotAvatarFigure.default.rawValue, color: BotLook.colors[0], persona: "", instructions: "")
     @State private var saving = false
     @State private var errorText: String?
     @State private var tagsText = ""   // 「搜索, 查询, 调研」；保存时 BotTagRules.parse
     private enum Field: Hashable { case name, persona, instructions }
     @FocusState private var focus: Field?
 
-    private let emojis = BotLook.emojis
-    private let colors = BotLook.colors
-
     var body: some View {
         NavigationStack {
             ThemedForm {
                 Section {
                     HStack(spacing: 14) {
-                        BotAvatar(emoji: draft.avatar, color: draft.color, size: 56)
+                        DefaultBotFigure(storedAvatar: draft.avatar, size: 56)
                         TextField("昵称，如：小研", text: $draft.name)
                             .focused($focus, equals: .name)
                             .submitLabel(.next)
@@ -29,25 +26,14 @@ struct CreateBotSheet: View {
                     }
                     BotTagsField(text: $tagsText)
                 }
-                Section("头像") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 8) {
-                        ForEach(emojis, id: \.self) { e in
-                            Text(e).font(.title2)
-                                .frame(width: 34, height: 34)
-                                .background(draft.avatar == e ? Color.brandSoft : .clear,
-                                            in: RoundedRectangle(cornerRadius: 8))
-                                .onTapGesture { draft.avatar = e }
-                        }
+                Section {
+                    BotFigurePicker(selection: BotAvatarFigure(stored: draft.avatar)) { figure in
+                        draft.avatar = figure.rawValue
                     }
-                }
-                Section("颜色") {
-                    HStack {
-                        ForEach(colors, id: \.self) { c in
-                            Circle().fill(Color(hex: c)).frame(width: 28, height: 28)
-                                .overlay(Circle().stroke(Color.primary, lineWidth: draft.color == c ? 2 : 0))
-                                .onTapGesture { draft.color = c }
-                        }
-                    }
+                } header: {
+                    Text("默认形象")
+                } footer: {
+                    Text("设置了相册照片时，优先显示照片。")
                 }
                 Section {
                     TextField("例如：资深研究员，擅长资料检索与总结", text: $draft.persona, axis: .vertical)

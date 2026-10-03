@@ -303,6 +303,106 @@ private let failedTool = trace(#"{"id":"c1","name":"get_weather","args":{},"resu
     #expect(m.state == .delegating(botName: "小研", progress: DelegationProgress(botName: "小研", depth: 1)))
 }
 
+@Test func execResetCancelsBlockedTimer() {
+    var c = ExecutionAvatarController()
+    _ = c.send(.sent)
+    let started = c.send(.toolResult(deniedTool))
+    #expect(started == [.startBlocked(serial: 1)])
+    let reset = c.send(.reset)
+    #expect(reset == [.cancelBlocked])
+    #expect(c.state == .idle)
+    #expect(c.blockedFired(serial: 1).isEmpty)
+    #expect(c.state == .idle)
+}
+
+@Test func execCompletedReturnsToIdleAfterDelay() {
+    var c = ExecutionAvatarController()
+    _ = c.send(.sent)
+    _ = c.send(.delta("好"))
+    let done = c.send(.done)
+    #expect(c.state == .completed)
+    #expect(done == [.startIdle])
+    #expect(ExecutionStateMachine.completedIdleDelay == .milliseconds(1500))
+    #expect(ExecutionStateMachine.blockedDisplayDuration == .milliseconds(1200))
+    let back = c.idleFired()
+    #expect(c.state == .idle)
+    #expect(back == [.cancelIdle])
+    #expect(c.idleFired().isEmpty)
+}
+
+@Test func execResetAndSendCancelIdleTimer() {
+    var c = ExecutionAvatarController()
+    _ = c.send(.sent)
+    _ = c.send(.delta("好"))
+    _ = c.send(.done)
+    let reset = c.send(.reset)
+    #expect(reset == [.cancelIdle])
+    #expect(c.idleFired().isEmpty)
+    #expect(c.state == .idle)
+
+    _ = c.send(.sent)
+    _ = c.send(.delta("好"))
+    _ = c.send(.done)
+    let again = c.send(.sent)
+    #expect(again == [.cancelIdle])
+    #expect(c.state == .thinking)
+    #expect(c.idleFired().isEmpty)
+    #expect(c.state == .thinking)
+}
+
+@Test func execAwaitingConfirmationAndFailureDoNotArmIdle() {
+    var waiting = ExecutionAvatarController()
+    _ = waiting.send(.sent)
+    _ = waiting.send(.toolResult(rememberResult()))
+    let done = waiting.send(.done)
+    #expect(waiting.state == .awaitingConfirmation)
+    #expect(!done.contains(.startIdle))
+    #expect(waiting.idleFired().isEmpty)
+    #expect(waiting.state == .awaitingConfirmation)
+
+    var failed = ExecutionAvatarController()
+    _ = failed.send(.sent)
+    let err = failed.send(.error("网络异常"))
+    #expect(failed.state == .failed(message: "网络异常"))
+    #expect(!err.contains(.startIdle))
+}
+
+@Test func execLeavingBlockedCancelsTimer() {
+    var c = ExecutionAvatarController()
+    _ = c.send(.sent)
+    _ = c.send(.toolResult(deniedTool))
+    let next = c.send(.delta("抱歉"))
+    #expect(next == [.cancelBlocked])
+    #expect(c.state == .replying)
+    #expect(c.blockedFired(serial: 1).isEmpty)
+    #expect(c.state == .replying)
+}
+
+@Test func execSecondBlockReplacesTimer() {
+    var c = ExecutionAvatarController()
+    _ = c.send(.sent)
+    _ = c.send(.toolResult(deniedTool))
+    let second = c.send(.toolResult(failedTool))
+    #expect(second == [.cancelBlocked, .startBlocked(serial: 2)])
+    #expect(c.blockedFired(serial: 1).isEmpty)
+    let resume = c.blockedFired(serial: 2)
+    #expect(resume == [.cancelBlocked])
+    #expect(c.state == .thinking)
+}
+
+@Test func execDoneWhileBlockedSwitchesToIdleTimer() {
+    var c = ExecutionAvatarController()
+    _ = c.send(.sent)
+    _ = c.send(.toolResult(deniedTool))
+    let done = c.send(.done)
+    #expect(done == [.cancelBlocked, .startIdle])
+    #expect(c.state == .completed)
+    #expect(c.blockedFired(serial: 1).isEmpty)
+    let end = c.send(.streamEnded)
+    #expect(end.isEmpty)
+    #expect(c.state == .completed)
+}
+
 @Test func execFailedRememberResultBlocks() {
     let capped = trace(#"{"id":"c3","name":"remember","args":{"content":"x"},"result":{"error":"本轮提议次数已达上限","code":"proposal_cap"}}"#)
     let m = run([.sent, .toolResult(capped)])

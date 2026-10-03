@@ -91,21 +91,8 @@ struct BotEditView: View {
             }
 
             Section {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(BotLook.emojis, id: \.self) { e in
-                            Text(e).font(.title3).frame(width: 32, height: 32)
-                                .background(avatar == e ? Color.brandSoft : .clear, in: RoundedRectangle(cornerRadius: 8))
-                                .onTapGesture { avatar = e }
-                        }
-                    }
-                }
-                HStack {
-                    ForEach(BotLook.colors, id: \.self) { c in
-                        Circle().fill(Color(hex: c)).frame(width: 28, height: 28)
-                            .overlay(Circle().stroke(Color.primary, lineWidth: BotLook.sameColor(color, c) ? 2 : 0))
-                            .onTapGesture { color = c }
-                    }
+                BotFigurePicker(selection: BotAvatarFigure(stored: avatar.isEmpty ? bot.avatar : avatar)) { figure in
+                    avatar = figure.rawValue
                 }
             } header: {
                 Text("默认形象")
@@ -309,16 +296,16 @@ struct BotEditView: View {
         .task { await load() }
     }
 
-    /// 卡片头像：未保存的新照片 > 待删除（显示默认形象）> 已保存的照片 / 默认形象；表情与底色实时预览。
+    /// 卡片头像：未保存的新照片 > 待删除（显示默认形象）> 已保存的照片 / 默认形象。
     @ViewBuilder private var cardAvatar: some View {
-        let emoji = avatar.isEmpty ? bot.avatar : avatar
+        let stored = avatar.isEmpty ? bot.avatar : avatar
         let tint = color.isEmpty ? bot.color : color
         if let pendingImage {
-            BotAvatar(emoji: emoji, color: tint, image: pendingImage, size: 72)
-        } else if draft.photo == .remove {
-            BotAvatar(emoji: emoji, color: tint, size: 72)
+            BotAvatar(emoji: stored, color: tint, image: pendingImage, size: 72)
+        } else if draft.photo == .remove || !savedBot.hasAvatar {
+            DefaultBotFigure(storedAvatar: stored, size: 72)
         } else {
-            LiveBotAvatar(botID: bot.id, emoji: emoji, color: tint,
+            LiveBotAvatar(botID: bot.id, emoji: stored, color: tint,
                           hasAvatar: savedBot.hasAvatar, updatedAt: savedBot.avatarUpdatedAt, size: 72)
         }
     }
