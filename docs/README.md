@@ -12,6 +12,7 @@
 | design/ | [MULTI_AGENT_DESIGN.md](design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限模型、上下文隔离、护栏、审计、迁移、设置页 / TTS 扩展 |
 | design/ | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | **设计 v1.0 已批准；M1 与 M2 已实现**（schema v8：免授权 Learn / AWS、按服务同意、会话复用、审计、后台同步、熔断。字段对照见 §18）。其上的插件 P1 见下一行。M3 起（OAuth、HITL、Gmail、自定义 URL）仍是设计，未实现。`frontend/web` 冻结，没有 MCP 界面 |
 | design/ | [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) | **v1.0 已定稿并实现（schema v10）**：插件是用户看到的产品层，MCP 是能力。新账号不预装；内置天气 / 提醒与外部 Learn / AWS。字段对照见 MCP §18.4。`frontend/web` 冻结，插件 P1 没有 Web 对应 |
+| design/ | [MCP_AUTH_CONNECTORS_PLAN.md](design/MCP_AUTH_CONNECTORS_PLAN.md) | **方案 v0.1 草案（未实现）**：需授权 MCP 连接器 — 静态令牌（GitHub fine-grained PAT 只读）与 OAuth 2.1（PKCE + PRM + DCR）统一抽象、iOS Keychain → 后端加密存储、`needs_auth` 流程、主流服务对照（Vercel / Linear / Notion / Sentry / Slack / Figma / Atlassian / Stripe）、CONN-xx 测试、P1–P3 分期与待决定事项 |
 | design/ | [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) | **v1.0 已定稿，R1 已实现（schema v11）**：提醒状态机、本地通知、收件箱与偏好。字段对照见 §8。SQL 在 `db/reminder_store.py`。APNs 未做。`frontend/web` 冻结 |
 | design/ | [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md) | **v1.0 定稿 (P1 未实现)**：聊天图片附件 — DeepSeek 视觉核查、P0 模型迁移 (已完成)、iOS PhotosPicker (每条 1 张、GIF 动画)、两步上传、按需召回 (图片描述 + 回指时重发原图)、委派转发图片、带图轮次写操作确认、schema v12、字段对照、ATT-xx 测试；Q1–Q12 Boss 已全部决定 |
 | design/ | [ATTACHMENT_STORAGE_RESEARCH.md](design/ATTACHMENT_STORAGE_RESEARCH.md) | **调研 (已采纳)**：附件存储 — 本地磁盘 + SQLite 元数据 + 薄存储接口、鉴权代理 + `no-store`、原子写入、孤儿对账、备份、FileVault + 0700、上云迁移路径 (Sonic) |
