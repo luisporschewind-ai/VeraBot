@@ -1,4 +1,5 @@
 import Foundation
+import VeraBotCore
 import VeraBotNetworking
 
 /// 对话图片的内存缓存（只在内存，不落盘；服务器响应是 no-store）。
@@ -40,15 +41,16 @@ final class AttachmentImageStore {
 }
 
 /// 全屏查看（Quick Look）需要文件 URL：临时写到 tmp/vb-attachment-preview，关闭预览或退出登录时删除。
+/// 写入的是原图字节（不重新编码）；扩展名按文件头取（GIF → .gif），Quick Look 按扩展名识别类型，GIF 才会播放动画。
 enum AttachmentPreviewFiles {
     static var directory: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("vb-attachment-preview", isDirectory: true)
     }
 
-    static func write(_ data: Data, id: String, isGIF: Bool) -> URL? {
+    static func write(_ data: Data, id: String) -> URL? {
         let dir = directory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let url = dir.appendingPathComponent("\(id).\(isGIF ? "gif" : "jpg")")
+        let url = dir.appendingPathComponent(id).appendingPathExtension(AttachmentLimits.fileExtension(for: data))
         do {
             try data.write(to: url, options: [.atomic, .completeFileProtection])
             return url

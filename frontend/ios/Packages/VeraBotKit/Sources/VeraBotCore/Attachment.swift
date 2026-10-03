@@ -49,6 +49,13 @@ public enum AttachmentLimits {
     public static func isGIF(_ data: Data) -> Bool {
         data.count >= 6 && (data.prefix(6) == Data("GIF89a".utf8) || data.prefix(6) == Data("GIF87a".utf8))
     }
+
+    /// 按文件头取扩展名（gif / png / jpg），用于写 Quick Look 预览文件：系统按扩展名识别类型，GIF 必须是 .gif 才播放动画。
+    public static func fileExtension(for data: Data) -> String {
+        if isGIF(data) { return "gif" }
+        if data.starts(with: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) { return "png" }
+        return "jpg"
+    }
 }
 
 /// POST /api/bots/{id}/chat 请求体。`attachment_ids` 最多 1 个；有图时 message 可以为空。
