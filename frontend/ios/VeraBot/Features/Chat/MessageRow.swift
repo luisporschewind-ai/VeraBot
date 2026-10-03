@@ -21,9 +21,11 @@ struct MessageRow: View {
             }
     }
 
-    /// 长按菜单：复制 / 复制链接 + 删除（系统 destructive 样式，点按后用系统确认框二次确认）
+    /// 长按菜单：复制 / 复制链接（有正文时）+ 删除（系统 destructive 样式，点按后用系统确认框二次确认）
     @ViewBuilder private var messageMenu: some View {
-        MessageCopyMenu(text: item.text)
+        if !item.text.isEmpty {
+            MessageCopyMenu(text: item.text)
+        }
         if canDelete {
             Button(role: .destructive) { confirmDelete = true } label: { Label("删除", systemImage: "trash") }
         }
@@ -66,13 +68,15 @@ struct MessageRow: View {
                         MessageContentView(text: item.text + (item.streaming ? " ▍" : ""))
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .contextMenu { messageMenu }   // 长按：复制 / 复制链接 / 删除
                     }
                     if ttsEnabled && !item.streaming && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)
                     }
                 }
+                // 长按整条回复（气泡与工具卡片）：复制 / 复制链接 / 删除；只有工具卡片、没有正文的回复也能删除。
+                // 卡片里的按钮（记忆确认等）点按照常响应。
+                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .contextMenu { messageMenu }
                 Spacer(minLength: 24)
             }
         }

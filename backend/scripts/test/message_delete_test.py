@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""删除单条消息 MSG-DEL-01..07：DELETE /api/bots/{bot_id}/messages/{message_id}。
+"""删除单条消息 MSG-DEL-01..09：DELETE /api/bots/{bot_id}/messages/{message_id}。
 临时 SQLite + FastAPI TestClient，不调用 LLM、不触碰正式数据库。
 运行（在 backend/ 下）：uv run python scripts/test/message_delete_test.py
 """
@@ -87,6 +87,33 @@ check("MSG-DEL-07", "iOS 契约：DELETE /api/bots/{bot_id}/messages/{message_id
       "delete" in paths.get("/api/bots/{bot_id}/messages/{message_id}", {})
       and re.search(r'func deleteMessage\(botID: Int, messageID: Int\).*?"/api/bots/\\\(botID\)/messages/\\\(messageID\)", method: "DELETE"',
                     client, re.S) is not None)
+
+# SSE done 带 user_message_id（新增字段）：刚发出的用户消息可立即删除（mock LLM，不消耗 Token）
+import json as _json
+from verabot.services import llm
+async def fake_stream(messages, tools):
+    yield "delta", "好的"
+    yield "usage", {"total_tokens": 1}
+    yield "finish", "stop"
+async def fake_complete(messages, tools):
+    return {"content": "", "_finish_reason": "stop"}, {"total_tokens": 0}
+llm.stream_chat, llm.complete = fake_stream, fake_complete
+done, cur = None, None
+for line in cli.post(f"/api/bots/{bot_b['id']}/chat", json={"message": "删我"}, headers=h).text.splitlines():
+    if line.startswith("event:"):
+        cur = line[6:].strip()
+    elif line.startswith("data:") and cur == "done":
+        done = _json.loads(line[5:])
+hist = cli.get(f"/api/bots/{bot_b['id']}/messages", headers=h).json()["messages"]
+user_row = next((m for m in hist if m["role"] == "user" and m["content"] == "删我"), None)
+check("MSG-DEL-08", "done 含 user_message_id = 本轮用户消息 id（message_id 仍为回复 id），可立即删除",
+      done is not None and user_row is not None and done.get("user_message_id") == user_row["id"]
+      and done.get("message_id") == hist[-1]["id"] and hist[-1]["role"] == "assistant"
+      and cli.delete(url(bot_b["id"], user_row["id"]), headers=h).status_code == 200
+      and [m["id"] for m in cli.get(f"/api/bots/{bot_b['id']}/messages", headers=h).json()["messages"]] == [hist[-1]["id"]])
+check("MSG-DEL-09", "iOS 契约：ChatDone 解码同名键 user_message_id（decodeIfPresent，旧后端缺省为 nil）",
+      'case userMessageID = "user_message_id"' in client
+      and "decodeIfPresent(Int.self, forKey: .userMessageID)" in client)
 
 print(f"{sum(RESULTS)}/{len(RESULTS)} PASS")
 sys.exit(0 if all(RESULTS) else 1)

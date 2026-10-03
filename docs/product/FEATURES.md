@@ -103,12 +103,13 @@ Bot 详情改版字段映射 (2026-10-01，**无 API 变更**，全部是已有�
 | — (iOS 计算) | `Quota.usedPercent` / `usedPercentText` | 设置 › 用量 行右侧「已用 N%」 |
 | `model` / `total` / `per_bot` / `daily` / `delegations` / `transcribe` | `model` / `total` / `perBot` / `daily` / `delegations` / `transcribe` | 用量看板其余内容 (不变) |
 
-删除单条消息字段映射 (由 `message_delete_test.py` MSG-DEL-07 读取 Swift 源码断言路径与方法一致)：
+删除单条消息字段映射 (由 `message_delete_test.py` MSG-DEL-07 / 09 读取 Swift 源码断言路径、方法与键名一致；MSG-DEL-08 断言后端实际发出该字段)：
 
 | 后端 | iOS | 说明 |
 |---|---|---|
 | `DELETE /api/bots/{bot_id}/messages/{message_id}` | `VeraBotAPI.deleteMessage(botID:messageID:)` → `OKResponse` | 404 时 `APIError.status == 404`，`ChatViewModel.delete` 按已删除处理并移除该条 |
-| `GET …/messages` 的 `messages[].id` / SSE `done.message_id` | `ChatViewModel.Item.messageID` | 有 id 才显示「删除」；刚发出的用户消息在重新进入对话前没有 id |
+| `GET …/messages` 的 `messages[].id` / SSE `done.message_id` | `ChatDone.messageID` → `ChatViewModel.Item.messageID` (回复) | 有 id 才显示「删除」；流式输出中不显示 |
+| SSE `done.user_message_id` (新增，仅追加字段；旧客户端 / Web 忽略) | `ChatDone.userMessageID` (`decodeIfPresent`，旧后端为 nil) → 刚发出的用户消息的 `messageID` | 回复结束即可删除刚发出的用户消息 |
 
 SSE `status` 事件字段映射 (`agents/runtime.py` `status_data` ↔ iOS `VeraBotCore.ChatStatus`，由 `status_event_test.py` STAT-08 读取 Swift 源码断言键名与 phase 取值一致)：
 

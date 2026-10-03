@@ -692,9 +692,13 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MSG-DEL-05 | 后端 | 越权请求后 | 不删除任何数据 | 通过 |
 | MSG-DEL-06 | 后端 | 删除用户消息；未登录 | 200 且只删这一条；未登录 401 | 通过 |
 | MSG-DEL-07 | 契约 | 路由 ↔ `APIClient.deleteMessage(botID:messageID:)` | 路径与方法一致 | 通过 |
+| MSG-DEL-08 | 后端 (mock LLM) | SSE `done` | 含 `user_message_id` = 本轮用户消息 id，`message_id` 仍为回复 id；用该 id 立即删除 → 200，只剩回复 | 通过 |
+| MSG-DEL-09 | 契约 | `ChatDone` CodingKeys | `userMessageID = "user_message_id"`，`decodeIfPresent` | 通过 |
 | MSG-DEL-K-01 | iOS Kit | `deleteMessage(botID: 42, messageID: 7)` 请求形状 | `DELETE /api/bots/42/messages/7`，无查询参数 | 通过 (`swift test` 142/142，Mac) |
 | MSG-DEL-K-02 | iOS Kit | 服务器 404 | 抛出 `APIError.status == 404` | 通过 |
+| MSG-DEL-K-03 | iOS Kit | `ChatDone` 解码新 / 旧 done | 新：`userMessageID == 8`；旧 (无该键)：nil，不报错 | 待跑 |
 | MSG-DEL-UI-01 | iOS 模拟器 | 长按用户 / Bot 气泡 →「删除」→ 确认框「取消」 | 菜单有「复制」与红色「删除」；确认框为系统样式；取消后不调用 API | 待验收 |
 | MSG-DEL-UI-02 | iOS 模拟器 | 确认「删除」 | 该条从对话中消失，同一轮另一条保留；重新进入仍不显示；失败时对话底部显示错误 | 待验收 |
-| MSG-DEL-UI-03 | iOS 模拟器 | 欢迎语、正在生成的回复、刚发出的用户消息 | 不显示「删除」(刚发出的用户消息重新进入对话后可删)；回复完成后可删 | 待验收 |
+| MSG-DEL-UI-03 | iOS 模拟器 | 欢迎语、正在生成的回复、刚发出的用户消息 | 欢迎语与生成中不显示「删除」；回复结束后，刚收到的回复与刚发出的用户消息都可立即删除 (不用重新进入) | 待验收 |
+| MSG-DEL-UI-05 | iOS 模拟器 | 只有工具卡片、没有正文的回复 (长按卡片区域) | 菜单只有「删除」(无正文时不显示复制)；卡片里的按钮 (如记忆确认) 点按照常 | 待验收 |
 | MSG-DEL-UI-04 | iOS 模拟器 | 通过搜索 / 通知跳到已删除的消息 | 不崩溃，滚到底部 | 待验收 |

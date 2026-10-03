@@ -54,7 +54,7 @@ def messages_delete(bot_id: int, message_id: int, user=Depends(current_user)):
 
 @router.post("/api/bots/{bot_id}/chat")
 async def chat(bot_id: int, body: ChatIn, user=Depends(current_user)):
-    """SSE 流式对话。事件：delta / tool_start / tool_result / error / done（done 含 message_id、usage、memory_ids）"""
+    """SSE 流式对话。事件：delta / tool_start / tool_result / error / done（done 含 message_id、user_message_id、usage、memory_ids）"""
     bot = require_bot(user, bot_id)
     used, budget = db.token_budget(user["id"])
     if used >= budget:   # BUG-06：每用户每日 Token 预算（Token budget）服务端强制

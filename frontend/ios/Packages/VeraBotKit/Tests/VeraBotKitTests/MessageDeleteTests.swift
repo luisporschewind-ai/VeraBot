@@ -3,7 +3,7 @@ import Testing
 @testable import VeraBotCore
 @testable import VeraBotNetworking
 
-// 删除单条消息（MSG-DEL-K-01..02）：APIClient 请求形状与后端 DELETE /api/bots/{bot_id}/messages/{message_id} 一致。
+// 删除单条消息（MSG-DEL-K-01..03）：APIClient 请求形状与后端 DELETE /api/bots/{bot_id}/messages/{message_id} 一致。
 
 /// 本地桩：记录收到的方法 + 路径；/messages/404 回 404，其余回 {"ok":true}
 final class MessageDeleteStub: URLProtocol, @unchecked Sendable {
@@ -50,4 +50,12 @@ private func deleteStubClient() -> APIClient {
     } catch {
         Issue.record("unexpected \(error)")
     }
+}
+
+@Test func chatDoneDecodesUserMessageID() throws {
+    // MSG-DEL-K-03：新后端带 user_message_id；旧后端不带时为 nil（向后兼容）
+    let new = try JSONDecoder().decode(ChatDone.self, from: Data(#"{"message_id":9,"user_message_id":8,"usage":{},"memory_ids":[]}"#.utf8))
+    #expect(new.messageID == 9 && new.userMessageID == 8)
+    let old = try JSONDecoder().decode(ChatDone.self, from: Data(#"{"message_id":9}"#.utf8))
+    #expect(old.messageID == 9 && old.userMessageID == nil && old.memoryIDs.isEmpty)
 }

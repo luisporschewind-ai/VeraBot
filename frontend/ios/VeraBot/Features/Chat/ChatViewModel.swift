@@ -207,7 +207,9 @@ final class ChatViewModel {
                 case .error(let msg):
                     appendError(msg, at: idx)
                 case .done(let d):
-                    items[idx].messageID = d.messageID   // 落库后的 id：刚收到的回复也能长按删除
+                    // 落库后的 id：刚收到的回复与刚发出的用户消息（idx - 1）都能立即长按删除；旧后端不发 user_message_id
+                    items[idx].messageID = d.messageID
+                    if let uid = d.userMessageID { items[idx - 1].messageID = uid }
                 case .status:
                     break   // 只驱动导航栏头像；消息正文不显示 status
                 case .notification:

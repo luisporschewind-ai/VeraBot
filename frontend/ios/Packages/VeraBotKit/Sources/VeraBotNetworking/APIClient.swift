@@ -47,24 +47,28 @@ extension ChatEvent {
     }
 }
 
-/// SSE done 事件：本条回复的消息 id，以及本轮注入了哪些记忆（v4 起，旧后端为空）。
+/// SSE done 事件：本条回复的消息 id、本轮用户消息的 id（`user_message_id`，旧后端不发 → nil），以及本轮注入了哪些记忆（v4 起，旧后端为空）。
 public struct ChatDone: Decodable, Sendable, Hashable {
     public let messageID: Int?
+    public let userMessageID: Int?
     public let memoryIDs: [Int]
 
     enum CodingKeys: String, CodingKey {
         case messageID = "message_id"
+        case userMessageID = "user_message_id"
         case memoryIDs = "memory_ids"
     }
 
-    public init(messageID: Int? = nil, memoryIDs: [Int] = []) {
+    public init(messageID: Int? = nil, userMessageID: Int? = nil, memoryIDs: [Int] = []) {
         self.messageID = messageID
+        self.userMessageID = userMessageID
         self.memoryIDs = memoryIDs
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         messageID = try c.decodeIfPresent(Int.self, forKey: .messageID)
+        userMessageID = try c.decodeIfPresent(Int.self, forKey: .userMessageID)
         memoryIDs = try c.decodeIfPresent([Int].self, forKey: .memoryIDs) ?? []
     }
 }

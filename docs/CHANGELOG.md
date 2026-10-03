@@ -45,7 +45,7 @@
 
 ### 新增 (Added)
 
-- **删除单条消息**：iOS 对话页长按用户 / Bot 气泡，在「复制」旁新增「删除」(`Button(role: .destructive)`，系统 `confirmationDialog` 二次确认)，只删这一条，不连带同一轮的另一条。欢迎语、正在生成的回复不显示删除；SSE `done.message_id` 写回刚收到的回复，回复完成即可删除。用户气泡原来没有长按菜单，现在与 Bot 气泡一致（复制 / 复制链接 / 删除）。后端新接口 `DELETE /api/bots/{bot_id}/messages/{message_id}` → `{ok: true}`，物理删除，按 `user_id` + `bot_id` 限定，他人 / 不存在 / 不匹配一律相同的 404；引用该消息的记忆、通知、提醒按既有外键 / 触发器置 NULL，**已提取的记忆不删除**。无 schema 变更 (v11)。iOS `VeraBotAPI.deleteMessage(botID:messageID:)`。测试：`message_delete_test.py` 7/7、`MessageDeleteTests` 2 个。未含附件处理（附件 P1 合并后补）。Web 未接入（见 STATUS 已知限制）。
+- **删除单条消息**：iOS 对话页长按用户 / Bot 气泡，在「复制」旁新增「删除」(`Button(role: .destructive)`，系统 `confirmationDialog` 二次确认)，只删这一条，不连带同一轮的另一条。欢迎语、正在生成的回复不显示删除。SSE `done` 新增 `user_message_id`（仅追加字段，旧客户端 / Web 忽略）；iOS 把 `message_id` / `user_message_id` 写回刚收到的回复与刚发出的用户消息，回复结束即可删除两者，不用重新进入对话。长按菜单挂在整条 Bot 回复上（气泡 + 工具卡片），只有工具卡片、没有正文的回复也能删除（无正文时不显示复制）。用户气泡原来没有长按菜单，现在与 Bot 气泡一致（复制 / 复制链接 / 删除）。后端新接口 `DELETE /api/bots/{bot_id}/messages/{message_id}` → `{ok: true}`，物理删除，按 `user_id` + `bot_id` 限定，他人 / 不存在 / 不匹配一律相同的 404；引用该消息的记忆、通知、提醒按既有外键 / 触发器置 NULL，**已提取的记忆不删除**。无 schema 变更 (v11)。iOS `VeraBotAPI.deleteMessage(botID:messageID:)`。测试：`message_delete_test.py` 9/9、`MessageDeleteTests` 3 个。未含附件处理（附件 P1 合并后补）。Web 未接入（见 STATUS 已知限制）。
 
 - **提醒与推送 R1（schema v11）**：设计见 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) v1.0（D1–D18 已批准）。`frontend/web` 未改。
   - **行为变化：`list_reminders` 不再返回该用户的全部未完成提醒。** 现在只返回这个 Bot 自己创建的（`bot_id`）或用户指派给它的（`assignee_bot_id`）提醒，已取消的不返回。越权时工具结果是「提醒不存在」，并写 `audit_log` `tool_denied` / `reminder_scope`。

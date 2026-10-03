@@ -198,7 +198,8 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
         stored = answer if answer.strip() else ("⚠️ " + EMPTY_REPLY_MSG if errored else "（无回复）")
         mid = db.add_message(user_id, bot["id"], "assistant", stored, traces or None, memory_ids=rec.ids or None)
         memory.mark_used(user_id, rec.ids)
-    yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memory_ids": rec.ids}}
+    # user_message_id：本轮用户消息的 id（新增字段，旧客户端忽略），客户端据此可立即删除刚发出的消息
+    yield {"event": "done", "data": {"message_id": mid, "user_message_id": user_mid, "usage": usage_total, "memory_ids": rec.ids}}
 
 
 async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
