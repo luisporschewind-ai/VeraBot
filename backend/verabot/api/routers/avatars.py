@@ -3,6 +3,9 @@
 上传为 multipart/form-data，字段名 file。服务端裁成正方形并压缩为 JPEG。
 GET 在未设置自定义头像时返回 404，客户端据此显示默认头像（首字母或表情）。
 他人的 Bot 与不存在的 Bot 都是 404。
+缓存：`Cache-Control: private, no-store`。头像是用户上传的照片（个人数据），URL 又不含用户
+（`/api/me/avatar` 人人相同），不能进 HTTP 缓存；iOS 自己在 Caches/verabot-avatars 按账号缓存，
+退出登录时整个删掉。
 """
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -26,7 +29,7 @@ def _avatar_response(data: bytes) -> Response:
     return Response(
         content=data,
         media_type="image/jpeg",
-        headers={"Cache-Control": "private, max-age=86400"},
+        headers={"Cache-Control": "private, no-store"},
     )
 
 

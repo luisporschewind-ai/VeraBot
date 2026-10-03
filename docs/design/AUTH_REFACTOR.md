@@ -68,6 +68,19 @@
 - 审计 (`audit_log`)：注册、登录 (方式)、锁定、刷新令牌复用、logout-all、邮箱验证；不写密码 / 验证码。
 - iOS：令牌存 Keychain (`kSecClassGenericPassword`，`AfterFirstUnlockThisDeviceOnly`，service `com.verabot.app.auth`)；首次启动把 UserDefaults 里的旧 `vb_token` 迁过去并删除 (旧令牌没有刷新令牌，到期后重新登录)。
 
+### 5.1 安全说明：HTTP 缓存与换账号 (2026-10-03 账号隔离审计后修复)
+
+审计 (服务端 136 次跨账号请求全部 404 / 422，无越权) 发现设备侧两处残留，已修：
+
+| 项 | 之前 | 现在 |
+|---|---|---|
+| 后端缓存头 | 无 `Cache-Control`；头像 `private, max-age=86400` | 所有 `/api/*`：`no-store` + `Pragma: no-cache` (`core/http_cache.py`，含错误 / 预检 / SSE)；头像 `private, no-store` |
+| iOS 网络会话 | `URLSession.shared` (默认磁盘 URLCache) | `APITransport.session`：ephemeral、`urlCache = nil`、不读本地缓存、不存 cookie / 凭据；JSON、上传、头像、SSE、刷新令牌全部走它 |
+| 磁盘缓存 | `Caches/com.verabot.app/Cache.db` 留着令牌、对话、已解密健康记忆，退出不清 | 退出、登录 (换账号)、升级后首次启动 (`vb_http_cache_purged_v1`) 调 `HTTPCachePurge`：清 `URLCache.shared` + 删 `Cache.db*`、`fsCachedData`；`URLCache.shared` 换成 0 容量兜底 |
+| 换账号竞态 | `refreshProfile` / 头像下载只判断「已登录」 | `AuthSession.generation`：异步开始时记下，回来后 `isCurrent` 不成立就丢掉 (资料、用户头像、昵称、验证邮箱、401 退出)；`AvatarStore.epoch` 丢弃 `clearAll` 之前发出的 Bot 头像下载 |
+
+头像为什么不保留 `max-age`：头像是用户上传的照片 (个人数据)，`/api/me/avatar` 的 URL 不含用户，共享缓存或设备 HTTP 缓存里会混用；iOS 已有按账号的 `Caches/verabot-avatars` (退出时整个删除)，不需要 HTTP 缓存。
+
 ## 6. 配置 (环境变量，写在 `.env`；`.env.example` 有占位)
 
 | 变量 | 默认 | 说明 |
@@ -127,6 +140,9 @@
 - 限流和锁定计数在进程内存里 (`core/ratelimit.py`)，重启清零，多进程 / 多实例不共享；上线多实例前换 Redis。
 - 账号锁定提示 (429「密码错误次数过多」) 会暴露该账号存在；可接受，后续可改成统一文案。
 - 手机号注册不验证号码归属。
+- **邮箱抢注 (延后，Boss 2026-10-03 决定暂不处理)**：未验证邮箱的「邮箱 + 密码」账号可以被人抢先注册；真正的主人之后用验证码登录会进入同一个账号 (`login_with_code` 只把邮箱标为已验证，不重置密码、不吊销旧会话)，抢注者仍能用密码登录看到主人的数据。建议修法：验证码认领未验证账号时清空密码、`token_version + 1`、吊销全部刷新令牌，或要求先验证邮箱再使用。
+- 旧会话里其他页面 (如列表加载) 的 401 仍走 `message(for:)` → `signOut`，没有带会话代号；换账号后旧页面已销毁，且退出不会让访问令牌立即失效，实际不会触发，暂不处理。
+- 修复前已经写进设备 `Cache.db` 的数据，靠升级后首次启动清理；用户不升级就不会清。
 - 旧的用户名注册接口仍是 6 位最少 (兼容老客户端 / Web)。
 - 还没有忘记密码；验证码登录创建的账号没有可用密码，只能继续用验证码登录。
 - Web 冻结，Web 端仍是用户名 + 密码、无刷新令牌 (30 天 → 7 天后需要重新登录)。

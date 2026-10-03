@@ -13,10 +13,13 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__, db
 from .api.routers import auth, avatars, bots, chat, mcp, memories, meta, reminders, voice
 from .core.config import WEB_DIR
+from .core.http_cache import NoStoreAPIMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 app = FastAPI(title="VeraBot API", version=__version__)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# 最外层：所有 /api/* 响应（含 CORS 预检、错误、SSE）都带 Cache-Control: no-store，见 core/http_cache.py
+app.add_middleware(NoStoreAPIMiddleware)
 
 
 @app.exception_handler(RequestValidationError)

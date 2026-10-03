@@ -112,8 +112,10 @@ struct AccountSettingsSection: View {
             errorText = "请输入 6 位数字验证码"
             return
         }
+        let generation = app.sessionGeneration
         do {
             let user = try await app.api.verifyEmail(code: trimmed)
+            guard app.isCurrentSession(generation) else { return }
             app.applyUser(user)
             errorText = nil
             infoText = "邮箱已验证"
@@ -134,8 +136,10 @@ struct AccountSettingsSection: View {
         }
         saving = true
         defer { saving = false }
+        let generation = app.sessionGeneration
         do {
             let user = try await app.api.updateNickname(cleaned)
+            guard app.isCurrentSession(generation) else { return }
             app.applyUser(user)
             errorText = nil
         } catch {
@@ -147,7 +151,9 @@ struct AccountSettingsSection: View {
         guard let data = AvatarImage.jpegData(from: image), let display = UIImage(data: data) else {
             throw APIError(status: 0, message: "无法处理这张照片")
         }
+        let generation = app.sessionGeneration
         let user = try await app.api.uploadMyAvatar(jpeg: data)
+        guard app.isCurrentSession(generation) else { return }
         app.applyUser(user)
         app.avatars.setUser(image: display, updatedAt: user.avatarUpdatedAt)
         errorText = nil

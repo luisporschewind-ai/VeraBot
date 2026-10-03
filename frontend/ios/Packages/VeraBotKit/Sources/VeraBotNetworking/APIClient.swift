@@ -77,17 +77,21 @@ public struct APIClient: VeraBotAPI {
     public let fixedToken: String?
     /// 共享令牌容器：401 时用刷新令牌换新的访问令牌并重试一次（见 AuthSession）。
     public let session: AuthSession?
+    /// 发请求用的 URLSession：默认 `APITransport.session`（无 URLCache，不把账号数据写进磁盘缓存）。
+    public let urlSession: URLSession
 
-    public init(baseURL: URL, token: String?) {
+    public init(baseURL: URL, token: String?, urlSession: URLSession = APITransport.session) {
         self.baseURL = baseURL
         self.fixedToken = token
         self.session = nil
+        self.urlSession = urlSession
     }
 
-    public init(baseURL: URL, session: AuthSession) {
+    public init(baseURL: URL, session: AuthSession, urlSession: URLSession = APITransport.session) {
         self.baseURL = baseURL
         self.fixedToken = nil
         self.session = session
+        self.urlSession = urlSession
     }
 
     public var token: String? { session?.accessToken ?? fixedToken }
@@ -293,7 +297,7 @@ public struct APIClient: VeraBotAPI {
                         var r = makeRequest(path, method: "POST", body: body, token: token)
                         r.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                         r.timeoutInterval = 180
-                        let (bytes, response) = try await URLSession.shared.bytes(for: r)
+                        let (bytes, response) = try await urlSession.bytes(for: r)
                         return (bytes, (response as? HTTPURLResponse)?.statusCode ?? 0)
                     }
                     let sent = token
@@ -378,10 +382,10 @@ public struct APIClient: VeraBotAPI {
     /// 发送请求；401 时刷新一次令牌后用同样的请求重试。
     private func send(_ path: String, _ build: (String?) -> URLRequest) async throws -> (Data, Int) {
         let sent = token
-        var (data, response) = try await URLSession.shared.data(for: build(sent))
+        var (data, response) = try await urlSession.data(for: build(sent))
         var status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401, let fresh = await refreshedToken(after: sent, path: path) {
-            (data, response) = try await URLSession.shared.data(for: build(fresh))
+            (data, response) = try await urlSession.data(for: build(fresh))
             status = (response as? HTTPURLResponse)?.statusCode ?? 0
         }
         return (data, status)

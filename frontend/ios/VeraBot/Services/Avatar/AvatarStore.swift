@@ -13,6 +13,8 @@ final class AvatarStore {
     private var clearedBots: Set<Int> = []
     private var userStamp: String?
     private var inflight: Set<Int> = []
+    /// clearAll（退出 / 换账号）时加 1：之前发出的下载回来后发现代号变了就丢掉，不写内存也不写磁盘。
+    private var epoch = 0
 
     func image(forBot id: Int) -> UIImage? {
         if clearedBots.contains(id) { return nil }
@@ -77,6 +79,7 @@ final class AvatarStore {
         botStamp = [:]
         clearedBots = []
         inflight = []
+        epoch += 1
         if let dir = try? directory() {
             try? FileManager.default.removeItem(at: dir)
         }
@@ -96,10 +99,11 @@ final class AvatarStore {
         if botImages[id] != nil, botStamp[id] == updatedAt, updatedAt != nil { return }
         if inflight.contains(id) { return }
         inflight.insert(id)
-        defer { inflight.remove(id) }
+        let started = epoch
+        defer { if epoch == started { inflight.remove(id) } }
         do {
             let data = try await api.botAvatarData(botID: id)
-            guard !clearedBots.contains(id), let image = UIImage(data: data) else { return }
+            guard epoch == started, !clearedBots.contains(id), let image = UIImage(data: data) else { return }
             setBot(id: id, image: image, updatedAt: updatedAt)
         } catch {
             // 下载失败时保留表情或已有缓存

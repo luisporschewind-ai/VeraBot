@@ -579,3 +579,29 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 |---|---|---|---|---|
 | THEME-01 | iOS | 浅色 / 深色下看首页、对话、设置、登录 | 强调色、置顶、用户气泡、主按钮为 Vera 青绿；登录标题和账号名为品牌文字色；没有残留 `#0F766E` 品牌色 (Bot 自身颜色除外) | 模拟器截图通过；待 Boss 看观感 |
 | THEME-02 | iOS | 对比度 | 浅色 brand 在白底 5.2:1、`#EFEFEE` 4.5:1；深色 brand 在黑底 5.8:1；白字在 brandFill 上 ≥ 4.8:1 | 计算通过 |
+
+## 账号隔离 · HTTP 缓存与换账号 (Cache isolation) — 2026-10-03
+
+自动化：`backend/scripts/test/cache_headers_test.py` (临时 SQLite)；Kit `CacheIsolationTests.swift`。说明见 [AUTH_REFACTOR.md](../design/AUTH_REFACTOR.md) §5.1。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| CACHE-01 | 后端 | 注册 / 登录 / 刷新 | `Cache-Control: no-store`、`Pragma: no-cache`，只有一个 Cache-Control | 通过 |
+| CACHE-02 | 后端 | `/api/me`、bots、单个 Bot、消息、memories、mcp catalog、quota、reminders、tools、health | 全部 no-store | 通过 |
+| CACHE-03 | 后端 | 401 / 404 / 422 / 无路由 | 错误也 no-store | 通过 |
+| CACHE-04 | 后端 | 用户 / Bot 头像上传与下载 | 下载 `private, no-store` (原 `max-age=86400`) | 通过 |
+| CACHE-05 | 后端 | CORS 预检 OPTIONS | no-store，CORS 头保留 | 通过 |
+| CACHE-06 | 后端 | `/`、`/docs`、`/openapi.json` | 不加 no-store | 通过 |
+| CACHE-07 | 后端 | 流式 (SSE) 响应；不存在 Bot 的 chat | `no-cache` 换成 `no-store`，其他头保留，3 个事件按块到达；404 也 no-store | 通过 |
+| CACHE-08 | 后端 | 头处理规则 | 已含 no-store 的保留、其他替换、大小写不敏感、Pragma 不重复 | 通过 |
+| CACHE-K-01 | Kit | `APITransport` 配置；`APIClient` 默认会话 | `urlCache == nil`、`reloadIgnoringLocalCacheData`、无 cookie / 凭据；不是 `URLSession.shared` | 通过 |
+| CACHE-K-02 | Kit | 桩服务器返回 `max-age=3600`，同一接口请求两次 | 两次都走网络 (不读不存缓存) | 通过 |
+| CACHE-K-03 | Kit | SSE 聊天走注入的会话 | 收到 delta + done | 通过 |
+| CACHE-K-04 | Kit | `HTTPCachePurge.purge` | 删 `Cache.db`、`-shm`、`-wal`、`fsCachedData` 并清内存缓存；Metal 缓存、头像目录保留；重复调用 / 空 bundle id 不报错 | 通过 |
+| CACHE-K-05 | Kit | 升级后清一次 `runOnce` | 只执行一次并写标记 | 通过 |
+| CACHE-K-06 | Kit | 会话代号 | 退出、换账号后旧代号失效；未登录时任何代号都不算当前 | 通过 |
+| CACHE-K-07 | Kit | 透明刷新 | 代号不变 | 通过 |
+| CACHE-UI-01 | iOS | 旧版本 (Cache.db 有 49 条 API 响应，含令牌和健康记忆) 升级后首次启动 | `fsCachedData` 删除，Cache.db 0 条 API 响应 | 模拟器通过 |
+| CACHE-UI-02 | iOS | demo 浏览首页 / 对话 / 设置并发一条 SSE 消息 | Cache.db 0 条 | 模拟器通过 |
+| CACHE-UI-03 | iOS | demo 退出 → boss 登录 → 手机号登录 → demo | 每一步 Cache.db 不存在或 0 条；首页、设置、记忆只显示当前账号 (CACHE_28 / CACHE_30)，没有上一个账号的 Bot、昵称、头像、记忆 | 模拟器通过 |
+| CACHE-UI-04 | iOS | 快速换账号时旧请求回来 | 丢弃结果 | 由 CACHE-K-06 + 代码审查覆盖，未做界面复现 |
