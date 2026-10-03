@@ -49,12 +49,14 @@ def messages_delete(bot_id: int, message_id: int, user=Depends(current_user)):
     别人的消息、别的 Bot 的消息与不存在的消息一律返回相同的 404。引用该消息的行由外键 / 触发器处理：
     memories.source_message_id、notifications.message_id 置 NULL，reminders.source_message_id 由触发器置 NULL；
     Trace 存在消息行内，随行删除。已提取的记忆不删除。
-    不先调 require_bot：WHERE 已含 user_id + bot_id，他人的 Bot / 消息与不存在的消息返回完全相同的 404（不泄露存在性）。"""
-    with db.tx() as c:
-        n = c.execute("DELETE FROM messages WHERE id=? AND user_id=? AND bot_id=?",
-                      (message_id, user["id"], bot_id)).rowcount
-    if not n:
+    图片（v12，设计稿 Q12）：attachments 行随外键级联删除（与消息同一事务），提交后立即删原图、缩略图（GIF 另有第一帧），
+    与清空对话相同的顺序（先库后文件；文件删失败留给对账）。
+    不先调 require_bot：WHERE 已含 user_id + bot_id，他人的 Bot / 消息与不存在的消息返回完全相同的 404（不泄露存在性）。
+    SQL 只在 db.delete_message 与 attachments.keys_for_message 里（便于 PR #18 后移入 *_store.py）。"""
+    keys = attachments.keys_for_message(user["id"], bot_id, message_id)
+    if not db.delete_message(user["id"], bot_id, message_id):
         raise HTTPException(404, "消息不存在")
+    attachments.delete_files(keys)   # 先删库行（已提交），再删文件
     return {"ok": True}
 
 

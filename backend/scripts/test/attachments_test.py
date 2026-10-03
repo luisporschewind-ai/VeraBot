@@ -451,12 +451,12 @@ check("ATT-15", "备份（SQLite backup + 复制目录）后恢复：每条记�
 
 # ---------------------------------------------------------------- ATT-17 / ATT-08 删除
 sent = repo.get(UID, d_att)
-with db.tx() as c:
-    c.execute("DELETE FROM messages WHERE id=?", (sent["message_id"],))
+r_del = cli.delete(f"/api/bots/{bot['id']}/messages/{sent['message_id']}", headers=H)
 gone_row = repo.get(UID, d_att) is None
-repo.reconcile(now=time.time() + 7200)
-check("ATT-17", "删除单条消息（目前无接口，直接删行）：附件行级联删除；文件由对账清理",
-      gone_row and not STORE.exists(sent["storage_key"]) and not STORE.exists(sent["thumb_key"]))
+files_gone = not STORE.exists(sent["storage_key"]) and not STORE.exists(sent["thumb_key"])   # 立即删除，不等对账
+gone_api = [cli.get(f"/api/attachments/{d_att}{s}", headers=H).status_code for s in ("", "/content", "/thumb")]
+check("ATT-17", "删除单条消息（DELETE /api/bots/{id}/messages/{mid}）：附件行与原图 / 缩略图立即删除，元数据 / 原图 / 缩略图接口 404",
+      r_del.status_code == 200 and gone_row and files_gone and gone_api == [404, 404, 404], f"api={gone_api}")
 keys_bot = [k for r in repo.for_messages(UID, [m["id"] for m in cli.get(f"/api/bots/{bot['id']}/messages", headers=H).json()["messages"]]).values() for x in r for k in repo.file_keys(x)]
 cli.delete(f"/api/bots/{bot['id']}/messages", headers=H)
 n_bot = sqlite3.connect(os.environ["VERABOT_DB"]).execute("SELECT COUNT(*) FROM attachments WHERE bot_id=?", (bot["id"],)).fetchone()[0]

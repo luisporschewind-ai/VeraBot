@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""删除单条消息 MSG-DEL-01..09：DELETE /api/bots/{bot_id}/messages/{message_id}。
+"""删除单条消息 MSG-DEL-01..10：DELETE /api/bots/{bot_id}/messages/{message_id}。
 临时 SQLite + FastAPI TestClient，不调用 LLM、不触碰正式数据库。
 运行（在 backend/ 下）：uv run python scripts/test/message_delete_test.py
 """
@@ -114,6 +114,37 @@ check("MSG-DEL-08", "done 含 user_message_id = 本轮用户消息 id（message_
 check("MSG-DEL-09", "iOS 契约：ChatDone 解码同名键 user_message_id（decodeIfPresent，旧后端缺省为 nil）",
       'case userMessageID = "user_message_id"' in client
       and "decodeIfPresent(Int.self, forKey: .userMessageID)" in client)
+
+# 图片随消息删除（v12，设计稿 Q12）：行级联删除 + 原图 / 缩略图 / GIF 第一帧立即删除；同轮其他消息的图片不受影响
+import io
+from PIL import Image
+from verabot.services.attachments import repo as att_repo
+from verabot.services.attachments.store import get_store
+def gif_bytes():
+    frames = [Image.new("RGB", (40, 30), c) for c in ("red", "blue")]
+    buf = io.BytesIO(); frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:]); return buf.getvalue()
+def png_bytes():
+    buf = io.BytesIO(); Image.new("RGB", (40, 30), "green").save(buf, "PNG"); return buf.getvalue()
+def upload_attached(data, name, mid):
+    att = cli.post("/api/attachments", files={"file": (name, data)}, data={"bot_id": str(bot["id"])}, headers=h).json()
+    att_repo.attach(uid, bot["id"], [att["id"]], mid)
+    return att_repo.get(uid, att["id"])
+store = get_store()
+m_img = db.add_message(uid, bot["id"], "user", "")
+m_img2 = db.add_message(uid, bot["id"], "user", "另一张")
+g = upload_attached(gif_bytes(), "a.gif", m_img)
+p2 = upload_attached(png_bytes(), "b.png", m_img2)
+keys = att_repo.file_keys(g)
+before = len(keys) == 3 and all(store.exists(k) for k in keys)          # 原图 + 缩略图 + GIF 第一帧
+r = cli.delete(url(bot["id"], m_img), headers=h)
+codes = [cli.get(f"/api/attachments/{g['id']}{s}", headers=h).status_code for s in ("", "/content", "/thumb")]
+with db.tx() as c:
+    rows = c.execute("SELECT COUNT(*) FROM attachments WHERE id=?", (g["id"],)).fetchone()[0]
+check("MSG-DEL-10", "删除带图消息：附件行删除，原图 / 缩略图 / 第一帧文件立即删除，接口 404；其他消息的图片保留",
+      before and r.status_code == 200 and rows == 0 and not any(store.exists(k) for k in keys)
+      and codes == [404, 404, 404] and att_repo.get(uid, p2["id"]) is not None
+      and all(store.exists(k) for k in att_repo.file_keys(p2))
+      and cli.get(f"/api/attachments/{p2['id']}/thumb", headers=h).status_code == 200)
 
 print(f"{sum(RESULTS)}/{len(RESULTS)} PASS")
 sys.exit(0 if all(RESULTS) else 1)

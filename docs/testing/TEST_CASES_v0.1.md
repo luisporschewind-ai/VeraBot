@@ -648,7 +648,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | ATT-14 | 后端 | 路径穿越 | `../`、绝对路径、`tmp/`、反斜杠一律拒绝 | ✅ |
 | ATT-15 | 后端 | SQLite backup + 复制目录后恢复 | 每条记录的原图和缩略图都在 | ✅ |
 | ATT-16 | 后端 | 带图轮次 `create_reminder`；委派链；只读工具；下一条「确认」 | `image_needs_confirmation` 不执行；委派同样拦截；天气正常；确认后执行。(P1 用文字确认，没有确认卡片) | ✅ |
-| ATT-17 | 后端 | 删除单条消息 (无接口，直接删行) | 附件行级联删除，文件由对账清理 | ✅ |
+| ATT-17 | 后端 | 删除单条消息 (`DELETE /api/bots/{id}/messages/{mid}`) | 附件行与原图 / 缩略图立即删除 (不等对账)；元数据 / 原图 / 缩略图接口 404 | ✅ |
 | ATT-18 | 后端 | GIF | 原图 `image/gif` 全部帧；发给模型第一帧 JPEG (Boss 2026-10-03 决定) | ✅ |
 | ATT-MIG | 后端 | schema v12 | `attachments` 字段齐全、`idx_att_user`；版本 12 | ✅ |
 | ATT-MIG-11 | 后端 | v11 库（无 attachments 表）再启动 | 补建表，版本 12，提醒数据不变 | ✅ |
@@ -716,7 +716,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 ## 删除单条消息 (Delete message) — 2026-10-03
 
-接口 `DELETE /api/bots/{bot_id}/messages/{message_id}`，无 schema 变更 (v11)。自动化：`backend/scripts/test/message_delete_test.py` (临时 SQLite + TestClient，不调 LLM)；iOS Kit `MessageDeleteTests.swift`。未含附件 (附件 P1 合并后补)。
+接口 `DELETE /api/bots/{bot_id}/messages/{message_id}`，无 schema 变更 (v12 不变)。自动化：`backend/scripts/test/message_delete_test.py` (临时 SQLite + TestClient，不调 LLM)；iOS Kit `MessageDeleteTests.swift`。带图消息的级联删除见 MSG-DEL-10 与 ATT-17。
 
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
@@ -729,9 +729,10 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MSG-DEL-07 | 契约 | 路由 ↔ `APIClient.deleteMessage(botID:messageID:)` | 路径与方法一致 | 通过 |
 | MSG-DEL-08 | 后端 (mock LLM) | SSE `done` | 含 `user_message_id` = 本轮用户消息 id，`message_id` 仍为回复 id；用该 id 立即删除 → 200，只剩回复 | 通过 |
 | MSG-DEL-09 | 契约 | `ChatDone` CodingKeys | `userMessageID = "user_message_id"`，`decodeIfPresent` | 通过 |
-| MSG-DEL-K-01 | iOS Kit | `deleteMessage(botID: 42, messageID: 7)` 请求形状 | `DELETE /api/bots/42/messages/7`，无查询参数 | 通过 (`swift test` 142/142，Mac) |
+| MSG-DEL-10 | 后端 (v12) | 删除带图 (GIF) 的用户消息 | 附件行删除；原图、缩略图、GIF 第一帧文件立即删除；元数据 / 原图 / 缩略图接口 404；另一条消息的图片与文件保留 | 通过 |
+| MSG-DEL-K-01 | iOS Kit | `deleteMessage(botID: 42, messageID: 7)` 请求形状 | `DELETE /api/bots/42/messages/7`，无查询参数 | 通过 (`swift test` 147/147，Mac) |
 | MSG-DEL-K-02 | iOS Kit | 服务器 404 | 抛出 `APIError.status == 404` | 通过 |
-| MSG-DEL-K-03 | iOS Kit | `ChatDone` 解码新 / 旧 done | 新：`userMessageID == 8`；旧 (无该键)：nil，不报错 | 待跑 |
+| MSG-DEL-K-03 | iOS Kit | `ChatDone` 解码新 / 旧 done | 新：`userMessageID == 8`；旧 (无该键)：nil，不报错 | 通过 (`swift test` 147/147，Mac，合并 v12 后) |
 | MSG-DEL-UI-01 | iOS 模拟器 | 长按用户 / Bot 气泡 →「删除」→ 确认框「取消」 | 菜单有「复制」与红色「删除」；确认框为系统样式；取消后不调用 API | 待验收 |
 | MSG-DEL-UI-02 | iOS 模拟器 | 确认「删除」 | 该条从对话中消失，同一轮另一条保留；重新进入仍不显示；失败时对话底部显示错误 | 待验收 |
 | MSG-DEL-UI-03 | iOS 模拟器 | 欢迎语、正在生成的回复、刚发出的用户消息 | 欢迎语与生成中不显示「删除」；回复结束后，刚收到的回复与刚发出的用户消息都可立即删除 (不用重新进入) | 待验收 |

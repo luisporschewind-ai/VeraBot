@@ -72,6 +72,15 @@ def add_message(user_id, bot_id, role, content, traces=None, memory_ids=None):
         return cur.lastrowid
 
 
+def delete_message(user_id: int, bot_id: int, message_id: int) -> bool:
+    """删除单条消息（只按 user_id + bot_id + id 命中）；返回是否删到。
+    attachments 行随外键 ON DELETE CASCADE 删除；memories / notifications 置 NULL；reminders 由触发器置 NULL。
+    （PR #18 之后移到 db/message_store.py 的 delete_one()）"""
+    with tx() as c:
+        return c.execute("DELETE FROM messages WHERE id=? AND user_id=? AND bot_id=?",
+                         (message_id, user_id, bot_id)).rowcount > 0
+
+
 def log_usage(user_id, bot_id, kind, usage: dict | None):
     usage = usage or {}
     with tx() as c:
