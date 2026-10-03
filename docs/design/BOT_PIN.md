@@ -17,7 +17,9 @@
 
 - 模型：`Bot.pinnedAt: String?` (`pinned_at`，缺失 / null → nil)、`isPinned`；`BotPatch.pinned: Bool?` (nil 不编码)。
 - 排序：`VeraBotCore` 的 `BotOrdering.sorted(_:)` 与后端同一规则，置顶变化后本地重排。
-- 首页：`.swipeActions(edge: .leading)` 一个按钮「置顶」/「取消置顶」(SF Symbol `pin` / `pin.slash`，系统默认色)；长按 `contextMenu` 加同一项 (在「编辑与权限」旁)。成功后 `withAnimation { bots = BotOrdering.sorted(...) }`，系统 List 默认行移动动画，无自定义动画；失败显示错误、顺序不变。
+- 首页：`.swipeActions(edge: .leading)` 一个按钮「置顶」/「取消置顶」(SF Symbol `pin.fill` / `pin.slash.fill`；置顶按钮 `.tint(Color.pinTint)` = 品牌色，取消置顶 `Color.unpinTint` = 系统灰)；长按 `contextMenu` 加同一项 (在「编辑与权限」旁)。
+- 置顶切换 (2026-10-03 改为乐观更新)：点按后等 0.25 s 让左滑按钮收起，再 `withAnimation(.snappy) { bots = BotOrdering.togglingPin(bots, id:) }` (系统 List 行移动)，然后 PATCH；返回后 `BotOrdering.replacingPinnedAt` 用服务端 `pinned_at` 校正，顺序不变则不再动画；失败时动画回滚到原值并显示错误。同一 Bot 同步中忽略重复点按。乐观时间用 `BotOrdering.pinTimestamp` (与 `db.now_iso()` 同格式)，若不晚于已有最新置顶则取其 +1 s，保证新置顶排在最前。旧实现先 await 再重排，且与滑动按钮收起动画冲突，导致卡顿 / 行短暂空白。
+- 行内置顶标记：名称右侧 `pin.fill` (caption2，`Color.pinTint`)，出现 / 消失 `.scale + .opacity` 过渡。
 - 置顶行：`listRowBackground(Color.sectionFill)` 浅灰底 (#EFEFEE，深色为 `secondarySystemBackground`)；仍是全宽、无分隔线 (`plainListRow`)。
 - 搜索结果保持同一顺序。Web 冻结，不做 (STATUS 注明)。
 

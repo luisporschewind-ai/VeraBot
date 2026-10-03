@@ -122,3 +122,28 @@ private func at(_ y: Int, _ m: Int, _ d: Int, _ h: Int = 12, _ min: Int = 0) -> 
     #expect(ListTimestamp.rowDate(for: a) == ListTimestamp.parse("2026-10-01T02:28:50+00:00"))
     #expect(ListTimestamp.rowDate(for: b) == ListTimestamp.parse("2026-09-01T00:00:00+00:00"))
 }
+
+@Test func botOptimisticPinToggle() throws {
+    let decoder = JSONDecoder()
+    func bot(_ id: Int, _ pinned: String?) throws -> Bot {
+        let p = pinned.map { "\"\($0)\"" } ?? "null"
+        return try decoder.decode(Bot.self, from: Data(##"{"id":\##(id),"name":"B\##(id)","avatar":"🤖","color":"#000","pinned_at":\##(p)}"##.utf8))
+    }
+    let now = Date(timeIntervalSince1970: 1_790_000_000)   // 2026-09-21T14:13:20Z
+    #expect(BotOrdering.pinTimestamp(now) == "2026-09-21T14:13:20+00:00")
+    let list = BotOrdering.sorted([try bot(1, "2026-09-01T10:00:00+00:00"), try bot(2, nil), try bot(3, nil)])
+    // 置顶 3：本地立即排到最前，格式与后端一致
+    let pinned = BotOrdering.togglingPin(list, id: 3, now: now)
+    #expect(pinned.map(\.id) == [3, 1, 2])
+    #expect(pinned.first?.pinnedAt == "2026-09-21T14:13:20+00:00")
+    // 本机时钟比已有置顶时间更早时，仍排在最前
+    let skewed = BotOrdering.togglingPin(list, id: 2, now: Date(timeIntervalSince1970: 0))
+    #expect(skewed.first?.id == 2)
+    // 取消置顶：回到按 id 的位置
+    #expect(BotOrdering.togglingPin(pinned, id: 3, now: now).map(\.id) == [1, 2, 3])
+    // 服务端校正：只改值、顺序不变
+    let reconciled = BotOrdering.replacingPinnedAt(pinned, id: 3, value: "2026-09-21T14:13:21+00:00")
+    #expect(reconciled.map(\.id) == [3, 1, 2])
+    // 未知 id 不变
+    #expect(BotOrdering.togglingPin(list, id: 99).map(\.id) == list.map(\.id))
+}

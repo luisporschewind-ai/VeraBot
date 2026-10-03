@@ -12,6 +12,7 @@ struct BotListView: View {
     @State private var query = ""
     @State private var searchActive = false     // 点击右上角放大镜后才挂载搜索栏；未激活时页面上不存在搜索框
     @State private var searchPresented = false  // 系统搜索栏的焦点 / 展开状态；取消后收起并清空关键词
+    @State private var pinning: Set<Int> = []    // 正在与服务端同步置顶状态的 Bot，避免连点重复提交
 
     var body: some View {
         NavigationStack {
@@ -79,7 +80,9 @@ struct BotListView: View {
                 // iOS 26：系统会给工具栏项套一层 Liquid Glass 共享底（按内容算出的胶囊），
                 // 包在头像外面看起来不是圆的。关掉这层底，只显示与右侧圆形按钮等大的正圆头像。
                 if #available(iOS 26.0, *) {
-                    ToolbarItem(placement: .topBarLeading) { settingsLink(avatarSize: 44) }
+                    // 隐藏共享玻璃底后，头像仍按玻璃按钮的内边距排版，左边距（30pt）比右侧＋按钮的右边距（≈16pt）大；
+                    // 左移 14pt 让左右两侧到屏幕边缘的距离一致。
+                    ToolbarItem(placement: .topBarLeading) { settingsLink(avatarSize: 44).offset(x: -14) }
                         .sharedBackgroundVisibility(.hidden)
                 } else {
                     ToolbarItem(placement: .topBarLeading) { settingsLink(avatarSize: 30) }
@@ -176,23 +179,41 @@ struct BotListView: View {
 
     @ViewBuilder
     private func pinButton(for bot: Bot) -> some View {
-        Button { Task { await togglePin(bot) } } label: {
-            Label(bot.isPinned ? "取消置顶" : "置顶", systemImage: bot.isPinned ? "pin.slash" : "pin")
+        Button { togglePin(bot) } label: {
+            Label(bot.isPinned ? "取消置顶" : "置顶", systemImage: bot.isPinned ? "pin.slash.fill" : "pin.fill")
         }
+        .tint(bot.isPinned ? Color.unpinTint : Color.pinTint)
     }
 
-    private func togglePin(_ bot: Bot) async {
-        do {
-            let updated = try await app.api.updateBot(bot.id, BotPatch(pinned: !bot.isPinned))
-            withAnimation {
-                bots = BotOrdering.sorted(bots.map { item in
-                    guard item.id == bot.id else { return item }
-                    return item.replacingPinnedAt(updated.pinnedAt)
-                })
+    /// 置顶 / 取消置顶：乐观更新——本地先用原生 List 动画把行移到新位置，再同步服务端。
+    /// 旧实现先 await PATCH 再重排：点按后要等一次网络往返才动，且重排与左滑按钮收起动画撞在一起，
+    /// 行会短暂空白再跳到新位置。现在等滑动按钮收起（约 0.25s）后立即 withAnimation 移动，
+    /// 服务端返回后只校正 pinnedAt（顺序不变则无可见变化）；失败时动画回滚并提示错误。
+    private func togglePin(_ bot: Bot) {
+        guard !pinning.contains(bot.id) else { return }
+        pinning.insert(bot.id)
+        let wantPinned = !bot.isPinned
+        let before = bots
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))   // 让左滑操作按钮先收起，避免与行移动动画冲突
+            withAnimation(.snappy) { bots = BotOrdering.togglingPin(bots, id: bot.id) }
+            defer { pinning.remove(bot.id) }
+            do {
+                let updated = try await app.api.updateBot(bot.id, BotPatch(pinned: wantPinned))
+                let reconciled = BotOrdering.replacingPinnedAt(bots, id: bot.id, value: updated.pinnedAt)
+                if reconciled.map(\.id) == bots.map(\.id) {
+                    bots = reconciled
+                } else {
+                    withAnimation(.snappy) { bots = reconciled }
+                }
+                errorText = nil
+            } catch {
+                withAnimation(.snappy) {
+                    bots = BotOrdering.replacingPinnedAt(bots, id: bot.id,
+                                                         value: before.first { $0.id == bot.id }?.pinnedAt)
+                }
+                errorText = app.message(for: error)
             }
-            errorText = nil
-        } catch {
-            errorText = app.message(for: error)
         }
     }
 
@@ -225,7 +246,8 @@ struct BotRow: View {
                     if bot.isPinned {
                         Image(systemName: "pin.fill")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.pinTint)
+                            .transition(.scale.combined(with: .opacity))
                             .accessibilityLabel("已置顶")
                     }
                     BotTagChip(tags: bot.tags)   // 一个浅灰圆角矩形，「搜索, 查询, 调研」，放不下尾部截断
