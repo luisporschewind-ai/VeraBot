@@ -30,3 +30,11 @@ import Testing
     #expect(AttachmentLimits.isGIF(Data("GIF89a....".utf8)))
     #expect(!AttachmentLimits.isGIF(Data([0xFF, 0xD8, 0xFF, 0xE0, 0, 0])))
 }
+
+@Test func previewFileExtension() {
+    #expect(AttachmentLimits.fileExtension(for: Data("GIF89a....".utf8)) == "gif")
+    #expect(AttachmentLimits.fileExtension(for: Data("GIF87a....".utf8)) == "gif")
+    #expect(AttachmentLimits.fileExtension(for: Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0])) == "png")
+    #expect(AttachmentLimits.fileExtension(for: Data([0xFF, 0xD8, 0xFF, 0xE0, 0, 0])) == "jpg")
+    #expect(AttachmentLimits.fileExtension(for: Data()) == "jpg")
+}

@@ -17,6 +17,7 @@ final class ComposerAttachmentModel {
     }
 
     private(set) var state: State = .empty
+    /// 缩略图：GIF 为逐帧动图（与气泡同一解码器），其他格式为静态图。
     private(set) var preview: UIImage?
     private var prepared: PreparedImage?
     private var task: Task<Void, Never>?
@@ -38,6 +39,9 @@ final class ComposerAttachmentModel {
         }
     }
 
+    /// 待发送的是 GIF：缩略图用 `AnimatedImageView` 播放（与对话气泡一致）。
+    var isGIF: Bool { prepared?.mime == "image/gif" }
+
     var ready: Attachment? {
         if case .ready(let attachment) = state { return attachment }
         return nil
@@ -55,10 +59,14 @@ final class ComposerAttachmentModel {
                     self?.fail(ImagePreparer.Failure.unreadable.localizedDescription)
                     return
                 }
-                let image = try await Task.detached(priority: .userInitiated) { try ImagePreparer.prepare(raw) }.value
+                // 压缩和缩略图解码都在后台；GIF 逐帧解码成动图（UIImage(data:) 只有第一帧，缩略图会不动）。
+                let (image, preview) = try await Task.detached(priority: .userInitiated) {
+                    let image = try ImagePreparer.prepare(raw)
+                    return (image, DecodedImage(image: AttachmentImageDecoder.image(from: image.data)))
+                }.value
                 guard let self, !Task.isCancelled else { return }
                 self.prepared = image
-                self.preview = UIImage(data: image.data)
+                self.preview = preview.image
                 await self.upload()
             } catch is CancellationError {
                 return

@@ -655,6 +655,8 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | ISO-ATT-01 | 后端 | B 读取 / 删除 A 的附件 (元数据、原图、缩略图、DELETE)；未登录 | 全部 404 / 401；本人 200，`private, no-store` + `nosniff` | ✅ |
 | ATT-CONTRACT | 后端 ↔ iOS | Swift `Attachment` CodingKeys、`ChatMessage.attachments`、`ChatRequest.attachment_ids`、上传路径 / 字段 | 与后端一致 | ✅ |
 | ATT-K-01 | Kit | `AttachmentTests.swift`：解码、旧后端缺 `attachments`、`attachment_ids` 编码、GIF 识别 | 通过 | ✅ Linux (只编 Core + Networking)；Mac `swift test` 待跑 |
+| ATT-K-02 | Kit | `AttachmentTests.swift` `previewFileExtension`：Quick Look 预览文件扩展名按文件头取 (GIF87a / GIF89a → gif，PNG → png，其他 → jpg) | 通过 | ✅ Linux (只编 Core)；Mac `swift test` 待跑 |
+| ATT-UI-GIF | iOS | 选一张 GIF，发送前看输入栏上方的缩略图；发送后点开 Quick Look 全屏；打开「减弱动态效果」再看缩略图 | 缩略图播放动画；Quick Look 全屏播放动画；减弱动态效果时缩略图只显示第一帧 (Boss 2026-10-03 反馈「预览时不动」后补) | ⏳ 待模拟器 |
 | ATT-UI-01 | iOS | PhotosPicker 选 1 张 (再选替换)、移除、上传中不能发送、失败重试、只发图片 | 正常 | ⏳ 待模拟器 |
 | ATT-UI-02 | iOS | 气泡显示、GIF 播放 (减弱动态效果时静止)、Quick Look 全屏 / 分享、加载失败重试；多轮后旧图仍显示原图；深色模式 | 正常 | ⏳ 待模拟器 |
 | ATT-UI-03 | iOS | 首次发图 | 不弹说明 | ⏳ |

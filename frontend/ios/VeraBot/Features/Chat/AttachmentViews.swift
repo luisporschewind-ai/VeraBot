@@ -5,7 +5,7 @@ import UIKit
 import VeraBotCore
 import VeraBotNetworking
 
-/// 输入栏上方的待发送图片：缩略图 + 状态 + 重试 / 移除。系统默认控件，无自定义动画。
+/// 输入栏上方的待发送图片：缩略图（GIF 播放动画，同气泡）+ 状态 + 重试 / 移除。系统默认控件，无自定义动画。
 struct ComposerAttachmentChip: View {
     let model: ComposerAttachmentModel
 
@@ -13,7 +13,11 @@ struct ComposerAttachmentChip: View {
         HStack(spacing: 10) {
             ZStack {
                 if let preview = model.preview {
-                    Image(uiImage: preview).resizable().scaledToFill()
+                    if model.isGIF {
+                        AnimatedImageView(image: preview)
+                    } else {
+                        Image(uiImage: preview).resizable().scaledToFill()
+                    }
                 } else {
                     Color.botBubble
                 }
@@ -123,7 +127,7 @@ struct AttachmentBubble: View {
 
     private func openPreview() {
         guard let data else { return }
-        previewURL = AttachmentPreviewFiles.write(data, id: attachment.id, isGIF: attachment.isGIF)
+        previewURL = AttachmentPreviewFiles.write(data, id: attachment.id)
     }
 }
 
