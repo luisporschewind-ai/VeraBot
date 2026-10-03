@@ -5,7 +5,7 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v7**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表）。iOS `0.1.0 (1)` |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v8**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表；v8 MCP 同意 / 同步状态 / 熔断）。iOS `0.1.0 (1)` |
 | 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
@@ -25,8 +25,9 @@
 - **2026-10-03**：VeraBotCore 新增执行状态机 `ExecutionStateMachine` (8 种状态，由现有 SSE 事件推导，`ChatViewModel` 只读暴露，界面未改，后端未改)；`swift test` 74/74 (EXEC-01~19)。
 - **2026-10-03**：执行状态机 v1.1：后端新增 SSE `status` 事件 (`recalling` / 委派内部 `thinking` / `tool`，`{phase, depth, bot_name, tool, parent_id}`)，`status_event_test.py` 8/8 (含契约)；Core 新增 `recalling`、`delegating.progress`、短暂受阻 `blocked` (1.2 s 自动回到原流程)；头像实验室新增「回复中」「委派中」、持续状态可见时循环、按状态机演示。`swift test` 88/88；回归 MA 25/25、MEM 36/36、AV/NK 21/21、TAG 10/10、PIN 8/8。**Web 落后**：不处理 `status` 事件 (冻结，忽略即可，无报错)。
 - **2026-10-03**：头像实验室测试与修复：iPhone 17 模拟器截图 / 录屏 (浅色 + 深色、演示一轮、减弱动态效果、退到后台再回来) + 新离屏检查 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，约 2.5 分钟，AVLAB-T01~T13 13/13，输出浅色 / 深色 × 68 / 104 / 148 的对照图到 `/tmp/avatarlab_harness`)。修复：深色模式状态角标几乎看不清；角标挡住 V豆 顶部圆点、星点星光 (移到右下角)；演示「停止 → 再开始」可能两轮叠加 (运行令牌)；角色色改为 Theme 语义色 (支持深色)；文档里演示顺序漏了中间的「思考中」。持续状态循环、离开 / 回来、减弱动态效果静止：模拟器复测正常。待 Boss 看观感。
-- **MCP M1（schema v7）**：已实现。默认服务 Microsoft Learn（开启），备用 AWS Knowledge（默认关闭）。Web 冻结，没有 MCP 界面。下一步是设计稿 M2（设置页健壮性 / 变更审阅），不是本提交的范围。iOS 工程在 Linux 上未编译。
-- **2026-10-03**：MCP M1 (PR #4) 合并评审：合并 main 的 status 事件、修复 MCP 长结果被截断导致结束标记丢失、设置页加 DeepSeek 数据说明、补 Kit 测试；Mac 实测 Learn / AWS 可用 (约 2.4–2.9 s / 次)。待办：D4 同意时间记录、会话复用 (M2)。
+- **MCP M1（schema v7）**：已实现。默认服务 Microsoft Learn（开启），备用 AWS Knowledge（默认关闭）。Web 冻结，没有 MCP 界面。
+- **2026-10-03**：MCP M1 (PR #4) 合并评审：合并 main 的 status 事件、修复 MCP 长结果被截断导致结束标记丢失、设置页加 DeepSeek 数据说明、补 Kit 测试；Mac 实测 Learn / AWS 可用 (约 2.4–2.9 s / 次)。
+- **MCP M2（schema v8）**：已实现产品确认的五项：按服务记录 D4 同意时间（可撤回，未同意不调用）、复用 `Mcp-Session-Id`（404 重新握手并再试一次）、每次调用写审计且不存外部原文、`GET /api/mcp/servers` 改为后台同步并返回 `sync_status`、可重试错误的退避重试和按服务熔断。设置页显示同意时间、同步状态和熔断。OAuth、确认卡片、变更审阅仍未做。`frontend/web` 冻结，没有这些界面，落后于 M2。iOS 工程在 Linux 上未编译。
 - **2026-10-03**：PR #4 已合并到 main (`7d93a00`)；本机数据库已迁移到 v7 (迁移前备份 `backend/data/verabot.db.bak-before-v7-20261003-132234`)；「研究助手」已开启 Learn 3 个只读工具用于验收。合并后修复：对话里 MCP Trace 不再铺出外部原文、工具名显示中文。待 Boss 验收：设置 › MCP 服务、Bot 详情「MCP 服务」、对话里查微软文档 (MCP-UI-01)。
 - **待办**：
   1. **执行状态机**：v1.1 已完成 (后端 `status` 事件 + Core 新状态 + 头像实验室映射，见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md))；对话页尚未显示状态，界面方案待 Boss 决定。头像实验室小问题 (未改)：68pt 尺寸角标符号偏小；实验室是普通 ScrollView，把大预览滚出屏幕时循环不会停 (离开页面 / 退到后台会停)；`ChatViewModel` 的阻塞计时任务在 reset 时没有取消 (有 serial 校验，无实际影响)。
@@ -35,7 +36,7 @@
 
 ## 📍 当前进度 (Current progress) — main 工作区 (2026-10-01)
 
-v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v7** (v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP。置顶迁移前备份 `backend/data/verabot.db.bak-before-v6`)；iOS 版本号仍为 `0.1.0 (1)`.
+v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v8** (v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断。置顶迁移前备份 `backend/data/verabot.db.bak-before-v6`)；iOS 版本号仍为 `0.1.0 (1)`.
 
 ### 功能实现与验收状态 (Implementation and acceptance status)
 
@@ -54,6 +55,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | **Bot 标签** (schema v5；同日重新设计：3 个 / 4 字，首页一个浅灰圆角矩形、详情卡片一行、对话标题不显示、「基本信息」内单输入框) | 见 CHANGELOG | 后端 `bot_tags_test.py` 10/10 (含存量收敛与前后端契约)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；Kit 已测；iOS 标签 UI 验收延期 | TAG-01~10、TAG-UI-01~04 |
 | **Bot 置顶** (schema v6；列表排序、名称旁 pin 标识、左滑 / 长按入口、置顶行浅灰底) | `c5529ce` | 后端 `bot_pin_test.py` PIN-01~08 通过；回归 MA 25/25、AV/NK 21/21、MEM 36/36、TAG 10/10；`swift test` 55 项通过；Boss 确认功能无问题 | PIN-01~08、PIN-UI-01~03 |
 | **MCP M1** (schema v7；Learn 默认开、AWS 默认关；Bot / 设置里按服务开关只读工具) | 见 CHANGELOG | 后端 `mcp_test.py` 本地假服务器通过；真实公网用例默认跳过。iOS 未在本环境编译。Web 无界面 | MCP-01、MCP-02、MCP-04~08、MCP-25、MCP-CONTRACT、MCP-HTTP、MCP-LIVE |
+| **MCP M2** (schema v8；按服务同意、会话复用、审计、后台同步、重试与熔断) | 见 CHANGELOG | 后端 `mcp_test.py` 本地假服务器通过（含 v7→v8）；真实公网用例默认跳过。iOS 未在本环境编译。Web 冻结，无对应界面 | MCP-CONSENT、MCP-SESSION、MCP-AUDIT、MCP-SYNC、MCP-RETRY、MCP-BREAKER、MCP-CONTRACT |
 | **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动；详情/创建 UI 验收延期 | DETAIL-UI-01~09 |
 | **头像实验室** (独立页面；五款角色、八种状态、三种尺寸、按状态机演示；不写入 Bot 资料) | `7ebe99d`、`a29536f` 及之后 | 离屏检查 13/13；模拟器截图 / 录屏通过 (浅色 / 深色、演示、减弱动态效果)；观感待 Boss 验收 | AVLAB-01、AVLAB-02、AVLAB-T01~T14 |
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
@@ -63,15 +65,15 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 | 项 | 状态 |
 |---|---|
-| MCP 能力 M2~M7、Gmail 接入 | M1 已实现（见上表）。OAuth、确认卡片、Gmail、自定义 URL 仍按设计稿未做 |
+| MCP 能力 M3~M7、Gmail 接入 | M1 与 M2（同意 / 会话 / 审计 / 后台同步 / 熔断）已实现。OAuth、确认卡片、变更审阅、Gmail、自定义 URL 仍按设计稿未做 |
 | 以记忆为核心的 Bot 成长体系 M2~M5 (摘要、风格校准、隐式候选、成长界面、向量检索) | 📝 方案 v1.0 已批准，M1 已实现；M2 起未开始 |
 | 首页搜索扩展 (完整聊天历史搜索、搜索历史) | ⏸ 延期到后续迭代；当前只过滤已加载列表 |
 
 ### 已知遗留 (Known leftovers，仅列出，未处理)
 
-- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签与置顶没有 Web UI** (Web 冻结；后端字段向后兼容)。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。**MCP M1 没有 Web UI**（Web 冻结）：没有服务列表、工具开关；`/api/tools` 多了可选字段，旧 Web 忽略即可。对话若模型调用了 MCP 工具，Web 仍只显示普通工具卡片。
+- **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签与置顶没有 Web UI** (Web 冻结；后端字段向后兼容)。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。**MCP M1 / M2 没有 Web UI**（`frontend/web` 冻结，落后于这项功能）：没有服务列表、同意开关、同步状态、熔断状态或工具开关。`/api/mcp/servers` 多了 `consent_at` / `sync_status` / `circuit_state` 等字段，`/api/tools` 的可选字段仍可忽略。对话若模型调用了 MCP 工具，Web 仍只显示普通工具卡片。
 - **截图过时**：`assets/screenshots/ios/` 下全部截图早于 2026-10-01 的界面改动；其中 `R34_form_keyboard`、`R11_settings` 与当时的界面也已不符。新 UI 用例 (UI-*、MSG-*) 尚无截图。
-- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶**、MCP / Gmail 设计稿 (v1.0) 使用 **v7**。
+- **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶**、MCP 表是 **v7**，M2 的同意 / 同步 / 熔断列是 **v8**。Gmail 设计稿仍写与 MCP 共用 v7 表。
 
 ## MCP M1 已实现；M2 起与 Gmail 仍待做
 
@@ -80,11 +82,12 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 能力 | 设计文档 | 状态 | 需要 Boss 做的事 |
 |---|---|---|---|
 | MCP M1（Client、目录、只读工具开关、防注入） | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §18 | ✅ 已实现（schema v7） | 验收设置页与 Bot 详情的 MCP 开关。真实公网用例需 `VERABOT_MCP_LIVE_TESTS=1` |
-| MCP M2~M7（OAuth、HITL、Gmail、自定义 URL） | 同上 §15 | 设计已批准，未实现 | M4 之前：创建 Google Cloud 项目并加入 Workspace Developer Preview |
+| MCP M2（同意时间、会话复用、审计、后台同步、重试与熔断） | 同上 §18.3 | ✅ 已实现（schema v8） | 验收设置页的同意 / 同步 / 熔断。`frontend/web` 冻结，没有对应界面 |
+| MCP M3~M7（OAuth、HITL、变更审阅、Gmail、自定义 URL） | 同上 §15 | 设计已批准，未实现 | M4 之前：创建 Google Cloud 项目并加入 Workspace Developer Preview |
 | Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准，未实现 | 同上，在 M4 之前 |
 | 以记忆为核心的 Bot 成长体系 | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1 已实现 | 按 MEM-UI-01~12 验收 M1；决定是否开始记忆 M2 |
 
-**MCP M1 已实现**（免授权 Microsoft Learn，默认开；AWS Knowledge 在目录里默认关）。**M2~M7 与 Gmail 未写实现代码**。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**。Web 冻结，落后于这项功能。
+**MCP M1 与 M2 已实现**（免授权 Microsoft Learn，默认开；AWS Knowledge 在目录里默认关；M2 为 schema v8）。**M3~M7 与 Gmail 未写实现代码**。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**。`frontend/web` 冻结，落后于这项功能。
 
 ## 1. 已完成功能 (Features done)
 
@@ -113,7 +116,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 
 ## 2. 已知限制 (Known limits)
 
-- **iOS 与 Web 不对等**：Web SPA 没有迭代 2 的 iOS UI 改动 (权限编辑、协作记录、设置页、TTS)，也没有 2026-10-01 之后的改动 (昵称编辑、照片头像、调试页、通用设置、列表时间 / 搜索、Liquid Glass 视觉、浮动输入栏、富文本 / App 内网页、MCP 服务开关)，只作为 API 验收客户端。Web 冻结，落后于 MCP M1。
+- **iOS 与 Web 不对等**：Web SPA 没有迭代 2 的 iOS UI 改动 (权限编辑、协作记录、设置页、TTS)，也没有 2026-10-01 之后的改动 (昵称编辑、照片头像、调试页、通用设置、列表时间 / 搜索、Liquid Glass 视觉、浮动输入栏、富文本 / App 内网页、MCP 服务开关、M2 的同意 / 同步 / 熔断)，只作为 API 验收客户端。`frontend/web` 冻结，落后于 MCP M2。
 - **HEIC**：服务端能认出 HEIC 文件头；未安装 `pillow-heif` 时返回 415。iOS 在上传前把相册图片转成 JPEG，不依赖服务端解 HEIC。
 - **头像存在 SQLite `avatars.data`**：512 JPEG，单张大约几 KB 到几十 KB。备份数据库即包含头像。
 - **提醒不推送**：没有 APNs / 本地通知。设置里的「通知」开关只申请系统授权并保存偏好，目前不会发出任何通知。
@@ -147,6 +150,6 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 
 1. **执行状态提示**：Core 状态机已完成 ([EXECUTION_STATE.md](design/EXECUTION_STATE.md))；界面显示方式 (文案 / 头像动画) 待 Boss 决定。
 2. **遗留英文**：已修 (2026-10-03)，对话 Trace 行与用量看板的 tokens 改为「用量」，见 UI-EN-01。
-3. **(等待额度重置)** 按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §15 的 M1 → M7 实施 MCP 能力与 Gmail (设计 v1.0 已批准；Gmail 在 M4~M6，M4 前 Boss 需完成 Google Cloud 准备)。
+3. **MCP**：M1 与 M2 已实现。下一步按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §15 从 M3（确认卡片）往下做；Gmail 在 M4~M6，M4 前 Boss 需完成 Google Cloud 准备。`frontend/web` 继续冻结。
 4. 记忆 M1 UI 验收延期；完成后再决定是否开始 M2。
 5. 其余 UI 验收、过时截图更新及提醒通知、图片附件 / 多模态、云端 TTS、安全与部署、CI、Web 方向暂缓；规划见 [ROADMAP_NEXT.md](ROADMAP_NEXT.md)。

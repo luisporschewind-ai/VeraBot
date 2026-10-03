@@ -54,13 +54,13 @@ def trace_meta(user_id: int, name: str) -> dict:
     return {"source": "mcp", "server": (server or {}).get("name"), "risk": tool.get("risk")}
 
 
-async def dispatch(ctx: ToolContext, name: str, raw_args: str) -> dict:
+async def dispatch(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
     if name.startswith("mcp__"):
-        return await asyncio.to_thread(_call_mcp, ctx, name, raw_args)
+        return await asyncio.to_thread(_call_mcp, ctx, name, raw_args, call_id)
     return await run_tool(ctx, name, raw_args)
 
 
-def _call_mcp(ctx: ToolContext, name: str, raw_args: str) -> dict:
+def _call_mcp(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
     tool = mcp_store.get_tool_by_full_name(ctx.user_id, name)
     if tool is None:
         return _deny(ctx, name, "unknown_tool")
@@ -87,7 +87,9 @@ def _call_mcp(ctx: ToolContext, name: str, raw_args: str) -> dict:
     except Exception as exc:
         return {"error": f"参数解析失败: {exc}", "code": "mcp_invalid_arguments"}
     ctx.turn.mcp_calls += 1
-    result = mcp.invoke(ctx.user_id, server, tool, args, call_id=name)
+    result = mcp.invoke(
+        ctx.user_id, server, tool, args, call_id=call_id or name, bot_id=ctx.bot.get("id"),
+    )
     if result.get("content") or result.get("code") == "mcp_tool_error":
         ctx.turn.untrusted_tainted = True
     return result

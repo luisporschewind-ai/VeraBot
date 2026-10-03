@@ -28,9 +28,20 @@ struct MCPServicesSection: View {
         } header: {
             Text("连接的账号 / MCP 服务")
         } footer: {
-            Text("Microsoft Learn 默认开启，AWS Knowledge 默认关闭。工具按每个 Bot 单独开关，默认全部关闭。Bot 调用这些工具时，返回的内容会发送给 DeepSeek 用来生成回答。")
+            Text("Microsoft Learn 默认开启，AWS Knowledge 默认关闭。工具按每个 Bot 单独开关，默认全部关闭。每个服务要单独同意后才会调用；工具返回的内容会发送给 DeepSeek 用来生成回答。")
         }
-        .task { await reload() }
+        .task { await watch() }
+    }
+
+    private func watch() async {
+        for _ in 0..<20 {
+            await reload()
+            if !servers.contains(where: { $0.enabled && ($0.syncStatus == "pending" || $0.syncStatus == "syncing") }) {
+                return
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            if Task.isCancelled { return }
+        }
     }
 
     private func reload() async {
@@ -60,6 +71,15 @@ struct MCPServerDetailView: View {
             if let server {
                 Section {
                     LabeledContent("状态", value: server.statusText)
+                    LabeledContent("同步", value: server.syncStatusText)
+                    LabeledContent("上次同步", value: timeLabel(server.lastSyncedAt, empty: "尚未同步"))
+                    LabeledContent("熔断", value: server.circuitText)
+                    if server.circuitState == "open" {
+                        LabeledContent("恢复时间", value: timeLabel(server.circuitOpenUntil, empty: "即将恢复"))
+                    }
+                    if let failures = server.consecutiveFailures, failures > 0 {
+                        LabeledContent("连续失败", value: "\(failures)")
+                    }
                     if let lastError = server.lastError, !lastError.isEmpty {
                         Text(lastError).font(.footnote).foregroundStyle(.red)
                     }
@@ -68,7 +88,15 @@ struct MCPServerDetailView: View {
                     Button("刷新工具") { Task { await refresh() } }
                         .disabled(busy || !server.enabled)
                 } footer: {
-                    Text(server.enabled ? "已连接的工具可以按 Bot 打开。工具返回的内容会发送给 DeepSeek 用来生成回答。" : "停用后，这个服务的工具不会提供给任何 Bot。")
+                    Text(server.enabled ? "同步在后台进行。熔断打开时暂时不再连接这个服务。" : "停用后，这个服务的工具不会提供给任何 Bot。")
+                }
+
+                Section {
+                    CompactToggle("同意把工具结果发送给 DeepSeek", isOn: consentBinding(server))
+                        .disabled(busy)
+                    LabeledContent("同意时间", value: timeLabel(server.consentAt, empty: "尚未同意"))
+                } footer: {
+                    Text("同意只针对这个服务。同意之后，它返回的内容会发送给 DeepSeek 用来生成回答。撤回后不再调用它的工具。")
                 }
 
                 Section {
@@ -104,7 +132,22 @@ struct MCPServerDetailView: View {
         }
         .navigationTitle(server?.name ?? "MCP 服务")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
+        .task { await watch() }
+    }
+
+    private func timeLabel(_ iso: String?, empty: String) -> String {
+        guard let date = ListTimestamp.parse(iso) else { return empty }
+        return ListTimestamp.fullLabel(for: date)
+    }
+
+    private func watch() async {
+        for _ in 0..<20 {
+            await load()
+            let waiting = server?.enabled == true && (server?.syncStatus == "pending" || server?.syncStatus == "syncing")
+            if !waiting { return }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            if Task.isCancelled { return }
+        }
     }
 
     private var botBinding: Binding<Int?> {
@@ -116,6 +159,10 @@ struct MCPServerDetailView: View {
 
     private func enabledBinding(_ server: MCPServer) -> Binding<Bool> {
         Binding(get: { server.enabled }, set: { on in Task { await setEnabled(on) } })
+    }
+
+    private func consentBinding(_ server: MCPServer) -> Binding<Bool> {
+        Binding(get: { server.consented }, set: { on in Task { await setConsent(on) } })
     }
 
     private func toolBinding(_ tool: MCPTool) -> Binding<Bool> {
@@ -144,6 +191,18 @@ struct MCPServerDetailView: View {
         do {
             server = try await app.api.updateMCPServer(id: serverID, enabled: on)
             tools = try await app.api.mcpTools(serverID: serverID).tools
+            errorText = nil
+        } catch {
+            errorText = app.message(for: error)
+        }
+        if on { await watch() }
+    }
+
+    private func setConsent(_ granted: Bool) async {
+        busy = true
+        defer { busy = false }
+        do {
+            server = try await app.api.setMCPConsent(id: serverID, granted: granted)
             errorText = nil
         } catch {
             errorText = app.message(for: error)

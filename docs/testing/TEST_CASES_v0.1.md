@@ -516,7 +516,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
-| MCP-01 | 迁移 | 已有 schema v6 库启动两次；另起空库启动两次 | 版本变为 7；出现 `mcp_servers`、`mcp_tools`、`mcp_credentials`、`oauth_states`、`pending_actions`；存量 Bot 的 `allowed_tools` 等不变；空库没有 Bot | 通过（本地） |
+| MCP-01 | 迁移 | 已有 schema v6 库启动两次；另起空库启动两次；另用一份带服务器和工具行的 v7 库启动两次 | 版本变为 8；出现 MCP 表以及 `consent_at`、`sync_status`、`circuit_failures`、`circuit_open_until`；存量 Bot 的 `allowed_tools` 等不变；v7 里已连接且同步过的服务变成 `sync_status=ok`，失败的服务变成 `error`，同意时间为空，工具行还在；空库没有 Bot | 通过（本地） |
 | MCP-HTTP | 客户端 | 假服务器分别返回 JSON 与 SSE；可选会话号；协议降到 `2025-03-26`；`isError` 与 JSON-RPC error；无会话号；更高协议；超时 | 每个请求带 `Accept: application/json, text/event-stream`。initialize 不带会话号和协议头。之后回传 `Mcp-Session-Id` 与协商版本。无会话号则省略。`isError` 与 RPC error 分开。超时为 `mcp_timeout` | 通过（本地假服务器） |
 | MCP-API | 目录 | 默认配置下列出服务 | Learn 为已连接并同步；AWS 为停用且没有请求打到它 | 通过（本地假服务器） |
 | MCP-02 | 命名 | 同步工具名 | `microsoft_docs_search` → `mcp__learn__microsoft_docs_search`；`code.sample` → `mcp__learn__code_sample`；非法名丢弃 | 通过 |
@@ -530,6 +530,12 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MCP-08 | 污染 | 读过 MCP 后再 `ask_bot` | `untrusted_tainted` | 通过 |
 | MCP-06 | 停用 | 把 AWS 保持关闭 | 状态仍是 disabled，不连外网 | 通过 |
 | MCP-25 | 隔离 | 其他用户读工具列表 | 404「未找到该 MCP 服务」 | 通过 |
-| MCP-CONTRACT | 契约 | iOS CodingKeys 对照 `/api/mcp/catalog`、服务器、工具、`/api/tools` | iOS 键都是 JSON 键的子集；MCP 项 `source=mcp`，内置项 `source=builtin` | 通过 |
+| MCP-CONTRACT | 契约 | iOS CodingKeys 对照 `/api/mcp/catalog`、服务器、工具、`/api/tools` | iOS 键都是 JSON 键的子集（含 M2 的 `consent_at`、`sync_status`、`circuit_state`、`circuit_open_until`、`consecutive_failures`）；MCP 项 `source=mcp`，内置项 `source=builtin` | 通过 |
+| MCP-CONSENT | 同意 | 未同意时调用已授权的只读工具；`POST .../consent` 同意后再调用；再撤回 | 未同意：`mcp_consent_required`，假服务器没有 `tools/call`，文案提到 DeepSeek。同意后 `consent_at` 有时间且调用成功。撤回后时间为空且再次不调用。他人同意 → 404 | 通过（本地假服务器） |
+| MCP-SESSION | 会话 | 同一会话连续 `tools/call`；然后服务器对当前 `Mcp-Session-Id` 返回 404 | 第二次调用不再 `initialize`，并带上同一个会话号。404 后重新 `initialize` 一次并重试成功，新的会话号被用上下一次调用 | 通过（本地假服务器） |
+| MCP-AUDIT | 审计 | 未同意、成功、工具错误各打一次 | `audit_log` 有 `mcp_tool_call`，含工具、服务、`duration_ms`、`status`、`error_class`、起止时间、`user_id`、`bot_id`。明细里没有外部原文 | 通过（本地假服务器） |
+| MCP-SYNC | 列表 | 假服务器每个请求睡 1.2 秒时 `GET /api/mcp/servers` | 接口在 0.7 秒内返回，`sync_status` 为 `pending` 或 `syncing`；后台结束后变为 `ok` 且状态已连接。AWS 仍是停用且没有请求打到它 | 通过（本地假服务器） |
+| MCP-RETRY | 重试 | 连续两次 HTTP 500 后成功；`isError`；HTTP 400；只读工具先超时再成功；非只读工具超时 | 500：共 3 次请求后成功。`isError` 与 400 只请求 1 次。只读超时会再试并成功。非只读超时返回 `result_unknown` 且不重试；`VERABOT_MCP_RETRY_MAX=0` 时非只读超时同样是 `result_unknown` (合并评审补充) | 通过（本地假服务器，退避设为 0） |
+| MCP-BREAKER | 熔断 | 阈值 2、冷却 0.4 秒，连续传输失败后再调用；冷却过后探测成功 | `circuit_state=open` 时不再发请求，返回 `mcp_circuit_open`。到期为 `half_open`，成功后回到 `closed` 且连续失败为 0 | 通过（本地假服务器） |
 | MCP-LIVE-LEARN | 公网 | `tools/call` `microsoft_docs_fetch`，参数 `{"url":"https://learn.microsoft.com/en-us/training/support/mcp"}` | `isError` 为 false，正文去掉前导空白后以 `# Microsoft Learn MCP Server overview` 开头 | 默认跳过。设置 `VERABOT_MCP_LIVE_TESTS=1` 才执行。2026-10-03 Boss 的 Mac (中国大陆网络) 实测 **通过**；单次 initialize ≈ 1.2–1.5 s、tools/list ≈ 0.4 s、tools/call (search) ≈ 1.0–1.6 s，合计中位数 2.9 s |
 | MCP-LIVE-AWS | 公网 | `tools/call` `aws___list_regions`，参数 `{}` | `isError` 为 false，去掉空白后的正文含 `"region_id":"af-south-1"` | 默认跳过。同上。2026-10-03 Mac 实测 **通过**；协商到 2025-03-26，合计中位数 2.4 s |

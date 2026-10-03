@@ -1,7 +1,7 @@
 # MCP 能力设计 (MCP Capability Design) — v1.0
 
 > 状态：**v1.0 已批准 (Approved)**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)。决定与正文冲突时以 §16 为准。
-> **实现进度 (2026-10-03)**：**M1 已实现**（schema v7、免授权目录、Streamable HTTP 客户端、Bot 工具开关、iOS 设置）。**M2 及以后未实现**（OAuth、HITL 确认卡片、Gmail、自定义 URL、stdio）。实现与正文的差异只记在 §18，不改已批准的决定。
+> **实现进度 (2026-10-03)**：**M1 已实现**（schema v7、免授权目录、Streamable HTTP 客户端、Bot 工具开关、iOS 设置）。**M2 已实现**其中产品确认的五件事：D4 按服务记录同意时间、会话复用、调用审计、列表异步同步、重试与熔断（schema v8，见 §18.3）。OAuth、HITL 确认卡片、工具定义变更审阅、Gmail、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
 > **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，Bot 标签 (commit `1d18e1b`) 占用 **schema v5**，Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md)) 预留 **schema v6**，本文的迁移使用 **schema v7** (§16 D2)。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密复用该依赖，但使用独立密钥 `VERABOT_TOKEN_ENC_KEY` (§16 D2)。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
@@ -670,3 +670,54 @@ M1 已落地。本节只记录实现与上文的差异，以及前后端字段�
 | `GET /api/tools` 每项：`name`、`label`、`description`、`delegation`、`source`（`builtin` / `mcp`）、`server`、`server_id`、`risk`、`requires_confirmation`、`delegable`、`status`。MCP 项的 `name` 等于 `full_name` | `ToolInfo`（新字段可选；旧 JSON 缺这些键时 `source` 为 nil，不当作 MCP） |
 
 Bot 工具开关仍用已有的 `allowed_tools`，写入完整函数名 `mcp__{slug}__{tool}`（点号改成下划线）。「开启全部只读」在客户端展开成具体名字，最多 20 个 MCP 工具。保存时要带上原有内置工具名，避免被清空。
+
+### 18.3 M2 实现记录 (2026-10-03)
+
+M2 按产品确认的范围落地，不是设计稿 §15 里「设置页 + 变更审阅」的整包。OAuth、确认卡片、工具定义变更审阅仍留在后面的里程碑。schema 从 v7 增到 **v8**（v7 当时已被 M1 占用）。
+
+#### D4：按服务器记录同意，不是全局一次
+
+决定原文是「每连接一个服务显示说明并记录同意时间」。因此同意挂在 `mcp_servers.consent_at` 上，每个服务各记各的时间，可以单独撤回。不做成用户级一个时间：撤回 Learn 不应连带撤回以后接上的 Gmail，审计也能对上是哪一个服务。
+
+启用服务不等于同意。未同意时：
+
+- 不把该服务的工具放进模型的 schema（避免空转调用）
+- 若模型仍然打出这个工具名，直接返回 `mcp_consent_required`，不访问网络
+- 文案说明结果会发给 DeepSeek，需要先在设置里同意
+- iOS 设置详情用系统开关同意 / 撤回，并显示同意时间
+
+已有 v7 库升级后 `consent_at` 为空，必须重新同意才能调用。这是有意的：M1 只有说明文字，没有可追溯的同意记录。
+
+#### 会话
+
+按 `(user_id, server_id)` 复用 `httpx` 连接和 `Mcp-Session-Id`。URL 变了就丢掉旧会话。带了会话号却收到 HTTP 404 时，清掉握手、重新 `initialize`，再发一次原请求；再失败就停止。没带会话号的 404 当成地址错误，不反复握手。
+
+仍用 M1 的单一 `VERABOT_MCP_TIMEOUT`（默认 15 秒），不拆连接超时和调用超时。
+
+#### 同步
+
+`GET /api/mcp/servers` 只补目录行并返回，不在请求里连外网。需要同步时另起后台线程。`sync_status` 为 `pending` / `syncing` / `ok` / `error`，另有原来的 `last_synced_at`。失败后不会在每次打开列表时自动再连，以免打满熔断；用户点「刷新工具」走原来的 `POST .../sync`（这次会等结果）。
+
+#### 重试与熔断
+
+只重试超时、HTTP 5xx、429、连接错误。不重试工具级 `isError`，也不重试其他 4xx。额外次数默认 2（`VERABOT_MCP_RETRY_MAX`），退避 `0.5,2` 秒再加最多 25% 抖动（`VERABOT_MCP_RETRY_BACKOFF`）。429 若带 `Retry-After`（秒），优先用它，上限 5 秒。
+
+非只读且没有 `idempotentHint` 的工具，传输失败不重试，返回 `result_unknown`（设计稿 §8：请求可能已经执行）。当前仍只有只读工具会真正打到服务器。
+
+熔断按服务器计连续传输失败，默认 5 次（`VERABOT_MCP_BREAKER_THRESHOLD`）后打开 60 秒（`VERABOT_MCP_BREAKER_COOLDOWN`）。打开期间不发请求，工具也不进 schema。到期后下一次调用是探测：成功则关闭并清零，失败则再打开一个冷却。`isError` 和 4xx 不算入熔断。状态字段：`circuit_state`（`closed` / `open` / `half_open`）、`circuit_open_until`、`consecutive_failures`。
+
+#### 审计
+
+每次尝试调用都写 `audit_log.kind = mcp_tool_call`，包括成功、超时、错误、未同意、熔断。字段：`server`、`tool`、`call_id`（工具调用 id，不再用工具名顶替）、`args_hash`、`status`、`error_class`、`duration_ms`、`started_at`、`finished_at`，以及表上的 `user_id` / `bot_id`。不写工具返回的原文，也不写服务器响应体。
+
+#### 18.2 增补的服务器字段
+
+| 后端 JSON（`servers[]` 与同步结果里的 `server`） | iOS `MCPServer` |
+|---|---|
+| `consent_at` | `consentAt` |
+| `sync_status` | `syncStatus` |
+| `circuit_state` | `circuitState` |
+| `circuit_open_until` | `circuitOpenUntil` |
+| `consecutive_failures` | `consecutiveFailures` |
+
+新接口：`POST /api/mcp/servers/{id}/consent`，正文 `{"granted": true|false}`，返回更新后的服务器。他人访问 404。

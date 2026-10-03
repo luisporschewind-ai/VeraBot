@@ -45,16 +45,52 @@ public struct MCPServer: Codable, Sendable, Hashable, Identifiable {
     public let toolsCount: Int
     public let lastError: String?
     public let lastSyncedAt: String?
+    /// 同意把该服务的工具结果发给 DeepSeek 的时间。空表示还没同意或已撤回。
+    public let consentAt: String?
+    /// pending / syncing / ok / error。旧响应没有这个字段时当作 pending。
+    public let syncStatus: String?
+    /// closed / open / half_open。
+    public let circuitState: String?
+    public let circuitOpenUntil: String?
+    public let consecutiveFailures: Int?
+
+    public var consented: Bool { !(consentAt ?? "").isEmpty }
 
     public var statusText: String {
+        if !enabled || status == "disabled" { return "已停用" }
+        if circuitState == "open" { return "已熔断" }
+        switch syncStatus {
+        case "syncing": return "正在同步"
+        case "pending": return "等待同步"
+        case "error": return "同步失败"
+        case "ok" where !consented: return "未同意"
+        default: break
+        }
         switch status {
         case "connected": return "已连接"
-        case "disabled": return "已停用"
         case "error": return "异常"
         case "expired": return "需要重新连接"
         case "needs_scope": return "需要追加权限"
         case "needs_auth": return "未连接"
         default: return status
+        }
+    }
+
+    public var syncStatusText: String {
+        switch syncStatus ?? "pending" {
+        case "pending": return "等待同步"
+        case "syncing": return "正在同步"
+        case "ok": return "已同步"
+        case "error": return "同步失败"
+        default: return syncStatus ?? "等待同步"
+        }
+    }
+
+    public var circuitText: String {
+        switch circuitState ?? "closed" {
+        case "open": return "已熔断"
+        case "half_open": return "恢复探测"
+        default: return "正常"
         }
     }
 
@@ -73,6 +109,11 @@ public struct MCPServer: Codable, Sendable, Hashable, Identifiable {
         case toolsCount = "tools_count"
         case lastError = "last_error"
         case lastSyncedAt = "last_synced_at"
+        case consentAt = "consent_at"
+        case syncStatus = "sync_status"
+        case circuitState = "circuit_state"
+        case circuitOpenUntil = "circuit_open_until"
+        case consecutiveFailures = "consecutive_failures"
     }
 }
 
@@ -168,7 +209,10 @@ public enum MCPTraceText {
         switch code {
         case "mcp_tool_error": return "外部服务返回了错误"
         case "mcp_timeout": return "外部服务超时"
-        case "mcp_rpc_error", "mcp_unavailable", "mcp_protocol": return "外部服务暂时不可用"
+        case "mcp_rpc_error", "mcp_unavailable", "mcp_protocol", "mcp_session_expired": return "外部服务暂时不可用"
+        case "mcp_consent_required": return "尚未同意把工具结果发送给 DeepSeek"
+        case "mcp_circuit_open": return "该服务连续失败，已暂时停止连接"
+        case "result_unknown": return "请求结果未知，请到对应服务核实"
         default: return error
         }
     }

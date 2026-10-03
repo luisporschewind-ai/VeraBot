@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v7）。"""
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v8）。"""
 import json
 
 from .database import tx
@@ -122,7 +122,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mem_dedupe
 """
 
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # v7：MCP 服务器与工具缓存。与 docs/design/MCP_CAPABILITY.md §12.2 同一次迁移。
 # 凭据 / oauth_states / pending_actions 先建表，OAuth 与确认卡片在后续里程碑使用。
@@ -143,6 +143,10 @@ CREATE TABLE IF NOT EXISTS mcp_servers (
   granted_scopes TEXT,
   discover_json TEXT,
   last_synced_at TEXT, last_error TEXT,
+  consent_at TEXT,                                          -- D4：同意把该服务的工具结果发给 DeepSeek 的时间；NULL = 未同意
+  sync_status TEXT NOT NULL DEFAULT 'pending',              -- pending / syncing / ok / error
+  circuit_failures INTEGER NOT NULL DEFAULT 0,              -- 连续传输失败次数（不含工具级 isError / 4xx）
+  circuit_open_until TEXT,                                  -- 熔断打开到期时间；NULL = 关闭
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
   UNIQUE(user_id, slug)
 );
@@ -220,6 +224,7 @@ def init_db():
     v4 → v5：bots.tags（JSON 数组，默认 []）。不改权限、记忆、头像。
     v5 → v6：bots.pinned_at（UTC ISO 8601，NULL = 未置顶）。
     v6 → v7：MCP 表（mcp_servers / mcp_tools 等）。不改 allowed_tools，不给存量 Bot 授予 MCP 工具。
+    v7 → v8：MCP 同意时间、同步状态、熔断计数。不改工具定义、白名单或已有服务器行的身份字段。
     """
     with tx() as c:
         c.executescript(SCHEMA)
@@ -267,6 +272,22 @@ def init_db():
         _add_column(c, "bots", "pinned_at", "TEXT")
         # --- v7：MCP。只建表，不回填、不改写任何 Bot 的 allowed_tools ---
         c.executescript(MCP_SCHEMA)
+        # --- v8：同意 / 异步同步 / 熔断。已有 v7 表用 ALTER 补列（CREATE IF NOT EXISTS 不会改旧表） ---
+        _add_column(c, "mcp_servers", "consent_at", "TEXT")
+        _add_column(c, "mcp_servers", "sync_status", "TEXT NOT NULL DEFAULT 'pending'")
+        _add_column(c, "mcp_servers", "circuit_failures", "INTEGER NOT NULL DEFAULT 0")
+        _add_column(c, "mcp_servers", "circuit_open_until", "TEXT")
+        if ver < 8:
+            # 已经同步成功的行标成 ok，避免升级后再次被当成「还没同步」而去连外网。
+            # 同意时间留空：M1 没有记录，必须由用户重新同意后才能调用工具。
+            c.execute(
+                """UPDATE mcp_servers SET sync_status='ok'
+                   WHERE sync_status='pending' AND status='connected' AND last_synced_at IS NOT NULL"""
+            )
+            c.execute(
+                """UPDATE mcp_servers SET sync_status='error'
+                   WHERE sync_status='pending' AND status='error'"""
+            )
         # 标签上限收紧 (2026-10-01：最多 3 个、每个 4 字)。结构不变 (仍是 v5)；每次启动把超限的存量标签收敛：
         # 保留前 3 个、每个截断到 4 字、去重。幂等，只改写确实变化的行。
         from ..core.tags import coerce_stored_tags

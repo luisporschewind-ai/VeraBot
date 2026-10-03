@@ -1,6 +1,6 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-> 与代码同步至 main (2026-10-03)：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1 (schema v7) 与独立的头像实验室试验页。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。Web 冻结，没有 MCP 界面。
+> 与代码同步至 main (2026-10-03)：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1 (schema v7)、MCP M2 (schema v8) 与独立的头像实验室试验页。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。`frontend/web` 冻结，没有 MCP 界面。
 
 ## 功能 (Features)
 
@@ -52,9 +52,10 @@
 | GET | `/api/quota` | 用量看板 `{model, daily_token_quota, today, total, per_bot, daily, delegations, transcribe}`；`today` / `total` 为 `{requests, prompt_tokens, completion_tokens, total_tokens}`。设置 › 用量 行的「已用 N%」由 iOS 计算：round(`today.total_tokens` / `daily_token_quota` × 100)，额度 ≤ 0 时不显示 (字段映射见下方「用量字段映射」) |
 | GET | `/api/tools` | 工具列表 (中文标签，不含记忆工具) + 当前护栏参数 + `memory: {enabled, max_active, inject_max}`。每项另有 `source`、`server`、`server_id`、`risk`、`requires_confirmation`、`delegable`、`status`。已连接的 MCP 工具附在后面。此接口不连接 MCP 服务器 |
 | GET | `/api/mcp/catalog` | 可添加的目录：`catalog[]`（含 `catalog_id`、`url_configured`，不含原始 URL） |
-| GET / POST | `/api/mcp/servers` | 当前用户的服务（首次 GET 会补齐目录；默认开启的才同步）。POST `{catalog_id}`，已存在 → 409 |
-| PATCH / DELETE | `/api/mcp/servers/{id}` | `{enabled}` 启用或停用 / 删除（并从各 Bot 白名单去掉该服务的工具） |
-| POST | `/api/mcp/servers/{id}/sync` | 重新拉取工具。服务已停用 → 409 |
+| GET / POST | `/api/mcp/servers` | 当前用户的服务（GET 补齐目录，同步在后台，不在这个请求里连外网）。POST `{catalog_id}`，已存在 → 409。每项另有 `consent_at`、`sync_status`、`circuit_state`、`circuit_open_until`、`consecutive_failures` |
+| PATCH / DELETE | `/api/mcp/servers/{id}` | `{enabled}` 启用或停用 / 删除（并从各 Bot 白名单去掉该服务的工具）。启用后后台同步 |
+| POST | `/api/mcp/servers/{id}/consent` | `{"granted": true\|false}`。同意记下时间；撤回清空。未同意时不调用该服务的工具。他人 → 404 |
+| POST | `/api/mcp/servers/{id}/sync` | 重新拉取工具（这次会等待结果）。服务已停用 → 409。熔断打开时不连外网 |
 | GET | `/api/mcp/servers/{id}/tools` | 该服务的工具 |
 | POST | `/api/mcp/tools/{id}/accept-change` | 接受定义变更 |
 | GET / POST / DELETE | `/api/memories` | 列表 (`status` 逗号分隔或 `all`、`scope`、`bot_id`、`ids`、`visible_to`、`limit`、`before_id`) → `{memories, counts, limits}` / 手动添加 (201，直接生效) / 清空 (`scope`、`bot_id`、必须 `confirm=true`) → `{ok, deleted}` |
@@ -65,7 +66,7 @@
 
 Bot 置顶 (schema v6)：Bot JSON 含 `pinned_at` (UTC ISO 8601 或 null)；PATCH `/api/bots/{id}` 接受 `pinned: true/false`，省略或 null 不修改。GET `/api/bots` 将置顶项按时间倒序、同时间按 id 升序排列，再列出未置顶项 (id 升序)。Web 客户端冻结，不实现置顶 UI。
 
-MCP 字段映射 (schema v7，完整表见 [MCP_CAPABILITY.md](../design/MCP_CAPABILITY.md) §18.2)：`MCPCatalogItem` / `MCPServer` / `MCPTool` / `ToolInfo` 的 CodingKeys 与上表 JSON 同名（蛇形）。`ToolInfo.source` 缺省时不当作 MCP。Web 不使用这些接口的界面。
+MCP 字段映射 (schema v8，完整表见 [MCP_CAPABILITY.md](../design/MCP_CAPABILITY.md) §18.2 与 §18.3)：`MCPCatalogItem` / `MCPServer` / `MCPTool` / `ToolInfo` 的 CodingKeys 与上表 JSON 同名（蛇形）。M2 起 `MCPServer` 还包含 `consent_at`、`sync_status`、`circuit_state`、`circuit_open_until`、`consecutive_failures`。`ToolInfo.source` 缺省时不当作 MCP。`frontend/web` 不使用这些接口的界面。
 
 Bot 详情改版字段映射 (2026-10-01，**无 API 变更**，全部是已有接口与字段)：
 

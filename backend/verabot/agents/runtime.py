@@ -43,7 +43,7 @@ async def _run_tool_streaming(ctx: ToolContext, tc: dict):
     """执行一个外层工具调用，期间把委派树里产生的 status 实时转发；最后产出 ("result", dict)。"""
     queue: asyncio.Queue = asyncio.Queue()
     ctx.turn.status_queue, ctx.turn.parent_id = queue, tc["id"]
-    task = asyncio.ensure_future(dispatch(ctx, tc["name"], tc["arguments"]))
+    task = asyncio.ensure_future(dispatch(ctx, tc["name"], tc["arguments"], call_id=tc.get("id")))
     try:
         while not task.done() or not queue.empty():
             if not queue.empty():
@@ -228,7 +228,9 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
         messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": calls})
         for tc in calls:
             _emit_status(ctx, "tool", tool=tc["function"]["name"])
-            result = await dispatch(ctx, tc["function"]["name"], tc["function"].get("arguments", "{}"))
+            result = await dispatch(
+                ctx, tc["function"]["name"], tc["function"].get("arguments", "{}"), call_id=tc.get("id"),
+            )
             messages.append({"role": "tool", "tool_call_id": tc["id"],
                              "content": _tool_content(tc["function"]["name"], result)})
     return f"（{bot['name']} 暂时没有给出答复）", usage_total, user_msg
