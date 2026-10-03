@@ -5,7 +5,7 @@ from fastapi import HTTPException
 
 from .. import db
 from ..core.config import MCP_MAX_TOOLS_PER_BOT
-from ..db import mcp_store
+from ..db import bot_store, mcp_store
 from ..tools import REGISTRY
 
 PUBLIC_FIELDS = ("id", "name", "avatar", "color", "persona", "instructions", "created_at",
@@ -64,5 +64,4 @@ def remove_from_delegate_lists(user_id: int, bot_id: int):
     for b in db.list_bots(user_id):
         if bot_id in b["delegate_to"]:
             with db.tx() as c:
-                c.execute("UPDATE bots SET delegate_to=? WHERE id=?",
-                          (json.dumps([x for x in b["delegate_to"] if x != bot_id]), b["id"]))
+                bot_store.set_delegate_to(c, b["id"], json.dumps([x for x in b["delegate_to"] if x != bot_id]))

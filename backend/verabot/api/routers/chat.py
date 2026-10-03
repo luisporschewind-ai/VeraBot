@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ... import db
+from ...db import message_store
 from ...agents.runtime import run_chat
 from ...services import memory
 from ...services.attachments import repo as attachments
@@ -18,8 +19,7 @@ router = APIRouter(tags=["chat"])
 def messages_list(bot_id: int, limit: int = 100, user=Depends(current_user)):
     require_bot(user, bot_id)
     with db.tx() as c:
-        rs = db.rows(c.execute("SELECT id, role, content, traces, created_at FROM messages WHERE user_id=? AND bot_id=?"
-                               " ORDER BY id DESC LIMIT ?", (user["id"], bot_id, min(limit, 500))).fetchall())
+        rs = message_store.list_recent(c, user["id"], bot_id, min(limit, 500))
     att_map = attachments.for_messages(user["id"], [r["id"] for r in rs])
     for r in rs:
         r["traces"] = json.loads(r["traces"]) if r["traces"] else []
@@ -34,8 +34,7 @@ def messages_clear(bot_id: int, include_memories: bool = False, user=Depends(cur
     require_bot(user, bot_id)
     keys = attachments.keys_for_bot(user["id"], bot_id)
     with db.tx() as c:
-        c.execute("DELETE FROM attachments WHERE user_id=? AND bot_id=?", (user["id"], bot_id))
-        c.execute("DELETE FROM messages WHERE user_id=? AND bot_id=?", (user["id"], bot_id))
+        message_store.clear_conversation(c, user["id"], bot_id)
     attachments.delete_files(keys)   # 先删库行（已提交），再删文件
     out = {"ok": True, "deleted_memories": 0}
     if include_memories:

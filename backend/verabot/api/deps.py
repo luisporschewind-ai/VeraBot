@@ -3,8 +3,9 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ..core.security import InvalidToken, decode_token
-from ..services.users import USER_SQL, public_user
+from ..services.users import public_user
 from .. import db
+from ..db import user_store
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -17,7 +18,7 @@ def current_user(cred: HTTPAuthorizationCredentials | None = Depends(bearer)) ->
     except InvalidToken:
         raise HTTPException(401, "登录已失效，请重新登录")
     with db.tx() as c:
-        u = db.row(c.execute(USER_SQL, (int(payload["sub"]),)).fetchone())
+        u = user_store.get_public(c, int(payload["sub"]))
     if not u:
         raise HTTPException(401, "用户不存在")
     if payload.get("typ", "access") != "access" or int(payload.get("tv", 0)) != int(u.get("token_version") or 0):

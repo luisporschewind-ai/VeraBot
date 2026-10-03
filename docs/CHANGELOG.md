@@ -44,6 +44,11 @@
 
 - **记忆服务拆出包入口**（PR #10）：`services/memory/__init__.py` 的业务逻辑移到 `services/memory/service.py`，`__init__.py` 只 re-export 原有名称，调用方不变。两处重复的 `INSERT INTO delegations`（`agents/delegation.py`、`agents/tool_router.py`）合并到新的 `db/delegation_store.insert()`，写入的行逐字段不变。
 - **MCP 服务按职责拆分**（PR #11）：`services/mcp/service.py`（695 行）拆成 `presenter.py`（展示 / 序列化）、`sync.py`（并入后台同步调度 `schedule_sync` / `sync_server` / `_sync_body`）、`invoke.py`（工具调用）、`resilience.py`（重试 + 熔断、调用中的卸载检测）、`audit.py`（调用审计）。`service.py` 作为门面只留服务管理，并 re-export 原有公开名称。
+- **SQL 收进 `db/*_store.py`、迁移拆成 `db/migrations/`**（后端审计第 ③ 步）：
+  - services / api 里的 91 处 `execute(`（`auth` 23、`memory/repository` 15、`attachments/repo` 13、`avatars` 9、`memory/service` 8、`quota` 7、`routers/bots` 7、`users` 3、`routers/chat` 3、`bots` / `routers/voice` / `deps` 各 1）全部移到 `db/`：新增 `auth_store`、`user_store`、`memory_store`、`attachment_store`、`avatar_store`、`bot_store`、`message_store`、`usage_store`，`delegation_store` 加 `list_for_bot()` / `count_for_user()`，`repository` 加 `audit_in()`（同一事务写审计，原来三处同样的 INSERT 合成一处）。SQL 文本逐字不变（只少了这几处重复）；事务边界不变：store 函数第一个参数是调用方的连接，`db.tx()` 和中途的 `c.commit()` 留在原处。
+  - 对外名字不变：`services/memory/repository.py` 与 `services/attachments/repo.py` 保留全部函数名（`repo.py` 继续负责规则、文件和事务，SQL 交给 `attachment_store`）；`services.users.USER_SQL` 仍可导入。
+  - 迁移：`db/schema.py` 的 DDL 与 `init_db()` 正文按原语句顺序拆到 `db/migrations/`（`v001_base` … `v011_reminders`、`tags_coerce`、`v012_attachments`）。`schema.py` 只保留入口，re-export `SCHEMA` / `SCHEMA_VERSION` / `ALL_TOOLS_V2` / `init_db` 等；`db/attachment_schema.py` 留作兼容 re-export。schema 仍是 v12；新库和从 v1 / v2 / v5 / v10 / v11 升级的库，`sqlite_master` 与数据导出跟改动前逐字节一致。
+  - 新增 `scripts/test/sql_layer_check.py`（SQL-LAYER-01/02，AST 静态扫描）：`db/` 以外出现 `execute(` 或 SQL 语句字符串就失败。目前没有例外。
 
 ### 新增 (Added)
 
