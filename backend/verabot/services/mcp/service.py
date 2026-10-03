@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import random
+import sqlite3
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -17,7 +18,7 @@ from ...core.config import (
     MCP_RETRY_BACKOFF_DEFAULT,
     MCP_RETRY_MAX_DEFAULT,
 )
-from ...db import mcp_store
+from ...db import mcp_store, plugin_store
 from . import catalog, sync
 from .http_client import (
     MCPClientError,
@@ -112,6 +113,10 @@ def public_server(row: dict) -> dict:
 
 def public_tool(row: dict) -> dict:
     title = row.get("title")
+    server = mcp_store.get_server(row["user_id"], row["server_id"])
+    plugin_id = None
+    if server:
+        plugin_id = server.get("plugin_id") or server.get("catalog_id")
     return {
         "id": row["id"],
         "server_id": row["server_id"],
@@ -124,6 +129,7 @@ def public_tool(row: dict) -> dict:
         "delegable": False,
         "status": row["status"],
         "annotations": row.get("annotations"),
+        "plugin_id": plugin_id,
     }
 
 
@@ -140,18 +146,19 @@ def tool_schema(row: dict, server_name: str) -> dict:
 
 
 def ensure_servers(user_id: int) -> list[dict]:
-    """补齐目录里的服务。不在这个请求里访问网络；默认开启且还没同步过的，放到后台同步。"""
-    for spec in catalog.entries():
-        row = mcp_store.get_server_by_slug(user_id, spec["slug"])
-        if row is None:
-            status = "disabled" if not spec["enabled"] else "needs_auth"
-            row = mcp_store.insert_server(user_id, spec, status)
-            db.audit(user_id, None, "mcp_server_added", {
-                "slug": spec["slug"], "source": "catalog", "catalog_id": spec["catalog_id"],
-            })
-        if _should_schedule(row, spec):
-            schedule_sync(user_id, row["id"])
-    return [public_server(row) for row in mcp_store.list_servers(user_id)]
+    """只返回已安装插件的服务。不在这个请求里访问网络，也不再把未安装的目录条目补回来。"""
+    from ..plugins.service import visible_servers
+    return visible_servers(user_id)
+
+
+def maybe_schedule(user_id: int, row: dict) -> None:
+    spec = catalog.by_id(row.get("catalog_id") or "") or catalog.by_slug(row["slug"])
+    if _should_schedule(row, spec):
+        schedule_sync(user_id, row["id"])
+
+
+def _plugin_id_of(row: dict) -> str | None:
+    return row.get("plugin_id") or row.get("catalog_id")
 
 
 def _should_schedule(row: dict, spec: dict | None) -> bool:
@@ -175,14 +182,23 @@ def schedule_sync(user_id: int, server_id: int) -> bool:
     def run():
         try:
             sync_server(user_id, server_id)
+        except KeyError:
+            log.debug("mcp background sync stopped, server gone user=%s server=%s", user_id, server_id)
+        except sqlite3.IntegrityError:
+            log.debug("mcp background sync stopped, plugin uninstalled user=%s server=%s", user_id, server_id)
         except Exception:
-            log.exception("mcp background sync failed user=%s server=%s", user_id, server_id)
-            try:
-                mcp_store.update_server(
-                    user_id, server_id, status="error", sync_status="error", last_error="同步失败",
-                )
-            except Exception:
-                log.exception("mcp background sync could not record failure")
+            if mcp_store.get_server(user_id, server_id) is None:
+                log.debug("mcp background sync stopped, server gone user=%s server=%s", user_id, server_id)
+            else:
+                log.exception("mcp background sync failed user=%s server=%s", user_id, server_id)
+                try:
+                    mcp_store.update_server(
+                        user_id, server_id, status="error", sync_status="error", last_error="同步失败",
+                    )
+                except sqlite3.IntegrityError:
+                    log.debug("mcp background sync could not record failure, server gone")
+                except Exception:
+                    log.exception("mcp background sync could not record failure")
         finally:
             with _INFLIGHT_LOCK:
                 _INFLIGHT.discard(key)
@@ -206,6 +222,10 @@ def _server_lock(key: tuple[int, int]) -> threading.Lock:
         return lock
 
 
+def _server_alive(user_id: int, server_id: int) -> bool:
+    return mcp_store.get_server(user_id, server_id) is not None
+
+
 def _sync_body(user_id: int, server_id: int) -> dict:
     row = mcp_store.get_server(user_id, server_id)
     if row is None:
@@ -227,11 +247,22 @@ def _sync_body(user_id: int, server_id: int) -> dict:
             last_error="尚未配置 MCP 服务地址", url=None,
         )
         return {**_empty_summary(), "server": public_server(fresh)}
+    if not _server_alive(user_id, server_id):
+        return _empty_summary()
     mcp_store.update_server(user_id, server_id, sync_status="syncing", url=url)
     try:
         session = borrow_session((user_id, server_id), url, timeout_seconds())
-        tools = _with_retries(session.list_tools, idempotent=True)
+        if not _server_alive(user_id, server_id):
+            return _empty_summary()
+        tools = _with_retries(
+            session.list_tools, idempotent=True,
+            alive=lambda: _server_alive(user_id, server_id),
+        )
+        if not _server_alive(user_id, server_id):
+            return _empty_summary()
         summary = sync.apply(user_id, row, tools)
+        if not _server_alive(user_id, server_id):
+            return _empty_summary()
         _record_success(user_id, server_id)
         current = mcp_store.get_server(user_id, server_id) or row
         fields = {"url": url, "last_error": None, "last_synced_at": db.now_iso(), "sync_status": "ok"}
@@ -239,7 +270,21 @@ def _sync_body(user_id: int, server_id: int) -> dict:
         if current.get("status") != "disabled":
             fields["status"] = "connected"
         fresh = mcp_store.update_server(user_id, server_id, **fields)
+        if fresh is None:
+            return _empty_summary()
+    except PluginUninstalled:
+        log.debug("mcp sync aborted, plugin uninstalled user=%s server=%s", user_id, server_id)
+        return _empty_summary()
+    except sqlite3.IntegrityError:
+        log.debug("mcp sync aborted, plugin uninstalled user=%s server=%s", user_id, server_id)
+        return _empty_summary()
     except MCPClientError as exc:
+        if not _server_alive(user_id, server_id):
+            log.debug("mcp sync aborted, plugin uninstalled user=%s server=%s", user_id, server_id)
+            return _empty_summary()
+        current = mcp_store.get_server(user_id, server_id)
+        if current and current["status"] == "disabled":
+            return {**_empty_summary(), "server": public_server(current)}
         if _counts_toward_breaker(exc):
             _record_failure(user_id, server_id)
         fresh = mcp_store.update_server(
@@ -256,7 +301,9 @@ def set_enabled(user_id: int, server_id: int, enabled: bool) -> dict:
         raise KeyError(server_id)
     if not enabled:
         fresh = mcp_store.update_server(user_id, server_id, status="disabled")
-        db.audit(user_id, None, "mcp_server_disabled", {"slug": row["slug"], "server_id": server_id})
+        db.audit(user_id, None, "mcp_server_disabled", {
+            "slug": row["slug"], "server_id": server_id, "plugin_id": _plugin_id_of(row),
+        })
         return public_server(fresh)
     mcp_store.update_server(
         user_id, server_id, status="needs_auth", last_error=None, sync_status="pending",
@@ -276,11 +323,12 @@ def set_consent(user_id: int, server_id: int, granted: bool) -> dict:
         fresh = mcp_store.update_server(user_id, server_id, consent_at=stamp)
         db.audit(user_id, None, "mcp_consent_granted", {
             "server": row["slug"], "server_id": server_id, "consent_at": stamp,
+            "plugin_id": _plugin_id_of(row),
         })
     else:
         fresh = mcp_store.update_server(user_id, server_id, consent_at=None)
         db.audit(user_id, None, "mcp_consent_revoked", {
-            "server": row["slug"], "server_id": server_id,
+            "server": row["slug"], "server_id": server_id, "plugin_id": _plugin_id_of(row),
         })
     return public_server(fresh)
 
@@ -293,7 +341,12 @@ def remove_server(user_id: int, server_id: int) -> bool:
     mcp_store.strip_slug_from_bots(user_id, row["slug"])
     ok = mcp_store.delete_server(user_id, server_id)
     if ok:
-        db.audit(user_id, None, "mcp_server_removed", {"slug": row["slug"], "server_id": server_id})
+        plugin_id = _plugin_id_of(row)
+        db.audit(user_id, None, "mcp_server_removed", {
+            "slug": row["slug"], "server_id": server_id, "plugin_id": plugin_id,
+        })
+        if plugin_id:
+            plugin_store.tombstone(user_id, plugin_id)
     return ok
 
 
@@ -328,6 +381,7 @@ def invoke(user_id: int, server: dict, tool: dict, arguments: dict, call_id: str
             user_id=user_id, bot_id=bot_id, server=slug, tool=mcp_name, call_id=call_id,
             arguments=arguments, status=status, error_class=error_class,
             started_at=started_at, duration_ms=_elapsed_ms(started),
+            plugin_id=_plugin_id_of(server),
         )
         return payload
 
@@ -349,24 +403,37 @@ def invoke(user_id: int, server: dict, tool: dict, arguments: dict, call_id: str
             {"error": "尚未配置 MCP 服务地址", "code": "mcp_not_configured"},
             "error", "mcp_not_configured",
         )
+    alive = lambda: _server_alive(user_id, server["id"])
+    if not alive():
+        return _uninstalled_result(finish, tool)
     session = borrow_session((user_id, server["id"]), url, timeout_seconds())
     try:
-        outcome = _call_with_retries(session, tool, arguments)
+        outcome = _call_with_retries(session, tool, arguments, alive=alive)
+    except PluginUninstalled as exc:
+        return _uninstalled_result(finish, tool, sent=exc.sent)
     except MCPTimeoutError as exc:
+        if not alive():
+            return _uninstalled_result(finish, tool, sent=True)
         _record_failure(user_id, server["id"])
         _remember_error(user_id, server["id"], exc)
         return finish({"error": exc.message, "code": exc.code}, "timeout", exc.code)
     except MCPSessionExpiredError as exc:
+        if not alive():
+            return _uninstalled_result(finish, tool, sent=True)
         _record_failure(user_id, server["id"])
         _remember_error(user_id, server["id"], exc)
         return finish({"error": exc.message, "code": exc.code}, "error", exc.code)
     except MCPRPCError:
+        if not alive():
+            return _uninstalled_result(finish, tool, sent=True)
         # 服务器按协议拒绝了。不是传输故障，不计入熔断，也不把对方原文写进审计。
         return finish(
             {"error": "MCP 服务拒绝了请求", "code": "mcp_rpc_error"},
             "error", "mcp_rpc_error",
         )
     except MCPClientError as exc:
+        if not alive():
+            return _uninstalled_result(finish, tool, sent=True)
         if _counts_toward_breaker(exc):
             _record_failure(user_id, server["id"])
             _remember_error(user_id, server["id"], exc)
@@ -374,6 +441,8 @@ def invoke(user_id: int, server: dict, tool: dict, arguments: dict, call_id: str
         if code == "result_unknown":
             return finish({"error": _UNKNOWN_MESSAGE, "code": "result_unknown"}, "result_unknown", "result_unknown")
         return finish({"error": _safe_error(exc), "code": code}, "error", code)
+    if not alive():
+        return _uninstalled_result(finish, tool, sent=True)
     if outcome == "unknown":
         _record_failure(user_id, server["id"])
         return finish({"error": _UNKNOWN_MESSAGE, "code": "result_unknown"}, "result_unknown", "result_unknown")
@@ -394,12 +463,26 @@ def invoke(user_id: int, server: dict, tool: dict, arguments: dict, call_id: str
     return audited
 
 
+def _uninstalled_result(finish, tool: dict, *, sent: bool = False) -> dict:
+    """服务行已经没了。只读调用取消；非只读且请求已经发出时按 M2 返回 result_unknown。不计熔断。"""
+    if sent and not _idempotent(tool):
+        return finish(
+            {"error": _UNKNOWN_MESSAGE, "code": "result_unknown"},
+            "result_unknown", "result_unknown",
+        )
+    return finish(
+        {"error": "插件已卸载，本次调用已取消", "code": "plugin_uninstalled"},
+        "cancelled", "plugin_uninstalled",
+    )
+
+
 def _audit_call(*, user_id, bot_id, server, tool, call_id, arguments, status, error_class,
-                started_at, duration_ms):
+                started_at, duration_ms, plugin_id=None):
     """审计只留分类信息。不写工具返回的原文，也不写服务器响应体。"""
     db.audit(user_id, bot_id, "mcp_tool_call", {
         "server": server,
         "tool": tool,
+        "plugin_id": plugin_id,
         "call_id": call_id,
         "args_hash": hashlib.sha256(
             json.dumps(arguments, sort_keys=True, ensure_ascii=False, default=str).encode()
@@ -442,12 +525,12 @@ def _idempotent(tool: dict) -> bool:
     return bool(ann.get("idempotentHint"))
 
 
-def _call_with_retries(session, tool: dict, arguments: dict):
+def _call_with_retries(session, tool: dict, arguments: dict, alive=None):
     def op():
         return session.call_tool(tool["mcp_name"], arguments or {})
 
     try:
-        return _with_retries(op, idempotent=_idempotent(tool))
+        return _with_retries(op, idempotent=_idempotent(tool), alive=alive)
     except _ResultUnknown:
         return "unknown"
 
@@ -456,16 +539,33 @@ class _ResultUnknown(Exception):
     pass
 
 
-def _with_retries(op, *, idempotent: bool):
-    """超时、5xx、连接错误才重试。工具 isError 与 4xx 由 op 正常返回或直接抛出，不进这里的重试。"""
+class PluginUninstalled(Exception):
+    """服务行在调用期间被删掉。sent=True 表示这次尝试已经把请求发出去了。"""
+
+    def __init__(self, sent: bool = False):
+        super().__init__("plugin_uninstalled")
+        self.sent = sent
+
+
+def _with_retries(op, *, idempotent: bool, alive=None):
+    """超时、5xx、连接错误才重试。工具 isError 与 4xx 由 op 正常返回或直接抛出，不进这里的重试。
+
+    alive 在每次尝试前检查服务行。卸载后不再重试。
+    """
     attempts = _retry_max() + 1
     last: MCPClientError | None = None
     for index in range(attempts):
+        if alive is not None and not alive():
+            raise PluginUninstalled(sent=False)
         try:
-            return op()
+            result = op()
         except MCPSessionExpiredError:
+            if alive is not None and not alive():
+                raise PluginUninstalled(sent=True)
             raise
         except MCPClientError as exc:
+            if alive is not None and not alive():
+                raise PluginUninstalled(sent=True) from exc
             if not isinstance(exc, (MCPTimeoutError, MCPUnavailableError)):
                 raise
             last = exc
@@ -476,6 +576,10 @@ def _with_retries(op, *, idempotent: bool):
             if index + 1 >= attempts:
                 raise
             _sleep_backoff(index, exc)
+            continue
+        if alive is not None and not alive():
+            raise PluginUninstalled(sent=True)
+        return result
     if last:
         raise last
     raise MCPUnavailableError()

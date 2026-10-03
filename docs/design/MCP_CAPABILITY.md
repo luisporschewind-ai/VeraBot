@@ -1,7 +1,7 @@
 # MCP 能力设计 (MCP Capability Design) — v1.0
 
 > 状态：**v1.0 已批准 (Approved)**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)。决定与正文冲突时以 §16 为准。
-> **实现进度 (2026-10-03)**：**M1 已实现**（schema v7、免授权目录、Streamable HTTP 客户端、Bot 工具开关、iOS 设置）。**M2 已实现**其中产品确认的五件事：D4 按服务记录同意时间、会话复用、调用审计、列表异步同步、重试与熔断（schema v8，见 §18.3）。OAuth、HITL 确认卡片、工具定义变更审阅、Gmail、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
+> **实现进度 (2026-10-03)**：**M1 已实现**（schema v7、免授权目录、Streamable HTTP 客户端、Bot 工具开关、iOS 设置）。**M2 已实现**其中产品确认的五件事：D4 按服务记录同意时间、会话复用、调用审计、列表异步同步、重试与熔断（schema v8，见 §18.3）。**插件 P1 已实现**（schema v10，用户入口改为「插件」，见 [PLUGIN_DESIGN.md](PLUGIN_DESIGN.md) 与 §18.4）。OAuth、HITL 确认卡片、工具定义变更审阅、Gmail、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
 > **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，Bot 标签 (commit `1d18e1b`) 占用 **schema v5**，Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md)) 预留 **schema v6**，本文的迁移使用 **schema v7** (§16 D2)。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密复用该依赖，但使用独立密钥 `VERABOT_TOKEN_ENC_KEY` (§16 D2)。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
@@ -721,3 +721,27 @@ M2 按产品确认的范围落地，不是设计稿 §15 里「设置页 + 变�
 | `consecutive_failures` | `consecutiveFailures` |
 
 新接口：`POST /api/mcp/servers/{id}/consent`，正文 `{"granted": true|false}`，返回更新后的服务器。他人访问 404。
+
+### 18.4 插件 P1（2026-10-03，schema v10）
+
+插件是用户看到的产品层，MCP 仍是能力。决定与数据模型见 [PLUGIN_DESIGN.md](PLUGIN_DESIGN.md) v1.0。本节不改 §16。
+
+和 M1 / M2 的差别：
+
+- 新账号不预装 Microsoft Learn 或 AWS Knowledge。`GET /api/mcp/servers` 不再为未安装的目录条目补行（§18.3 的「补齐目录行」从这里起只针对已安装插件）。
+- `POST /api/mcp/servers` 改为安装对应插件。路径保留，文档标为已弃用。新客户端用 `/api/plugins/*`。
+- 卸载插件会删掉服务行和工具缓存，并清掉同意。进行中的只读调用返回 `plugin_uninstalled`。
+- `mcp_tool_call` 审计增加 `plugin_id`。同意 / 撤回审计同样带 `plugin_id`。
+
+契约测试 `plugin_test.py` 的 PLG-CONTRACT：下列 iOS `CodingKeys` 是 JSON 键的子集。
+
+| 后端 JSON | iOS |
+|---|---|
+| `GET /api/plugins`、`GET /api/plugins/{id}`、目录项：`plugin_id`、`kind`、`name`、`description`、`category`、`publisher`、`version`、`icon`、`auth_mode`、`trust`、`installed`、`available`、`removable`、`enabled`、`state`、`consent_required`、`consent_at`、`data_notice`、`tools_count`、`sync_status`、`last_synced_at`、`last_error`、`circuit_state`、`circuit_open_until`、`consecutive_failures`、`servers`（`servers[]` 形状同 §18.2 / §18.3 的服务器） | `Plugin` |
+| `POST /api/plugins/{id}/sync`：`added`、`changed`、`removed`、`plugin` | `PluginSyncResult` |
+| `GET /api/plugins/{id}/tools`：`tools` | `PluginToolsResponse` |
+| 工具项在 §18.2 的字段之外增加 `plugin_id` | `MCPTool.pluginId` |
+| `GET /api/tools` 每项增加 `plugin_id`（天气 `builtin_weather`，提醒 `builtin_reminder`，`ask_bot` 为 `null`，外部工具为插件 id）。旧字段不变 | `ToolInfo.pluginId` |
+| `DELETE /api/plugins/{id}`：`ok`、`removed_tools`、`affected_bots` | `PluginUninstallResult` |
+
+`state` 只在后端计算，顺序（越靠前越优先）：`not_installed`、`disabled`、`circuit_open`、`syncing`、`error`、`needs_consent`、`ready`。内置插件固定 `ready`。iOS 只做文案映射。

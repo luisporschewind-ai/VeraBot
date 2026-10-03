@@ -132,6 +132,8 @@ public struct MCPTool: Codable, Sendable, Hashable, Identifiable {
     public let requiresConfirmation: Bool
     public let delegable: Bool
     public let status: String
+    /// 所属插件。旧响应没有这个字段时为 nil。
+    public let pluginId: String?
 
     public var riskText: String {
         switch risk {
@@ -154,6 +156,7 @@ public struct MCPTool: Codable, Sendable, Hashable, Identifiable {
         case requiresConfirmation = "requires_confirmation"
         case delegable
         case status
+        case pluginId = "plugin_id"
     }
 }
 
@@ -213,6 +216,7 @@ public enum MCPTraceText {
         case "mcp_consent_required": return "尚未同意把工具结果发送给 DeepSeek"
         case "mcp_circuit_open": return "该服务连续失败，已暂时停止连接"
         case "result_unknown": return "请求结果未知，请到对应服务核实"
+        case "plugin_uninstalled": return "插件已卸载，本次调用已取消"
         default: return error
         }
     }

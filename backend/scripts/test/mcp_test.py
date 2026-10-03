@@ -354,36 +354,42 @@ try:
 
     def learn_row():
         body = cli.get("/api/mcp/servers", headers=H).json()
-        return next(s for s in body["servers"] if s["slug"] == "learn"), next(s for s in body["servers"] if s["slug"] == "aws")
+        learn = next(s for s in body["servers"] if s["slug"] == "learn")
+        aws = next((s for s in body["servers"] if s["slug"] == "aws"), None)
+        return learn, aws
 
     t0 = time.perf_counter()
     servers = cli.get("/api/mcp/servers", headers=H)
     elapsed = time.perf_counter() - t0
-    learn, aws = learn_row()
-    check("MCP-SYNC GET does not wait for the network",
-          servers.status_code == 200 and elapsed < 0.7
-          and learn["sync_status"] in ("pending", "syncing")
-          and "url" not in learn and aws["status"] == "disabled",
-          f"elapsed={elapsed:.3f} learn={learn.get('sync_status')} {servers.text[:300]}")
+    check("MCP-SYNC GET does not install plugins or wait for the network",
+          servers.status_code == 200 and elapsed < 0.7 and servers.json()["servers"] == []
+          and len(_reqs(api_mock, "initialize")) == 0,
+          f"elapsed={elapsed:.3f} body={servers.text[:300]} inits={len(_reqs(api_mock, 'initialize'))}")
+    installed = cli.post("/api/plugins/microsoft_learn/install", headers=H)
+    check("MCP-API install learn without waiting, aws not created",
+          installed.status_code == 201 and installed.json().get("plugin_id") == "microsoft_learn"
+          and installed.json().get("consent_at") is None
+          and all(s["slug"] != "aws" for s in cli.get("/api/mcp/servers", headers=H).json()["servers"]),
+          installed.text[:300])
     api_mock.delay = 0
 
     def wait_learn(timeout=8):
         deadline = time.time() + timeout
-        last = None
+        last, aws = None, None
         while time.time() < deadline:
-            last, _aws = learn_row()
+            last, aws = learn_row()
             if last["sync_status"] in ("ok", "error"):
-                return last
+                return last, aws
             time.sleep(0.05)
-        return last
+        return last, aws
 
-    learn = wait_learn()
+    learn, aws = wait_learn()
     inits = _reqs(api_mock, "initialize")
-    check("MCP-API default learn connected, aws disabled, no aws traffic",
+    check("MCP-API installed learn connects, aws absent, no aws traffic",
           learn["status"] == "connected" and learn["sync_status"] == "ok" and learn["enabled"] is True
-          and aws["status"] == "disabled" and aws["enabled"] is False and len(inits) == 1
+          and aws is None and len(inits) == 1
           and learn["circuit_state"] == "closed" and learn["consent_at"] is None,
-          str({k: learn.get(k) for k in ("status", "sync_status", "circuit_state", "consent_at")}) + f" inits={len(inits)}")
+          str({k: learn.get(k) for k in ("status", "sync_status", "circuit_state", "consent_at")}) + f" inits={len(inits)} aws={aws}")
     tools = cli.get(f"/api/mcp/servers/{learn['id']}/tools", headers=H).json()["tools"]
     names = {t["mcp_name"]: t for t in tools}
     check("MCP-02 namespace and illegal tool dropped",
@@ -547,9 +553,17 @@ try:
           revoked.text[:200])
     cli.post(f"/api/mcp/servers/{learn['id']}/consent", json={"granted": True}, headers=H)
 
-    aws_id = aws["id"]
+    aws_install = cli.post("/api/plugins/aws_knowledge/install", headers=H)
+    aws_id = (aws_install.json().get("servers") or [{}])[0].get("id")
     turned = cli.patch(f"/api/mcp/servers/{aws_id}", json={"enabled": False}, headers=H)
-    check("MCP-06 disable stays disabled", turned.status_code == 200 and turned.json()["status"] == "disabled", turned.text[:200])
+    listed = cli.get("/api/mcp/servers", headers=H).json()["servers"]
+    aws_after = next(s for s in listed if s["slug"] == "aws")
+    learn_after = next(s for s in listed if s["slug"] == "learn")
+    check("MCP-06 disable stays disabled and is not recreated as enabled",
+          aws_install.status_code == 201 and turned.status_code == 200
+          and turned.json()["status"] == "disabled" and aws_after["status"] == "disabled"
+          and aws_after["enabled"] is False and learn_after["slug"] == "learn",
+          turned.text[:200])
 
     other_tok = cli.post("/api/auth/register", json={"username": "mcpother", "password": "pw123456"}).json()["token"]
     H2 = {"Authorization": "Bearer " + other_tok}

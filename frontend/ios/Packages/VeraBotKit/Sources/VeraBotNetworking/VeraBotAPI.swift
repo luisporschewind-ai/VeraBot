@@ -35,6 +35,15 @@ public protocol VeraBotAPI: Sendable {
     func deleteMCPServer(id: Int) async throws -> OKResponse
     func syncMCPServer(id: Int) async throws -> MCPSyncResult
     func mcpTools(serverID: Int) async throws -> MCPToolsResponse
+    func pluginCatalog() async throws -> PluginCatalogResponse
+    func plugins() async throws -> PluginsResponse
+    func plugin(id: String) async throws -> Plugin
+    func installPlugin(id: String) async throws -> Plugin
+    func uninstallPlugin(id: String) async throws -> PluginUninstallResult
+    func updatePlugin(id: String, enabled: Bool) async throws -> Plugin
+    func setPluginConsent(id: String, granted: Bool) async throws -> Plugin
+    func pluginTools(id: String) async throws -> PluginToolsResponse
+    func syncPlugin(id: String) async throws -> PluginSyncResult
     func delegations(botID: Int) async throws -> DelegationsResponse
     func messages(botID: Int) async throws -> MessagesResponse
     /// includeMemories：同时删除该 Bot 的「本 Bot 记忆」与对话摘要（默认 false，记忆保留）

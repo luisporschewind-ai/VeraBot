@@ -186,7 +186,7 @@ backend/verabot/
 ```
 
 - `agents → services.memory` 是允许的方向；`services.memory` 不 import `agents` / `api`。
-- `agents/memory_tools.py` 的注册方式与 `agents/delegation.py` (ask_bot) 相同，属于 ARCHITECTURE §2.2 记录的「插件注册」例外，需在 `tools/__init__.py` 注释中补一句。
+- `agents/memory_tools.py` 的注册方式与 `agents/delegation.py` (ask_bot) 相同，属于 ARCHITECTURE §2.2 记录的「工具自注册例外」，需在 `tools/__init__.py` 注释中补一句。
 - 测试替换点：`services.memory.recall.recall`、`services.llm.complete` 都可 monkeypatch (沿用 `multi_agent_test.py` 的 mock 方式)。
 
 ### 4.1 配置 (core/config.py)

@@ -25,8 +25,8 @@ struct BotEditView: View {
     @State private var persona = ""
     @State private var instructions = ""
     @State private var tools: [ToolInfo] = []
-    @State private var mcpServers: [MCPServer] = []
-    @State private var mcpTools: [MCPTool] = []
+    @State private var installedPlugins: [Plugin] = []
+    @State private var pluginTools: [MCPTool] = []
     @State private var guardrails: Guardrails?
     @State private var others: [Bot] = []
     @State private var allowedTools: Set<String> = []
@@ -167,15 +167,20 @@ struct BotEditView: View {
             }
 
             Section {
-                if mcpServers.isEmpty {
-                    Text("暂无 MCP 服务").foregroundStyle(.secondary)
+                if installedPlugins.isEmpty {
+                    Text("还没有安装插件").foregroundStyle(.secondary)
                 }
-                ForEach(mcpServers) { server in
-                    let rows = mcpTools.filter { $0.serverId == server.id }
-                    Text(server.name).font(.subheadline)
-                    if server.status != "connected" {
-                        Text(server.status == "disabled" ? "已停用，可在设置中开启" : "需先在设置中连接")
+                ForEach(installedPlugins) { plugin in
+                    let rows = pluginTools.filter { $0.pluginId == plugin.pluginId }
+                    Text(plugin.name).font(.subheadline)
+                    if !plugin.enabled || plugin.state == "disabled" {
+                        Text("已停用，可在设置中开启")
                             .font(.footnote).foregroundStyle(.secondary)
+                    } else if plugin.state == "needs_consent" {
+                        Text("需先在设置中同意")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    } else if plugin.state != "ready" && rows.isEmpty {
+                        Text(plugin.stateTitle).font(.footnote).foregroundStyle(.secondary)
                     } else if rows.isEmpty {
                         Text("还没有工具").font(.footnote).foregroundStyle(.secondary)
                     } else {
@@ -194,9 +199,9 @@ struct BotEditView: View {
                     }
                 }
             } header: {
-                Text("MCP 服务")
+                Text("插件")
             } footer: {
-                Text("按服务分组，默认关闭。每个 Bot 最多 \(MCPToolRules.maxPerBot) 个。「开启全部只读」只写入当前这些只读工具的名字。")
+                Text("按插件分组，默认关闭。每个 Bot 最多 \(MCPToolRules.maxPerBot) 个。「开启全部只读」只写入当前这些只读工具的名字。")
             }
 
             Section {
@@ -384,13 +389,14 @@ struct BotEditView: View {
             errorText = app.message(for: error)
         }
         do {
-            let response = try await app.api.mcpServers()
-            mcpServers = response.servers
+            let response = try await app.api.plugins()
+            let external = response.plugins.filter { $0.kind == "mcp" && $0.installed }
+            installedPlugins = external
             var rows: [MCPTool] = []
-            for server in response.servers {
-                rows.append(contentsOf: try await app.api.mcpTools(serverID: server.id).tools)
+            for plugin in external {
+                rows.append(contentsOf: try await app.api.pluginTools(id: plugin.pluginId).tools)
             }
-            mcpTools = rows
+            pluginTools = rows
         } catch {
             if errorText == nil { errorText = app.message(for: error) }
         }

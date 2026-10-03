@@ -23,6 +23,14 @@
 
 ### 新增 (Added)
 
+- **插件 P1（schema v10）**：用户看到的是「插件」，MCP 仍是实现。设计见 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。Q4 / Q7 按建议采纳；**Q6 改为新账号不预装任何插件**（含 Microsoft Learn）。`frontend/web` 未改。
+  - 数据：新表 `user_plugins`（只记安装关系）；`mcp_servers.plugin_id`。启用、同意、同步、熔断仍在 `mcp_servers`。迁移把用过的目录服务（`consent_at`、`last_synced_at`，或任一 Bot 白名单含 `mcp__{slug}__`）记为 `installed`；没用过的不写 `uninstalled` 墓碑。演示账号已同意的 Learn 因此保持已安装。`plugin_default_installed()` 返回空集。`VERABOT_MCP_*_ENABLED` 不再预装（只改了 `.env.example` 注释）。
+  - API：`GET /api/plugins/catalog`、`GET /api/plugins`、`GET /api/plugins/{id}`、`POST .../install`（201，已安装 409）、`DELETE`（清同意、从所有 Bot 和工具缓存去掉工具）、`PATCH {enabled}`、`POST .../consent`、`GET .../tools`、`POST .../sync`（停用时 409）。`GET /api/plugins` 含内置天气 / 提醒和已安装的外部插件，不在请求里联网。`/api/tools` 每项增加 `plugin_id`。缓存沿用 main 上的 `NoStoreAPIMiddleware`（`/api/*` 一律 `Cache-Control: no-store`）；iOS 插件方法都走 `APIClient.call`，使用 `APITransport.session`。
+  - `/api/mcp/*` 保留并标为已弃用。`GET /api/mcp/servers` 不再补未安装的目录行。`POST /api/mcp/servers` 改为走插件安装（已添加 → 409「已经添加过这个服务」）。
+  - 卸载与进行中调用：先删服务行再关会话。只读调用返回 `plugin_uninstalled`（不重试、不计熔断、不污染本轮）；审计 `status=cancelled`。同一轮再次调用也是 `plugin_uninstalled`。后台同步若服务行已没了，只记调试日志，不把外键错误打成 ERROR。
+  - 重新同步不再把本服务已有的工具名当成冲突而改掉 `full_name`。
+  - iOS：设置「插件」（已安装 N 个，只数外部插件）→「内置 / 外部 / 浏览插件」。内置详情说明开关在「工具权限」，并可前往该 Bot。卸载前系统确认框。Bot 详情分组改名「插件」。界面不出现「MCP」。Kit 增加 `PluginTests.swift`。本环境没有 Swift / Xcode，未编译。
+  - 测试：`plugin_test.py`（进程内假 MCP，无外网）PLG-01～15 与契约通过。回归 `mcp_test`、`auth_test`、`bot_pin_test`、`bot_tags_test`、`memory_test`、`avatar_profile_test`、`status_event_test`、`multi_agent_test` 通过。本机库升级前请备份 `backend/data/verabot.db.bak-before-v10-<时间戳>`。
 - **账号 v9：邮箱 / 手机号登录 (AUTH-M1，schema v9)**：按 Boss 决定实现 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) v1.0。
   - 登录方式：邮箱 + 密码、邮箱 + 验证码 (新邮箱首次登录自动建号)、手机号 + 密码 (自动规范成 E.164，暂不发短信)。用户名保留在数据里，界面不展示；demo / verabot2026 继续可用 (邮箱框填 demo)。
   - 后端：`users` 加 `email`、`email_verified_at`、`phone`、`token_version`、`failed_logins`、`locked_until`；新表 `auth_codes`、`auth_refresh_tokens`。新接口 `/api/auth/refresh`、`/logout`、`/logout-all`、`/email/send-code`、`/email/login`、`/api/me/email/send-verification`、`/api/me/email/verify`；`register` / `login` 兼容旧的 `{username,password}`。访问令牌 7 天 (JWT 加 `tv`、`typ`)，刷新令牌 60 天、每次轮换、复用即吊销全部。连续 5 次密码错误锁 15 分钟；IP / 邮箱发码限流。`/api/me` 新增 `email`、`email_verified`、`phone`。

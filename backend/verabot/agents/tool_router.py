@@ -7,7 +7,8 @@ import os
 
 from .. import db
 from ..core.config import MCP_CALLS_PER_TURN_DEFAULT
-from ..db import mcp_store
+from ..db import mcp_store, plugin_store
+from ..services.mcp import catalog as mcp_catalog
 from ..services.mcp import service as mcp
 from ..tools.registry import ToolContext, run_tool
 from .permissions import get_schemas
@@ -21,6 +22,7 @@ _DENY = {
     "tool_removed": "MCP 工具已从服务中移除",
     "turn_cap": "本轮 MCP 调用次数已达上限",
     "needs_confirmation": "该操作需要确认后才能执行，当前版本暂不支持确认",
+    "plugin_uninstalled": "插件已卸载，本次调用已取消",
 }
 
 
@@ -63,6 +65,8 @@ async def dispatch(ctx: ToolContext, name: str, raw_args: str, call_id: str | No
 def _call_mcp(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
     tool = mcp_store.get_tool_by_full_name(ctx.user_id, name)
     if tool is None:
+        if _uninstalled_plugin(ctx.user_id, name):
+            return _deny(ctx, name, "plugin_uninstalled")
         return _deny(ctx, name, "unknown_tool")
     if name not in (ctx.bot.get("allowed_tools") or []):
         return _deny(ctx, name, "tool_not_allowed")
@@ -93,6 +97,19 @@ def _call_mcp(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = 
     if result.get("content") or result.get("code") == "mcp_tool_error":
         ctx.turn.untrusted_tainted = True
     return result
+
+
+def _uninstalled_plugin(user_id: int, name: str) -> bool:
+    """工具行已经没了，但这个 slug 属于用户卸下的插件时，用 plugin_uninstalled 而不是 unknown_tool。"""
+    rest = name[len("mcp__"):]
+    slug, sep, _tool = rest.partition("__")
+    if not sep or not slug:
+        return False
+    spec = mcp_catalog.by_slug(slug)
+    if spec is None:
+        return False
+    row = plugin_store.get(user_id, spec["catalog_id"])
+    return row is not None and row["status"] == "uninstalled"
 
 
 def _deny(ctx: ToolContext, name: str, reason: str, audited: bool = False) -> dict:

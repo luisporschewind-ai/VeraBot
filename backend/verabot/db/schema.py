@@ -1,7 +1,7 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v9）。"""
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v10）。"""
 import json
 
-from .database import tx
+from .database import now_iso, tx
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -122,7 +122,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mem_dedupe
 """
 
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 # v9：账号。邮箱存小写、手机号存 E.164；NULL 不参与唯一约束。
 AUTH_SCHEMA = """
@@ -229,6 +229,23 @@ CREATE TABLE IF NOT EXISTS pending_actions (
 CREATE INDEX IF NOT EXISTS idx_pending_user ON pending_actions(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_mcp_tools_user ON mcp_tools(user_id, status);
 """
+
+# v10：插件安装关系。启用、同意、同步、熔断仍在 mcp_servers。
+# 不预装任何插件。迁移只把「用过」的目录服务记为 installed，不为没用过的行写 uninstalled 墓碑。
+PLUGIN_SCHEMA = """
+CREATE TABLE IF NOT EXISTS user_plugins (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plugin_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'installed',
+  catalog_version TEXT,
+  settings TEXT,
+  installed_at TEXT, uninstalled_at TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(user_id, plugin_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_plugins_user ON user_plugins(user_id, status);
+"""
 ALL_TOOLS_V2 = ["get_weather", "create_reminder", "list_reminders", "ask_bot"]
 
 
@@ -254,6 +271,10 @@ def init_db():
     v8 → v9：账号邮箱 / 手机号（部分唯一索引）、邮箱验证时间、token_version、登录失败锁定；
              新表 auth_codes（邮箱验证码，只存哈希）、auth_refresh_tokens（刷新令牌，只存哈希）。
              不改用户名、密码哈希和任何业务数据；demo 等老账号继续用用户名登录。
+    v9 → v10：user_plugins（安装关系）+ mcp_servers.plugin_id。不预装。
+             用过（已同意、已同步，或任一 Bot 白名单含该服务工具）的目录服务记为 installed；
+             没用过的不写 uninstalled 墓碑。不改 consent_at、工具缓存和 allowed_tools。
+             演示账号的 Learn 若已同意，会作为「用过」保留为已安装。
     """
     with tx() as c:
         c.executescript(SCHEMA)
@@ -325,6 +346,35 @@ def init_db():
         _add_column(c, "users", "failed_logins", "INTEGER NOT NULL DEFAULT 0")
         _add_column(c, "users", "locked_until", "TEXT")
         c.executescript(AUTH_SCHEMA)
+        # --- v10：插件。只加安装表和关联列；不预装，不为未使用的目录行写墓碑 ---
+        _add_column(c, "mcp_servers", "plugin_id", "TEXT")
+        c.executescript(PLUGIN_SCHEMA)
+        if ver < 10:
+            now = now_iso()
+            c.execute(
+                """UPDATE mcp_servers SET plugin_id = catalog_id
+                   WHERE plugin_id IS NULL AND source='catalog'
+                     AND catalog_id IS NOT NULL"""
+            )
+            # 用过 = 同意过、同步过，或某个 Bot 的白名单里已经有 mcp__{slug}__。
+            # 目录自动补出来、但用户没碰过的行（包括默认开启却从未同意的 Learn）保持未安装，
+            # 且不插入 status='uninstalled'。墓碑只留给用户以后主动卸载，避免挡住预装。
+            c.execute(
+                """INSERT OR IGNORE INTO user_plugins(
+                       user_id, plugin_id, status, installed_at, created_at, updated_at)
+                   SELECT s.user_id, s.plugin_id, 'installed', s.created_at, s.created_at, ?
+                   FROM mcp_servers s
+                   WHERE s.plugin_id IS NOT NULL AND (
+                     s.consent_at IS NOT NULL
+                     OR s.last_synced_at IS NOT NULL
+                     OR EXISTS (
+                       SELECT 1 FROM bots b
+                       WHERE b.user_id = s.user_id
+                         AND instr(b.allowed_tools, 'mcp__' || s.slug || '__') > 0
+                     )
+                   )""",
+                (now,),
+            )
         # 标签上限收紧 (2026-10-01：最多 3 个、每个 4 字)。结构不变 (仍是 v5)；每次启动把超限的存量标签收敛：
         # 保留前 3 个、每个截断到 4 字、去重。幂等，只改写确实变化的行。
         from ..core.tags import coerce_stored_tags
