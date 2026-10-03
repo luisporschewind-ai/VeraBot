@@ -16,12 +16,13 @@ struct UserAvatar: View {
     }
 }
 
-/// 首页导航栏里的头像：固定 30×30 正圆（照片或首字圆底），放在系统圆形玻璃按钮里。
+/// 首页导航栏里的头像：正圆（照片或首字圆底）。iOS 26 关掉系统玻璃底后用 44pt，与右侧圆形按钮等大；更早系统 30pt。
 struct HomeAvatarLabel: View {
     let name: String
     var image: UIImage?
+    var size: CGFloat = 30
 
     var body: some View {
-        UserAvatar(name: name, image: image, size: 30)
+        UserAvatar(name: name, image: image, size: size)
     }
 }

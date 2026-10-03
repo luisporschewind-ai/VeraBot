@@ -76,15 +76,13 @@ struct BotListView: View {
                     .toolbar(.hidden, for: .tabBar)   // 二级页面隐藏底部 Tab 栏，返回根页面时自动恢复
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink {
-                        SettingsView()
-                            .toolbar(.hidden, for: .tabBar)
-                    } label: {
-                        // 无照片时只放首字，由系统圆形按钮承载；有照片时在按钮里显示圆形头像
-                        HomeAvatarLabel(name: app.displayName, image: app.avatars.userImage)
-                    }
-                    .accessibilityLabel("设置")
+                // iOS 26：系统会给工具栏项套一层 Liquid Glass 共享底（按内容算出的胶囊），
+                // 包在头像外面看起来不是圆的。关掉这层底，只显示与右侧圆形按钮等大的正圆头像。
+                if #available(iOS 26.0, *) {
+                    ToolbarItem(placement: .topBarLeading) { settingsLink(avatarSize: 44) }
+                        .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .topBarLeading) { settingsLink(avatarSize: 30) }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { beginSearch() } label: { Image(systemName: "magnifyingglass") }
@@ -111,6 +109,17 @@ struct BotListView: View {
             .onAppear { Task { await load() } }   // 从对话页返回时刷新（对话页可能新建了 Bot）
             .refreshable { await load() }
         }
+    }
+
+    /// 首页左上角：正圆头像（照片或首字圆底），点按进入设置。
+    private func settingsLink(avatarSize: CGFloat) -> some View {
+        NavigationLink {
+            SettingsView()
+                .toolbar(.hidden, for: .tabBar)
+        } label: {
+            HomeAvatarLabel(name: app.displayName, image: app.avatars.userImage, size: avatarSize)
+        }
+        .accessibilityLabel("设置")
     }
 
     private func beginSearch() {

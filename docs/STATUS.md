@@ -19,6 +19,7 @@
 - **后端启动**：`backend/stop.sh` 后 `backend/start.sh --detach` (默认 `0.0.0.0:8000`，日志 `data/server.log`)；健康检查 `curl http://192.168.0.104:8000/api/health`；demo / verabot2026。
 - **近期更新**：Bot 置顶已实现 (schema v6；见 [BOT_PIN.md](design/BOT_PIN.md))，本机数据库迁移前备份 `backend/data/verabot.db.bak-before-v6`。
 - **验收记录 (2026-10-01)**：Boss 确认 Bot 置顶功能无问题；TC-07 无效 token 返回 401 后自动回登录页；TC-29/30、设置、首页与导航、主要列表、消息、头像/昵称，以及触感反馈、语音、键盘相关验收通过。余下详情/创建页、长期记忆、用量、标签细节、删除流程及部分视觉页验收由 Boss 同意延期，不阻塞当前任务。详见测试用例记录。
+- **2026-10-03**：首页左上角头像外的 iOS 26 玻璃胶囊底已关掉 (`.sharedBackgroundVisibility(.hidden)`)，头像 44pt 正圆，与右侧按钮等大；待 Boss 验收 (UI-11b)。
 - **待办**：
   2. **执行状态机** (只读评估已完成，未决定)：iOS 现在无状态枚举，靠 `sending` / `streaming` / traces 推断；建议在 `VeraBotCore` 用现有 SSE 事件 (delta / tool_start / tool_result / error / done) 推导状态并原生显示「正在思考 / 正在调用… / 正在请教…」，可选后端 `status` 事件。
   3. **遗留英文**：对话页委派 Trace 行 (`Features/Chat/TraceView.swift`) 仍显示「N tokens」。
