@@ -15,7 +15,7 @@ struct MessageRow: View {
                     Text(item.text)
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .foregroundStyle(.white)
-                        .background(Color.brand, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(Color.brandFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     if ttsEnabled && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)
                     }

@@ -8,7 +8,7 @@ struct UserAvatar: View {
     var size: CGFloat = 32
 
     var body: some View {
-        CircleAvatar(image: image, background: Color.brand, size: size) {
+        CircleAvatar(image: image, background: Color.brandFill, size: size) {
             Text(AvatarInitial.text(for: name))
                 .font(.system(size: size * 0.45, weight: .bold))
                 .foregroundStyle(.white)

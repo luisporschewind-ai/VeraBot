@@ -153,9 +153,13 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 | `Color.sectionFill` | `#EFEFEE` (RGB 239, 239, 238；原为 `#F2F2F7`) | `secondarySystemBackground` (sheet 内 elevated) | 分组 Section、卡片、输入框底 |
 | `Color.botBubble` / `traceFill` | = `sectionFill` | = `sectionFill` | Bot 回复气泡、工具 Trace |
 | `Color.insetFill` | = `appBackground` | = `appBackground` | 卡片里再嵌一层的内容 |
-| `Color.brandSoft` | `#E6F4F2` | `#123D39` | 表情选中、交接 Trace |
-| `Color.brand` / `AccentColor` | `#0F766E` | `#14B8A6` (AccentColor) | 强调色 (`.tint`)；用户消息气泡底色 |
-| `Color.brandLight` / `brandDark` | `#14B8A6` / `#115E59` | 同左 | 品牌辅助色 |
+| `Color.brandSoft` | `#E7EEF3` | `#1A3144` | 表情选中、交接 Trace (Vera `surface_elevated`) |
+| `Color.brand` / `AccentColor` | `#3A7485` | `#548EA0` | 强调色 (`.tint`)：按钮文字、导航、置顶 (`pinTint`)、开关。Vera CLI 青绿 |
+| `Color.brandFill` | `#3A7485` | `#3D7A8C` | 白字下面的实色底：用户消息气泡、默认头像 |
+| `Color.brandText` | `#1A2B36` | `#D7E4EE` | 品牌文字：登录页「Vera Bot」、设置里的账号名 (Vera `text_primary`) |
+| `Color.brandLight` / `brandDark` | `#548EA0` / `#2F6F82` | `#5B9BB0` / `#2F6F82` | 品牌辅助色 (引用竖条、用量进度条) |
+
+品牌色来源 (2026-10-03 Boss 选定)：Vera CLI 默认「深海」主题 `~/Vera/src/vera/terminal/theme.py` —— `accent #3D7A8C` (VERA 点阵 Logo 主体)、`logo #548EA0` (扫光高光)、`text_primary #D7E4EE`。终端 256 色把它们显示成 `#5F8787` / `#5F87AF` / `#D7D7FF` (截图里的灰绿和淡紫)。浅色模式把 `#3D7A8C` 压暗为 `#3A7485` (白底 5.2:1、`#EFEFEE` 上 4.5:1)；深色模式文字 / 图标用 `#548EA0` (黑底 5.8:1)，白字实色底用 `#3D7A8C` (4.8:1)。Bot 自己的颜色选项 (`BotLook.colors`、后端默认 `#0F766E`) 是用户数据，不随主题改。
 | `Color.codeFill` | = `insetFill` | = `insetFill` | 消息里的代码块 / 表格底 |
 | `Color.quoteBar` | = `brandLight` | = `brandLight` | 消息里引用块左侧竖条 |
 

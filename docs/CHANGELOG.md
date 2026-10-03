@@ -6,6 +6,7 @@
 
 ### 修复 (Fixed)
 
+- **iOS · 主题色改为 Vera 青绿**：Boss 选定 Vera CLI 横幅的青绿和文字色。替换原品牌色 `#0F766E`：`Color.brand` / `AccentColor` 浅色 `#3A7485`、深色 `#548EA0`；新增 `brandFill` (白字实色底：用户气泡、默认头像，浅色 `#3A7485` / 深色 `#3D7A8C`) 和 `brandText` (浅色 `#1A2B36` / 深色 `#D7E4EE`，用于登录页标题和设置里的账号名)；`brandLight` `#548EA0`/`#5B9BB0`、`brandDark` `#2F6F82`、`brandSoft` `#E7EEF3`/`#1A3144`。数值来自 `~/Vera/src/vera/terminal/theme.py` (accent / logo / text_primary)，对比度见 [ARCHITECTURE.md](design/ARCHITECTURE.md) 主题表。系统控件样式不变；Bot 自身颜色选项与 Web 未改。
 - **iOS · 首页置顶动画卡顿 + 置顶图标**：原因是先等 `PATCH /api/bots/{id}` 返回再重排 (点按后要等一次网络往返才动)，而且重排正好撞上左滑按钮收起的动画，录屏里被移动的行会空白约 0.5 s 再跳到新位置。改为乐观更新：等滑动按钮收起 (0.25 s) 后立即 `withAnimation(.snappy)` 用系统 List 行移动，再同步服务端；返回后只校正 `pinned_at` (顺序没变就不再动画)，失败时动画回滚并显示错误；同一 Bot 同步中忽略重复点按。`ForEach` 仍以 `bot.id` 为身份。新增 `BotOrdering.togglingPin` / `replacingPinnedAt` / `pinTimestamp` (与后端 `now_iso()` 同格式，本机时钟偏慢时取已有最新置顶 +1 s)。图标改为 `pin.fill` / `pin.slash.fill`：「置顶」按钮品牌色 `Color.pinTint`，「取消置顶」系统灰 `Color.unpinTint`，行内置顶标记由灰色改为 `pinTint` (出现 / 消失带缩放淡入)。后端未改。Kit 测试 94/94。
 - **iOS · 首页左上角头像左边距**：隐藏共享玻璃底后头像仍按玻璃按钮内边距排版，左边距约 30pt，右侧＋按钮右边距约 16pt；iOS 26 分支左移 14pt，两侧现在都约 16pt。
 - **iOS · 设置 › 账号**：去掉单独的「昵称」输入行和「保存昵称」按钮；点头像仍从相册更换，点昵称弹出系统输入框「修改昵称」(取消 / 保存，规则与接口不变)。头像和昵称是两个独立的点按区域。

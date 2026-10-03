@@ -48,7 +48,7 @@ struct LoginView: View {
                 .frame(width: 76, height: 76)
                 .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
                 .accessibilityHidden(true)
-            Text("Vera Bot").font(.largeTitle.bold())
+            Text("Vera Bot").font(.largeTitle.bold()).foregroundStyle(Color.brandText)
             Text("你的私人 AI 助理团队").foregroundStyle(.secondary)
 
             Picker("登录方式", selection: $method) {

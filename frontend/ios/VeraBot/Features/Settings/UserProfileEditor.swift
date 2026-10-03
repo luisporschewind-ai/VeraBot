@@ -32,8 +32,8 @@ struct AccountSettingsSection: View {
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            // 按钮内 .primary 会被解析成强调色，这里显式用系统文字色，保持与普通行一致
-                            Text(app.displayName).font(.headline).foregroundStyle(Color.primary)
+                            // 按钮内 .primary 会被解析成强调色，这里显式用品牌文字色（Vera text_primary，浅色近黑 / 深色 #D7E4EE）
+                            Text(app.displayName).font(.headline).foregroundStyle(Color.brandText)
                             // 邮箱 / 手机号账号显示邮箱或手机号；老的用户名账号（demo）显示「用户名 xxx」
                             Text(app.accountLabel)
                                 .font(.caption)

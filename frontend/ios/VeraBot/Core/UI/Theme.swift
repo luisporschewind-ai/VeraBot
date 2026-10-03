@@ -8,17 +8,32 @@ import UIKit
 //
 //   appBackground  页面背景      浅色 #FFFFFF；深色 #000000
 //   sectionFill    分组 / 卡片   浅色 #EFEFEE（RGB 239, 239, 238）；深色 secondarySystemBackground
-//   brandSoft      品牌浅底      浅色 #E6F4F2；深色 #123D39（表情选中、交接 Trace 卡片）
+//   brand          品牌色        浅色 #3A7485；深色 #548EA0（全局 tint：按钮文字、导航、置顶、开关）
+//   brandFill      品牌实色底    浅色 #3A7485；深色 #3D7A8C（白字的底：用户气泡、默认头像）
+//   brandText      品牌文字色    浅色 #1A2B36；深色 #D7E4EE（Logo 旁的标题、账号名等「品牌文字」）
+//   brandSoft      品牌浅底      浅色 #E7EEF3；深色 #1A3144（表情选中、交接 Trace 卡片）
+//
+// 品牌色取自 Vera CLI 主题（~/Vera/src/vera/terminal/theme.py，默认「深海」主题）：
+//   accent #3D7A8C（VERA 点阵 Logo 的主体青绿）、logo #548EA0（Logo 扫光高光）、text_primary #D7E4EE（「Vera」等正文）。
+//   终端 256 色下显示为 #5F8787 / #5F87AF / #D7D7FF（截图里的灰绿 + 淡紫），源头值以上面为准。
+//   浅色模式把 #3D7A8C 压暗到 #3A7485：白底 5.2:1、浅灰分组 #EFEFEE 上 4.5:1；深色模式文字 / 图标用 #548EA0（黑底 5.8:1），
+//   白字的实色底用 #3D7A8C（白字 4.8:1）。
 //
 // Liquid Glass：iOS 26 用系统 .glassEffect / .buttonStyle(.glass)；iOS 17–18 回退到材质 / bordered 样式。
 
 extension Color {
-    /// 品牌色（Deep Teal）
-    static let brand = Color(hex: "#0F766E")        // primary
-    static let brandLight = Color(hex: "#14B8A6")   // light accent
-    static let brandDark = Color(hex: "#115E59")
-    /// 品牌浅底（表情选中、交接 Trace 卡片），带深色变体
-    static let brandSoft = Color.dynamic(light: UIColor(hex: 0xE6F4F2), dark: UIColor(hex: 0x123D39))
+    /// 品牌色（Vera 深海青绿，取自 Vera CLI accent / logo）：全局 tint、强调文字与图标
+    static let brand = Color.dynamic(light: UIColor(hex: 0x3A7485), dark: UIColor(hex: 0x548EA0))
+    /// 白字下面的品牌实色底（用户消息气泡、默认头像）：深色模式不用更亮的 #548EA0，保证白字对比度
+    static let brandFill = Color.dynamic(light: UIColor(hex: 0x3A7485), dark: UIColor(hex: 0x3D7A8C))
+    /// 亮一档的辅助色（引用竖条、用量进度条）：Vera logo / focus
+    static let brandLight = Color.dynamic(light: UIColor(hex: 0x548EA0), dark: UIColor(hex: 0x5B9BB0))
+    /// 暗一档（Vera Light 主题 accent）
+    static let brandDark = Color(hex: "#2F6F82")
+    /// 品牌文字色（Vera CLI text_primary #D7E4EE / Light 主题 #1A2B36）：登录页标题、设置里的账号名
+    static let brandText = Color.dynamic(light: UIColor(hex: 0x1A2B36), dark: UIColor(hex: 0xD7E4EE))
+    /// 品牌浅底（表情选中、交接 Trace 卡片）：Vera surface_elevated
+    static let brandSoft = Color.dynamic(light: UIColor(hex: 0xE7EEF3), dark: UIColor(hex: 0x1A3144))
 
     /// 页面背景：浅色纯白，深色纯黑
     static let appBackground = Color.dynamic(light: .white, dark: .black)
@@ -51,7 +66,7 @@ extension Color {
         if s.hasPrefix("#") { s.removeFirst() }
         var value: UInt64 = 0
         if s.count != 6 || !Scanner(string: s).scanHexInt64(&value) {
-            value = 0x0F766E
+            value = 0x3D7A8C
         }
         self.init(red: Double((value >> 16) & 0xFF) / 255,
                   green: Double((value >> 8) & 0xFF) / 255,
