@@ -24,6 +24,7 @@
 
 ### 新增 (Added)
 
+- **iOS · 默认形象合并复核 (PR #6)**：Xcode 26 / Swift 6 下 `AvatarGlobalFrameKey.defaultValue` 是可变静态属性，编译报错 (not concurrency-safe)，改为 `static let`；首页列表 / 消息里的静态形象对 VoiceOver 隐藏 (行本身已读 Bot 名，之前每行多读「方糖，空闲」)，对话导航栏的动画形象仍读姿态。Mac 上 `swift test` 126/126、xcodebuild 通过，模拟器看过首页、创建页、Bot 详情、对话导航栏 (已完成 → 空闲)。
 - **iOS · 默认 Bot 头像改为头像实验室形象**：没有相册照片时，首页列表、对话页导航栏、Bot 详情（以及消息气泡、用量、记忆、委派列表里的同一个 `LiveBotAvatar`）用 V豆 / 芽芽 / 星点 / 云朵 / 方糖，不再用表情加底色圆。照片优先。创建页和详情「默认形象」改为这五款；选中的 id 写入已有 `avatar`（`veraBean` 等，均不超过 8 字），不新增接口。旧表情仍能对应到一款形象，不强制改写。对话页导航栏按 SSE 已有事件驱动的 10 个执行状态动画（复用实验室的 `phaseAnimator`，没有新动画框架）；首页和详情只显示静态空闲形象。正常结束后「已完成」保持 1.5 s 再回空闲；等你确认和整轮失败不自动回空闲。后端 `status` 字段未改。`frontend/web` 未改（冻结；形象 id 会当文字显示）。测试：`avatar_profile_test.py` 22/22（新增 AV-18），`status_event_test.py` 8/8；回归 PIN 8/8、TAG 10/10、AUTH 16/16、MEM 36/36、MA 25/25、MCP 本地用例失败 0。Kit 新增映射 / 计时用例（EXEC-34~40）。Linux 上 `swift test` 仍因既有 `MessageMarkdown.swift`（swift-corelibs-foundation 没有 `NSDataDetector`）编不过整个包；排除该文件后 Core 类型检查通过，并用与这些用例相同的断言跑通映射和计时。iOS 模拟器未编译、未点按。
 - **账号 v9：邮箱 / 手机号登录 (AUTH-M1，schema v9)**：按 Boss 决定实现 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) v1.0。
   - 登录方式：邮箱 + 密码、邮箱 + 验证码 (新邮箱首次登录自动建号)、手机号 + 密码 (自动规范成 E.164，暂不发短信)。用户名保留在数据里，界面不展示；demo / verabot2026 继续可用 (邮箱框填 demo)。

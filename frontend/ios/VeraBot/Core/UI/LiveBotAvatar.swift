@@ -22,7 +22,9 @@ struct LiveBotAvatar: View {
             case .photo:
                 BotAvatar(emoji: emoji, color: color, image: photo, size: size)
             case .figure:
+                // 静态形象只是装饰：列表行已经读 Bot 名称，不再读「方糖，空闲」
                 DefaultBotFigure(storedAvatar: emoji, pose: pose, animated: animated, size: size)
+                    .accessibilityHidden(!animated)
             }
         }
         .task(id: "\(botID)|\(hasAvatar)|\(updatedAt ?? "")") {

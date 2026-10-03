@@ -389,7 +389,7 @@ private struct AvatarScrollVisibility: ViewModifier {
 }
 
 private struct AvatarGlobalFrameKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
+    static let defaultValue: CGRect = .zero
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
 }
 
