@@ -11,6 +11,7 @@ struct ChatView: View {
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
     @State private var sendCount = 0            // 触感反馈触发器：每次发送 +1
     @Environment(AppState.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
     let highlightMessageID: Int?
 
     init(bot: Bot, api: any VeraBotAPI, highlightMessageID: Int? = nil) {
@@ -167,7 +168,10 @@ struct ChatView: View {
                 input = speechBase + speech.transcript   // 实时写入部分识别结果，由用户确认后发送
             }
         }
-        .onDisappear { speech.stop() }
+        .onDisappear { speech.cancel() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { speech.cancel() }   // 进入后台立即释放麦克风 / 音频会话
+        }
         .hapticFeedback(.impact(weight: .light), trigger: sendCount)   // 发送消息（受「触感反馈」开关控制）
         .hapticFeedback(.selection, trigger: speech.isRecording)        // 开始 / 结束语音输入
     }
