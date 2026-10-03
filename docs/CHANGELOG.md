@@ -6,6 +6,7 @@
 
 ### 修复 (Fixed)
 
+- **插件 · 卸载时进行中的调用要等满 MCP 超时**（PR #7 合并复核发现，`PLG-14` 在 Boss 的 Mac 上失败）：卸载会关掉池里的 httpx 客户端，但 macOS 上关闭套接字不会唤醒另一线程里阻塞的读取，进行中的调用要等 15 s 超时才返回 `plugin_uninstalled`。`services/mcp/service.py` 新增 `_interruptible`：单次调用放到后台线程，每 0.1 s 检查服务行，没了就立刻按「已发出」返回（只读 → `plugin_uninstalled`，非只读 → `result_unknown`，规则不变），后台线程结果丢弃。`plugin_test.py` 全部通过（PLG-14 卸载 < 0.5 s 返回）。
 - **安全 · 账号隔离：HTTP 缓存与换账号竞态** (2026-10-03 隔离审计发现的漏洞 2 + 建议 #3；邮箱抢注问题按 Boss 决定延后，未改)：
   - 问题：iOS 所有请求走 `URLSession.shared` (默认 URLCache)，后端又不发缓存头，登录 / 刷新响应 (访问令牌 + 刷新令牌)、聊天记录、已解密的健康记忆被明文写进 `Library/Caches/com.verabot.app/Cache.db`，退出登录、换账号后仍在 (界面不显示，属于设备上的数据残留)。另外 `refreshProfile` / 头像下载只判断「有没有登录」，A 的请求在 B 登录后才回来时，可能把 A 的资料或头像写到 B 的界面上。
   - 后端：新中间件 `core/http_cache.py` (纯 ASGI，不缓冲 SSE)：所有 `/api/*` 响应 (含错误、CORS 预检、SSE) 带 `Cache-Control: no-store` + `Pragma: no-cache`；SSE 原来的 `no-cache` 换成 `no-store`。头像接口从 `private, max-age=86400` 改为 **`private, no-store`**：头像是用户照片，`/api/me/avatar` 的 URL 人人相同，不能进 HTTP 缓存；iOS 本来就按账号缓存在 `Caches/verabot-avatars`，退出时整个删除，所以不影响加载速度。`/`、`/static`、`/docs` 不变。

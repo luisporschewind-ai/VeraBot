@@ -525,14 +525,46 @@ def _idempotent(tool: dict) -> bool:
     return bool(ann.get("idempotentHint"))
 
 
+_ALIVE_POLL_SECONDS = 0.1
+
+
 def _call_with_retries(session, tool: dict, arguments: dict, alive=None):
     def op():
-        return session.call_tool(tool["mcp_name"], arguments or {})
+        return _interruptible(lambda: session.call_tool(tool["mcp_name"], arguments or {}), alive)
 
     try:
         return _with_retries(op, idempotent=_idempotent(tool), alive=alive)
     except _ResultUnknown:
         return "unknown"
+
+
+def _interruptible(fn, alive=None):
+    """在后台线程里执行一次 HTTP 调用，同时每 0.1 秒检查服务行。
+
+    卸载插件时 drop_session 会关掉 httpx 客户端，但在 macOS 上关闭套接字不会唤醒另一个线程里阻塞的读取，
+    进行中的调用要等到 MCP 超时（默认 15 秒）才返回。这里不等：服务行没了就立刻按 sent=True 抛出
+    PluginUninstalled，后台线程自己结束（会话已从池里移除，结果丢弃）。
+    """
+    if alive is None:
+        return fn()
+    box: dict = {}
+    done = threading.Event()
+
+    def run():
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # noqa: BLE001 - 原样转给调用方
+            box["error"] = exc
+        finally:
+            done.set()
+
+    threading.Thread(target=run, name="mcp-call", daemon=True).start()
+    while not done.wait(_ALIVE_POLL_SECONDS):
+        if not alive():
+            raise PluginUninstalled(sent=True)
+    if "error" in box:
+        raise box["error"]
+    return box["value"]
 
 
 class _ResultUnknown(Exception):
