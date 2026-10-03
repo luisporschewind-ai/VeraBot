@@ -37,6 +37,21 @@ def messages_clear(bot_id: int, include_memories: bool = False, user=Depends(cur
     return out
 
 
+@router.delete("/api/bots/{bot_id}/messages/{message_id}")
+def messages_delete(bot_id: int, message_id: int, user=Depends(current_user)):
+    """删除单条消息（物理删除，只删这一条，不连带同一轮的另一条）。按 user_id + bot_id + id 限定：
+    别人的消息、别的 Bot 的消息与不存在的消息一律返回相同的 404。引用该消息的行由外键 / 触发器处理：
+    memories.source_message_id、notifications.message_id 置 NULL，reminders.source_message_id 由触发器置 NULL；
+    Trace 存在消息行内，随行删除。已提取的记忆不删除。
+    不先调 require_bot：WHERE 已含 user_id + bot_id，他人的 Bot / 消息与不存在的消息返回完全相同的 404（不泄露存在性）。"""
+    with db.tx() as c:
+        n = c.execute("DELETE FROM messages WHERE id=? AND user_id=? AND bot_id=?",
+                      (message_id, user["id"], bot_id)).rowcount
+    if not n:
+        raise HTTPException(404, "消息不存在")
+    return {"ok": True}
+
+
 @router.post("/api/bots/{bot_id}/chat")
 async def chat(bot_id: int, body: ChatIn, user=Depends(current_user)):
     """SSE 流式对话。事件：delta / tool_start / tool_result / error / done（done 含 message_id、usage、memory_ids）"""

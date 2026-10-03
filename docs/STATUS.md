@@ -126,7 +126,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 
 ## 2. 已知限制 (Known limits)
 
-- **iOS 与 Web 不对等**：Web SPA 没有迭代 2 的 iOS UI 改动 (权限编辑、协作记录、设置页、TTS)，也没有 2026-10-01 之后的改动 (昵称编辑、照片头像、调试页、通用设置、列表时间 / 搜索、Liquid Glass 视觉、浮动输入栏、富文本 / App 内网页、MCP 服务开关、M2 的同意 / 同步 / 熔断)，只作为 API 验收客户端。`frontend/web` 冻结，落后于 MCP M2。
+- **iOS 与 Web 不对等**：Web SPA 没有迭代 2 的 iOS UI 改动 (权限编辑、协作记录、设置页、TTS)，也没有 2026-10-01 之后的改动 (昵称编辑、照片头像、调试页、通用设置、列表时间 / 搜索、Liquid Glass 视觉、浮动输入栏、富文本 / App 内网页、MCP 服务开关、M2 的同意 / 同步 / 熔断)，只作为 API 验收客户端。`frontend/web` 冻结，落后于 MCP M2。**Web 暂不支持删除单条消息**（iOS 长按「删除」，接口 `DELETE /api/bots/{bot_id}/messages/{message_id}`；Web 只有清空整段对话）。
 - **HEIC**：服务端能认出 HEIC 文件头；未安装 `pillow-heif` 时返回 415。iOS 在上传前把相册图片转成 JPEG，不依赖服务端解 HEIC。
 - **头像存在 SQLite `avatars.data`**：512 JPEG，单张大约几 KB 到几十 KB。备份数据库即包含头像。
 - **提醒不推送**：没有 APNs / 本地通知。设置里的「通知」开关只申请系统授权并保存偏好，目前不会发出任何通知。

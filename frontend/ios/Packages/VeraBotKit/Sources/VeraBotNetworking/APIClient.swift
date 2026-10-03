@@ -261,6 +261,10 @@ public struct APIClient: VeraBotAPI {
                        query: includeMemories ? [URLQueryItem(name: "include_memories", value: "true")] : [])
     }
 
+    public func deleteMessage(botID: Int, messageID: Int) async throws -> OKResponse {
+        try await call("/api/bots/\(botID)/messages/\(messageID)", method: "DELETE")
+    }
+
     // MARK: - Memories（长期记忆，见 docs/design/MEMORY_GROWTH.md §5.5）
     public func memories(_ query: MemoryQuery) async throws -> MemoriesResponse {
         try await call("/api/memories", query: query.queryItems)

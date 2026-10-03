@@ -678,3 +678,23 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | NTF-CONTRACT | 契约 | 通知 / 偏好 / 设备 JSON 与 `Notifications.swift` | 键名一致 | 通过 |
 | REM-UI-01、REM-UI-06、NTF-UI-03 | iOS Kit | 分组、排程上限 60、深链接 | 纯逻辑在 Kit 测试里 | 未跑（本环境无 Swift） |
 | REM-UI-02 … 05、07、08、NTF-UI-01、02、04 | iOS 模拟器 | 界面、本地通知、退出清理 | 见设计 §16 | 未测 |
+
+## 删除单条消息 (Delete message) — 2026-10-03
+
+接口 `DELETE /api/bots/{bot_id}/messages/{message_id}`，无 schema 变更 (v11)。自动化：`backend/scripts/test/message_delete_test.py` (临时 SQLite + TestClient，不调 LLM)；iOS Kit `MessageDeleteTests.swift`。未含附件 (附件 P1 合并后补)。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| MSG-DEL-01 | 后端 | 删除自己的 Bot 回复 | 200 `{ok: true}` | 通过 |
+| MSG-DEL-02 | 后端 | 删除后 GET 历史 | 不再返回；同一轮的用户消息与其他消息保留 | 通过 |
+| MSG-DEL-03 | 后端 | 引用该消息的行 | 记忆保留 (`source_message_id` 置 NULL，状态不变)；通知 `message_id`、提醒 `source_message_id` 置 NULL | 通过 |
+| MSG-DEL-04 | 后端 | 不存在 / 他人消息 / 他人 Bot / Bot 不匹配 / 重复删除 | 完全相同的 404「消息不存在」 | 通过 |
+| MSG-DEL-05 | 后端 | 越权请求后 | 不删除任何数据 | 通过 |
+| MSG-DEL-06 | 后端 | 删除用户消息；未登录 | 200 且只删这一条；未登录 401 | 通过 |
+| MSG-DEL-07 | 契约 | 路由 ↔ `APIClient.deleteMessage(botID:messageID:)` | 路径与方法一致 | 通过 |
+| MSG-DEL-K-01 | iOS Kit | `deleteMessage(botID: 42, messageID: 7)` 请求形状 | `DELETE /api/bots/42/messages/7`，无查询参数 | 通过 (`swift test` 142/142，Mac) |
+| MSG-DEL-K-02 | iOS Kit | 服务器 404 | 抛出 `APIError.status == 404` | 通过 |
+| MSG-DEL-UI-01 | iOS 模拟器 | 长按用户 / Bot 气泡 →「删除」→ 确认框「取消」 | 菜单有「复制」与红色「删除」；确认框为系统样式；取消后不调用 API | 待验收 |
+| MSG-DEL-UI-02 | iOS 模拟器 | 确认「删除」 | 该条从对话中消失，同一轮另一条保留；重新进入仍不显示；失败时对话底部显示错误 | 待验收 |
+| MSG-DEL-UI-03 | iOS 模拟器 | 欢迎语、正在生成的回复、刚发出的用户消息 | 不显示「删除」(刚发出的用户消息重新进入对话后可删)；回复完成后可删 | 待验收 |
+| MSG-DEL-UI-04 | iOS 模拟器 | 通过搜索 / 通知跳到已删除的消息 | 不崩溃，滚到底部 | 待验收 |
