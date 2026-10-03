@@ -83,6 +83,8 @@ pyjwt==2.15.1
     # via
     #   mcp
     #   verabot-backend
+python-dateutil==2.9.0.post0
+    # via verabot-backend
 python-dotenv==1.2.3
     # via uvicorn
 python-multipart==0.0.32
@@ -101,6 +103,8 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
+six==1.17.0
+    # via python-dateutil
 sse-starlette==3.5.0
     # via mcp
 starlette==1.7.0

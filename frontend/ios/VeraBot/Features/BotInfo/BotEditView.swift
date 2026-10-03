@@ -1,6 +1,7 @@
 import PhotosUI
 import SwiftUI
 import VeraBotCore
+import VeraBotNetworking
 
 /// Bot 详情 / Bot 设置：Bot 列表长按「编辑与权限」或对话页标题（infoMode）中使用。
 /// 顶部卡片：点头像换照片 / 恢复默认形象，点昵称、标签弹出系统输入框修改。
@@ -48,6 +49,8 @@ struct BotEditView: View {
     @State private var showTagsAlert = false
     @State private var tagsInput = ""
     @State private var inputError: String?
+    @State private var notificationsMuted = false
+    @State private var notificationPrefs: NotificationSettings?
     /// 记忆列表按「已保存的」授权过滤（未保存的 Picker 改动不影响列表）
     private var botForMemoryList: Bot { freshBot ?? bot }
     private var savedBot: Bot { freshBot ?? bot }
@@ -215,6 +218,18 @@ struct BotEditView: View {
                 Text(delegationFooter)
             }
 
+            Section {
+                CompactToggle(isOn: Binding(get: { notificationsMuted }, set: { on in
+                    notificationsMuted = on
+                    Task { await setMuted(on) }
+                })) {
+                    Label("静音通知", systemImage: "bell.slash")
+                }
+                .disabled(notificationPrefs == nil)
+            } footer: {
+                Text("静音后，这个 Bot 的消息不再推送。你自己创建的提醒仍会响。")
+            }
+
             Section("协作记录") {
                 NavigationLink {
                     DelegationLogView(bot: bot)
@@ -344,6 +359,23 @@ struct BotEditView: View {
         return s
     }
 
+    private func setMuted(_ on: Bool) async {
+        guard var prefs = notificationPrefs else { return }
+        if on {
+            if !prefs.mutedBots.contains(bot.id) { prefs.mutedBots.append(bot.id) }
+        } else {
+            prefs.mutedBots.removeAll { $0 == bot.id }
+        }
+        do {
+            let saved = try await app.api.updateNotificationSettings(prefs)
+            notificationPrefs = saved
+            notificationsMuted = saved.mutedBots.contains(bot.id)
+        } catch {
+            notificationsMuted = notificationPrefs?.mutedBots.contains(bot.id) ?? false
+            errorText = app.message(for: error)
+        }
+    }
+
     private func binding(for tool: String) -> Binding<Bool> {
         Binding(get: { allowedTools.contains(tool) },
                 set: { on in if on { allowedTools.insert(tool) } else { allowedTools.remove(tool) } })
@@ -358,6 +390,10 @@ struct BotEditView: View {
         avatar = bot.avatar; color = bot.color; persona = bot.persona; instructions = bot.instructions
         allowedTools = Set(bot.allowedTools); delegateTo = Set(bot.delegateTo); acceptDelegation = bot.acceptDelegation
         memoryAccess = bot.memoryAccess; memoryCount = bot.memoryCount
+        if let prefs = try? await app.api.notificationSettings() {
+            notificationPrefs = prefs
+            notificationsMuted = prefs.mutedBots.contains(bot.id)
+        }
         do {
             async let t = app.api.tools()
             async let b = app.api.bots()

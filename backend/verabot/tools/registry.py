@@ -19,6 +19,8 @@ class TurnState:
     memory_proposals: int = 0     # 本轮记忆提议次数（remember / forget_memory），上限 VERABOT_MEMORY_PROPOSALS_PER_TURN
     mcp_calls: int = 0            # 本轮已经打到 MCP 服务器的次数
     untrusted_tainted: bool = False  # 本轮已经读过 MCP 结果，不能再 ask_bot
+    reminder_writes: int = 0      # 本轮提醒写操作次数，上限 5
+    reminder_created: dict = field(default_factory=dict)  # (标题, due_utc) → 已创建结果，同一轮去重
     # SSE status 事件（委派内部进度）：外层工具执行期间由 run_chat 设置；None = 不推送（如测试直接调用 run_tool）
     status_queue: Any = None
     parent_id: str | None = None  # 外层（depth 0）工具调用 id，委派树内所有 status 事件都带它
@@ -70,7 +72,8 @@ async def run_tool(ctx: ToolContext, name: str, raw_args: str) -> dict:
         db.audit(ctx.user_id, ctx.bot.get("id"), "tool_denied", {"tool": name, "reason": reason, "depth": ctx.depth})
         msg = {"unknown_tool": f"未知工具: {name}", "tool_not_allowed": "当前 Bot 未被授权使用该能力",
                "max_depth": "已达到最大委派深度，不能继续转交",
-               "memory_not_delegable": "被委派时不能读写用户记忆", "memory_disabled": "这个 Bot 未开启记忆"}[reason]
+               "memory_not_delegable": "被委派时不能读写用户记忆", "memory_disabled": "这个 Bot 未开启记忆",
+               "reminder_not_delegable": "被委派时不能读写提醒"}[reason]
         return {"error": msg, "code": reason}
     try:
         args = json.loads(raw_args or "{}")

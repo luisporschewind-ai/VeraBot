@@ -1,7 +1,8 @@
 """VeraBot API 服务入口（FastAPI）：`uvicorn verabot.main:app`。
 
-只负责组装：中间件、异常处理、启动时初始化数据库、注册路由、（可选）托管 Web 客户端。
+只负责组装：中间件、异常处理、启动时初始化数据库、注册路由、提醒调度、（可选）托管 Web 客户端。
 """
+import asyncio
 import logging
 
 from fastapi import FastAPI
@@ -11,7 +12,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
-from .api.routers import auth, avatars, bots, chat, mcp, memories, meta, plugins, reminders, voice
+from .api.routers import auth, avatars, bots, chat, devices, mcp, memories, meta, notifications, plugins, reminders, voice
+from .services.reminders import scheduler as reminder_scheduler
 from .core.config import WEB_DIR
 from .core.http_cache import NoStoreAPIMiddleware
 
@@ -35,12 +37,20 @@ async def _validation_error(request, exc: RequestValidationError):
 
 
 @app.on_event("startup")
-def _startup():
+async def _startup():
     db.init_db()
+    app.state.reminder_scheduler = asyncio.create_task(reminder_scheduler.loop())
+
+
+@app.on_event("shutdown")
+async def _shutdown():
+    task = getattr(app.state, "reminder_scheduler", None)
+    if task is not None:
+        task.cancel()
 
 
 for r in (auth.router, avatars.router, bots.router, chat.router, memories.router, voice.router, reminders.router,
-          meta.router, mcp.router, plugins.router):
+          notifications.router, devices.router, meta.router, mcp.router, plugins.router):
     app.include_router(r)
 
 

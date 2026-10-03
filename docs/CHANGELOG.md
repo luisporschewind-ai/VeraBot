@@ -6,6 +6,7 @@
 
 ### 修复 (Fixed)
 
+- **提醒 R1 · iOS 编不过、Kit 测试编不过**（PR #9 合并复核，Boss 的 Mac，Xcode / Swift 6）：`NotificationCoordinator` 的 `UNUserNotificationCenterDelegate` 方法改为 `nonisolated`，先取出 `Sendable` 的 `NotificationTap`，再回主 actor 执行 `handleWillPresent` / `handleResponse`（原来跨 actor 传非 Sendable 的 `UNNotification`，Swift 6 严格并发报错）。`ReminderTests` 构造参数顺序改正（`repeatLabel` 在 `status` 前）；`NotificationSchedulerTests` 断言改为 `allSatisfy { $0.repeats }`。`backend/requirements.txt` 恢复「由 uv.lock 导出」的文件头。修复后 `swift test` 140 通过、`xcodebuild` 成功；模拟器上本地通知按时弹出，「完成」「稍后 10 分钟」可用，免打扰时段内提醒照常弹出（D8）。
 - **插件 · 卸载时进行中的调用要等满 MCP 超时**（PR #7 合并复核发现，`PLG-14` 在 Boss 的 Mac 上失败）：卸载会关掉池里的 httpx 客户端，但 macOS 上关闭套接字不会唤醒另一线程里阻塞的读取，进行中的调用要等 15 s 超时才返回 `plugin_uninstalled`。`services/mcp/service.py` 新增 `_interruptible`：单次调用放到后台线程，每 0.1 s 检查服务行，没了就立刻按「已发出」返回（只读 → `plugin_uninstalled`，非只读 → `result_unknown`，规则不变），后台线程结果丢弃。`plugin_test.py` 全部通过（PLG-14 卸载 < 0.5 s 返回）。
 - **安全 · 邮箱抢注：验证码登录认领未验证账号** (此前在账号隔离审计里按当时决定延后，本次按 Boss 选定的修法落地)：
   - 问题：未验证邮箱可以注册并正常使用。真正的主人之后用验证码登录时，`login_with_code` 只把邮箱标为已验证并进入同一个账号，抢注者的密码和已发出的访问令牌、刷新令牌仍然有效，能读到主人之后写入的私密数据。
@@ -31,6 +32,16 @@
 
 ### 新增 (Added)
 
+- **提醒与推送 R1（schema v11）**：设计见 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) v1.0（D1–D18 已批准）。`frontend/web` 未改。
+  - **行为变化：`list_reminders` 不再返回该用户的全部未完成提醒。** 现在只返回这个 Bot 自己创建的（`bot_id`）或用户指派给它的（`assignee_bot_id`）提醒，已取消的不返回。越权时工具结果是「提醒不存在」，并写 `audit_log` `tool_denied` / `reminder_scope`。
+  - 时间解析失败不再把原文存进 `due_at`，接口与工具返回错误。排序键是 `due_utc`。iOS 按日期格式化，不再切字符串。
+  - 数据：提醒状态机列、`reminder_events`、`notifications`、`notification_deliveries`、`notification_prefs`、`push_devices`、`idempotency_keys`。从 v10 升级前备份 `verabot.db.bak-before-v11-<时间戳>`。提醒相关 SQL（含调度清理）集中在 `db/reminder_store.py`；路由和服务不写这些 SQL。
+  - API：提醒 CRUD 与 complete / done / snooze / reopen / skip / restore / events；通知列表、已读、未读、全部已读、删除、投递回报；通知偏好；设备注册与注销。写提醒认 `Idempotency-Key`。字段对照见设计 §8。
+  - Bot 工具：`create_reminder`、`list_reminders`、`manage_reminder`（单条 update / complete / snooze / reopen / skip；取消和批量留到 R2）。被委派的 Bot 不能使用这三个工具。新 Bot 不会自动获得 `manage_reminder`。
+  - 调度：启动后每 30 秒一轮，并立刻跑第一轮。睡眠或重启后的下一轮处理全部积压：刚好到期记一次 `fired` 并通知一次；错过多次只记一条「错过 N 次」，推进到下一个未来时间，不补发通知。`VERABOT_SCHEDULER=0` 关闭循环。
+  - R1 不创建 `channel=apns` 的投递。退出、全部退出、`revoke_for_email_claim` 会禁用该用户的设备。邮箱验证码认领未验证账号（`_claim_unverified_email`）在同一事务里禁用设备，不另开 `logout_all`。
+  - iOS：提醒 / 通知分段、设置 › 通知、本地通知类别 `VB_REMINDER`（完成、稍后 10 分钟）、离线队列、深链接。本环境未编译、未跑模拟器。
+  - 测试：`reminder_test.py`、`notify_test.py`（假时钟，无外网）。Kit：`ReminderTests`、`NotificationSchedulerTests`、`DeepLinkTests`（本环境未跑）。
 - **插件 P1（schema v10）**：用户看到的是「插件」，MCP 仍是实现。设计见 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。Q4 / Q7 按建议采纳；**Q6 改为新账号不预装任何插件**（含 Microsoft Learn）。`frontend/web` 未改。
   - 数据：新表 `user_plugins`（只记安装关系）；`mcp_servers.plugin_id`。启用、同意、同步、熔断仍在 `mcp_servers`。迁移把用过的目录服务（`consent_at`、`last_synced_at`，或任一 Bot 白名单含 `mcp__{slug}__`）记为 `installed`；没用过的不写 `uninstalled` 墓碑。演示账号已同意的 Learn 因此保持已安装。`plugin_default_installed()` 返回空集。`VERABOT_MCP_*_ENABLED` 不再预装（只改了 `.env.example` 注释）。
   - API：`GET /api/plugins/catalog`、`GET /api/plugins`、`GET /api/plugins/{id}`、`POST .../install`（201，已安装 409）、`DELETE`（清同意、从所有 Bot 和工具缓存去掉工具）、`PATCH {enabled}`、`POST .../consent`、`GET .../tools`、`POST .../sync`（停用时 409）。`GET /api/plugins` 含内置天气 / 提醒和已安装的外部插件，不在请求里联网。`/api/tools` 每项增加 `plugin_id`。缓存沿用 main 上的 `NoStoreAPIMiddleware`（`/api/*` 一律 `Cache-Control: no-store`）；iOS 插件方法都走 `APIClient.call`，使用 `APITransport.session`。

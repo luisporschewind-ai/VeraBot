@@ -270,7 +270,7 @@ struct BuiltinPluginDetailView: View {
     private var toolRows: [(name: String, label: String)] {
         switch pluginID {
         case "builtin_weather": return [("get_weather", "天气查询")]
-        case "builtin_reminder": return [("create_reminder", "创建提醒"), ("list_reminders", "查看提醒")]
+        case "builtin_reminder": return [("create_reminder", "创建提醒"), ("list_reminders", "查看提醒"), ("manage_reminder", "管理提醒")]
         default: return []
         }
     }

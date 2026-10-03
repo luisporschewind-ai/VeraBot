@@ -78,7 +78,7 @@ _INJECTION = [
     re.compile(r"system\s*prompt|系统提示|系统指令|开发者模式|developer\s+mode|jailbreak|越狱", re.I),
     re.compile(r"you\s+are\s+now|from\s+now\s+on\s+you|你现在是|你从现在起是|扮演(一个|成)?.{0,6}(角色|助手|ai)", re.I),
     re.compile(r"调用.{0,8}(工具|函数|function|tool)", re.I),
-    re.compile(r"\b(ask_bot|get_weather|create_reminder|list_reminders|remember|forget_memory|mcp__\w+)\b", re.I),
+    re.compile(r"\b(ask_bot|get_weather|create_reminder|list_reminders|manage_reminder|remember|forget_memory|mcp__\w+)\b", re.I),
     re.compile(r"<\s*/?\s*(user_memory|system|assistant|tool|instructions?|untrusted\w*)\b", re.I),
     re.compile(r"</"),
 ]

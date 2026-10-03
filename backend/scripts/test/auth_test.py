@@ -46,11 +46,11 @@ tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type IN 
 version = c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
 legacy = c.execute("SELECT username, nickname, email, phone, token_version FROM users WHERE id=1").fetchone()
 c.close()
-assert version == str(db.SCHEMA_VERSION) == "10", version
+assert version == str(db.SCHEMA_VERSION) == "11", version
 assert {"email", "email_verified_at", "phone", "token_version", "failed_logins", "locked_until"} <= cols
 assert {"auth_codes", "auth_refresh_tokens", "idx_users_email", "idx_users_phone"} <= tables
 assert legacy == ("demo", "Boss", None, None, 0)
-PASSED.append("AUTH-01"); print("PASS AUTH-01 migration v5→v10 keeps legacy user")
+PASSED.append("AUTH-01"); print("PASS AUTH-01 migration v5→v11 keeps legacy user")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from verabot.main import app  # noqa: E402
@@ -378,6 +378,8 @@ def email_squat_claim():
     second = second.json()
     assert cli.get("/api/me", headers=H(attacker["token"])).status_code == 200
     assert cli.get("/api/me", headers=H(second["token"])).status_code == 200
+    dev = cli.post("/api/devices", json={"device_id": "squat-phone", "platform": "ios"}, headers=H(attacker["token"]))
+    assert dev.status_code == 200, dev.text
     with db.tx() as c:
         tv_before = c.execute("SELECT token_version FROM users WHERE id=?", (uid,)).fetchone()[0]
     ratelimit.reset()
@@ -398,7 +400,10 @@ def email_squat_claim():
             (uid,)).fetchone()[0]
         live = c.execute(
             "SELECT COUNT(*) FROM auth_refresh_tokens WHERE user_id=? AND revoked_at IS NULL", (uid,)).fetchone()[0]
+        disabled = c.execute(
+            "SELECT disabled_at FROM push_devices WHERE user_id=? AND device_id='squat-phone'", (uid,)).fetchone()[0]
     assert pw == "" and verified and tv == tv_before + 1 and audit == 1 and live == 1
+    assert disabled
     bad = cli.post("/api/auth/login", json={"identifier": email, "password": "attacker1"})
     assert bad.status_code == 401 and bad.json()["detail"] == "账号或密码错误"
     for tok in (attacker["token"], second["token"]):
@@ -422,6 +427,8 @@ def code_login_verified_unchanged():
     sess = cli.post("/api/auth/login", json={"identifier": email, "password": "ownerpass1"})
     assert sess.status_code == 200, sess.text
     sess = sess.json()
+    dev = cli.post("/api/devices", json={"device_id": "keep-phone", "platform": "ios"}, headers=H(sess["token"]))
+    assert dev.status_code == 200, dev.text
     ratelimit.reset()
     assert cli.post("/api/auth/email/send-code", json={"email": email}).status_code == 200
     r = cli.post("/api/auth/email/login", json={"email": email, "code": last_code(email)})
@@ -437,7 +444,9 @@ def code_login_verified_unchanged():
         claimed = c.execute(
             "SELECT COUNT(*) FROM audit_log WHERE user_id=? AND kind='account_claimed_by_email_code'",
             (uid,)).fetchone()[0]
-    assert after == before and claimed == 0
+        disabled = c.execute(
+            "SELECT disabled_at FROM push_devices WHERE user_id=? AND device_id='keep-phone'", (uid,)).fetchone()[0]
+    assert after == before and claimed == 0 and disabled is None
 
 
 print(f"AUTH tests passed: {len(PASSED)}/18 ({', '.join(PASSED)})")

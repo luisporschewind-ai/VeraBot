@@ -70,7 +70,7 @@ def builtins() -> list[dict]:
             "plugin_id": "builtin_reminder",
             "kind": "builtin",
             "name": "提醒",
-            "description": "创建提醒，查看还没完成的提醒。",
+            "description": "创建提醒，查看还没完成的提醒，完成、稍后或修改自己的提醒。",
             "category": "",
             "publisher": "VeraBot",
             "version": "1.0.0",
@@ -81,7 +81,7 @@ def builtins() -> list[dict]:
             "catalog_id": None,
             "removable": False,
             "consent_required": False,
-            "tools": ["create_reminder", "list_reminders"],
+            "tools": ["create_reminder", "list_reminders", "manage_reminder"],
         },
     ]
 

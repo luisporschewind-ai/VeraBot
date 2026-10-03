@@ -417,24 +417,6 @@ public struct MessagesResponse: Codable, Sendable {
     public let messages: [ChatMessage]
 }
 
-public struct Reminder: Codable, Sendable, Hashable, Identifiable {
-    public let id: Int
-    public let content: String
-    public let dueAt: String?
-    public let done: Int
-    public let botName: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, content, done
-        case dueAt = "due_at"
-        case botName = "bot_name"
-    }
-}
-
-public struct RemindersResponse: Codable, Sendable {
-    public let reminders: [Reminder]
-}
-
 public struct UsageStats: Codable, Sendable, Hashable {
     public let requests: Int
     public let promptTokens: Int
