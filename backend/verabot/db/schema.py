@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v8）。"""
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v9）。"""
 import json
 
 from .database import tx
@@ -122,7 +122,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mem_dedupe
 """
 
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
+
+# v9：账号。邮箱存小写、手机号存 E.164；NULL 不参与唯一约束。
+AUTH_SCHEMA = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
+CREATE TABLE IF NOT EXISTS auth_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  purpose TEXT NOT NULL,                 -- login / verify
+  code_hash TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  consumed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_codes(email, purpose, id);
+CREATE TABLE IF NOT EXISTS auth_refresh_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  revoked_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_user ON auth_refresh_tokens(user_id);
+"""
 
 # v7：MCP 服务器与工具缓存。与 docs/design/MCP_CAPABILITY.md §12.2 同一次迁移。
 # 凭据 / oauth_states / pending_actions 先建表，OAuth 与确认卡片在后续里程碑使用。
@@ -225,6 +251,9 @@ def init_db():
     v5 → v6：bots.pinned_at（UTC ISO 8601，NULL = 未置顶）。
     v6 → v7：MCP 表（mcp_servers / mcp_tools 等）。不改 allowed_tools，不给存量 Bot 授予 MCP 工具。
     v7 → v8：MCP 同意时间、同步状态、熔断计数。不改工具定义、白名单或已有服务器行的身份字段。
+    v8 → v9：账号邮箱 / 手机号（部分唯一索引）、邮箱验证时间、token_version、登录失败锁定；
+             新表 auth_codes（邮箱验证码，只存哈希）、auth_refresh_tokens（刷新令牌，只存哈希）。
+             不改用户名、密码哈希和任何业务数据；demo 等老账号继续用用户名登录。
     """
     with tx() as c:
         c.executescript(SCHEMA)
@@ -288,6 +317,14 @@ def init_db():
                 """UPDATE mcp_servers SET sync_status='error'
                    WHERE sync_status='pending' AND status='error'"""
             )
+        # --- v9：账号体系（邮箱 / 手机号 / 刷新令牌）。只加列和新表 ---
+        _add_column(c, "users", "email", "TEXT")
+        _add_column(c, "users", "email_verified_at", "TEXT")
+        _add_column(c, "users", "phone", "TEXT")
+        _add_column(c, "users", "token_version", "INTEGER NOT NULL DEFAULT 0")
+        _add_column(c, "users", "failed_logins", "INTEGER NOT NULL DEFAULT 0")
+        _add_column(c, "users", "locked_until", "TEXT")
+        c.executescript(AUTH_SCHEMA)
         # 标签上限收紧 (2026-10-01：最多 3 个、每个 4 字)。结构不变 (仍是 v5)；每次启动把超限的存量标签收敛：
         # 保留前 3 个、每个截断到 4 字、去重。幂等，只改写确实变化的行。
         from ..core.tags import coerce_stored_tags

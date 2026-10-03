@@ -16,6 +16,12 @@
 
 ### 新增 (Added)
 
+- **账号 v9：邮箱 / 手机号登录 (AUTH-M1，schema v9)**：按 Boss 决定实现 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) v1.0。
+  - 登录方式：邮箱 + 密码、邮箱 + 验证码 (新邮箱首次登录自动建号)、手机号 + 密码 (自动规范成 E.164，暂不发短信)。用户名保留在数据里，界面不展示；demo / verabot2026 继续可用 (邮箱框填 demo)。
+  - 后端：`users` 加 `email`、`email_verified_at`、`phone`、`token_version`、`failed_logins`、`locked_until`；新表 `auth_codes`、`auth_refresh_tokens`。新接口 `/api/auth/refresh`、`/logout`、`/logout-all`、`/email/send-code`、`/email/login`、`/api/me/email/send-verification`、`/api/me/email/verify`；`register` / `login` 兼容旧的 `{username,password}`。访问令牌 7 天 (JWT 加 `tv`、`typ`)，刷新令牌 60 天、每次轮换、复用即吊销全部。连续 5 次密码错误锁 15 分钟；IP / 邮箱发码限流。`/api/me` 新增 `email`、`email_verified`、`phone`。
+  - 发信可插拔 (`services/mailer.py`)：默认 `console` (验证码写进后端日志)，配置 `VERABOT_MAIL_BACKEND=smtp` + `VERABOT_SMTP_*` 后走 SMTP；Gmail 应用专用密码还没有，所以现在仍是 console。
+  - iOS：登录页分段控件「邮箱 / 验证码 / 手机号」(系统样式，验证码 60 秒倒计时)；设置 › 账号显示邮箱 / 手机号，邮箱未验证时显示「邮箱未验证 · 验证」(未验证也能正常使用)；令牌改存 Keychain (自动迁移旧的 UserDefaults `vb_token`)；`AuthSession` + `APIClient` 在 401 时透明刷新一次并重试 (并发请求只刷新一次，含上传 / 图片 / SSE 聊天)，刷新失败回到登录页；退出时吊销刷新令牌。
+  - 测试：新增 `auth_test.py` AUTH-01~16 (迁移、三种登录、锁定、刷新轮换 / 复用 / 过期、退出、验证码限流 / 过期 / 次数、邮箱验证、IP 限流、发信后端、iOS 契约)；Kit `AuthTests.swift` (共 105 项)。全部后端回归通过。Web 冻结，未改。
 - **MCP M2 (schema v8)**：在 M1 上补产品确认的五项。不改已有 Bot 的 `allowed_tools`，也不把 M1 里已经连上的服务当成已经同意。`frontend/web` 未改，仍然没有 MCP 界面。
   - **D4 同意**：按服务器记录 `consent_at`（不是全账号一个时间，因为决定写的是「每连接一个服务」）。`POST /api/mcp/servers/{id}/consent`，正文 `{"granted": true|false}`。未同意时工具不进模型 schema；若仍被调用，返回 `mcp_consent_required`，不访问网络。可撤回。iOS 设置详情用系统开关显示状态和同意时间。
   - **会话**：按用户和服务复用连接与 `Mcp-Session-Id`。HTTP 404（带了会话号）时重新 initialize 并再试一次。
@@ -24,7 +30,7 @@
   - **重试与熔断**：超时、5xx、429、连接错误才重试，默认再试 2 次，退避 `0.5,2` 秒加抖动。工具 `isError` 和 4xx 不重试。非只读且未标幂等的传输失败返回 `result_unknown` 且不重试。连续 5 次传输失败打开熔断 60 秒；到期后探测一次。字段 `circuit_state` / `circuit_open_until` / `consecutive_failures`。配置键见 `.env.example`。
   - 合并评审 (2026-10-03)：`VERABOT_MCP_RETRY_MAX=0` 时非只读工具的传输失败漏成普通超时 / 不可用，改为一律 `result_unknown`，并补用例。Mac 上全部后端用例、`VERABOT_MCP_LIVE_TESTS=1` (Learn / AWS 公网通过)、`swift test` 95/95、xcodebuild 通过。
   - 测试：`mcp_test.py` 假服务器增加 404、5xx 和超时；v6→v8、空库 v8、已有 v7 库升级。公网用例仍要 `VERABOT_MCP_LIVE_TESTS=1`。字段对照见 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §18.3。
-- **方案文档**：[design/AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) 账号体系改为邮箱 / 手机号登录的方案草案 (现状审计、目标模型、分阶段流程、demo 迁移、API 与 iOS 同步、限流等安全措施、里程碑、待 Boss 决定事项)，未改代码。
+- **方案文档**：[design/AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) 账号体系改为邮箱 / 手机号登录的方案草案 (现状审计、目标模型、分阶段流程、demo 迁移、API 与 iOS 同步、限流等安全措施、里程碑、待 Boss 决定事项)，未改代码。(已于同日定稿为 v1.0 并实现，见上方「账号 v9」)
 - **MCP M1 (schema v7)**：后端作为 MCP 客户端，连接免授权的公网服务。默认 Microsoft Learn（`VERABOT_MCP_LEARN_URL`，开）；备用 AWS Knowledge（`VERABOT_MCP_AWS_URL`，默认关，不访问网络）。地址可改，见 `backend/.env.example`。不改已有 Bot 的 `allowed_tools`。
   - 传输：自研 Streamable HTTP（`Accept` 同时接受 JSON 与 SSE；有 `Mcp-Session-Id` 才回传；接受服务器协商的更低 `protocolVersion`，之后放进 `MCP-Protocol-Version`）。超时 `VERABOT_MCP_TIMEOUT` 默认 15 秒。工具级 `isError`（`mcp_tool_error`）与 JSON-RPC `error`（`mcp_rpc_error`）分开。官方 SDK `mcp==2.2.0` 已锁定，握手不用它的自动模式。
   - API：`GET /api/mcp/catalog`、`GET/POST /api/mcp/servers`、`PATCH/DELETE /api/mcp/servers/{id}`、`POST /api/mcp/servers/{id}/sync`、`GET /api/mcp/servers/{id}/tools`、`POST /api/mcp/tools/{id}/accept-change`。`GET /api/tools` 增加 `source` / `server` / `server_id` / `risk` / `requires_confirmation` / `delegable` / `status`，并附上已连接且 active 的 MCP 工具；此接口不连外网。公开 JSON 不返回原始 URL。

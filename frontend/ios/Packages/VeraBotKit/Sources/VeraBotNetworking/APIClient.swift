@@ -73,20 +73,65 @@ private struct ErrorBody: Decodable { let detail: JSONValue? }
 /// VeraBotAPI 的 HTTP 实现：无状态值类型、Sendable，可安全跨并发域传递。
 public struct APIClient: VeraBotAPI {
     public let baseURL: URL
-    public let token: String?
+    /// 固定令牌（测试 / 旧用法）；有 session 时以 session 为准。
+    public let fixedToken: String?
+    /// 共享令牌容器：401 时用刷新令牌换新的访问令牌并重试一次（见 AuthSession）。
+    public let session: AuthSession?
 
     public init(baseURL: URL, token: String?) {
         self.baseURL = baseURL
-        self.token = token
+        self.fixedToken = token
+        self.session = nil
     }
 
-    // MARK: - Auth
+    public init(baseURL: URL, session: AuthSession) {
+        self.baseURL = baseURL
+        self.fixedToken = nil
+        self.session = session
+    }
+
+    public var token: String? { session?.accessToken ?? fixedToken }
+
+    // MARK: - Auth（v9：邮箱 / 手机号 / 验证码；旧的用户名 Credentials 仍可用）
     public func login(_ c: Credentials) async throws -> AuthResponse {
         try await call("/api/auth/login", method: "POST", body: try encode(c))
     }
 
     public func register(_ c: Credentials) async throws -> AuthResponse {
         try await call("/api/auth/register", method: "POST", body: try encode(c))
+    }
+
+    public func login(_ r: LoginRequest) async throws -> AuthResponse {
+        try await call("/api/auth/login", method: "POST", body: try encode(r))
+    }
+
+    public func register(_ r: RegisterRequest) async throws -> AuthResponse {
+        try await call("/api/auth/register", method: "POST", body: try encode(r))
+    }
+
+    public func sendEmailCode(email: String) async throws -> CodeSentResponse {
+        try await call("/api/auth/email/send-code", method: "POST", body: try encode(EmailCodeRequest(email: email)))
+    }
+
+    public func loginWithEmailCode(email: String, code: String) async throws -> AuthResponse {
+        try await call("/api/auth/email/login", method: "POST",
+                       body: try encode(EmailCodeLoginRequest(email: email, code: code)))
+    }
+
+    public func sendVerificationEmail() async throws -> CodeSentResponse {
+        try await call("/api/me/email/send-verification", method: "POST")
+    }
+
+    public func verifyEmail(code: String) async throws -> User {
+        try await call("/api/me/email/verify", method: "POST", body: try encode(EmailVerifyRequest(code: code)))
+    }
+
+    public func refresh(refreshToken: String) async throws -> AuthResponse {
+        try await call("/api/auth/refresh", method: "POST", body: try encode(RefreshRequest(refreshToken: refreshToken)))
+    }
+
+    public func logout(refreshToken: String) async throws -> OKResponse {
+        try await call("/api/auth/logout", method: "POST", body: try encode(RefreshRequest(refreshToken: refreshToken)))
     }
 
     public func me() async throws -> User { try await call("/api/me") }
@@ -229,16 +274,13 @@ public struct APIClient: VeraBotAPI {
 
     // MARK: - Streaming chat (SSE)
     public func chatStream(botID: Int, message: String) -> AsyncThrowingStream<ChatEvent, Error> {
-        let request: URLRequest
+        let body: Data
         do {
-            let body = try encode(["message": message])
-            var r = makeRequest("/api/bots/\(botID)/chat", method: "POST", body: body)
-            r.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-            r.timeoutInterval = 180
-            request = r
+            body = try encode(["message": message])
         } catch {
             return AsyncThrowingStream { $0.finish(throwing: error) }
         }
+        let path = "/api/bots/\(botID)/chat"
 
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -247,8 +289,18 @@ public struct APIClient: VeraBotAPI {
                     #if os(Linux)
                     throw APIError(status: 0, message: "当前平台不支持流式聊天")
                     #else
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    func open(_ token: String?) async throws -> (URLSession.AsyncBytes, Int) {
+                        var r = makeRequest(path, method: "POST", body: body, token: token)
+                        r.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                        r.timeoutInterval = 180
+                        let (bytes, response) = try await URLSession.shared.bytes(for: r)
+                        return (bytes, (response as? HTTPURLResponse)?.statusCode ?? 0)
+                    }
+                    let sent = token
+                    var (bytes, status) = try await open(sent)
+                    if status == 401, let fresh = await refreshedToken(after: sent, path: path) {
+                        (bytes, status) = try await open(fresh)
+                    }
                     guard status == 200 else {
                         var data = Data()
                         for try await b in bytes { data.append(b) }
@@ -301,7 +353,8 @@ public struct APIClient: VeraBotAPI {
         try JSONEncoder().encode(value)
     }
 
-    private func makeRequest(_ path: String, method: String, body: Data?, query: [URLQueryItem] = []) -> URLRequest {
+    private func makeRequest(_ path: String, method: String, body: Data?, query: [URLQueryItem] = [],
+                             token: String?) -> URLRequest {
         var url = baseURL.appending(path: path)
         if !query.isEmpty { url = url.appending(queryItems: query) }
         var req = URLRequest(url: url)
@@ -315,10 +368,28 @@ public struct APIClient: VeraBotAPI {
         return req
     }
 
+    /// 401 后的透明刷新：只对非 /api/auth/ 请求、且有 session + 刷新令牌时生效；返回新访问令牌或 nil。
+    private func refreshedToken(after sent: String?, path: String) async -> String? {
+        guard let session, !path.hasPrefix("/api/auth/") else { return nil }
+        if case .refreshed(let t) = await session.refresh(after: sent, baseURL: baseURL) { return t.access }
+        return nil
+    }
+
+    /// 发送请求；401 时刷新一次令牌后用同样的请求重试。
+    private func send(_ path: String, _ build: (String?) -> URLRequest) async throws -> (Data, Int) {
+        let sent = token
+        var (data, response) = try await URLSession.shared.data(for: build(sent))
+        var status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 401, let fresh = await refreshedToken(after: sent, path: path) {
+            (data, response) = try await URLSession.shared.data(for: build(fresh))
+            status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        }
+        return (data, status)
+    }
+
     private func call<T: Decodable & Sendable>(_ path: String, method: String = "GET", body: Data? = nil,
                                                query: [URLQueryItem] = []) async throws -> T {
-        let (data, response) = try await URLSession.shared.data(for: makeRequest(path, method: method, body: body, query: query))
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let (data, status) = try await send(path) { makeRequest(path, method: method, body: body, query: query, token: $0) }
         guard (200..<300).contains(status) else {
             throw Self.apiError(status: status, data: data)
         }
@@ -334,26 +405,29 @@ public struct APIClient: VeraBotAPI {
         append("Content-Type: image/jpeg\r\n\r\n")
         body.append(jpeg)
         append("\r\n--\(boundary)--\r\n")
-        var req = URLRequest(url: baseURL.appending(path: path))
-        req.httpMethod = "POST"
-        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        req.httpBody = body
-        req.timeoutInterval = 60
-        let (data, response) = try await URLSession.shared.data(for: req)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let payload = body
+        let (data, status) = try await send(path) { token in
+            var req = URLRequest(url: baseURL.appending(path: path))
+            req.httpMethod = "POST"
+            req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+            if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+            req.httpBody = payload
+            req.timeoutInterval = 60
+            return req
+        }
         guard (200..<300).contains(status) else { throw Self.apiError(status: status, data: data) }
         return try JSONDecoder().decode(T.self, from: data)
     }
 
     private func fetchBytes(_ path: String) async throws -> Data {
-        var req = URLRequest(url: baseURL.appending(path: path))
-        req.httpMethod = "GET"
-        req.cachePolicy = .reloadIgnoringLocalCacheData
-        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        req.timeoutInterval = 30
-        let (data, response) = try await URLSession.shared.data(for: req)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let (data, status) = try await send(path) { token in
+            var req = URLRequest(url: baseURL.appending(path: path))
+            req.httpMethod = "GET"
+            req.cachePolicy = .reloadIgnoringLocalCacheData
+            if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+            req.timeoutInterval = 30
+            return req
+        }
         guard (200..<300).contains(status) else { throw Self.apiError(status: status, data: data) }
         return data
     }

@@ -10,6 +10,10 @@ struct AccountSettingsSection: View {
     @State private var editingNickname = false
     @State private var errorText: String?
     @State private var saving = false
+    @State private var verifyCode = ""
+    @State private var enteringCode = false
+    @State private var sendingVerify = false
+    @State private var infoText: String?
 
     var body: some View {
         Section {
@@ -30,7 +34,8 @@ struct AccountSettingsSection: View {
                         VStack(alignment: .leading, spacing: 2) {
                             // 按钮内 .primary 会被解析成强调色，这里显式用系统文字色，保持与普通行一致
                             Text(app.displayName).font(.headline).foregroundStyle(Color.primary)
-                            Text("用户名 \(app.username ?? "")")
+                            // 邮箱 / 手机号账号显示邮箱或手机号；老的用户名账号（demo）显示「用户名 xxx」
+                            Text(app.accountLabel)
                                 .font(.caption)
                                 .foregroundStyle(Color.secondary)
                         }
@@ -44,8 +49,22 @@ struct AccountSettingsSection: View {
                 .accessibilityLabel("昵称 \(app.displayName)")
                 .accessibilityHint("点按修改昵称")
             }
+            if app.needsEmailVerification {
+                // 未验证邮箱也能正常使用，这里只提醒（docs/design/AUTH_REFACTOR.md §决策）
+                HStack {
+                    Label("邮箱未验证", systemImage: "exclamationmark.circle")
+                        .foregroundStyle(.orange)
+                    Spacer()
+                    if sendingVerify { ProgressView() }
+                    Button("验证") { Task { await sendVerification() } }
+                        .buttonStyle(.borderless)
+                        .disabled(sendingVerify)
+                }
+            }
             if let errorText {
                 Text(errorText).font(.footnote).foregroundStyle(.red)
+            } else if let infoText {
+                Text(infoText).font(.footnote).foregroundStyle(.secondary)
             }
         } header: {
             Text("账号")
@@ -57,6 +76,49 @@ struct AccountSettingsSection: View {
             Button("保存") { Task { await saveNickname() } }
         } message: {
             Text("最多 32 个字")
+        }
+        .alert("验证邮箱", isPresented: $enteringCode) {
+            TextField("6 位验证码", text: $verifyCode)
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+            Button("取消", role: .cancel) {}
+            Button("验证") { Task { await verify() } }
+        } message: {
+            Text("验证码已发送到 \(app.email ?? "")，10 分钟内有效")
+        }
+    }
+
+    private func sendVerification() async {
+        sendingVerify = true
+        defer { sendingVerify = false }
+        do {
+            _ = try await app.api.sendVerificationEmail()
+            errorText = nil
+            verifyCode = ""
+            enteringCode = true
+        } catch let e as APIError where e.code == "code_cooldown" {
+            // 刚注册 / 刚发过：上一封里的验证码仍然有效，直接让用户输入
+            errorText = nil
+            verifyCode = ""
+            enteringCode = true
+        } catch {
+            errorText = app.message(for: error)
+        }
+    }
+
+    private func verify() async {
+        let trimmed = verifyCode.trimmingCharacters(in: .whitespaces)
+        guard AuthInputRules.isValidCode(trimmed) else {
+            errorText = "请输入 6 位数字验证码"
+            return
+        }
+        do {
+            let user = try await app.api.verifyEmail(code: trimmed)
+            app.applyUser(user)
+            errorText = nil
+            infoText = "邮箱已验证"
+        } catch {
+            errorText = app.message(for: error)
         }
     }
 

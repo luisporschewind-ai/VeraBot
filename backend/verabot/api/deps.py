@@ -20,6 +20,8 @@ def current_user(cred: HTTPAuthorizationCredentials | None = Depends(bearer)) ->
         u = db.row(c.execute(USER_SQL, (int(payload["sub"]),)).fetchone())
     if not u:
         raise HTTPException(401, "用户不存在")
+    if payload.get("typ", "access") != "access" or int(payload.get("tv", 0)) != int(u.get("token_version") or 0):
+        raise HTTPException(401, "登录已失效，请重新登录")
     return public_user(u)
 
 

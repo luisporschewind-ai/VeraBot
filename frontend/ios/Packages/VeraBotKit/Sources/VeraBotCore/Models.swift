@@ -9,9 +9,27 @@ public struct User: Codable, Sendable, Hashable {
     public let displayName: String
     public let hasAvatar: Bool
     public let avatarUpdatedAt: String?
+    /// 账号 v9：邮箱（小写）/ 是否已验证 / 手机号（E.164）。老账号（demo）和旧后端为 nil / false。
+    public let email: String?
+    public let emailVerified: Bool
+    public let phone: String?
+
+    /// 设置页名称下面那一行：邮箱 / 手机号账号显示邮箱或手机号，老的用户名账号显示「用户名 xxx」。
+    public var accountLabel: String {
+        if let email, !email.isEmpty { return email }
+        if let phone, !phone.isEmpty { return AuthInputRules.displayPhone(phone) }
+        return "用户名 \(username)"
+    }
+
+    /// 邮箱账号且邮箱还没验证：可以正常使用，设置页提示去验证。
+    public var needsEmailVerification: Bool { (email?.isEmpty == false) && !emailVerified }
 
     public init(id: Int, username: String, nickname: String? = nil, displayName: String? = nil,
-                hasAvatar: Bool = false, avatarUpdatedAt: String? = nil) {
+                hasAvatar: Bool = false, avatarUpdatedAt: String? = nil,
+                email: String? = nil, emailVerified: Bool = false, phone: String? = nil) {
+        self.email = email
+        self.emailVerified = emailVerified
+        self.phone = phone
         self.id = id
         self.username = username
         let trimmed = nickname?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -32,6 +50,9 @@ public struct User: Codable, Sendable, Hashable {
         case displayName = "display_name"
         case hasAvatar = "has_avatar"
         case avatarUpdatedAt = "avatar_updated_at"
+        case email
+        case emailVerified = "email_verified"
+        case phone
     }
 
     public init(from decoder: Decoder) throws {
@@ -42,7 +63,10 @@ public struct User: Codable, Sendable, Hashable {
             nickname: try c.decodeIfPresent(String.self, forKey: .nickname),
             displayName: try c.decodeIfPresent(String.self, forKey: .displayName),
             hasAvatar: try c.decodeIfPresent(Bool.self, forKey: .hasAvatar) ?? false,
-            avatarUpdatedAt: try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt)
+            avatarUpdatedAt: try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt),
+            email: try c.decodeIfPresent(String.self, forKey: .email),
+            emailVerified: try c.decodeIfPresent(Bool.self, forKey: .emailVerified) ?? false,
+            phone: try c.decodeIfPresent(String.self, forKey: .phone)
         )
     }
 
@@ -54,6 +78,9 @@ public struct User: Codable, Sendable, Hashable {
         try c.encode(displayName, forKey: .displayName)
         try c.encode(hasAvatar, forKey: .hasAvatar)
         try c.encodeIfPresent(avatarUpdatedAt, forKey: .avatarUpdatedAt)
+        try c.encodeIfPresent(email, forKey: .email)
+        try c.encode(emailVerified, forKey: .emailVerified)
+        try c.encodeIfPresent(phone, forKey: .phone)
     }
 }
 
@@ -68,11 +95,6 @@ public enum NicknameRules {
         if v.unicodeScalars.contains(where: { $0.value < 32 || $0.value == 127 }) { return nil }
         return v
     }
-}
-
-public struct AuthResponse: Codable, Sendable {
-    public let token: String
-    public let user: User
 }
 
 public struct Credentials: Codable, Sendable {

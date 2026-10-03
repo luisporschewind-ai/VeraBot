@@ -539,3 +539,36 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MCP-BREAKER | 熔断 | 阈值 2、冷却 0.4 秒，连续传输失败后再调用；冷却过后探测成功 | `circuit_state=open` 时不再发请求，返回 `mcp_circuit_open`。到期为 `half_open`，成功后回到 `closed` 且连续失败为 0 | 通过（本地假服务器） |
 | MCP-LIVE-LEARN | 公网 | `tools/call` `microsoft_docs_fetch`，参数 `{"url":"https://learn.microsoft.com/en-us/training/support/mcp"}` | `isError` 为 false，正文去掉前导空白后以 `# Microsoft Learn MCP Server overview` 开头 | 默认跳过。设置 `VERABOT_MCP_LIVE_TESTS=1` 才执行。2026-10-03 Boss 的 Mac (中国大陆网络) 实测 **通过**；单次 initialize ≈ 1.2–1.5 s、tools/list ≈ 0.4 s、tools/call (search) ≈ 1.0–1.6 s，合计中位数 2.9 s |
 | MCP-LIVE-AWS | 公网 | `tools/call` `aws___list_regions`，参数 `{}` | `isError` 为 false，去掉空白后的正文含 `"region_id":"af-south-1"` | 默认跳过。同上。2026-10-03 Mac 实测 **通过**；协商到 2025-03-26，合计中位数 2.4 s |
+
+## 账号 v9：邮箱 / 手机号登录 (AUTH-M1) — 2026-10-03
+
+自动化：`backend/scripts/test/auth_test.py` (临时 SQLite + console 发信)；Kit `AuthTests.swift`。设计 [AUTH_REFACTOR.md](../design/AUTH_REFACTOR.md)。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| AUTH-01 | 迁移 | 旧库 (含用户名账号 demo) 初始化两次 | 到 v9；新增 6 列、`auth_codes` / `auth_refresh_tokens` / 两个部分唯一索引；demo 数据不变 | 通过 |
+| AUTH-02 | 兼容 | `{username}` / `{identifier:"demo"}` 登录；旧用户名注册 | 返回刷新令牌、`expires_in`=7 天；错密码仍「用户名或密码错误」 | 通过 |
+| AUTH-03 | 邮箱 | 注册 (大小写 / 空格) 后登录；错密码；不存在的邮箱 | 小写存储、未验证、自动发验证码、`display_name` 为 @ 前部分；两种错误同一文案 | 通过 |
+| AUTH-04 | 校验 | 重复邮箱、坏邮箱、7 位密码、坏手机号 | 409 `email_taken`、422 `invalid_email` / `weak_password` / `invalid_phone` | 通过 |
+| AUTH-05 | 手机号 | `138 0013 8000` 注册，三种写法登录；重复 | 存 `+8613800138000`，`display_name`「用户8000」；409 `phone_taken` | 通过 |
+| AUTH-06 | 锁定 | 连续 5 次错密码，再用对的；锁定到期 | 429 `account_locked`；到期后可登录且计数清零 | 通过 |
+| AUTH-07 | 刷新 | 刷新、旧令牌复用、垃圾令牌、过期 | 新的一对可用；复用 → 401 且新发的也作废；其余 401 | 通过 |
+| AUTH-08 | 退出 | logout 单个；logout-all | 单个刷新令牌作废、其他会话不受影响；logout-all 后旧访问令牌 401「登录已失效」，刷新令牌作废 | 通过 |
+| AUTH-09 | 验证码登录 | 新邮箱发码 → 错码 → 正确码 → 再用一次；已有账号 | 新建已验证账号；码一次性；已有账号登录到同一账号 | 通过 |
+| AUTH-10 | 验证码限制 | 60 秒内重发；错 5 次；过期；新码替换旧码；坏邮箱 | 429 `code_cooldown`；作废；`code_expired`；旧码无效；422 | 通过 |
+| AUTH-11 | 邮箱验证 | 发验证码 → 错码 → 正确码；已验证再发；无邮箱账号 | `email_verified` 变 true；`already_verified`；400 | 通过 |
+| AUTH-12 | 令牌 / 字段 | `/api/me` 字段；JWT 声明；不带 `tv` 的旧令牌；刷新令牌当访问令牌 | 含 email / email_verified / phone，不泄露内部列；`typ=access`；旧令牌有效；401 | 通过 |
+| AUTH-13 | IP 限流 | `VERABOT_AUTH_IP_LIMIT=3`，5 次失败登录 | 第 4 次起 429 | 通过 |
+| AUTH-14 | 发信 | console 记录；smtp 无账号 | OUTBOX 有码；`MailError`；发码接口 503 `mail_failed` | 通过 |
+| AUTH-15 | 契约 | iOS `Auth.swift` / `Models.swift` CodingKeys 与后端响应、请求模型、路由对照 | 全部匹配 (字段映射见设计 §7) | 通过 |
+| AUTH-16 | 规则 | identifier 分类、手机号规范化 | 与 iOS `AuthInputRules` 一致 | 通过 |
+| AUTH-K-01 | Kit | 解码新旧 `AuthResponse` / `User`、手机号显示、请求编码、输入规则、`AuthSession` 复用 / 无刷新令牌 / 网络失败保留登录 | `swift test` 105/105 | 通过 |
+| AUTH-UI-01 | iOS | 旧版本升级 (UserDefaults 令牌) | 迁到 Keychain，仍在登录状态；设置显示「用户名 demo」 | 模拟器通过 |
+| AUTH-UI-02 | iOS | 邮箱注册 → 设置「邮箱未验证 · 验证」→ 输入日志里的码 | 显示邮箱；验证后提示「邮箱已验证」，提醒行消失 | 模拟器通过 |
+| AUTH-UI-03 | iOS | 邮箱 + 密码登录 (大小写混合) | 进入首页 | 模拟器通过 |
+| AUTH-UI-04 | iOS | 访问令牌失效 (token_version+1) 后打开 App | 两个并发 401 只刷新一次，重试成功，不掉登录 | 模拟器 + 后端日志通过 |
+| AUTH-UI-05 | iOS | 刷新令牌也被吊销后打开 App | 回到登录页 | 模拟器通过 |
+| AUTH-UI-06 | iOS | 验证码页：获取验证码 (倒计时) → 输入 → 登录新邮箱 | 自动建号，设置显示邮箱且无未验证提示 | 模拟器通过 |
+| AUTH-UI-07 | iOS | 手机号注册 / 登录 (`139 0013 9000`) | 设置显示「+86 139 0013 9000」，名称「用户9000」 | 模拟器通过 |
+| AUTH-UI-08 | iOS | demo 错密码 → 正确密码 | 显示「账号或密码错误」；随后登录成功 | 模拟器通过 |
+| AUTH-UI-09 | iOS | 退出登录 | 调用 `/api/auth/logout`，回到登录页 | 模拟器 + 后端日志通过 |

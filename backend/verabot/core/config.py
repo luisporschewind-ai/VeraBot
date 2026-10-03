@@ -27,7 +27,16 @@ MAX_DELEGATIONS_PER_TURN = int(os.getenv("VERABOT_MAX_DELEGATIONS_PER_TURN", "3"
 MAX_SHARED_CONTEXT = int(os.getenv("VERABOT_MAX_SHARED_CONTEXT", "2000"))          # shared_context 字符上限
 EMPTY_REPLY_RETRIES = int(os.getenv("VERABOT_EMPTY_REPLY_RETRIES", "1"))            # LLM 空回复自动重试次数
 TIMEZONE = os.getenv("VERABOT_TZ", "Asia/Shanghai")
-TOKEN_TTL_HOURS = int(os.getenv("VERABOT_TOKEN_TTL_HOURS", str(24 * 30)))
+# 账号（schema v9，见 docs/design/AUTH_REFACTOR.md）：访问令牌 7 天，刷新令牌 60 天（每次刷新轮换并重新计时）
+TOKEN_TTL_HOURS = int(os.getenv("VERABOT_TOKEN_TTL_HOURS", str(24 * 7)))
+REFRESH_TTL_DAYS = int(os.getenv("VERABOT_REFRESH_TTL_DAYS", "60"))
+AUTH_CODE_TTL_SECONDS = int(os.getenv("VERABOT_AUTH_CODE_TTL", "600"))       # 邮箱验证码有效期 10 分钟
+AUTH_CODE_MAX_ATTEMPTS = 5                                                   # 每个验证码最多试 5 次
+AUTH_CODE_COOLDOWN_SECONDS = int(os.getenv("VERABOT_AUTH_CODE_COOLDOWN", "60"))  # 同一邮箱两次发码间隔
+AUTH_CODE_DAILY_LIMIT = int(os.getenv("VERABOT_AUTH_CODE_DAILY", "10"))     # 同一邮箱每天最多发码次数
+AUTH_LOCK_THRESHOLD = 5                                                      # 同一账号连续密码错误次数
+AUTH_LOCK_MINUTES = 15
+# 发信：VERABOT_MAIL_BACKEND=console（默认，验证码写日志）/ smtp；SMTP 变量见 services/mailer.py 与 .env.example
 
 
 def _jwt_secret() -> str:

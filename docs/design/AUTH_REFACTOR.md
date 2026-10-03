@@ -1,103 +1,132 @@
-# 账号体系改造：邮箱 / 手机号登录 (Auth refactor) — 方案 v0.1 (草案，待 Boss 决定)
+# 账号体系改造：邮箱 / 手机号登录 (Auth refactor) — v1.0 (已定稿，AUTH-M1 已实现)
 
-> 2026-10-03 (UTC+8)。只是方案，**没有改代码**。schema 版本号：MCP M2 (PR #5) 占用 v8，本方案按 **v9** 写；如果顺序变了，实施时再顺延。Web 冻结，不做 Web 界面。
+> 2026-10-03 (UTC+8) 定稿。schema **v9**。v0.1 草案的待决定问题已由 Boss 拍板 (§1)，本文描述的是**已实现**的行为。Web 冻结，不改 Web 界面 (旧的 `{username,password}` 接口保留，Web 仍能登录)。
 
-## 1. 现状 (Audit)
+## 1. Boss 的决定
 
-| 项 | 现在的实现 | 位置 |
+| # | 问题 | 决定 |
 |---|---|---|
-| 账号标识 | `users.username`，3–32 字符，中英文 / 数字 / `_` / `-`，`UNIQUE`，注册后不能改 | `db/schema.py`、`api/schemas.py Credentials`、`api/routers/auth.py` |
-| 密码 | 6–128 字符；bcrypt (`gensalt()` 默认 cost 12) | `core/security.py` |
-| 令牌 | JWT HS256，`sub`=user id、`name`=username，有效期 `VERABOT_TOKEN_TTL_HOURS` (默认 720 h = 30 天)；没有刷新令牌，也没有吊销列表 | `core/security.py`、`core/config.py` |
-| 接口 | `POST /api/auth/register`、`POST /api/auth/login` (`{username,password}` → `{token,user}`)、`GET /api/me`、`PATCH /api/me` (昵称) | `api/routers/auth.py` |
-| 错误 | 用户名或密码错 → 401「用户名或密码错误」(不区分用户是否存在)；重名 → 409 | 同上 |
-| 限流 | **没有**。登录 / 注册可以无限次尝试；只有聊天有每日 Token 额度 (429) | — |
-| users 表 | `id, username, password_hash, created_at`，后续加了 `nickname`、`avatar_updated_at`、`token_budget`、`memory_enabled` | `db/schema.py` |
-| iOS | `Credentials(username,password)`；Token 存在 `UserDefaults` 的 `vb_token` (代码注释写明生产应改 Keychain)；401 时自动退出到登录页；设置页显示「用户名 demo」 | `VeraBotCore/Models.swift`、`App/AppState.swift`、`Settings/UserProfileEditor.swift` |
-| 现有账号 | 本机库只有 demo (密码 verabot2026) 和测试脚本临时建的账号 | `backend/data/verabot.db` |
+| 1 | 支持哪些方式 | **邮箱 + 密码**、**邮箱 + 验证码**、**手机号 + 密码** 现在就做。手机号 + 短信验证码**延后** (要短信供应商 + 签名模板审核)；手机号注册目前不验证。 |
+| 2 | 用户名 | 数据里保留 `username` (老账号、老客户端、Web)，**界面不展示**；新注册账号自动生成内部用户名 `u_<10 位 hex>`。demo / verabot2026 继续可登录 (邮箱框里填 demo 即可)。 |
+| 3 | 发信 | 可插拔：默认 `console` 后端把验证码写进后端日志 (`[DEV MAIL] ... code=123456`)；配环境变量后切到 SMTP。发件人 luisporschewind@gmail.com，**应用专用密码还没有**，所以目前仍是 console。不改 `.env`，变量见 §6。 |
+| 4 | 令牌 | 访问令牌 **7 天**；刷新令牌 60 天，每次刷新轮换；iOS 透明刷新；令牌存 **Keychain**。 |
+| 5 | 未验证邮箱 | **可以使用全部功能**，设置页显示「邮箱未验证」+「验证」按钮提醒。 |
 
-问题：用户名不能找回密码、不能验证是本人；没有限流，弱密码可被暴力尝试；Token 存在 UserDefaults 不够安全；30 天 Token 无法单独吊销。
+## 2. 数据模型 (v9，只加列 / 新表，幂等)
 
-## 2. 目标模型
-
-`users` 新增列 (v9，只加列、幂等，保留 `username`)：
+`users` 新增列：
 
 | 列 | 类型 | 说明 |
 |---|---|---|
-| `email` | TEXT NULL | 存规范化后的值 (trim + 小写)；`CREATE UNIQUE INDEX ... WHERE email IS NOT NULL` |
-| `email_verified_at` | TEXT NULL | UTC ISO；NULL = 未验证 |
-| `phone` | TEXT NULL | E.164 (`+8613800138000`)；部分唯一索引 |
-| `phone_verified_at` | TEXT NULL | 同上 |
-| `token_version` | INTEGER NOT NULL DEFAULT 0 | 写进 JWT (`tv`)；改密码 / 「退出所有设备」时 +1，旧 Token 立即失效 |
-| `failed_logins` / `locked_until` | INTEGER / TEXT | 账号级登录失败计数与临时锁定 |
+| `email` | TEXT NULL | 规范化 (trim + 小写)；部分唯一索引 `idx_users_email` (`WHERE email IS NOT NULL`) |
+| `email_verified_at` | TEXT NULL | UTC ISO；NULL = 未验证。验证码登录创建的账号直接视为已验证 |
+| `phone` | TEXT NULL | E.164 (`+8613800138000`)；11 位大陆手机号自动补 `+86`，`0086` 前缀转 `+86`；部分唯一索引 `idx_users_phone` |
+| `token_version` | INTEGER DEFAULT 0 | 写进 JWT `tv`；「退出所有设备」+1，旧访问令牌立即失效 |
+| `failed_logins` / `locked_until` | INTEGER / TEXT | 连续 5 次密码错误锁 15 分钟 |
 
-新表 `auth_codes (id, user_id NULL, channel 'email'|'sms', target, purpose 'verify'|'login'|'reset', code_hash, expires_at, attempts, created_at, consumed_at)`：验证码只存哈希，10 分钟过期，最多试 5 次。
+新表：
 
-`username` 保留为内部 / 兼容字段 (老客户端、demo 账号仍可用)，界面不再展示；以后新注册自动生成 (如 `u_<id>`)，不再让用户填。
+- `auth_codes(id, email, purpose 'login'|'verify', code_hash, expires_at, attempts, created_at, consumed_at)`：6 位数字，只存 HMAC 哈希，10 分钟过期，错 5 次作废，用后即焚；同一邮箱同一用途发新码时旧码作废。
+- `auth_refresh_tokens(id, user_id, token_hash UNIQUE, expires_at, created_at, revoked_at)`：只存哈希。
 
-## 3. 登录 / 注册流程 (分阶段)
+迁移 v8 → v9 前备份 `backend/data/verabot.db.bak-before-v9-<时间>`；老账号 (demo) 的 email / phone 为 NULL，数据 (Bot、记忆、MCP 授权) 不动。
 
-1. **阶段 1：邮箱 + 密码** (不依赖短信供应商)
-   - 注册：邮箱 + 密码 (≥ 8 位) → 建号，`email_verified_at = NULL`，发验证邮件 (6 位码)。未验证也能先用，设置页提示「邮箱未验证」。
-   - 登录：一个输入框「邮箱或用户名」+ 密码；后端按是否含 `@` 查 `email` 或 `username`。
-   - 忘记密码：邮箱验证码 → 设新密码 → `token_version + 1`。
-2. **阶段 2：邮箱验证码登录** (免密码，可选)。
-3. **阶段 3：手机号 + 短信验证码**：需要国内短信服务 (阿里云 / 腾讯云) 和签名、模板审核，费用和合规由 Boss 决定后再做。
+## 3. 流程
 
-发信：先接 SMTP (`VERABOT_SMTP_*` 环境变量，`.env.example` 写占位)；开发环境没配 SMTP 时把验证码打印到后端日志 (仅 debug)，测试用假发信器。
+- **邮箱 + 密码注册**：邮箱 + 密码 (≥ 8 位，≤ 128) → 建号 (未验证) → 返回会话；同时静默发一封验证码邮件 (发信失败不影响注册)。
+- **登录 (密码)**：`identifier` + 密码。后端判断：含 `@` → 邮箱；`+` 开头或 ≥ 8 位数字 → 手机号；其他 → 用户名。错误统一「账号或密码错误」(不区分账号是否存在)；旧的 `{username,password}` 仍返回「用户名或密码错误」。
+- **邮箱 + 验证码登录**：`send-code` → 输入 6 位码 → 登录；该邮箱还没有账号时**直接创建** (已验证，随机不可用密码)。
+- **手机号 + 密码**：注册 / 登录同上，暂不发短信。
+- **验证邮箱**：设置 › 账号「邮箱未验证 › 验证」→ 发码 (60 秒内刚发过就直接让用户输入上一封里的码) → 输入 → 已验证。
+- **刷新**：访问令牌过期 / 失效 (401) → iOS 用刷新令牌换一对新的 → 原请求重试一次；并发的多个 401 只刷新一次。刷新令牌被拒 (过期 / 已吊销 / 复用) → 请求仍 401 → 回到登录页。
+- **刷新令牌复用检测**：已轮换掉的刷新令牌再次出现 → 视为泄露，吊销该用户全部刷新令牌。
+- **退出**：iOS 退出时 `POST /api/auth/logout` 吊销本机刷新令牌，删除 Keychain；`POST /api/auth/logout-all` 让所有设备失效 (token_version + 1，吊销全部刷新令牌；iOS 暂无入口)。
 
-## 4. 演示账号 demo 的迁移
+## 4. API
 
-- v9 迁移只加列，demo 的 `email/phone` 为 NULL，**用户名 demo + 密码继续能登录**，数据 (Bot、记忆、MCP 授权) 不动。
-- 迁移前照例备份 `backend/data/verabot.db.bak-before-v9-<时间>`。
-- 登录后设置页显示「绑定邮箱」入口；绑定并验证后即可用邮箱登录。是否给 demo 预置一个邮箱，由 Boss 决定 (见 §8)。
+| 接口 | 请求 | 返回 / 错误 |
+|---|---|---|
+| `POST /api/auth/register` | `{email, password}` 或 `{phone, password}`；旧 `{username, password}` (≥ 6 位) 保留 | `AuthSession`；409 `email_taken` / `phone_taken`；422 `invalid_email` / `invalid_phone` / `weak_password` |
+| `POST /api/auth/login` | `{identifier, password}`；旧 `{username, password}` | `AuthSession`；401；429 `account_locked` / `rate_limited` |
+| `POST /api/auth/refresh` | `{refresh_token}` | `AuthSession` (新的一对)；401 `invalid_refresh` / `refresh_reused` / `refresh_expired` |
+| `POST /api/auth/logout` | `{refresh_token}` | `{ok:true}` (令牌不存在也返回 ok) |
+| `POST /api/auth/logout-all` | (需登录) | `{ok:true}` |
+| `POST /api/auth/email/send-code` | `{email}` | `{ok, expires_in:600, retry_after:60}` (邮箱是否注册都一样，防枚举)；429 `code_cooldown` / `code_daily_limit` / `rate_limited`；503 `mail_failed` |
+| `POST /api/auth/email/login` | `{email, code}` | `AuthSession`；400 `code_invalid` / `code_expired` / `code_exhausted` |
+| `POST /api/me/email/send-verification` | (需登录) | 同 send-code；已验证时 `{ok, already_verified:true}`；400 `no_email` |
+| `POST /api/me/email/verify` | `{code}` (需登录) | `User`；400 同上 |
+| `GET /api/me`、`PATCH /api/me` | — | `User` (新增 `email`、`email_verified`、`phone`) |
 
-## 5. API 变更 (向后兼容)
+`AuthSession` = `{token, refresh_token, expires_in, refresh_expires_in, user}`。非 401 错误的 `detail` 是 `{message, code}`；401 的 `detail` 是中文字符串。JWT 声明：`sub`、`name`、`tv`、`typ:"access"`、`exp`；刷新令牌不是 JWT，不能当访问令牌用；v8 签发的不带 `tv` 的旧令牌按 `tv=0` 继续有效。
 
-| 接口 | 变更 |
-|---|---|
-| `POST /api/auth/register` | 接受 `{email, password}` (新) 或 `{username, password}` (旧，保留)；返回不变 `{token, user}` |
-| `POST /api/auth/login` | 接受 `{identifier, password}` (新) 或 `{username, password}` (旧)；401 文案改为「账号或密码错误」 |
-| `POST /api/auth/email/send-code` | `{email, purpose}`；无论邮箱是否存在都返回 202 (防枚举) |
-| `POST /api/auth/email/verify` | `{email, code}` → 标记已验证 (已登录) |
-| `POST /api/auth/password/reset` | `{email, code, new_password}` |
-| `POST /api/auth/logout-all` | `token_version + 1` |
-| `GET /api/me` / `public_user` | 新增 `email`、`email_verified`、`phone` (脱敏 `+86 138****8000`)、`phone_verified`；`username` 保留 |
+`display_name` 兜底顺序：昵称 → 邮箱 @ 前部分 → `用户<手机后 4 位>` → 用户名。
 
-iOS 同步：`VeraBotCore` 新增 `LoginRequest(identifier,password)`、`User.email / emailVerified / phone / phoneVerified` (旧后端缺字段时为 nil / false)；`VeraBotAPI` 增加对应方法。**契约测试**：新增 `backend/scripts/test/auth_test.py` (AUTH-01~)，含读取 iOS `Models.swift` CodingKeys 与 `/api/me` JSON 键对照 (同 PIN-08 / MCP-CONTRACT 的做法)；Kit 增加解码测试。
+## 5. 安全
 
-## 6. iOS 界面
+- 密码 bcrypt (cost 12)；新账号至少 8 位。
+- 限流 (进程内内存滑动窗口，单进程够用)：同一 IP 10 分钟内「注册 + 登录失败」≤ 30 次 (`VERABOT_AUTH_IP_LIMIT`)；账号连续 5 次错误锁 15 分钟；验证码同一邮箱 60 秒 1 次、每天 10 次，同一 IP 每小时 30 次。超限 429 中文提示。
+- 审计 (`audit_log`)：注册、登录 (方式)、锁定、刷新令牌复用、logout-all、邮箱验证；不写密码 / 验证码。
+- iOS：令牌存 Keychain (`kSecClassGenericPassword`，`AfterFirstUnlockThisDeviceOnly`，service `com.verabot.app.auth`)；首次启动把 UserDefaults 里的旧 `vb_token` 迁过去并删除 (旧令牌没有刷新令牌，到期后重新登录)。
 
-- 登录页：「邮箱」输入框 (`.textContentType(.emailAddress)`、`.keyboardType(.emailAddress)`)，旁边小字「也可以用用户名登录」；注册页只要邮箱 + 密码；「忘记密码？」按钮。原生控件，沿用 Theme。
-- 设置 › 账号：名称下面一行从「用户名 demo」改为邮箱 (未绑定时显示「绑定邮箱」按钮，未验证显示「未验证」)；之后加手机号行。
-- Token 改存 Keychain (`kSecClassGenericPassword`，`AfterFirstUnlockThisDeviceOnly`)，首次启动把 UserDefaults 里的旧 Token 迁过去并删除。
+## 6. 配置 (环境变量，写在 `.env`；`.env.example` 有占位)
 
-## 7. 安全
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `VERABOT_TOKEN_TTL_HOURS` | 168 | 访问令牌有效期 (7 天) |
+| `VERABOT_REFRESH_TTL_DAYS` | 60 | 刷新令牌有效期 |
+| `VERABOT_AUTH_CODE_TTL` | 600 | 验证码有效秒数 |
+| `VERABOT_AUTH_CODE_COOLDOWN` | 60 | 同一邮箱两次发码间隔 (秒) |
+| `VERABOT_AUTH_CODE_DAILY` | 10 | 同一邮箱每天最多发码次数 |
+| `VERABOT_AUTH_IP_LIMIT` | 30 | 同一 IP 10 分钟内注册 + 登录失败上限 |
+| `VERABOT_MAIL_BACKEND` | `console` | `console` (验证码写后端日志) / `smtp` |
+| `VERABOT_SMTP_HOST` | `smtp.gmail.com` | |
+| `VERABOT_SMTP_PORT` | 587 | 465 时配合 `VERABOT_SMTP_SSL=1` |
+| `VERABOT_SMTP_USER` | — | 例如 luisporschewind@gmail.com |
+| `VERABOT_SMTP_PASSWORD` | — | Gmail **应用专用密码** (需开两步验证后生成) |
+| `VERABOT_SMTP_FROM` | 同 USER | 发件人 |
+| `VERABOT_SMTP_STARTTLS` | 1 | |
+| `VERABOT_SMTP_SSL` | 0 | |
+| `VERABOT_SMTP_TIMEOUT` | 15 | 秒 |
 
-- 密码：bcrypt 保留 (cost 12)，新注册最少 8 位；拒绝常见弱密码表前 1000 项。
-- 限流 (先做进程内内存版，单机够用)：登录按 IP 每分钟 10 次、按账号连续失败 5 次锁 15 分钟；发验证码按目标 60 秒 1 次、每天 10 次；超限 429 中文提示。
-- 防枚举：登录统一「账号或密码错误」，发码 / 找回密码统一 202。
-- 验证码：6 位数字，只存哈希，10 分钟，5 次错误作废，用后即焚。
-- JWT：加 `tv` (token_version)；有效期是否从 30 天缩短，见 §8。
-- 审计：登录成功 / 失败、改密、绑定写审计日志 (不写密码 / 验证码)。
+启用 Gmail：在 `.env` 里加 `VERABOT_MAIL_BACKEND=smtp`、`VERABOT_SMTP_USER=luisporschewind@gmail.com`、`VERABOT_SMTP_PASSWORD=<应用专用密码>`，重启后端。
 
-## 8. 待 Boss 决定
+## 7. 字段映射清单 (契约测试 `auth_test.py` AUTH-15 自动核对)
 
-1. 先只做 **邮箱 + 密码** (推荐)，手机号短信放到阶段 3？短信供应商选哪家？
-2. 用户名要不要彻底不展示 / 不能用来登录 (推荐：保留兼容登录，界面不展示)？
-3. demo 账号是否预置邮箱 (例如 Boss 指定的邮箱)，还是保持用户名登录？
-4. 发信方式：SMTP 账号由谁提供 (企业邮箱 / 第三方如 SendGrid、阿里云邮件推送)？
-5. Token 有效期：维持 30 天，还是 7 天 + 刷新令牌？
-6. 未验证邮箱能不能使用全部功能 (推荐：可以，仅找回密码需要已验证)？
+| iOS (VeraBotCore) | JSON | 后端 |
+|---|---|---|
+| `User.email` / `emailVerified` / `phone` | `email` / `email_verified` / `phone` | `services/users.py public_user` |
+| `AuthResponse.token` / `refreshToken` / `expiresIn` / `user` | `token` / `refresh_token` / `expires_in` / `user` | `services/auth.py issue_session` |
+| `LoginRequest(identifier, password)` | `identifier`, `password` | `schemas.LoginIn` |
+| `RegisterRequest(email?, phone?, password)` | `email`, `phone`, `password` (nil 不编码) | `schemas.RegisterIn` |
+| `EmailCodeRequest(email)` | `email` | `schemas.EmailCodeSendIn` |
+| `EmailCodeLoginRequest(email, code)` | `email`, `code` | `schemas.EmailCodeLoginIn` |
+| `EmailVerifyRequest(code)` | `code` | `schemas.EmailVerifyIn` |
+| `RefreshRequest(refreshToken)` | `refresh_token` | `schemas.RefreshIn` |
+| `CodeSentResponse(ok, expiresIn, retryAfter)` | `ok`, `expires_in`, `retry_after` | `services/auth.py send_code` |
+| `AuthInputRules.normalizedEmail / normalizedPhone` | — | `normalize_email / normalize_phone` (规则一致，最终以后端为准) |
+
+旧后端 / 旧响应缺字段时：`email`、`phone`、`refreshToken`、`expiresIn` 为 nil，`emailVerified` 为 false (Kit 测试覆盖)。
+
+## 8. iOS 界面
+
+- 登录页：分段控件「邮箱 / 验证码 / 手机号」(系统默认样式)。邮箱页的输入框也接受用户名 (demo)；验证码页「获取验证码」按钮带 60 秒倒计时，提示「新邮箱首次登录会自动创建账号」；手机号页用数字键盘。注册入口只在邮箱 / 手机号页。保留 AppLogo 和白色转圈按钮。
+- 设置 › 账号：名字下面一行显示邮箱 / 手机号 (`+86 139 0013 9000`)；老账号仍显示「用户名 demo」。邮箱未验证时多一行「邮箱未验证 · 验证」。
+- `AuthSession` (VeraBotNetworking) 持有令牌，`APIClient` 的普通请求、上传、取图片、SSE 聊天都在 401 时透明刷新一次。
 
 ## 9. 里程碑
 
-| 编号 | 内容 | 测试 |
+| 编号 | 内容 | 状态 |
 |---|---|---|
-| AUTH-M1 | schema v9 加列 + `auth_codes` 表；`identifier` 登录；`/api/me` 新字段；限流与锁定；契约测试 | `auth_test.py` AUTH-01~12，回归全部后端用例 |
-| AUTH-M2 | 邮箱验证码 (发信抽象 + SMTP + 假发信器)、验证、找回密码、`logout-all` | AUTH-13~20 |
-| AUTH-M3 | iOS：登录 / 注册 / 找回密码页、设置页邮箱行、Keychain 迁移 | Kit 解码测试；模拟器截图验收 |
-| AUTH-M4 | 手机号 + 短信 (依赖 §8-1) | 假短信网关用例 |
-| AUTH-M5 | (可选) 邮箱验证码免密登录、Sign in with Apple | — |
+| AUTH-M1 | v9 schema；邮箱 / 手机号 / 验证码登录；刷新令牌；限流与锁定；发信抽象 (console + SMTP)；iOS 登录页 / 设置页 / Keychain / 透明刷新；契约测试 | ✅ 2026-10-03 |
+| AUTH-M2 | 忘记密码 (邮箱验证码重设，`token_version + 1`)；设置页「退出所有设备」；老账号绑定邮箱 | 待做 |
+| AUTH-M3 | 手机号 + 短信验证码 (供应商待定) | 延后 |
+| AUTH-M4 | (可选) Sign in with Apple | — |
 
-Web 冻结：不改 Web 登录页；旧的 `{username,password}` 接口保留，所以 Web 仍然能登录。
+## 10. 已知限制
+
+- 限流和锁定计数在进程内存里 (`core/ratelimit.py`)，重启清零，多进程 / 多实例不共享；上线多实例前换 Redis。
+- 账号锁定提示 (429「密码错误次数过多」) 会暴露该账号存在；可接受，后续可改成统一文案。
+- 手机号注册不验证号码归属。
+- 旧的用户名注册接口仍是 6 位最少 (兼容老客户端 / Web)。
+- 还没有忘记密码；验证码登录创建的账号没有可用密码，只能继续用验证码登录。
+- Web 冻结，Web 端仍是用户名 + 密码、无刷新令牌 (30 天 → 7 天后需要重新登录)。

@@ -2,7 +2,8 @@
 from .. import db
 
 NICKNAME_MAX = 32
-USER_SQL = "SELECT id, username, created_at, nickname, avatar_updated_at FROM users WHERE id=?"
+USER_SQL = ("SELECT id, username, created_at, nickname, avatar_updated_at, email, email_verified_at, phone, token_version "
+            "FROM users WHERE id=?")
 
 
 def clean_nickname(value: str) -> str:
@@ -29,12 +30,19 @@ def public_user(u: dict | None) -> dict | None:
         nick = nick.strip() or None
     else:
         nick = None
+    email = u.get("email") or None
+    phone = u.get("phone") or None
     return {
         "id": u["id"],
         "username": u["username"],
         "created_at": u.get("created_at"),
         "nickname": nick,
-        "display_name": nick or u["username"],
+        # 没有昵称时：邮箱前缀 / 手机号后 4 位 / 用户名（邮箱、手机号账号的用户名是系统生成的，不展示）
+        "display_name": nick or (email.split("@")[0] if email else None)
+                        or (f"用户{phone[-4:]}" if phone else None) or u["username"],
+        "email": email,
+        "email_verified": bool(u.get("email_verified_at")) if email else False,
+        "phone": phone,
         "has_avatar": bool(u.get("avatar_updated_at")),
         "avatar_updated_at": u.get("avatar_updated_at"),
     }

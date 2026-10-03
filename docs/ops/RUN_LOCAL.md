@@ -121,3 +121,10 @@ curl -s --noproxy '*' http://127.0.0.1:8000/api/health
 | `uv run python scripts/test/api_v01_tc*.py` | 迭代 1 API 用例 | 部分 |
 
 iOS UI 自动化辅助：`source frontend/scripts/sim/ui.sh` (需要给终端「辅助功能」权限)，见 [frontend/README.md](../../frontend/README.md)。用例与结果：[TEST_CASES_v0.1.md](../testing/TEST_CASES_v0.1.md)。
+
+## 账号 v9 (邮箱 / 手机号登录，2026-10-03)
+
+- 升级：`./stop.sh`，`cp data/verabot.db data/verabot.db.bak-before-v9-$(date +%Y%m%d-%H%M%S)`，`./start.sh --detach`；`init_db()` 迁到 v9 (只加列 / 新表)，demo / verabot2026 继续可登录。
+- 开发环境默认 `VERABOT_MAIL_BACKEND=console`：验证码不发邮件，写在 `data/server.log`：`grep "DEV MAIL" data/server.log | tail -1`。
+- 真实发信 (Gmail)：在 `.env` 加 `VERABOT_MAIL_BACKEND=smtp`、`VERABOT_SMTP_USER=luisporschewind@gmail.com`、`VERABOT_SMTP_PASSWORD=<应用专用密码>` 后重启。其余变量见 `.env.example`。
+- 限流 / 锁定计数在进程内存里，重启后端会清零 (测试时想解除锁定也可以直接重启)。

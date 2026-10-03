@@ -57,8 +57,8 @@ cols = {r[1] for r in con.execute("PRAGMA table_info(mcp_servers)").fetchall()}
 con.close()
 needed = {"mcp_servers", "mcp_tools", "mcp_credentials", "oauth_states", "pending_actions"}
 v8_cols = {"consent_at", "sync_status", "circuit_failures", "circuit_open_until"}
-check("MCP-01 migration v6 keeps bots and reaches v8",
-      ver == "8" == str(db.SCHEMA_VERSION) and needed <= tables and v8_cols <= cols
+check("MCP-01 migration v6 keeps bots and reaches current (>= v8)",
+      ver == str(db.SCHEMA_VERSION) and int(ver) >= 8 and needed <= tables and v8_cols <= cols
       and legacy == ("Old", '["get_weather"]', '["研究"]', "2026-02-02T00:00:00+00:00"),
       f"ver={ver} missing={needed-tables} cols={v8_cols-cols} legacy={legacy}")
 
@@ -624,14 +624,14 @@ ver = c.execute("select value from schema_meta where key='version'").fetchone()[
 tables = {r[0] for r in c.execute("select name from sqlite_master where type='table'")}
 bots = c.execute("select count(*) from bots").fetchone()[0]
 cols = {r[1] for r in c.execute("pragma table_info(mcp_servers)")}
-assert ver == "8", ver
+assert int(ver) >= 8, ver  # v9 起为账号表；MCP 列从 v8 开始存在
 assert {"mcp_servers","mcp_tools"} <= tables
 assert {"consent_at","sync_status","circuit_failures","circuit_open_until"} <= cols
 assert bots == 0
 print("fresh", ver)
 """ % str(ROOT)
     out = subprocess.check_output([sys.executable, "-c", script], text=True)
-    return "fresh 8" in out
+    return "fresh " in out
 
 
 def migrated_v7():
@@ -690,7 +690,7 @@ learn = c.execute("select status, last_synced_at, consent_at, sync_status, circu
 aws = c.execute("select status, sync_status, last_error from mcp_servers where id=4").fetchone()
 tool = c.execute("select full_name, risk from mcp_tools where id=9").fetchone()
 nick = c.execute("select nickname from users where id=1").fetchone()[0]
-assert ver == "8", ver
+assert int(ver) >= 8, ver  # v9 起为账号表；MCP 列从 v8 开始存在
 assert bot == ('["get_weather","mcp__learn__microsoft_docs_search"]', '["研究"]', "2026-02-02T00:00:00+00:00"), bot
 assert learn[0] == "connected" and learn[1] == "2026-10-03T01:00:00+00:00" and learn[2] is None and learn[3] == "ok" and learn[4] == 0, learn
 assert aws == ("error", "error", "boom"), aws
@@ -699,10 +699,10 @@ assert nick == "小王"
 print("v7ok", ver)
 """ % str(ROOT)
     out = subprocess.check_output([sys.executable, "-c", script], text=True)
-    return "v7ok 8" in out
+    return "v7ok " in out
 
 
-check("MCP-01 fresh database is v8", fresh_db())
+check("MCP-01 fresh database is current (>= v8)", fresh_db())
 check("MCP-01 migration v7 keeps servers, tools and consent is empty", migrated_v7())
 
 

@@ -5,6 +5,15 @@ import VeraBotCore
 public protocol VeraBotAPI: Sendable {
     func login(_ c: Credentials) async throws -> AuthResponse
     func register(_ c: Credentials) async throws -> AuthResponse
+    /// v9 账号：identifier = 邮箱 / 手机号 / 用户名
+    func login(_ r: LoginRequest) async throws -> AuthResponse
+    func register(_ r: RegisterRequest) async throws -> AuthResponse
+    func sendEmailCode(email: String) async throws -> CodeSentResponse
+    func loginWithEmailCode(email: String, code: String) async throws -> AuthResponse
+    func sendVerificationEmail() async throws -> CodeSentResponse
+    func verifyEmail(code: String) async throws -> User
+    func refresh(refreshToken: String) async throws -> AuthResponse
+    func logout(refreshToken: String) async throws -> OKResponse
     func me() async throws -> User
     func updateNickname(_ nickname: String) async throws -> User
     func uploadMyAvatar(jpeg: Data) async throws -> User

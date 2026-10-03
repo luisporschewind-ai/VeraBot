@@ -13,6 +13,39 @@ class Credentials(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 
 
+# ---- 账号 v9（见 docs/design/AUTH_REFACTOR.md §5）。字段名与 iOS VeraBotCore/Auth.swift 一致 ----
+class RegisterIn(BaseModel):
+    """三选一：email + password、phone + password（新）；username + password（旧，demo / Web / 测试脚本）。"""
+    email: str | None = Field(default=None, max_length=254)
+    phone: str | None = Field(default=None, max_length=32)
+    username: str | None = Field(default=None, max_length=32)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class LoginIn(BaseModel):
+    """identifier = 邮箱 / 手机号 / 用户名；旧客户端仍可只传 username。"""
+    identifier: str | None = Field(default=None, max_length=254)
+    username: str | None = Field(default=None, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class RefreshIn(BaseModel):
+    refresh_token: str = Field(min_length=1, max_length=256)
+
+
+class EmailCodeSendIn(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+
+class EmailCodeLoginIn(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    code: str = Field(min_length=4, max_length=12)
+
+
+class EmailVerifyIn(BaseModel):
+    code: str = Field(min_length=4, max_length=12)
+
+
 class NicknameIn(BaseModel):
     """PATCH /api/me。先 strip，再限制 1–32 个字（过长的原文在 clean_nickname 里拒绝）。"""
     nickname: str

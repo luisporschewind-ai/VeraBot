@@ -4,13 +4,18 @@ import UIKit
 import VeraBotCore
 import VeraBotNetworking
 
-/// 全局登录态与资料（昵称、头像）。首页和对话直接读这里，不在每个页面单独重拉。
-/// MVP 使用 UserDefaults 存储 Token；生产环境应改用 Keychain。
+/// 全局登录态与资料（昵称、头像、邮箱 / 手机号）。首页和对话直接读这里，不在每个页面单独重拉。
+/// 令牌（访问 7 天 + 刷新 60 天）存 Keychain，由共享的 AuthSession 持有：任何请求 401 时透明刷新一次；
+/// 刷新令牌也失效时请求仍返回 401，统一走 signOut。旧版存在 UserDefaults 的 vb_token 首次启动时迁到 Keychain。
 @MainActor
 @Observable
 final class AppState {
     private enum Keys {
-        static let token = "vb_token"
+        static let legacyToken = "vb_token"   // v0.1 存在 UserDefaults，仅用于迁移
+        static let email = "vb_email"
+        static let emailVerified = "vb_email_verified"
+        static let phone = "vb_phone"
+        static let serverDisplayName = "vb_display_name"
         static let username = "vb_username"
         static let nickname = "vb_nickname"
         static let hasAvatar = "vb_has_avatar"
@@ -18,7 +23,13 @@ final class AppState {
         static let baseURL = "vb_base_url"
     }
 
+    /// 是否已登录（非 nil 即已登录）；实际请求用 authSession 里的最新访问令牌。
     private(set) var token: String?
+    private(set) var email: String?
+    private(set) var emailVerified = false
+    private(set) var phone: String?
+    private var serverDisplayName: String?
+    let authSession: AuthSession
     private(set) var username: String?
     private(set) var nickname: String?
     private(set) var hasAvatar = false
@@ -29,12 +40,31 @@ final class AppState {
     var displayName: String {
         let trimmed = nickname?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !trimmed.isEmpty { return trimmed }
+        if let serverDisplayName, !serverDisplayName.isEmpty { return serverDisplayName }
         return username ?? ""
     }
 
+    /// 设置页名字下面那行：邮箱 / 手机号；老的用户名账号（demo）显示「用户名 xxx」。
+    var accountLabel: String {
+        User(id: 0, username: username ?? "", email: email, emailVerified: emailVerified, phone: phone).accountLabel
+    }
+
+    var needsEmailVerification: Bool { (email?.isEmpty == false) && !emailVerified }
+
     init() {
         let d = UserDefaults.standard
-        token = d.string(forKey: Keys.token)
+        var stored = KeychainStore.load()
+        if stored == nil, let legacy = d.string(forKey: Keys.legacyToken) {
+            stored = AuthTokens(access: legacy, refresh: nil)   // 旧令牌没有刷新令牌，过期后重新登录
+            KeychainStore.save(stored)
+        }
+        d.removeObject(forKey: Keys.legacyToken)
+        authSession = AuthSession(tokens: stored) { tokens, _ in KeychainStore.save(tokens) }
+        token = stored?.access
+        email = d.string(forKey: Keys.email)
+        emailVerified = d.bool(forKey: Keys.emailVerified)
+        phone = d.string(forKey: Keys.phone)
+        serverDisplayName = d.string(forKey: Keys.serverDisplayName)
         username = d.string(forKey: Keys.username)
         nickname = d.string(forKey: Keys.nickname)
         hasAvatar = d.bool(forKey: Keys.hasAvatar)
@@ -50,7 +80,7 @@ final class AppState {
     var api: any VeraBotAPI {
         let trimmed = baseURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         let url = URL(string: trimmed) ?? URL(string: AppConfig.defaultBaseURL)!
-        return APIClient(baseURL: url, token: token)
+        return APIClient(baseURL: url, session: authSession)
     }
 
     func saveBaseURL() {
@@ -60,7 +90,7 @@ final class AppState {
     func signIn(_ auth: AuthResponse) {
         let previous = username
         token = auth.token
-        UserDefaults.standard.set(auth.token, forKey: Keys.token)
+        authSession.set(AuthTokens(access: auth.token, refresh: auth.refreshToken))
         if previous != nil && previous != auth.user.username {
             avatars.clearAll()
         }
@@ -72,8 +102,16 @@ final class AppState {
         nickname = user.nickname
         hasAvatar = user.hasAvatar
         avatarUpdatedAt = user.avatarUpdatedAt
+        email = user.email
+        emailVerified = user.emailVerified
+        phone = user.phone
+        serverDisplayName = user.displayName
         let d = UserDefaults.standard
         d.set(user.username, forKey: Keys.username)
+        d.set(user.email, forKey: Keys.email)
+        d.set(user.emailVerified, forKey: Keys.emailVerified)
+        d.set(user.phone, forKey: Keys.phone)
+        d.set(user.displayName, forKey: Keys.serverDisplayName)
         if let nickname, !nickname.isEmpty {
             d.set(nickname, forKey: Keys.nickname)
         } else {
@@ -111,14 +149,24 @@ final class AppState {
     }
 
     func signOut() {
+        // 通知后端吊销刷新令牌（失败不影响本地退出）
+        if let refresh = authSession.tokens?.refresh {
+            let api = self.api
+            Task.detached { _ = try? await api.logout(refreshToken: refresh) }
+        }
+        authSession.set(nil)
         token = nil
+        email = nil
+        emailVerified = false
+        phone = nil
+        serverDisplayName = nil
         username = nil
         nickname = nil
         hasAvatar = false
         avatarUpdatedAt = nil
         avatars.clearAll()
         let d = UserDefaults.standard
-        d.removeObject(forKey: Keys.token)
+        for key in [Keys.email, Keys.emailVerified, Keys.phone, Keys.serverDisplayName] { d.removeObject(forKey: key) }
         d.removeObject(forKey: Keys.username)
         d.removeObject(forKey: Keys.nickname)
         d.removeObject(forKey: Keys.hasAvatar)

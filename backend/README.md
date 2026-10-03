@@ -36,7 +36,10 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 | `OPENAI_API_KEY` | — | 可选，Web 语音转写 `/api/transcribe` |
 | `HOST` / `PORT` | `0.0.0.0` / `8000` | 监听地址 |
 | `VERABOT_DATA_DIR` / `VERABOT_DB` | `backend/data` / `data/verabot.db` | 数据目录 / 数据库路径 |
-| `VERABOT_JWT_SECRET` | 自动生成到 `data/.jwt_secret` | JWT 签名密钥 |
+| `VERABOT_JWT_SECRET` | 自动生成到 `data/.jwt_secret` | JWT 签名密钥 (也用于刷新令牌 / 验证码的 HMAC) |
+| `VERABOT_TOKEN_TTL_HOURS` / `VERABOT_REFRESH_TTL_DAYS` | `168` / `60` | 访问令牌 7 天 / 刷新令牌 60 天 |
+| `VERABOT_MAIL_BACKEND` | `console` | `console` 把验证码写进 `data/server.log`；`smtp` 用 `VERABOT_SMTP_HOST/PORT/USER/PASSWORD/FROM/STARTTLS/SSL/TIMEOUT` 发信 (见 [AUTH_REFACTOR.md](../docs/design/AUTH_REFACTOR.md) §6) |
+| `VERABOT_AUTH_CODE_TTL` / `_COOLDOWN` / `_DAILY` / `VERABOT_AUTH_IP_LIMIT` | `600` / `60` / `10` / `30` | 验证码有效期、发码间隔、每日次数；IP 限流 |
 | `MAX_BOTS_PER_USER` | `20` | Bot 数量软上限 (兼容旧名 `VERABOT_MAX_BOTS`) |
 | `VERABOT_DAILY_TOKEN_QUOTA` | `200000` | 每用户每日 Token 预算，超额 429 |
 | `VERABOT_MAX_DELEGATION_DEPTH` / `_MAX_DELEGATIONS_PER_TURN` / `_MAX_SHARED_CONTEXT` | `1` / `3` / `2000` | 多 Agent 护栏 |
