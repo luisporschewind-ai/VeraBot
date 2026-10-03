@@ -128,6 +128,8 @@ public struct ExecutionStateMachine: Sendable, Hashable {
     public static let delegationToolName = "ask_bot"
     /// 「短暂受阻」建议展示时长（由界面层计时，然后发送 `.blockedElapsed`）。
     public static let blockedDisplayDuration: Duration = .milliseconds(1200)
+    /// 正常结束后头像保持「已完成」的时长，然后界面发送 `.reset` 回到空闲。
+    public static let completedIdleDelay: Duration = .milliseconds(1500)
 
     private struct OpenTool: Sendable, Hashable {
         let id: String

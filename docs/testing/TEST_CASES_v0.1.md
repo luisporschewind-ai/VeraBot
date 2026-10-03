@@ -501,6 +501,24 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 
 汇总：AVLAB-T01~T13 **13/13 通过** (2026-10-03，Mac)。
 
+## 默认形象接入执行状态 — 2026-10-03
+
+后端无新 JSON 键。`avatar_profile_test.py` AV-18；iOS `AvatarFigureTests.swift`、`ExecutionStateTests.swift`。设计见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md) §6–§7，字段表见 [FEATURES.md](../product/FEATURES.md)。
+
+| ID | 模块 | 用例 | 结果 |
+|---|---|---|---|
+| AV-18 | 后端 / 契约 | 五款形象 id ≤ `avatar` max_length (8)，与 `AvatarLabCharacterKind` 同名；`BotAvatarPose` 与 `AvatarLabState` 同名；`veraBean` 可保存，上传照片后 `has_avatar=true` 且 `avatar` 不变；9 字被拒 | 通过 (`avatar_profile_test.py` 22/22) |
+| EXEC-34 | iOS Kit | 10 个 `ExecutionState`（含带进度的委派）映射到 8 个 `BotAvatarPose`，8 种姿态都能到达 | 断言已在 Linux 上跑通（排除既有 `MessageMarkdown.swift` 后编译 Core）。`swift test` 整包仍因该文件在 Linux 编不过 |
+| EXEC-35 | iOS Kit | 形象 id、旧表情位置映射、未知字符串稳定、照片优先于形象 | 同上 |
+| EXEC-36 | iOS Kit | 进入 blocked 启动计时；`reset` 发出 `cancelBlocked`；之后 `blockedFired` 不再改状态 | 同上（`ExecutionStateTests.swift`） |
+| EXEC-37 | iOS Kit | `completed` 发出 `startIdle`；`completedIdleDelay` = 1500 ms；`idleFired` 回到 `idle` | 同上 |
+| EXEC-38 | iOS Kit | `reset` / 新一轮 `sent` 取消回空闲计时；之后 `idleFired` 无效 | 同上 |
+| EXEC-39 | iOS Kit | `awaitingConfirmation` 与 `failed` 不启动回空闲计时 | 同上 |
+| EXEC-40 | iOS Kit | 提前离开 blocked、第二次受阻替换 serial、blocked 期间 `done` 改为回空闲计时且旧 serial 无效 | 同上 |
+| AVFIG-UI | iOS | 无照片：首页静态形象、对话导航栏随状态动画、详情 / 创建可选五款；有照片时三处都显示照片 | 本环境无 iOS 模拟器，未点按 |
+
+回归：STAT-01~08 8/8，PIN 8/8，TAG 10/10，AUTH 16/16，MEM 36/36，MA 25/25，MCP 本地用例失败 0（公网仍跳过）。`swift test` 整包在 Linux 上因既有 `MessageMarkdown.swift` 失败；新增映射 / 计时断言已单独跑通。iOS 模拟器未执行。
+
 ## MCP M1 (schema v7) — 2026-10-03
 
 自动化：`cd backend && uv run python scripts/test/mcp_test.py`。默认只打本机假 MCP 服务器，不访问外网。

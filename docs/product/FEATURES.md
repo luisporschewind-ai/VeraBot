@@ -111,7 +111,27 @@ SSE `status` 事件字段映射 (`agents/runtime.py` `status_data` ↔ iOS `Vera
 | `tool` | `tool` | `phase = tool` 时的工具名 |
 | `parent_id` | `parentID` | 外层 `tool_start.id`；状态机据此更新 `delegating.progress` |
 
-状态机与头像映射见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md)。Web 冻结，忽略该事件。
+没有新增或改名的 `status` 键。10 个执行状态到 8 种头像姿态（Core `BotAvatarPose`，App `AvatarLabState` 同名转发）：
+
+| `ExecutionState` | 头像姿态 |
+|---|---|
+| `idle` | `idle` 空闲 |
+| `recalling`、`thinking` | `thinking` 思考中 |
+| `callingTool` | `working` 执行中 |
+| `delegating` | `delegating` 委派中 |
+| `replying` | `replying` 回复中 |
+| `awaitingConfirmation` | `waiting` 等你确认 |
+| `completed` | `done` 已完成，1.5 s 后 `reset` → `idle` |
+| `blocked`、`failed` | `blocked` 遇到阻塞（`blocked` 1.2 s 后回到原流程） |
+
+默认形象仍用已有字段，不新增 JSON 键（AV-18）：
+
+| 存储 | iOS |
+|---|---|
+| `bots.avatar` | 五款形象 id：`veraBean` / `sprout` / `star` / `cloud` / `sugar`（均 ≤ `max_length` 8），或旧表情。无照片时画对应形象；旧表情按 `BotLook.emojis` 的位置对应五款 |
+| `has_avatar` | `true` 时显示相册照片，优先于形象 id 和旧表情 |
+
+状态机与动画见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md)。Web 冻结，忽略 `status`；形象 id 会按原文显示。
 
 SSE 事件：
 
