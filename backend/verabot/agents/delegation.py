@@ -11,6 +11,7 @@ import logging
 
 from .. import db
 from ..core.config import MAX_SHARED_CONTEXT
+from ..db import delegation_store
 from ..tools.registry import ToolContext, tool
 from .context import clean_question, limit_shared_context
 from .guardrails import allowed_target_names, check_delegation
@@ -35,13 +36,11 @@ def _find_bot(user_id: int, name: str):
 def _record(ctx: ToolContext, target: dict | None, question: str, shared: str, *, status: str, reason: str = "",
             answer: str = "", payload: str = "", truncated: bool = False, usage: dict | None = None) -> int:
     u = usage or {}
-    with db.tx() as c:
-        return c.execute(
-            "INSERT INTO delegations(user_id,from_bot_id,to_bot_id,question,shared_context,answer,created_at,status,reason,"
-            "depth,payload,shared_truncated,prompt_tokens,completion_tokens,total_tokens) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (ctx.user_id, ctx.bot["id"], target["id"] if target else 0, question, shared, answer, db.now_iso(), status,
-             reason, ctx.depth + 1, payload, int(truncated), int(u.get("prompt_tokens") or 0),
-             int(u.get("completion_tokens") or 0), int(u.get("total_tokens") or 0))).lastrowid
+    return delegation_store.insert(
+        user_id=ctx.user_id, from_bot_id=ctx.bot["id"], to_bot_id=target["id"] if target else 0, question=question,
+        shared_context=shared, answer=answer, status=status, reason=reason, depth=ctx.depth + 1, payload=payload,
+        shared_truncated=int(truncated), prompt_tokens=int(u.get("prompt_tokens") or 0),
+        completion_tokens=int(u.get("completion_tokens") or 0), total_tokens=int(u.get("total_tokens") or 0))
 
 
 def _reject(ctx: ToolContext, target, question, shared, reason: str, message: str, **extra):
