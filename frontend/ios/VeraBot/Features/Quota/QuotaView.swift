@@ -10,17 +10,17 @@ struct QuotaView: View {
     var body: some View {
         ThemedList {
             if let q = quota {
-                Section("今日 Token 额度") {
+                Section("今日额度") {
                     ProgressView(value: Double(min(q.today.totalTokens, q.dailyTokenQuota)),
                                  total: Double(max(q.dailyTokenQuota, 1)))
-                    Text("\(q.today.totalTokens) / \(q.dailyTokenQuota) tokens · 今日请求 \(q.today.requests) 次")
+                    Text("用量 \(q.today.totalTokens) / \(q.dailyTokenQuota) · 今日请求 \(q.today.requests) 次")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("累计") {
                     LabeledContent("请求次数", value: "\(q.total.requests)")
-                    LabeledContent("输入 Tokens", value: "\(q.total.promptTokens)")
-                    LabeledContent("输出 Tokens", value: "\(q.total.completionTokens)")
-                    LabeledContent("总 Tokens", value: "\(q.total.totalTokens)")
+                    LabeledContent("输入用量", value: "\(q.total.promptTokens)")
+                    LabeledContent("输出用量", value: "\(q.total.completionTokens)")
+                    LabeledContent("总用量", value: "\(q.total.totalTokens)")
                     LabeledContent("Bot 间协作次数", value: "\(q.delegations)")
                     if let t = q.transcribe {
                         LabeledContent("语音转写（今日 / 累计）", value: "\(t.today.requests) / \(t.total.requests)")
@@ -28,7 +28,7 @@ struct QuotaView: View {
                     }
                     LabeledContent("模型", value: q.model)
                 }
-                Section("近 7 日 Tokens") {
+                Section("近 7 日用量") {
                     let maxTokens = max(q.daily.map(\.tokens).max() ?? 1, 1)
                     HStack(alignment: .bottom, spacing: 6) {
                         ForEach(q.daily) { d in
@@ -50,7 +50,7 @@ struct QuotaView: View {
                                            hasAvatar: b.hasAvatar, updatedAt: b.avatarUpdatedAt, size: 30)
                             Text(b.name)
                             Spacer()
-                            Text("\(b.requests) 次 · \(b.totalTokens) tokens").font(.caption).foregroundStyle(.secondary)
+                            Text("\(b.requests) 次 · 用量 \(b.totalTokens)").font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }

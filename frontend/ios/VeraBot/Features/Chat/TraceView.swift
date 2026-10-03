@@ -27,7 +27,7 @@ struct TraceView: View {
                         .background(Color.insetFill, in: RoundedRectangle(cornerRadius: 8))
                     let tokens = trace.result?["tokens"]?.text ?? ""
                     let truncated = trace.result?["shared_truncated"]?.text == "true"
-                    Text("协作记录 #\(trace.result?["delegation_id"]?.text ?? "-")" + (tokens.isEmpty ? "" : " · \(tokens) tokens")
+                    Text("协作记录 #\(trace.result?["delegation_id"]?.text ?? "-")" + (tokens.isEmpty ? "" : " · 用量 \(tokens)")
                          + (truncated ? " · 共享背景已截断" : ""))
                         .font(.caption2).foregroundStyle(.secondary)
                 }

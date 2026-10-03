@@ -20,11 +20,11 @@
 - **近期更新**：Bot 置顶已实现 (schema v6；见 [BOT_PIN.md](design/BOT_PIN.md))，本机数据库迁移前备份 `backend/data/verabot.db.bak-before-v6`。
 - **验收记录 (2026-10-01)**：Boss 确认 Bot 置顶功能无问题；TC-07 无效 token 返回 401 后自动回登录页；TC-29/30、设置、首页与导航、主要列表、消息、头像/昵称，以及触感反馈、语音、键盘相关验收通过。余下详情/创建页、长期记忆、用量、标签细节、删除流程及部分视觉页验收由 Boss 同意延期，不阻塞当前任务。详见测试用例记录。
 - **2026-10-03**：首页左上角头像外的 iOS 26 玻璃胶囊底已关掉 (`.sharedBackgroundVisibility(.hidden)`)，头像 44pt 正圆，与右侧按钮等大；Boss 已验收 (UI-11b)。
+- **2026-10-03**：iOS 界面残留英文 tokens 已改为「用量」(委派 Trace 行、用量看板、额度用完提示)；待 Boss 验收 (UI-EN-01)。
 - **待办**：
   1. **执行状态机** (只读评估已完成，未决定)：iOS 现在无状态枚举，靠 `sending` / `streaming` / traces 推断；建议在 `VeraBotCore` 用现有 SSE 事件 (delta / tool_start / tool_result / error / done) 推导状态并原生显示「正在思考 / 正在调用… / 正在请教…」，可选后端 `status` 事件。
-  2. **遗留英文**：对话页委派 Trace 行 (`Features/Chat/TraceView.swift`) 仍显示「N tokens」。
-  3. **头像动画** (Boss 桌面的 `LiveBotAvatar.swift` 卡通头像)：**未决定**；与项目同名类 / `Color(hex:)` 冲突，且是自定义动画，违反现有规则，需 Boss 拍板是否例外。
-  4. **仓库清理记录**：`frontend/ios/VeraBot/File.txt` (QA 遗留，内容「QA回归」) 已在 `c5529ce` 删除，工作区无残留 (见 TEST_CASES NEW-03)。
+  2. **头像动画** (Boss 桌面的 `LiveBotAvatar.swift` 卡通头像)：**未决定**；与项目同名类 / `Color(hex:)` 冲突，且是自定义动画，违反现有规则，需 Boss 拍板是否例外。
+  3. **仓库清理记录**：`frontend/ios/VeraBot/File.txt` (QA 遗留，内容「QA回归」) 已在 `c5529ce` 删除，工作区无残留 (见 TEST_CASES NEW-03)。
 
 ## 📍 当前进度 (Current progress) — main 工作区 (2026-10-01)
 
@@ -136,7 +136,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 ## 4. 下一步 (Next steps)
 
 1. **执行状态提示**：评估是否在 iOS Core 根据现有 SSE 事件显示思考、工具调用和 Bot 委派状态；尚未进入实现。
-2. **遗留英文**：对话页委派 Trace 行仍显示 `N tokens`，待改为中文。
+2. **遗留英文**：已修 (2026-10-03)，对话 Trace 行与用量看板的 tokens 改为「用量」，见 UI-EN-01。
 3. **(等待额度重置)** 按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §15 的 M1 → M7 实施 MCP 能力与 Gmail (设计 v1.0 已批准；Gmail 在 M4~M6，M4 前 Boss 需完成 Google Cloud 准备)。
 4. 记忆 M1 UI 验收延期；完成后再决定是否开始 M2。
 5. 其余 UI 验收、过时截图更新及提醒通知、图片附件 / 多模态、云端 TTS、安全与部署、CI、Web 方向暂缓；规划见 [ROADMAP_NEXT.md](ROADMAP_NEXT.md)。

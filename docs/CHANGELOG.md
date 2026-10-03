@@ -45,6 +45,7 @@
 
 ### 变更 (Changed)
 
+- **iOS · 去掉界面残留英文 tokens**：对话委派 Trace 行「协作记录 #N · M tokens」→「协作记录 #N · 用量 M」(与协作记录页一致)；用量看板「今日 Token 额度」→「今日额度」，「a / b tokens · 今日请求 N 次」→「用量 a / b · 今日请求 N 次」，「输入 / 输出 / 总 Tokens」→「输入用量 / 输出用量 / 总用量」，「近 7 日 Tokens」→「近 7 日用量」，按 Bot「N 次 · M tokens」→「N 次 · 用量 M」；额度用完的本地提示「今日 Token 额度已用完」→「今日额度已用完」。仅文案，后端未改。用例 UI-EN-01。
 - **文档 · 与代码对齐 (2026-10-03)**：backend README / MULTI_AGENT_DESIGN 的「当前 schema v3」改为 v6；docs/README 中 MEMORY_GROWTH 状态改为 v1.0 已批准、M1 已实现；FEATURES 补删除二次确认、置顶、首页头像 44pt；RUN_LOCAL 补 v5 / v6 升级说明；STATUS 交接更新 HEAD、置顶提交号与 `File.txt` 清理记录。仅文档。
 - **iOS · App 图标支持亮色／暗色模式**：沿用现有图形，仅调整配色（亮色：浅底深靛蓝剪影；暗色：深底浅银白剪影）。`AppIcon.appiconset` 新增 `AppIcon-1024-dark.png`（luminosity = dark），未加 tinted 变体。
 - **iOS · 首页左上角头像恢复正圆**：iOS 26 会给工具栏项套一层 Liquid Glass 共享底（按内容计算的胶囊，比 30pt 头像大），头像外面看起来不是圆的。`BotListView` 左上角 `ToolbarItem(.topBarLeading)` 在 `if #available(iOS 26.0, *)` 内加系统 `.sharedBackgroundVisibility(.hidden)`，只显示正圆头像，尺寸改为 44pt，与右侧搜索 / ＋ 圆形玻璃按钮等大；iOS 17~18 不变 (30pt)。`HomeAvatarLabel` 新增 `size` 参数。仅 iOS，后端未改，无自定义动画。用例 UI-11b。
