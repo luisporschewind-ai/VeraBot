@@ -29,6 +29,14 @@ enum ReminderOutboxStore {
     }
 }
 
+/// 系统交给代理的 completionHandler（ObjC 块，未标 Sendable）。
+/// 只在主线程（MainActor）上调用，所以可以安全地跨线程带过去。
+private struct MainThreadCallback<Value>: @unchecked Sendable {
+    let body: (Value) -> Void
+    init(_ body: @escaping (Value) -> Void) { self.body = body }
+    @MainActor func call(_ value: Value) { body(value) }
+}
+
 /// 通知代理回调里取出的值（Sendable），交给主线程处理。
 struct NotificationTap: Sendable {
     let uid: Int?
@@ -107,14 +115,25 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         center.removePendingNotificationRequests(withIdentifiers: ids)
     }
 
-    // 系统在非主线程调用这两个代理方法，参数（UNNotification 等）不是 Sendable。
-    // 先在 nonisolated 方法里取出需要的值（都是 Sendable 的基本类型），再回到主线程处理（Swift 6 严格并发）。
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+    // 用「completionHandler」版本的代理方法，不用 async 版本：
+    // async 版本由编译器生成的 @objc thunk 在协作线程池里调用系统的 completionHandler，
+    // UIKit 随后在该线程更新快照 / 状态恢复（-[UIApplication _updateSnapshotAndStateRestorationWithAction:]），
+    // 触发「必须在主线程」断言崩溃（.ips 2026-10-03 20:22 / 20:37）。
+    // 这里先在 nonisolated 方法里取出 Sendable 的值，再回主线程处理，并在主线程调用 completionHandler。
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                            withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         let info = notification.request.content.userInfo
-        return await handleWillPresent(uid: info["uid"] as? Int, nid: info["nid"] as? Int)
+        let uid = info["uid"] as? Int
+        let nid = info["nid"] as? Int
+        let done = MainThreadCallback(completionHandler)
+        Task { @MainActor in
+            let options = await self.handleWillPresent(uid: uid, nid: nid)
+            done.call(options)
+        }
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                            withCompletionHandler completionHandler: @escaping () -> Void) {
         let request = response.notification.request
         let info = request.content.userInfo
         let tap = NotificationTap(
@@ -122,7 +141,11 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             link: info["link"] as? String, identifier: request.identifier,
             actionIdentifier: response.actionIdentifier, title: request.content.title
         )
-        await handleResponse(tap)
+        let done = MainThreadCallback<Void> { _ in completionHandler() }
+        Task { @MainActor in
+            await self.handleResponse(tap)
+            done.call(())
+        }
     }
 
     private func handleWillPresent(uid: Int?, nid: Int?) async -> UNNotificationPresentationOptions {
