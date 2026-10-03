@@ -32,7 +32,8 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 | 变量 | 默认值 | 说明 |
 |---|---|---|
 | `DEEPSEEK_API_KEY` | — (必填) | DeepSeek Key，只在服务端读取 |
-| `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL` | `deepseek-chat` / `https://api.deepseek.com` | OpenAI 兼容端点 |
+| `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL` | `deepseek-flash` / `https://api.deepseek.com` | OpenAI 兼容端点 (2026-10-03 前默认 `deepseek-chat`，官方已停用) |
+| `VERABOT_DEEPSEEK_THINKING` | `0` | 默认请求体带 `thinking: {"type":"disabled"}`；设 1 去掉该字段 (需先实现 `reasoning_content` 回传，否则带工具的请求 400) |
 | `OPENAI_API_KEY` | — | 可选，Web 语音转写 `/api/transcribe` |
 | `HOST` / `PORT` | `0.0.0.0` / `8000` | 监听地址 |
 | `VERABOT_DATA_DIR` / `VERABOT_DB` | `backend/data` / `data/verabot.db` | 数据目录 / 数据库路径 |

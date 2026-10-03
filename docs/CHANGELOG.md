@@ -105,6 +105,7 @@
 
 ### 变更 (Changed)
 
+- **后端 · P0 模型迁移：`deepseek-chat` → `deepseek-flash`，关闭思考模式** (Boss 2026-10-03 定为 P0；附件设计 Q1)：官方变更日志写明旧名 `deepseek-chat` 已于 2026-07-24 停用 (此前仍被转发)，`deepseek-flash` (DeepSeek-V4.1-Flash) 是现行模型并支持看图。`core/config.py` 默认 `DEEPSEEK_MODEL=deepseek-flash`；`services/llm.py` 请求体加 `"thinking": {"type": "disabled"}` —— `deepseek-flash` 默认开启思考，带 `tools` 的多轮请求若不回传 `reasoning_content` 会 400，而我们不保存它。新增 `VERABOT_DEEPSEEK_THINKING` (默认 0；设 1 只是去掉该字段，需先实现 `reasoning_content` 回传)。本机 `.env` 没有覆盖模型，未改 `.env`。`/api/health`：迁移前 `deepseek-chat`，迁移后 `deepseek-flash`。新测试 `llm_body_test.py` LLM-01~05；模拟器实测普通对话 + 一轮天气 + Microsoft Learn 工具调用 (带工具结果的第二次请求 200)。`.env.example`、`backend/README.md`、`RUN_LOCAL.md` 同步。
 - **iOS · 去掉界面残留英文 tokens**：对话委派 Trace 行「协作记录 #N · M tokens」→「协作记录 #N · 用量 M」(与协作记录页一致)；用量看板「今日 Token 额度」→「今日额度」，「a / b tokens · 今日请求 N 次」→「用量 a / b · 今日请求 N 次」，「输入 / 输出 / 总 Tokens」→「输入用量 / 输出用量 / 总用量」，「近 7 日 Tokens」→「近 7 日用量」，按 Bot「N 次 · M tokens」→「N 次 · 用量 M」；额度用完的本地提示「今日 Token 额度已用完」→「今日额度已用完」。仅文案，后端未改。用例 UI-EN-01。
 - **文档 · 与代码对齐 (2026-10-03)**：backend README / MULTI_AGENT_DESIGN 的「当前 schema v3」改为 v6；docs/README 中 MEMORY_GROWTH 状态改为 v1.0 已批准、M1 已实现；FEATURES 补删除二次确认、置顶、首页头像 44pt；RUN_LOCAL 补 v5 / v6 升级说明；STATUS 交接更新 HEAD、置顶提交号与 `File.txt` 清理记录。仅文档。
 - **iOS · App 图标支持亮色／暗色模式**：沿用现有图形，仅调整配色（亮色：浅底深靛蓝剪影；暗色：深底浅银白剪影）。`AppIcon.appiconset` 新增 `AppIcon-1024-dark.png`（luminosity = dark），未加 tinted 变体。

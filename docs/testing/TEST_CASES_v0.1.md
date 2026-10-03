@@ -6,7 +6,7 @@
 > v0.1.0 目录重构 (2026-09-30 18:00 后) 的回归结果见文末「v0.1.0 重构回归」。
 
 - 执行日期 (Date)：2026-09-30 12:35–13:01 (UTC+8)
-- 环境 (Env)：macOS Intel + iPhone 17 模拟器 (iOS 26)，后端 FastAPI + SQLite @ http://127.0.0.1:8000，LLM `deepseek-chat`
+- 环境 (Env)：macOS Intel + iPhone 17 模拟器 (iOS 26)，后端 FastAPI + SQLite @ http://127.0.0.1:8000，LLM `deepseek-flash` (thinking disabled；2026-10-03 前为 `deepseek-chat`)
 - 方法 (Method)：API 黑盒 (Python urllib / curl，`--noproxy '*'`) + 模拟器 UI (CGEvent 点击 + 截图)；未修改任何应用源码
 - 测试数据 (Test data)：临时用户 `qa_tmp_43016` (5 个测试 Bot)；demo 账号下临时 Bot「QA临时」。测试结束后已全部清理
 - 汇总 (Summary)：**31 条用例：通过 26 / 失败 4 / 跳过 1**
@@ -624,6 +624,17 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 |---|---|---|---|---|
 | THEME-01 | iOS | 浅色 / 深色下看首页、对话、设置、登录 | 强调色、置顶、用户气泡、主按钮为 Vera 青绿；登录标题和账号名为品牌文字色；没有残留 `#0F766E` 品牌色 (Bot 自身颜色除外) | 模拟器截图通过；待 Boss 看观感 |
 | THEME-02 | iOS | 对比度 | 浅色 brand 在白底 5.2:1、`#EFEFEE` 4.5:1；深色 brand 在黑底 5.8:1；白字在 brandFill 上 ≥ 4.8:1 | 计算通过 |
+
+## 模型 P0：deepseek-flash + 关闭思考 (Model switch) — 2026-10-03
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| LLM-01 | 后端 | 未设置 `DEEPSEEK_MODEL` | 默认 `deepseek-flash` | ✅ `llm_body_test.py` |
+| LLM-02 | 后端 | 流式 / 非流式、带不带 tools 的请求体 | 都带 `thinking: {"type":"disabled"}` | ✅ |
+| LLM-03 | 后端 | tools / `stream_options` / temperature | 与之前一致 | ✅ |
+| LLM-04 | 后端 | `VERABOT_DEEPSEEK_THINKING=1` | 不发 `thinking` 字段 | ✅ |
+| LLM-05 | 后端 | `GET /api/health` | `model` = 配置的模型 | ✅；本机实测迁移前 `deepseek-chat`、迁移后 `deepseek-flash` |
+| P0-02 | iOS + 后端 (Mac 手工) | 模拟器 Vera 普通对话；研究助手问「上海明天天气 + 用 Microsoft Learn 查 Azure Functions」 | 回复正常；天气与 Learn 工具都被调用，带工具结果的第二次请求 200 (无 reasoning_content 400) | ✅ 2026-10-03 19:47–19:49 |
 
 ## 账号隔离 · HTTP 缓存与换账号 (Cache isolation) — 2026-10-03
 

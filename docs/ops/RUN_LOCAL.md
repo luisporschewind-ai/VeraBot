@@ -13,7 +13,7 @@ cd backend
 
 也可以在 Finder 里双击 `backend/start.command`。
 
-- 检查：`curl -s --noproxy '*' http://127.0.0.1:8000/api/health` → `{"ok":true,"model":"deepseek-chat"}`
+- 检查：`curl -s --noproxy '*' http://127.0.0.1:8000/api/health` → `{"ok":true,"model":"deepseek-flash"}`
 - API 文档：<http://127.0.0.1:8000/docs>；Web 客户端：<http://127.0.0.1:8000/>
 - 换端口：`PORT=8765 ./start.sh`
 - 网络受限：`VERABOT_FORCE_MIRROR=1 ./start.sh` 直接用清华 tuna 镜像安装依赖 (`VERABOT_PYPI_MIRROR` 可改镜像地址)。

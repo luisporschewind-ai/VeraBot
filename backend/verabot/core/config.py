@@ -13,7 +13,12 @@ WEB_DIR = Path(os.getenv("VERABOT_WEB_DIR", BACKEND_DIR.parent / "frontend" / "w
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+# 2026-10-03 起默认 deepseek-flash（DeepSeek-V4.1-Flash，支持看图）；旧名 deepseek-chat 官方已于 2026-07-24 停用。
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-flash")
+# deepseek-flash 默认开启思考模式；带工具的请求必须回传之前各轮的 reasoning_content，否则 400。
+# 我们不保存 reasoning_content，所以默认关闭（请求体带 {"thinking": {"type": "disabled"}}）。
+# 设成 1 只会去掉这个字段（让服务端默认开启思考）——在 reasoning_content 回传实现之前不要打开。
+DEEPSEEK_THINKING = os.getenv("VERABOT_DEEPSEEK_THINKING", "0").strip().lower() in ("1", "true", "yes", "on")
 
 # Bot 数量软上限（Soft limit，可配置；取代 v0.1 的硬编码 5）。兼容旧变量 VERABOT_MAX_BOTS
 MAX_BOTS_PER_USER = int(os.getenv("MAX_BOTS_PER_USER", os.getenv("VERABOT_MAX_BOTS", "20")))

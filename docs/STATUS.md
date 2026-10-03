@@ -8,7 +8,7 @@
 | 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v10**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表；v8 MCP 同意 / 同步状态 / 熔断；v9 邮箱 / 手机号账号 + 刷新令牌；v10 插件安装表 `user_plugins` + `mcp_servers.plugin_id`）。iOS `0.1.0 (1)` |
 | 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
-| 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
+| 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-flash` (思考模式关闭；2026-10-03 前为 `deepseek-chat`) |
 
 ## 🔁 交接 (Handoff for the next agent) — 2026-10-03 UTC+8
 
@@ -35,6 +35,7 @@
 - **账号隔离 · HTTP 缓存 (2026-10-03)**：审计结论服务端隔离完好 (136 次跨账号请求全部 404 / 422)；修复设备侧两处：后端所有 `/api/*` 带 `Cache-Control: no-store` (头像 `private, no-store`)，iOS API 改走无缓存的 `APITransport.session`，退出 / 登录 / 升级后首次启动清 `Cache.db`；异步资料 / 头像结果按登录会话代号丢弃。`cache_headers_test.py` 8/8、Kit `swift test` 112/112；模拟器验证换账号后 Cache.db 无 API 响应。邮箱抢注已另修 (见上一条)。**Web 落后**：Web 端自己不缓存 API，后端头对它同样生效，无需改。
 - **主题色 (2026-10-03)**：iOS 改为「薰衣草 × 青绿」(Boss 选定试色方案 C，替换上午的纯青绿主题 `502e11e`)：品牌主色浅色 `#6461D1` / 深色 `#D7D7FF`，用户气泡 `#D7D7FF` / `#3F3D9E`，主按钮 `#6461D1` / `#4B48B8`，开关与置顶用青绿 `#3D7A8C` / `#4E9AAE`、`#5FA3B6`。只改 Theme 语义色、AccentColor 和用户气泡，见 [ARCHITECTURE.md](design/ARCHITECTURE.md) 色板。**Web 落后**：仍是旧的 `#0F766E` (冻结)。
 - **插件 P1（schema v10，2026-10-03）**：设置「MCP 服务」改为「插件」。页内两组「内置」（天气、提醒，不可卸载、无需同意）和「外部」（已安装的 Microsoft Learn / AWS Knowledge）。新账号不预装外部插件。用过的老数据迁成已安装（演示账号已同意的 Learn 仍在）；没用过的不写卸载墓碑。卸载会清同意并从所有 Bot 去掉工具，iOS 先确认。设计 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。本机升级前备份 `backend/data/verabot.db.bak-before-v10-<时间戳>`。`plugin_test.py` 通过。iOS 未在本环境编译。**Web 落后：插件 P1 没有 Web 对应**（`frontend/web` 冻结；`/api/mcp/*` 仍可用，`/api/tools` 多了可忽略的 `plugin_id`）。
+- **模型 P0 (2026-10-03)**：后端默认模型 `deepseek-chat` (官方已停用的旧名) → `deepseek-flash`，请求体固定 `thinking: {"type":"disabled"}` (`VERABOT_DEEPSEEK_THINKING=0`)。`.env` 未覆盖模型、未改；`/api/health` 现为 `deepseek-flash`。`llm_body_test.py` 5/5；模拟器普通对话与工具调用 (天气 + Learn) 正常。图片附件 P1 仍未实现 (设计见 [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md))。
 - **待办**：
   1. **执行状态机**：v1.1 已接到对话页导航栏头像（见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md)）。首页列表只显示静态形象。`completed` 后 1.5 s 回空闲。先前三处遗留已修：68pt 角标符号、滚出屏幕后循环不停、`reset` 取消受阻计时。
   2. **头像动画**：采用头像实验室的五款形象和系统 `phaseAnimator`，不采用另一套自定义卡通动画。有相册照片时仍显示照片。

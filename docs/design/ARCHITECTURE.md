@@ -5,7 +5,7 @@
 ```
                       HTTP/JSON + SSE (JWT Bearer)
 frontend/ios  (SwiftUI) ─┐
-                         ├──────────────▶ backend (FastAPI · uvicorn :8000) ──▶ DeepSeek API (deepseek-chat)
+                         ├──────────────▶ backend (FastAPI · uvicorn :8000) ──▶ DeepSeek API (deepseek-flash, thinking disabled)
 frontend/web  (SPA)  ────┘                    │                             ├─▶ Open-Meteo (天气)
                                               ▼                             └─▶ OpenAI Audio (可选，语音转写)
                                      SQLite backend/data/verabot.db
