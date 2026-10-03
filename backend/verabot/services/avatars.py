@@ -7,6 +7,7 @@ import io
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .. import db
+from ..db import avatar_store, bot_store, user_store
 
 MAX_AVATAR_BYTES = 8 * 1024 * 1024
 AVATAR_SIZE = 512
@@ -90,36 +91,24 @@ def render_avatar(data: bytes) -> bytes:
     return jpeg
 
 
-def _upsert(c, user_id: int, bot_id: int, jpeg: bytes, now: str):
-    c.execute(
-        """INSERT INTO avatars(user_id, bot_id, content_type, data, updated_at)
-           VALUES (?,?,?,?,?)
-           ON CONFLICT(user_id, bot_id) DO UPDATE SET
-             content_type=excluded.content_type,
-             data=excluded.data,
-             updated_at=excluded.updated_at""",
-        (user_id, bot_id, "image/jpeg", jpeg, now),
-    )
-
-
 def save_user_avatar(user_id: int, raw: bytes) -> str:
     jpeg = render_avatar(raw)
     now = db.now_iso()
     with db.tx() as c:
-        _upsert(c, user_id, 0, jpeg, now)
-        c.execute("UPDATE users SET avatar_updated_at=? WHERE id=?", (now, user_id))
+        avatar_store.upsert(c, user_id, 0, jpeg, now)
+        user_store.set_avatar_updated(c, user_id, now)
     return now
 
 
 def delete_user_avatar(user_id: int):
     with db.tx() as c:
-        c.execute("DELETE FROM avatars WHERE user_id=? AND bot_id=0", (user_id,))
-        c.execute("UPDATE users SET avatar_updated_at=NULL WHERE id=?", (user_id,))
+        avatar_store.delete_user(c, user_id)
+        user_store.clear_avatar_updated(c, user_id)
 
 
 def read_user_avatar(user_id: int) -> bytes | None:
     with db.tx() as c:
-        row = c.execute("SELECT data FROM avatars WHERE user_id=? AND bot_id=0", (user_id,)).fetchone()
+        row = avatar_store.read_user(c, user_id)
     return bytes(row["data"]) if row else None
 
 
@@ -127,20 +116,18 @@ def save_bot_avatar(user_id: int, bot_id: int, raw: bytes) -> str:
     jpeg = render_avatar(raw)
     now = db.now_iso()
     with db.tx() as c:
-        _upsert(c, user_id, bot_id, jpeg, now)
-        c.execute("UPDATE bots SET image_updated_at=? WHERE id=? AND user_id=?", (now, bot_id, user_id))
+        avatar_store.upsert(c, user_id, bot_id, jpeg, now)
+        bot_store.set_image_updated(c, user_id, bot_id, now)
     return now
 
 
 def delete_bot_avatar(user_id: int, bot_id: int):
     with db.tx() as c:
-        c.execute("DELETE FROM avatars WHERE user_id=? AND bot_id=?", (user_id, bot_id))
-        c.execute("UPDATE bots SET image_updated_at=NULL WHERE id=? AND user_id=?", (bot_id, user_id))
+        avatar_store.delete_bot(c, user_id, bot_id)
+        bot_store.clear_image_updated(c, user_id, bot_id)
 
 
 def read_bot_avatar(user_id: int, bot_id: int) -> bytes | None:
     with db.tx() as c:
-        row = c.execute(
-            "SELECT data FROM avatars WHERE user_id=? AND bot_id=?", (user_id, bot_id)
-        ).fetchone()
+        row = avatar_store.read_bot(c, user_id, bot_id)
     return bytes(row["data"]) if row else None

@@ -26,11 +26,11 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v12：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件)、查询 | `database.py`、`schema.py`、`repository.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v12：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件)、查询。**全部 SQL 都在这里**：`*_store.py` 的函数第一个参数是调用方的连接 (事务由调用方决定)；迁移一个版本一个模块 | `database.py`、`schema.py` (入口 / 门面：`init_db`、`SCHEMA`、`SCHEMA_VERSION`、`ALL_TOOLS_V2`)、`migrations/` (`v001_base` … `v011_reminders`、`tags_coerce`、`v012_attachments`)、`repository.py` (Bot 读取 / 消息写入 / 用量 / 审计)、`auth_store.py`、`user_store.py`、`bot_store.py`、`message_store.py`、`usage_store.py`、`avatar_store.py`、`memory_store.py`、`attachment_store.py`、`delegation_store.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
-| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。提醒相关 SQL 不写在这里，只调用 `db/reminder_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/`、`attachments/{store,images,repo,vision}.py` |
+| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。这里不写 SQL，只调用 `db/*_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/`、`attachments/{store,images,repo,vision}.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
-| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由。路由里没有提醒 / 通知 SQL | `deps.py`、`schemas.py`、`routers/{attachments,auth,avatars,bots,chat,voice,reminders,notifications,devices,meta,memories,mcp,plugins}.py` |
+| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由。路由里没有 SQL | `deps.py`、`schemas.py`、`routers/{attachments,auth,avatars,bots,chat,voice,reminders,notifications,devices,meta,memories,mcp,plugins}.py` |
 | `main.py` | 组装 FastAPI app：CORS、422 处理、启动 `init_db`、挂载路由、托管 Web | — |
 
 ### 2.2 依赖规则 (Dependency rules)
@@ -47,7 +47,8 @@ main ──▶ api ──▶ services ──▶ db ──▶ core
 - 两处**有意的例外** (工具自注册例外，都有注释)：
   1. `tools/__init__.py` 导入 `agents.delegation` 与 `agents.memory_tools`，让 `ask_bot`、`remember`、`forget_memory` 按顺序注册到工具表 (`get_weather`、`create_reminder`、`list_reminders`、`ask_bot`，之后是 `kind="memory"` 的记忆工具；记忆工具不进 `allowed_tools`，由 `bots.memory_access` 控制，详见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §5.3)。
   2. `tools/registry.run_tool` 在函数内延迟导入 `agents.permissions.is_permitted` (执行前的二次权限检查)，避免循环导入。
-- 新增工具：在 `tools/` 新建模块并用 `@tool` 注册，在 `tools/__init__.py` import；权限白名单 `ALL_TOOLS_V2` 在 `db/schema.py`。
+- 新增工具：在 `tools/` 新建模块并用 `@tool` 注册，在 `tools/__init__.py` import；权限白名单 `ALL_TOOLS_V2` 在 `db/migrations/v002_permissions.py` (由 `db/schema.py` re-export)。
+- SQL 分层：`scripts/test/sql_layer_check.py` 静态扫描，`db/` 以外出现 `execute(` 或 SQL 语句字符串即失败。新增查询写进对应的 `db/*_store.py`。
 
 ### 2.3 一次对话的时序 (含多 Agent 委派)
 
@@ -240,7 +241,7 @@ iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（�
 
 ## 5.4 图片附件 (Attachments) — schema v12
 
-- **模块**：`services/attachments/` 四个文件，彼此单向依赖：`store.py` (薄接口 `AttachmentStore` + `LocalStore`，只管字节和路径安全) ← `repo.py` (SQLite 元数据、配额、绑定、删除、对账) ← `vision.py` (组装多模态消息、caption、召回、`view_image` 工具、带图写工具拦截、错误映射)；`images.py` (Pillow 处理) 只被 `repo` 调用。HTTP 在 `api/routers/attachments.py`。表在 `db/attachment_schema.py`，`init_db` 只多一行调用。
+- **模块**：`services/attachments/` 四个文件，彼此单向依赖：`store.py` (薄接口 `AttachmentStore` + `LocalStore`，只管字节和路径安全) ← `repo.py` (元数据规则、配额、绑定、删除、对账；SQL 在 `db/attachment_store.py`) ← `vision.py` (组装多模态消息、caption、召回、`view_image` 工具、带图写工具拦截、错误映射)；`images.py` (Pillow 处理) 只被 `repo` 调用。HTTP 在 `api/routers/attachments.py`。表在 `db/migrations/v012_attachments.py` (`db/attachment_schema.py` 仅作兼容 re-export)，`init_db` 只多一步。
 - **接入点 (尽量少改共享文件)**：`runtime.run_chat` (绑定附件、历史替换为描述、召回、`done` 后生成描述)、`run_once` (委派时附图)、`tool_router.dispatch` (带图写工具拦截)、`permissions` (`kind="attachment"` 只给 depth 0、不进 `get_schemas`)、`TurnState` (`image_ids` / `image_tainted` / `recalls` / `pending_images`)、`chat.py` / `bots.py` (删除时先删行后删文件)、`main.py` (启动对账任务)。没有改 `services/mcp/service.py` 和记忆模块。
 - **存储**：`DATA_DIR/attachments/u<user>/<xx>/att_<id>.<ext>` + `_thumb.jpg` (+ GIF `_still.jpg`)；0700 / 0600；原子写入；`storage_backend` / `storage_key` 让以后换对象存储只换实现。备份必须同时备份 SQLite 和 `attachments/`。
 - **数据流**：iOS 压缩 → `POST /api/attachments` (pending，24 小时过期) → `POST /chat {attachment_ids}` → 绑定到用户消息 (attached) → 本轮 base64 `image_url` → 回复后存 caption → 之后的轮次只发描述，回指时重发原图。下载走鉴权代理，`private, no-store`；iOS 只在内存缓存 (`AttachmentImageStore`)，退出 / 换账号清空。

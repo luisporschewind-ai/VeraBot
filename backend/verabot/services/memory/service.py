@@ -30,8 +30,7 @@ def _audit(c, user_id: int, audit_bot_id, kind: str, **detail):
     if c is None:
         db.audit(user_id, audit_bot_id, kind, d)
     else:
-        c.execute("INSERT INTO audit_log(user_id,bot_id,kind,detail,created_at) VALUES (?,?,?,?,?)",
-                  (user_id, audit_bot_id, kind, repo.dumps(d), db.now_iso()))
+        db.audit_in(c, user_id, audit_bot_id, kind, d)
 
 
 # ---------------- 开关 ----------------
@@ -85,7 +84,7 @@ def public(r: dict, c=None) -> dict:
 def r_user(r: dict, c) -> int:
     if "user_id" in r:
         return r["user_id"]
-    return c.execute("SELECT user_id FROM memories WHERE id=?", (r["id"],)).fetchone()[0]
+    return repo.owner_of(c, r["id"])
 
 
 def _load_public(c, user_id: int, mid: int) -> dict:
@@ -100,26 +99,10 @@ def _load_public(c, user_id: int, mid: int) -> dict:
 def list_memories(user_id: int, *, statuses=("active",), scope: str | None = None, bot_id: int | None = None,
                   ids: list[int] | None = None, visible_to: dict | None = None, limit: int = 200,
                   before_id: int | None = None) -> dict:
-    where, params = [f"m.status IN ({','.join('?' * len(statuses))})"], list(statuses)
-    if scope:
-        where.append("m.scope=?"); params.append(scope)
-    if bot_id is not None:
-        where.append("m.bot_id=?"); params.append(bot_id)
-    if ids:
-        where.append(f"m.id IN ({','.join('?' * len(ids))})"); params.extend(ids)
-    if before_id:
-        where.append("m.id<?"); params.append(before_id)
-    if visible_to is not None:
-        access = visible_to.get("memory_access") or "none"
-        if access == "none":
-            where.append("0")
-        elif access == "bot":
-            where.append("m.scope IN ('bot','summary') AND m.bot_id=?"); params.append(visible_to["id"])
-        else:
-            where.append("(m.scope='global' OR (m.scope IN ('bot','summary') AND m.bot_id=?))"); params.append(visible_to["id"])
     with db.tx() as c:
         repo.expire_stale(c, user_id)
-        rs = repo.query(c, user_id, " AND ".join(where), tuple(params), limit=min(max(limit, 1), 200))
+        rs = repo.list_filtered(c, user_id, statuses=statuses, scope=scope, bot_id=bot_id, ids=ids,
+                                before_id=before_id, visible_to=visible_to, limit=min(max(limit, 1), 200))
         mems = []
         for r in rs:
             r["user_id"] = user_id
@@ -138,9 +121,7 @@ def get_memory(user_id: int, mid: int) -> dict:
 def bot_counts(user_id: int) -> dict[int, int]:
     """每个 Bot 可见的生效记忆数（本 Bot 记忆，不含全局）。"""
     with db.tx() as c:
-        return {k: v for k, v in c.execute(
-            "SELECT bot_id, COUNT(*) FROM memories WHERE user_id=? AND status='active' AND scope='bot' GROUP BY bot_id",
-            (user_id,)).fetchall()}
+        return repo.bot_active_counts(c, user_id)
 
 
 # ---------------- 对话中的提议（只由 agents/memory_tools 调用） ----------------
@@ -233,8 +214,7 @@ def propose(user_id: int, bot: dict, turn, *, action: str, content: str = "", ty
             return {"status": "already_known", "memory_id": known["id"],
                     "note": "这条信息已经在记忆中，不需要再记，也不要再询问用户"}
         cutoff = repo.iso_in(-config.MEMORY_REJECT_COOLDOWN_DAYS)
-        declined = c.execute("SELECT id FROM memories WHERE user_id=? AND scope=? AND COALESCE(bot_id,0)=? AND content_hash=? "
-                             "AND status='rejected' AND updated_at>=? LIMIT 1", (user_id, scope, bot_id or 0, h, cutoff)).fetchone()
+        declined = repo.recently_declined(c, user_id, scope, bot_id, h, cutoff)
         if declined:
             return {"status": "previously_declined",
                     "note": "用户最近拒绝过记住这条信息，不要再提议，也不要再询问"}
@@ -422,15 +402,15 @@ def clear(user_id: int, scope: str, bot_id: int | None = None) -> int:
         raise _err(422, "invalid_scope")
     with db.tx() as c:
         if scope == "all":
-            n = c.execute("DELETE FROM memories WHERE user_id=?", (user_id,)).rowcount
+            n = repo.delete_all(c, user_id)
         elif scope == "global":
-            n = c.execute("DELETE FROM memories WHERE user_id=? AND scope='global'", (user_id,)).rowcount
+            n = repo.delete_global(c, user_id)
         else:
             if bot_id is None:
                 raise MemoryServiceError(422, "invalid_scope", "需要指定 bot_id")
             if not db.get_bot(user_id, bot_id):
                 raise MemoryServiceError(404, "bot_not_found", "Bot 不存在")
-            n = c.execute("DELETE FROM memories WHERE user_id=? AND scope=? AND bot_id=?", (user_id, scope, bot_id)).rowcount
+            n = repo.delete_scope(c, user_id, scope, bot_id)
     _audit(None, user_id, bot_id, "memory_cleared", scope=scope, bot_id=bot_id, deleted=n)
     return n
 
@@ -438,7 +418,6 @@ def clear(user_id: int, scope: str, bot_id: int | None = None) -> int:
 def clear_for_bot(user_id: int, bot_id: int) -> int:
     """清空对话时可选：删除该 Bot 的 bot 记忆与对话摘要（全局资料保留）。"""
     with db.tx() as c:
-        n = c.execute("DELETE FROM memories WHERE user_id=? AND bot_id=? AND scope IN ('bot','summary')",
-                      (user_id, bot_id)).rowcount
+        n = repo.delete_for_bot(c, user_id, bot_id)
     _audit(None, user_id, bot_id, "memory_cleared", scope="bot+summary", bot_id=bot_id, deleted=n, source="clear_chat")
     return n

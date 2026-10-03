@@ -4,12 +4,12 @@ HTTP 无关：出错抛 AuthError(status, message, code)，路由层转成 HTTPE
 """
 from __future__ import annotations
 
-import json
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
 from .. import db
+from ..db import auth_store, user_store
 from ..db.reminder_store import disable_user_devices
 from ..core import ratelimit
 from ..core.config import (AUTH_CODE_COOLDOWN_SECONDS, AUTH_CODE_DAILY_LIMIT, AUTH_CODE_MAX_ATTEMPTS,
@@ -75,8 +75,7 @@ def classify_identifier(raw: str) -> tuple[str, str]:
 
 def _audit(c, user_id: int, bot_id, kind: str, detail: dict) -> None:
     """审计写在同一个连接 / 事务里：db.audit() 另开连接，在未提交的写事务里调用会等锁。"""
-    c.execute("INSERT INTO audit_log(user_id,bot_id,kind,detail,created_at) VALUES (?,?,?,?,?)",
-              (user_id, bot_id, kind, json.dumps(detail, ensure_ascii=False), db.now_iso()))
+    db.audit_in(c, user_id, bot_id, kind, detail)
 
 
 def _now() -> datetime:
@@ -91,8 +90,7 @@ def issue_session(c, u: dict) -> dict:
     """在同一事务里签发访问令牌和一个新的刷新令牌。"""
     refresh = new_secret()
     now = _now()
-    c.execute("INSERT INTO auth_refresh_tokens(user_id, token_hash, expires_at, created_at) VALUES (?,?,?,?)",
-              (u["id"], hash_secret(refresh), _iso(now + timedelta(days=REFRESH_TTL_DAYS)), _iso(now)))
+    auth_store.insert_refresh(c, u["id"], hash_secret(refresh), _iso(now + timedelta(days=REFRESH_TTL_DAYS)), _iso(now))
     return {
         "token": issue_token(u["id"], u["username"], u.get("token_version") or 0),
         "refresh_token": refresh,
@@ -103,15 +101,14 @@ def issue_session(c, u: dict) -> dict:
 
 
 def _user_by(c, column: str, value: str) -> dict | None:
-    assert column in ("id", "username", "email", "phone")
-    return db.row(c.execute(f"SELECT * FROM users WHERE {column}=?", (value,)).fetchone())
+    return user_store.get_by(c, column, value)
 
 
 def _new_username(c) -> str:
     """邮箱 / 手机号账号的内部用户名（兼容字段，界面不展示）。"""
     while True:
         name = "u_" + secrets.token_hex(5)
-        if not c.execute("SELECT 1 FROM users WHERE username=?", (name,)).fetchone():
+        if not user_store.username_exists(c, name):
             return name
 
 
@@ -119,10 +116,8 @@ def _create_user(c, *, email: str | None = None, phone: str | None = None, passw
                  email_verified: bool = False) -> dict:
     created = db.now_iso()
     pw_hash = hash_password(password if password else new_secret())   # 验证码注册的账号没有可用密码
-    uid = c.execute(
-        "INSERT INTO users(username, password_hash, created_at, email, email_verified_at, phone) VALUES (?,?,?,?,?,?)",
-        (_new_username(c), pw_hash, created, email, created if email_verified else None, phone),
-    ).lastrowid
+    uid = user_store.insert(c, username=_new_username(c), password_hash=pw_hash, created_at=created, email=email,
+                            email_verified_at=created if email_verified else None, phone=phone)
     return _user_by(c, "id", uid)
 
 
@@ -157,8 +152,7 @@ def register_username(username: str, password: str) -> dict:
         if _user_by(c, "username", username):
             raise AuthError(409, "用户名已存在", "username_taken")
         created = db.now_iso()
-        uid = c.execute("INSERT INTO users(username,password_hash,created_at) VALUES (?,?,?)",
-                        (username, hash_password(password), created)).lastrowid
+        uid = user_store.insert_username(c, username, hash_password(password), created)
         return issue_session(c, _user_by(c, "id", uid))
 
 
@@ -172,14 +166,13 @@ def login(identifier: str, password: str) -> dict:
             if u:
                 failures = int(u.get("failed_logins") or 0) + 1
                 locked = _iso(_now() + timedelta(minutes=AUTH_LOCK_MINUTES)) if failures >= AUTH_LOCK_THRESHOLD else None
-                c.execute("UPDATE users SET failed_logins=?, locked_until=? WHERE id=?",
-                          (0 if locked else failures, locked, u["id"]))
+                user_store.set_login_failures(c, u["id"], 0 if locked else failures, locked)
                 if locked:
                     _audit(c, u["id"], None, "auth_locked", {"method": kind})
                 c.commit()   # 失败计数要落库：抛错会让 db.tx() 回滚
             raise AuthError(401, GENERIC_LOGIN_ERROR, "invalid_credentials")
         if u.get("failed_logins") or u.get("locked_until"):
-            c.execute("UPDATE users SET failed_logins=0, locked_until=NULL WHERE id=?", (u["id"],))
+            user_store.reset_login_failures(c, u["id"])
         _audit(c, u["id"], None, "auth_login", {"method": kind})
         return issue_session(c, u)
 
@@ -188,13 +181,12 @@ def refresh(token: str) -> dict:
     """轮换刷新令牌：旧的作废、发新的一对。已作废的令牌再次出现 → 视为泄露，作废该用户全部刷新令牌。"""
     h = hash_secret(token or "")
     with db.tx() as c:
-        r = db.row(c.execute("SELECT * FROM auth_refresh_tokens WHERE token_hash=?", (h,)).fetchone())
+        r = auth_store.get_refresh(c, h)
         if r is None:
             raise AuthError(401, "登录已失效，请重新登录", "invalid_refresh")
         now = _iso(_now())
         if r["revoked_at"]:
-            c.execute("UPDATE auth_refresh_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL",
-                      (now, r["user_id"]))
+            auth_store.revoke_user_refresh(c, r["user_id"], now)
             _audit(c, r["user_id"], None, "auth_refresh_reuse", {})
             c.commit()   # 先落库再抛错（db.tx() 出错会回滚）
             raise AuthError(401, "登录已失效，请重新登录", "refresh_reused")
@@ -203,7 +195,7 @@ def refresh(token: str) -> dict:
         u = _user_by(c, "id", r["user_id"])
         if u is None:
             raise AuthError(401, "用户不存在", "invalid_refresh")
-        c.execute("UPDATE auth_refresh_tokens SET revoked_at=? WHERE id=?", (now, r["id"]))
+        auth_store.revoke_refresh(c, r["id"], now)
         return issue_session(c, u)
 
 
@@ -216,9 +208,8 @@ def logout(token: str | None) -> None:
         return
     now = _iso(_now())
     with db.tx() as c:
-        row = c.execute("SELECT user_id FROM auth_refresh_tokens WHERE token_hash=?", (hash_secret(token),)).fetchone()
-        c.execute("UPDATE auth_refresh_tokens SET revoked_at=? WHERE token_hash=? AND revoked_at IS NULL",
-                  (now, hash_secret(token)))
+        row = auth_store.refresh_owner(c, hash_secret(token))
+        auth_store.revoke_refresh_by_hash(c, hash_secret(token), now)
         if row:
             _disable_push_devices(c, row[0], now)
 
@@ -226,8 +217,8 @@ def logout(token: str | None) -> None:
 def logout_all(user_id: int) -> None:
     now = _iso(_now())
     with db.tx() as c:
-        c.execute("UPDATE users SET token_version = token_version + 1 WHERE id=?", (user_id,))
-        c.execute("UPDATE auth_refresh_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL", (now, user_id))
+        user_store.bump_token_version(c, user_id)
+        auth_store.revoke_user_refresh(c, user_id, now)
         _disable_push_devices(c, user_id, now)
         _audit(c, user_id, None, "auth_logout_all", {})
 
@@ -259,11 +250,9 @@ def send_code(email: str, purpose: str, *, ip: str | None, quiet: bool = False) 
     now = _now()
     with db.tx() as c:
         # 同一邮箱同一用途只保留最新的一条：旧码作废
-        c.execute("UPDATE auth_codes SET consumed_at=? WHERE email=? AND purpose=? AND consumed_at IS NULL",
-                  (_iso(now), email, purpose))
-        c.execute("INSERT INTO auth_codes(email, purpose, code_hash, expires_at, created_at) VALUES (?,?,?,?,?)",
-                  (email, purpose, hash_secret(f"{email}:{purpose}:{code}"),
-                   _iso(now + timedelta(seconds=AUTH_CODE_TTL_SECONDS)), _iso(now)))
+        auth_store.supersede_codes(c, email, purpose, _iso(now))
+        auth_store.insert_code(c, email, purpose, hash_secret(f"{email}:{purpose}:{code}"),
+                               _iso(now + timedelta(seconds=AUTH_CODE_TTL_SECONDS)), _iso(now))
     minutes = max(1, AUTH_CODE_TTL_SECONDS // 60)
     body = f"你的 VeraBot 验证码是 {code}，{minutes} 分钟内有效。\n如果不是你本人操作，请忽略这封邮件。"
     try:
@@ -275,9 +264,7 @@ def send_code(email: str, purpose: str, *, ip: str | None, quiet: bool = False) 
 
 
 def _consume_code(c, email: str, purpose: str, code: str) -> None:
-    r = db.row(c.execute(
-        "SELECT * FROM auth_codes WHERE email=? AND purpose=? AND consumed_at IS NULL ORDER BY id DESC LIMIT 1",
-        (email, purpose)).fetchone())
+    r = auth_store.latest_open_code(c, email, purpose)
     now = _iso(_now())
     if r is None or r["expires_at"] <= now:
         raise AuthError(400, "验证码已过期，请重新获取", "code_expired")
@@ -286,11 +273,10 @@ def _consume_code(c, email: str, purpose: str, code: str) -> None:
     code = (code or "").strip()
     if not secrets.compare_digest(r["code_hash"], hash_secret(f"{email}:{purpose}:{code}")):
         attempts = r["attempts"] + 1
-        c.execute("UPDATE auth_codes SET attempts=?, consumed_at=? WHERE id=?",
-                  (attempts, now if attempts >= AUTH_CODE_MAX_ATTEMPTS else None, r["id"]))
+        auth_store.record_code_failure(c, r["id"], attempts, now if attempts >= AUTH_CODE_MAX_ATTEMPTS else None)
         c.commit()   # 错误次数要落库：抛错会让 db.tx() 回滚
         raise AuthError(400, "验证码不正确", "code_invalid")
-    c.execute("UPDATE auth_codes SET consumed_at=? WHERE id=?", (now, r["id"]))
+    auth_store.consume_code(c, r["id"], now)
 
 
 def _claim_unverified_email(c, u: dict) -> dict:
@@ -300,14 +286,8 @@ def _claim_unverified_email(c, u: dict) -> dict:
     `token_version + 1` 让旧访问令牌失效；未吊销的刷新令牌全部作废。不升 schema。
     """
     now = _iso(_now())
-    c.execute(
-        "UPDATE users SET password_hash='', email_verified_at=?, token_version=token_version+1 WHERE id=?",
-        (now, u["id"]),
-    )
-    c.execute(
-        "UPDATE auth_refresh_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL",
-        (now, u["id"]),
-    )
+    user_store.claim_email(c, u["id"], now)
+    auth_store.revoke_user_refresh(c, u["id"], now)
     # 与认领同一事务：禁用推送设备。不调用 logout_all（那会再开事务并再加一次 token_version）。
     _disable_push_devices(c, u["id"], now)
     _audit(c, u["id"], None, "account_claimed_by_email_code", {})
@@ -341,6 +321,6 @@ def verify_email(user: dict, code: str) -> dict:
         raise AuthError(400, "当前账号没有绑定邮箱", "no_email")
     with db.tx() as c:
         _consume_code(c, email, "verify", code)
-        c.execute("UPDATE users SET email_verified_at=? WHERE id=?", (db.now_iso(), user["id"]))
+        user_store.set_email_verified(c, user["id"], db.now_iso())
         _audit(c, user["id"], None, "auth_email_verified", {})
         return public_user(_user_by(c, "id", user["id"]))

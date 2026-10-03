@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ... import db
+from ...db import usage_store
 from ...core.config import TRANSCRIBE_MAX_BYTES, TRANSCRIBE_MAX_SECONDS
 from ...services.transcribe import TranscribeError, detect_ext, probe_duration, transcribe
 from ..deps import current_user
@@ -28,9 +29,7 @@ async def api_transcribe(file: UploadFile = File(...), language: str = Form("zh"
     except TranscribeError as e:
         raise HTTPException(e.status, str(e))
     with db.tx() as c:
-        c.execute("INSERT INTO transcriptions(user_id,model,bytes,duration_s,chars,total_tokens,created_at)"
-                  " VALUES (?,?,?,?,?,?,?)",
-                  (user["id"], res["model"], len(data), duration, len(res["text"]),
-                   int((res["usage"] or {}).get("total_tokens") or 0), db.now_iso()))
+        usage_store.insert_transcription(c, user["id"], res["model"], len(data), duration, len(res["text"]),
+                                         int((res["usage"] or {}).get("total_tokens") or 0), db.now_iso())
     return {"text": res["text"], "model": res["model"], "duration_s": duration,
             "fallback_reason": res.get("fallback_reason")}

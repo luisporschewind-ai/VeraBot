@@ -32,8 +32,13 @@ def list_bots(user_id: int):
 def audit(user_id: int, bot_id, kind: str, detail: dict):
     """安全审计：越权工具调用 / 被拒绝的委派 / 护栏触发 等。"""
     with tx() as c:
-        c.execute("INSERT INTO audit_log(user_id,bot_id,kind,detail,created_at) VALUES (?,?,?,?,?)",
-                  (user_id, bot_id, kind, json.dumps(detail, ensure_ascii=False), now_iso()))
+        audit_in(c, user_id, bot_id, kind, detail)
+
+
+def audit_in(c, user_id: int, bot_id, kind: str, detail: dict):
+    """同一连接 / 事务里写审计（db.audit() 另开连接，在未提交的写事务里调用会等锁）。"""
+    c.execute("INSERT INTO audit_log(user_id,bot_id,kind,detail,created_at) VALUES (?,?,?,?,?)",
+              (user_id, bot_id, kind, json.dumps(detail, ensure_ascii=False), now_iso()))
 
 
 def day_start_utc(tz_name: str) -> str:

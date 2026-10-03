@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from .. import db
+from ..db import delegation_store, usage_store
 from ..core.config import DEEPSEEK_MODEL, TIMEZONE
 
 
@@ -12,24 +13,15 @@ def compute_quota(user: dict) -> dict:
     start_local = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
     start_utc = start_local.astimezone(timezone.utc).isoformat(timespec="seconds")
     week_utc = (start_local - timedelta(days=6)).astimezone(timezone.utc).isoformat(timespec="seconds")
-    q = ("SELECT COUNT(*) AS requests, COALESCE(SUM(prompt_tokens),0) AS prompt_tokens, "
-         "COALESCE(SUM(completion_tokens),0) AS completion_tokens, COALESCE(SUM(total_tokens),0) AS total_tokens "
-         "FROM usage_log WHERE user_id=?")
+    uid = user["id"]
     with db.tx() as c:
-        total = db.row(c.execute(q, (user["id"],)).fetchone())
-        today = db.row(c.execute(q + " AND created_at>=?", (user["id"], start_utc)).fetchone())
-        per_bot = db.rows(c.execute(
-            "SELECT b.id, b.name, b.avatar, b.color, b.image_updated_at, COUNT(u.id) AS requests, "
-            "COALESCE(SUM(u.total_tokens),0) AS total_tokens FROM bots b "
-            "LEFT JOIN usage_log u ON u.bot_id=b.id AND u.user_id=b.user_id "
-            "WHERE b.user_id=? GROUP BY b.id ORDER BY total_tokens DESC", (user["id"],)).fetchall())
-        daily_rows = c.execute("SELECT created_at, total_tokens FROM usage_log WHERE user_id=? AND created_at>=?",
-                               (user["id"], week_utc)).fetchall()
-        delegations = c.execute("SELECT COUNT(*) FROM delegations WHERE user_id=?", (user["id"],)).fetchone()[0]
-        tq = ("SELECT COUNT(*) AS requests, COALESCE(SUM(duration_s),0) AS seconds, COALESCE(SUM(chars),0) AS chars "
-              "FROM transcriptions WHERE user_id=?")
-        tr_total = db.row(c.execute(tq, (user["id"],)).fetchone())
-        tr_today = db.row(c.execute(tq + " AND created_at>=?", (user["id"], start_utc)).fetchone())
+        total = usage_store.usage_totals(c, uid)
+        today = usage_store.usage_totals(c, uid, start_utc)
+        per_bot = usage_store.per_bot_usage(c, uid)
+        daily_rows = usage_store.usage_since(c, uid, week_utc)
+        delegations = delegation_store.count_for_user(c, uid)
+        tr_total = usage_store.transcribe_totals(c, uid)
+        tr_today = usage_store.transcribe_totals(c, uid, start_utc)
     daily = {(start_local - timedelta(days=i)).strftime("%m-%d"): 0 for i in range(6, -1, -1)}
     for r in daily_rows:
         k = datetime.fromisoformat(r["created_at"]).astimezone(tz).strftime("%m-%d")
