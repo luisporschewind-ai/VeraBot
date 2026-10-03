@@ -8,6 +8,7 @@ schema v2 → v3 迁移、上传校验与 512 JPEG、恢复默认、用户隔离
 """
 import io
 import os
+import re
 import sqlite3
 import sys
 import tempfile
@@ -266,6 +267,50 @@ quota = cli.get("/api/quota", headers=H2).json()
 check("AV-17", "用量按 Bot 统计带 has_avatar 字段",
       quota.get("per_bot") and all("has_avatar" in b and "avatar" in b for b in quota["per_bot"]),
       str([{k: b.get(k) for k in ("name", "avatar", "has_avatar")} for b in quota.get("per_bot", [])]))
+
+# ---------- AV-18 契约：默认形象 id 能放进已有 avatar 字段，且与 iOS 枚举一致 ----------
+def enum_cases(src: str, name: str) -> list[str]:
+    body = src.split(f"enum {name}", 1)[1].split("{", 1)[1]
+    kept = []
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("case ") or stripped.startswith("//") or stripped.startswith("///") or not stripped:
+            kept.append(line)
+        else:
+            break
+    return re.findall(r"case (\w+)", "\n".join(kept))
+
+
+repo = Path(__file__).resolve().parents[3]
+figure_src = (repo / "frontend/ios/Packages/VeraBotKit/Sources/VeraBotCore/BotAvatarFigure.swift").read_text()
+lab_src = (repo / "frontend/ios/VeraBot/Features/Settings/AvatarLabView.swift").read_text()
+schema_src = (repo / "backend/verabot/api/schemas.py").read_text()
+limit = int(re.search(r"avatar: str = Field\(default=.*?max_length=(\d+)", schema_src).group(1))
+figures = enum_cases(figure_src, "BotAvatarFigure")
+poses = enum_cases(figure_src, "BotAvatarPose")
+kinds = enum_cases(lab_src, "AvatarLabCharacterKind")
+lab_states = enum_cases(lab_src, "AvatarLabState")
+swift_limit = int(re.search(r"maxStoredLength = (\d+)", figure_src).group(1))
+stored_ok = []
+for name in figures:
+    created = cli.post("/api/bots", json={"name": f"形象{name}", "avatar": name}, headers=H)
+    body = created.json()
+    stored_ok.append(created.status_code == 201 and body.get("avatar") == name and body.get("has_avatar") is False
+                     and len(name) <= limit)
+    if created.status_code == 201 and name == "veraBean":
+        uploaded = upload(f"/api/bots/{body['id']}/avatar", jpeg_bytes(80, 80), H)
+        photo = uploaded.json()
+        stored_ok.append(uploaded.status_code == 200 and photo.get("has_avatar") is True and photo.get("avatar") == "veraBean")
+    if created.status_code == 201:
+        cli.delete(f"/api/bots/{body['id']}", headers=H)
+too_long = cli.post("/api/bots", json={"name": "形象过长", "avatar": "veraBeanX"}, headers=H)
+check("AV-18", "契约：形象 id ≤ avatar max_length，与实验室角色 / 姿态同名；照片不改 avatar",
+      figures == kinds and poses == lab_states and swift_limit == limit == 8
+      and all(len(n) <= limit for n in figures) and "veraBean" in figures and len("veraBean") == 8
+      and all(stored_ok) and len(stored_ok) == len(figures) + 1
+      and too_long.status_code == 422
+      and all(title in figure_src for title in ("V豆", "芽芽", "星点", "云朵", "方糖")),
+      f"figures={figures} poses={poses} kinds={kinds} states={lab_states} stored={stored_ok} long={too_long.status_code}")
 
 p = sum(1 for r in RESULTS if r[2])
 print(f"\nSUMMARY {p}/{len(RESULTS)} passed")

@@ -55,9 +55,18 @@
 | POST | `/api/transcribe` | 语音转写 (multipart `file` + `language`) → `{text, model, duration_s}` |
 | GET | `/api/reminders`；POST `/api/reminders/{id}/done` | 提醒列表 / 标记完成 |
 | GET | `/api/quota` | 用量看板 `{model, daily_token_quota, today, total, per_bot, daily, delegations, transcribe}`；`today` / `total` 为 `{requests, prompt_tokens, completion_tokens, total_tokens}`。设置 › 用量 行的「已用 N%」由 iOS 计算：round(`today.total_tokens` / `daily_token_quota` × 100)，额度 ≤ 0 时不显示 (字段映射见下方「用量字段映射」) |
-| GET | `/api/tools` | 工具列表 (中文标签，不含记忆工具) + 当前护栏参数 + `memory: {enabled, max_active, inject_max}`。每项另有 `source`、`server`、`server_id`、`risk`、`requires_confirmation`、`delegable`、`status`。已连接的 MCP 工具附在后面。此接口不连接 MCP 服务器 |
-| GET | `/api/mcp/catalog` | 可添加的目录：`catalog[]`（含 `catalog_id`、`url_configured`，不含原始 URL） |
-| GET / POST | `/api/mcp/servers` | 当前用户的服务（GET 补齐目录，同步在后台，不在这个请求里连外网）。POST `{catalog_id}`，已存在 → 409。每项另有 `consent_at`、`sync_status`、`circuit_state`、`circuit_open_until`、`consecutive_failures` |
+| GET | `/api/tools` | 工具列表 (中文标签，不含记忆工具) + 当前护栏参数 + `memory: {enabled, max_active, inject_max}`。每项另有 `source`、`server`、`server_id`、`risk`、`requires_confirmation`、`delegable`、`status`、`plugin_id`（天气 `builtin_weather`，提醒工具 `builtin_reminder`，`ask_bot` 为 `null`，已连接的外部工具为插件 id）。已连接且已同意的外部工具附在后面。此接口不连接外部服务 |
+| GET | `/api/plugins/catalog` | 可安装的外部插件目录。每项是 Plugin JSON，含当前用户的 `installed`、`available`。不含原始 URL |
+| GET | `/api/plugins` | 内置插件 + 已安装的外部插件。新用户只有天气和提醒。不在这个请求里联网。响应 `Cache-Control: no-store` |
+| GET | `/api/plugins/{plugin_id}` | 单个插件。未安装或未知 → 404 |
+| POST | `/api/plugins/{plugin_id}/install` | 安装。首次和重装都是 201；已安装 409。不自动同意。内置插件 422 |
+| DELETE | `/api/plugins/{plugin_id}` | 卸载。返回 `{ok, removed_tools, affected_bots}`。清同意，并从所有 Bot 与工具缓存去掉该插件的工具。内置插件 422 |
+| PATCH | `/api/plugins/{plugin_id}` | `{enabled}`。停用后工具不进模型 schema，调用返回 `not_connected`。内置插件 422 |
+| POST | `/api/plugins/{plugin_id}/consent` | `{granted}`。写入其下服务的同意时间。内置插件 422。未安装 404 |
+| GET | `/api/plugins/{plugin_id}/tools` | 该插件的工具，字段同 MCP 工具并带 `plugin_id`。内置插件 404（开关在 Bot 的工具权限） |
+| POST | `/api/plugins/{plugin_id}/sync` | `{added, changed, removed, plugin}`。已停用 → 409 |
+| GET | `/api/mcp/catalog` | **已弃用。** 可添加的目录：`catalog[]`（含 `catalog_id`、`url_configured`，不含原始 URL）。新客户端用 `/api/plugins/catalog` |
+| GET / POST | `/api/mcp/servers` | **已弃用。** GET 只返回已安装插件的服务，不再补未安装的目录行，也不在这个请求里连外网。POST `{catalog_id}` 走插件安装，已存在 → 409「已经添加过这个服务」。每项另有 `consent_at`、`sync_status`、`circuit_state`、`circuit_open_until`、`consecutive_failures` |
 | PATCH / DELETE | `/api/mcp/servers/{id}` | `{enabled}` 启用或停用 / 删除（并从各 Bot 白名单去掉该服务的工具）。启用后后台同步 |
 | POST | `/api/mcp/servers/{id}/consent` | `{"granted": true\|false}`。同意记下时间；撤回清空。未同意时不调用该服务的工具。他人 → 404 |
 | POST | `/api/mcp/servers/{id}/sync` | 重新拉取工具（这次会等待结果）。服务已停用 → 409。熔断打开时不连外网 |
@@ -102,7 +111,27 @@ SSE `status` 事件字段映射 (`agents/runtime.py` `status_data` ↔ iOS `Vera
 | `tool` | `tool` | `phase = tool` 时的工具名 |
 | `parent_id` | `parentID` | 外层 `tool_start.id`；状态机据此更新 `delegating.progress` |
 
-状态机与头像映射见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md)。Web 冻结，忽略该事件。
+没有新增或改名的 `status` 键。10 个执行状态到 8 种头像姿态（Core `BotAvatarPose`，App `AvatarLabState` 同名转发）：
+
+| `ExecutionState` | 头像姿态 |
+|---|---|
+| `idle` | `idle` 空闲 |
+| `recalling`、`thinking` | `thinking` 思考中 |
+| `callingTool` | `working` 执行中 |
+| `delegating` | `delegating` 委派中 |
+| `replying` | `replying` 回复中 |
+| `awaitingConfirmation` | `waiting` 等你确认 |
+| `completed` | `done` 已完成，1.5 s 后 `reset` → `idle` |
+| `blocked`、`failed` | `blocked` 遇到阻塞（`blocked` 1.2 s 后回到原流程） |
+
+默认形象仍用已有字段，不新增 JSON 键（AV-18）：
+
+| 存储 | iOS |
+|---|---|
+| `bots.avatar` | 五款形象 id：`veraBean` / `sprout` / `star` / `cloud` / `sugar`（均 ≤ `max_length` 8），或旧表情。无照片时画对应形象；旧表情按 `BotLook.emojis` 的位置对应五款 |
+| `has_avatar` | `true` 时显示相册照片，优先于形象 id 和旧表情 |
+
+状态机与动画见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md)。Web 冻结，忽略 `status`；形象 id 会按原文显示。
 
 SSE 事件：
 

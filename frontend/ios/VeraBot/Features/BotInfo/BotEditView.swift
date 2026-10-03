@@ -25,8 +25,8 @@ struct BotEditView: View {
     @State private var persona = ""
     @State private var instructions = ""
     @State private var tools: [ToolInfo] = []
-    @State private var mcpServers: [MCPServer] = []
-    @State private var mcpTools: [MCPTool] = []
+    @State private var installedPlugins: [Plugin] = []
+    @State private var pluginTools: [MCPTool] = []
     @State private var guardrails: Guardrails?
     @State private var others: [Bot] = []
     @State private var allowedTools: Set<String> = []
@@ -91,21 +91,8 @@ struct BotEditView: View {
             }
 
             Section {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(BotLook.emojis, id: \.self) { e in
-                            Text(e).font(.title3).frame(width: 32, height: 32)
-                                .background(avatar == e ? Color.brandSoft : .clear, in: RoundedRectangle(cornerRadius: 8))
-                                .onTapGesture { avatar = e }
-                        }
-                    }
-                }
-                HStack {
-                    ForEach(BotLook.colors, id: \.self) { c in
-                        Circle().fill(Color(hex: c)).frame(width: 28, height: 28)
-                            .overlay(Circle().stroke(Color.primary, lineWidth: BotLook.sameColor(color, c) ? 2 : 0))
-                            .onTapGesture { color = c }
-                    }
+                BotFigurePicker(selection: BotAvatarFigure(stored: avatar.isEmpty ? bot.avatar : avatar)) { figure in
+                    avatar = figure.rawValue
                 }
             } header: {
                 Text("默认形象")
@@ -167,15 +154,20 @@ struct BotEditView: View {
             }
 
             Section {
-                if mcpServers.isEmpty {
-                    Text("暂无 MCP 服务").foregroundStyle(.secondary)
+                if installedPlugins.isEmpty {
+                    Text("还没有安装插件").foregroundStyle(.secondary)
                 }
-                ForEach(mcpServers) { server in
-                    let rows = mcpTools.filter { $0.serverId == server.id }
-                    Text(server.name).font(.subheadline)
-                    if server.status != "connected" {
-                        Text(server.status == "disabled" ? "已停用，可在设置中开启" : "需先在设置中连接")
+                ForEach(installedPlugins) { plugin in
+                    let rows = pluginTools.filter { $0.pluginId == plugin.pluginId }
+                    Text(plugin.name).font(.subheadline)
+                    if !plugin.enabled || plugin.state == "disabled" {
+                        Text("已停用，可在设置中开启")
                             .font(.footnote).foregroundStyle(.secondary)
+                    } else if plugin.state == "needs_consent" {
+                        Text("需先在设置中同意")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    } else if plugin.state != "ready" && rows.isEmpty {
+                        Text(plugin.stateTitle).font(.footnote).foregroundStyle(.secondary)
                     } else if rows.isEmpty {
                         Text("还没有工具").font(.footnote).foregroundStyle(.secondary)
                     } else {
@@ -194,9 +186,9 @@ struct BotEditView: View {
                     }
                 }
             } header: {
-                Text("MCP 服务")
+                Text("插件")
             } footer: {
-                Text("按服务分组，默认关闭。每个 Bot 最多 \(MCPToolRules.maxPerBot) 个。「开启全部只读」只写入当前这些只读工具的名字。")
+                Text("按插件分组，默认关闭。每个 Bot 最多 \(MCPToolRules.maxPerBot) 个。「开启全部只读」只写入当前这些只读工具的名字。")
             }
 
             Section {
@@ -309,16 +301,16 @@ struct BotEditView: View {
         .task { await load() }
     }
 
-    /// 卡片头像：未保存的新照片 > 待删除（显示默认形象）> 已保存的照片 / 默认形象；表情与底色实时预览。
+    /// 卡片头像：未保存的新照片 > 待删除（显示默认形象）> 已保存的照片 / 默认形象。
     @ViewBuilder private var cardAvatar: some View {
-        let emoji = avatar.isEmpty ? bot.avatar : avatar
+        let stored = avatar.isEmpty ? bot.avatar : avatar
         let tint = color.isEmpty ? bot.color : color
         if let pendingImage {
-            BotAvatar(emoji: emoji, color: tint, image: pendingImage, size: 72)
-        } else if draft.photo == .remove {
-            BotAvatar(emoji: emoji, color: tint, size: 72)
+            BotAvatar(emoji: stored, color: tint, image: pendingImage, size: 72)
+        } else if draft.photo == .remove || !savedBot.hasAvatar {
+            DefaultBotFigure(storedAvatar: stored, size: 72)
         } else {
-            LiveBotAvatar(botID: bot.id, emoji: emoji, color: tint,
+            LiveBotAvatar(botID: bot.id, emoji: stored, color: tint,
                           hasAvatar: savedBot.hasAvatar, updatedAt: savedBot.avatarUpdatedAt, size: 72)
         }
     }
@@ -384,13 +376,14 @@ struct BotEditView: View {
             errorText = app.message(for: error)
         }
         do {
-            let response = try await app.api.mcpServers()
-            mcpServers = response.servers
+            let response = try await app.api.plugins()
+            let external = response.plugins.filter { $0.kind == "mcp" && $0.installed }
+            installedPlugins = external
             var rows: [MCPTool] = []
-            for server in response.servers {
-                rows.append(contentsOf: try await app.api.mcpTools(serverID: server.id).tools)
+            for plugin in external {
+                rows.append(contentsOf: try await app.api.pluginTools(id: plugin.pluginId).tools)
             }
-            mcpTools = rows
+            pluginTools = rows
         } catch {
             if errorText == nil { errorText = app.message(for: error) }
         }

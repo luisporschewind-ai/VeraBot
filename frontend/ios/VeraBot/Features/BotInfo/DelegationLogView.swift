@@ -14,7 +14,7 @@ struct DelegationLogView: View {
             ForEach(records) { r in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("\(r.fromAvatar ?? "🤖") \(r.fromBot ?? "已删除") → \(r.toAvatar ?? "🤖") \(r.toBot ?? "已删除")")
+                        Text("\(BotAvatarFigure.textLabel(stored: r.fromAvatar)) \(r.fromBot ?? "已删除") → \(BotAvatarFigure.textLabel(stored: r.toAvatar)) \(r.toBot ?? "已删除")")
                             .font(.subheadline.bold())
                         Spacer()
                         Text(r.status == "ok" ? "成功" : "已拒绝")
@@ -47,7 +47,7 @@ struct DelegationLogView: View {
                                        description: Text("当该 Bot 委派或被委派时，记录会显示在这里"))
             }
         }
-        .navigationTitle("\(bot.avatar) 协作记录")
+        .navigationTitle("\(BotAvatarFigure.textLabel(stored: bot.avatar)) 协作记录")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .refreshable { await load() }

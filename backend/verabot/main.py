@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
-from .api.routers import auth, avatars, bots, chat, mcp, memories, meta, reminders, voice
+from .api.routers import auth, avatars, bots, chat, mcp, memories, meta, plugins, reminders, voice
 from .core.config import WEB_DIR
 from .core.http_cache import NoStoreAPIMiddleware
 
@@ -40,7 +40,7 @@ def _startup():
 
 
 for r in (auth.router, avatars.router, bots.router, chat.router, memories.router, voice.router, reminders.router,
-          meta.router, mcp.router):
+          meta.router, mcp.router, plugins.router):
     app.include_router(r)
 
 

@@ -6,6 +6,7 @@
 
 ### 修复 (Fixed)
 
+- **插件 · 卸载时进行中的调用要等满 MCP 超时**（PR #7 合并复核发现，`PLG-14` 在 Boss 的 Mac 上失败）：卸载会关掉池里的 httpx 客户端，但 macOS 上关闭套接字不会唤醒另一线程里阻塞的读取，进行中的调用要等 15 s 超时才返回 `plugin_uninstalled`。`services/mcp/service.py` 新增 `_interruptible`：单次调用放到后台线程，每 0.1 s 检查服务行，没了就立刻按「已发出」返回（只读 → `plugin_uninstalled`，非只读 → `result_unknown`，规则不变），后台线程结果丢弃。`plugin_test.py` 全部通过（PLG-14 卸载 < 0.5 s 返回）。
 - **安全 · 邮箱抢注：验证码登录认领未验证账号** (此前在账号隔离审计里按当时决定延后，本次按 Boss 选定的修法落地)：
   - 问题：未验证邮箱可以注册并正常使用。真正的主人之后用验证码登录时，`login_with_code` 只把邮箱标为已验证并进入同一个账号，抢注者的密码和已发出的访问令牌、刷新令牌仍然有效，能读到主人之后写入的私密数据。
   - 修复：认领「邮箱尚未验证」的账号时，在同一个事务里把 `password_hash` 写成空字符串 (列是 `NOT NULL`，空字符串不是合法 bcrypt，密码登录失败)、`token_version` + 1、吊销该用户全部未作废的刷新令牌、写入审计 `account_claimed_by_email_code`，然后再签发新的令牌对，并把邮箱标为已验证。认领后没有密码，只能用验证码登录。未验证账号在被认领前仍可正常使用。已经验证过的邮箱，验证码登录不改密码、不吊销其他会话。API 响应字段不变，iOS 未改。不升 schema (仍是 v9)。
@@ -17,6 +18,7 @@
   - iOS Kit：新 `APITransport.session` (ephemeral，`urlCache = nil`，`reloadIgnoringLocalCacheData`，不存 cookie / 凭据)，`APIClient` (JSON、上传、头像下载、SSE 聊天) 和 `AuthSession` 刷新令牌都改用它 (可注入，便于测试)；`HTTPCachePurge` 清 `URLCache.shared` 并删除 `Caches/<bundle id>/` 下的 `Cache.db`、`-shm`、`-wal`、`fsCachedData` (Metal 缓存、头像目录不动)；`AuthSession.generation` / `isCurrent(_:)` 登录会话代号 (每次 `set` 加 1，透明刷新不变)。
   - iOS App：退出登录、登录 (含换账号) 时清缓存；升级后首次启动清一次 (标记 `vb_http_cache_purged_v1`)；启动时把 `URLCache.shared` 换成 0 容量兜底。`refreshProfile`、修改昵称、上传头像、验证邮箱在 await 回来后检查会话代号，不是同一次登录就丢掉结果；旧会话的 401 不再把新账号踢下线。`AvatarStore` 加 `epoch`，`clearAll` 之后回来的 Bot 头像下载不写内存也不写磁盘。
   - 测试：后端 `cache_headers_test.py` CACHE-01~08；Kit `CacheIsolationTests.swift` CACHE-K-01~07 (共 112 项)。模拟器：升级后 `Cache.db` 里 49 条 API 响应清零，之后 demo → boss → 手机号 → demo 切换，每一步 `Cache.db` 都没有 API 响应，界面只显示当前账号数据。见 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) §5.1。
+- **iOS · 头像实验室三处遗留**：68pt 状态角标符号过小（改为按角标直径 70% 的 `resizable` 符号，68pt 约 12.4pt）；普通 ScrollView 把预览滚出屏幕时循环不停（iOS 18+ `onScrollVisibilityChange`，离开视口就卸掉 `phaseAnimator`；离开页面 / 退后台仍停）；`reset` 不取消受阻计时（`ExecutionAvatarController` 发出 `cancelBlocked`，`ChatViewModel` 取消对应 `Task`，过期触发不再改状态）。
 - **iOS · 主题色改为 Vera 青绿**：Boss 选定 Vera CLI 横幅的青绿和文字色。替换原品牌色 `#0F766E`：`Color.brand` / `AccentColor` 浅色 `#3A7485`、深色 `#548EA0`；新增 `brandFill` (白字实色底：用户气泡、默认头像，浅色 `#3A7485` / 深色 `#3D7A8C`) 和 `brandText` (浅色 `#1A2B36` / 深色 `#D7E4EE`，用于登录页标题和设置里的账号名)；`brandLight` `#548EA0`/`#5B9BB0`、`brandDark` `#2F6F82`、`brandSoft` `#E7EEF3`/`#1A3144`。数值来自 `~/Vera/src/vera/terminal/theme.py` (accent / logo / text_primary)，对比度见 [ARCHITECTURE.md](design/ARCHITECTURE.md) 主题表。系统控件样式不变；Bot 自身颜色选项与 Web 未改。
 - **iOS · 首页置顶动画卡顿 + 置顶图标**：原因是先等 `PATCH /api/bots/{id}` 返回再重排 (点按后要等一次网络往返才动)，而且重排正好撞上左滑按钮收起的动画，录屏里被移动的行会空白约 0.5 s 再跳到新位置。改为乐观更新：等滑动按钮收起 (0.25 s) 后立即 `withAnimation(.snappy)` 用系统 List 行移动，再同步服务端；返回后只校正 `pinned_at` (顺序没变就不再动画)，失败时动画回滚并显示错误；同一 Bot 同步中忽略重复点按。`ForEach` 仍以 `bot.id` 为身份。新增 `BotOrdering.togglingPin` / `replacingPinnedAt` / `pinTimestamp` (与后端 `now_iso()` 同格式，本机时钟偏慢时取已有最新置顶 +1 s)。图标改为 `pin.fill` / `pin.slash.fill`：「置顶」按钮品牌色 `Color.pinTint`，「取消置顶」系统灰 `Color.unpinTint`，行内置顶标记由灰色改为 `pinTint` (出现 / 消失带缩放淡入)。后端未改。Kit 测试 94/94。
 - **iOS · 首页左上角头像左边距**：隐藏共享玻璃底后头像仍按玻璃按钮内边距排版，左边距约 30pt，右侧＋按钮右边距约 16pt；iOS 26 分支左移 14pt，两侧现在都约 16pt。
@@ -28,6 +30,16 @@
 
 ### 新增 (Added)
 
+- **插件 P1（schema v10）**：用户看到的是「插件」，MCP 仍是实现。设计见 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。Q4 / Q7 按建议采纳；**Q6 改为新账号不预装任何插件**（含 Microsoft Learn）。`frontend/web` 未改。
+  - 数据：新表 `user_plugins`（只记安装关系）；`mcp_servers.plugin_id`。启用、同意、同步、熔断仍在 `mcp_servers`。迁移把用过的目录服务（`consent_at`、`last_synced_at`，或任一 Bot 白名单含 `mcp__{slug}__`）记为 `installed`；没用过的不写 `uninstalled` 墓碑。演示账号已同意的 Learn 因此保持已安装。`plugin_default_installed()` 返回空集。`VERABOT_MCP_*_ENABLED` 不再预装（只改了 `.env.example` 注释）。
+  - API：`GET /api/plugins/catalog`、`GET /api/plugins`、`GET /api/plugins/{id}`、`POST .../install`（201，已安装 409）、`DELETE`（清同意、从所有 Bot 和工具缓存去掉工具）、`PATCH {enabled}`、`POST .../consent`、`GET .../tools`、`POST .../sync`（停用时 409）。`GET /api/plugins` 含内置天气 / 提醒和已安装的外部插件，不在请求里联网。`/api/tools` 每项增加 `plugin_id`。缓存沿用 main 上的 `NoStoreAPIMiddleware`（`/api/*` 一律 `Cache-Control: no-store`）；iOS 插件方法都走 `APIClient.call`，使用 `APITransport.session`。
+  - `/api/mcp/*` 保留并标为已弃用。`GET /api/mcp/servers` 不再补未安装的目录行。`POST /api/mcp/servers` 改为走插件安装（已添加 → 409「已经添加过这个服务」）。
+  - 卸载与进行中调用：先删服务行再关会话。只读调用返回 `plugin_uninstalled`（不重试、不计熔断、不污染本轮）；审计 `status=cancelled`。同一轮再次调用也是 `plugin_uninstalled`。后台同步若服务行已没了，只记调试日志，不把外键错误打成 ERROR。
+  - 重新同步不再把本服务已有的工具名当成冲突而改掉 `full_name`。
+  - iOS：设置「插件」（已安装 N 个，只数外部插件）→「内置 / 外部 / 浏览插件」。内置详情说明开关在「工具权限」，并可前往该 Bot。卸载前系统确认框。Bot 详情分组改名「插件」。界面不出现「MCP」。Kit 增加 `PluginTests.swift`。本环境没有 Swift / Xcode，未编译。
+  - 测试：`plugin_test.py`（进程内假 MCP，无外网）PLG-01～15 与契约通过。回归 `mcp_test`、`auth_test`、`bot_pin_test`、`bot_tags_test`、`memory_test`、`avatar_profile_test`、`status_event_test`、`multi_agent_test` 通过。本机库升级前请备份 `backend/data/verabot.db.bak-before-v10-<时间戳>`。
+- **iOS · 默认形象合并复核 (PR #6)**：Xcode 26 / Swift 6 下 `AvatarGlobalFrameKey.defaultValue` 是可变静态属性，编译报错 (not concurrency-safe)，改为 `static let`；首页列表 / 消息里的静态形象对 VoiceOver 隐藏 (行本身已读 Bot 名，之前每行多读「方糖，空闲」)，对话导航栏的动画形象仍读姿态。Mac 上 `swift test` 126/126、xcodebuild 通过，模拟器看过首页、创建页、Bot 详情、对话导航栏 (已完成 → 空闲)。
+- **iOS · 默认 Bot 头像改为头像实验室形象**：没有相册照片时，首页列表、对话页导航栏、Bot 详情（以及消息气泡、用量、记忆、委派列表里的同一个 `LiveBotAvatar`）用 V豆 / 芽芽 / 星点 / 云朵 / 方糖，不再用表情加底色圆。照片优先。创建页和详情「默认形象」改为这五款；选中的 id 写入已有 `avatar`（`veraBean` 等，均不超过 8 字），不新增接口。旧表情仍能对应到一款形象，不强制改写。对话页导航栏按 SSE 已有事件驱动的 10 个执行状态动画（复用实验室的 `phaseAnimator`，没有新动画框架）；首页和详情只显示静态空闲形象。正常结束后「已完成」保持 1.5 s 再回空闲；等你确认和整轮失败不自动回空闲。后端 `status` 字段未改。`frontend/web` 未改（冻结；形象 id 会当文字显示）。测试：`avatar_profile_test.py` 22/22（新增 AV-18），`status_event_test.py` 8/8；回归 PIN 8/8、TAG 10/10、AUTH 16/16、MEM 36/36、MA 25/25、MCP 本地用例失败 0。Kit 新增映射 / 计时用例（EXEC-34~40）。Linux 上 `swift test` 仍因既有 `MessageMarkdown.swift`（swift-corelibs-foundation 没有 `NSDataDetector`）编不过整个包；排除该文件后 Core 类型检查通过，并用与这些用例相同的断言跑通映射和计时。iOS 模拟器未编译、未点按。
 - **账号 v9：邮箱 / 手机号登录 (AUTH-M1，schema v9)**：按 Boss 决定实现 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) v1.0。
   - 登录方式：邮箱 + 密码、邮箱 + 验证码 (新邮箱首次登录自动建号)、手机号 + 密码 (自动规范成 E.164，暂不发短信)。用户名保留在数据里，界面不展示；demo / verabot2026 继续可用 (邮箱框填 demo)。
   - 后端：`users` 加 `email`、`email_verified_at`、`phone`、`token_version`、`failed_logins`、`locked_until`；新表 `auth_codes`、`auth_refresh_tokens`。新接口 `/api/auth/refresh`、`/logout`、`/logout-all`、`/email/send-code`、`/email/login`、`/api/me/email/send-verification`、`/api/me/email/verify`；`register` / `login` 兼容旧的 `{username,password}`。访问令牌 7 天 (JWT 加 `tv`、`typ`)，刷新令牌 60 天、每次轮换、复用即吊销全部。连续 5 次密码错误锁 15 分钟；IP / 邮箱发码限流。`/api/me` 新增 `email`、`email_verified`、`phone`。

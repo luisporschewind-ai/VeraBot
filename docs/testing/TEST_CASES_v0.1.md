@@ -501,6 +501,24 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 
 汇总：AVLAB-T01~T13 **13/13 通过** (2026-10-03，Mac)。
 
+## 默认形象接入执行状态 — 2026-10-03
+
+后端无新 JSON 键。`avatar_profile_test.py` AV-18；iOS `AvatarFigureTests.swift`、`ExecutionStateTests.swift`。设计见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md) §6–§7，字段表见 [FEATURES.md](../product/FEATURES.md)。
+
+| ID | 模块 | 用例 | 结果 |
+|---|---|---|---|
+| AV-18 | 后端 / 契约 | 五款形象 id ≤ `avatar` max_length (8)，与 `AvatarLabCharacterKind` 同名；`BotAvatarPose` 与 `AvatarLabState` 同名；`veraBean` 可保存，上传照片后 `has_avatar=true` 且 `avatar` 不变；9 字被拒 | 通过 (`avatar_profile_test.py` 22/22) |
+| EXEC-34 | iOS Kit | 10 个 `ExecutionState`（含带进度的委派）映射到 8 个 `BotAvatarPose`，8 种姿态都能到达 | 断言已在 Linux 上跑通（排除既有 `MessageMarkdown.swift` 后编译 Core）。`swift test` 整包仍因该文件在 Linux 编不过 |
+| EXEC-35 | iOS Kit | 形象 id、旧表情位置映射、未知字符串稳定、照片优先于形象 | 同上 |
+| EXEC-36 | iOS Kit | 进入 blocked 启动计时；`reset` 发出 `cancelBlocked`；之后 `blockedFired` 不再改状态 | 同上（`ExecutionStateTests.swift`） |
+| EXEC-37 | iOS Kit | `completed` 发出 `startIdle`；`completedIdleDelay` = 1500 ms；`idleFired` 回到 `idle` | 同上 |
+| EXEC-38 | iOS Kit | `reset` / 新一轮 `sent` 取消回空闲计时；之后 `idleFired` 无效 | 同上 |
+| EXEC-39 | iOS Kit | `awaitingConfirmation` 与 `failed` 不启动回空闲计时 | 同上 |
+| EXEC-40 | iOS Kit | 提前离开 blocked、第二次受阻替换 serial、blocked 期间 `done` 改为回空闲计时且旧 serial 无效 | 同上 |
+| AVFIG-UI | iOS | 无照片：首页静态形象、对话导航栏随状态动画、详情 / 创建可选五款；有照片时三处都显示照片 | 本环境无 iOS 模拟器，未点按 |
+
+回归：STAT-01~08 8/8，PIN 8/8，TAG 10/10，AUTH 16/16，MEM 36/36，MA 25/25，MCP 本地用例失败 0（公网仍跳过）。`swift test` 整包在 Linux 上因既有 `MessageMarkdown.swift` 失败；新增映射 / 计时断言已单独跑通。iOS 模拟器未执行。
+
 ## MCP M1 (schema v7) — 2026-10-03
 
 自动化：`cd backend && uv run python scripts/test/mcp_test.py`。默认只打本机假 MCP 服务器，不访问外网。
@@ -516,9 +534,9 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
-| MCP-01 | 迁移 | 已有 schema v6 库启动两次；另起空库启动两次；另用一份带服务器和工具行的 v7 库启动两次 | 版本变为 8；出现 MCP 表以及 `consent_at`、`sync_status`、`circuit_failures`、`circuit_open_until`；存量 Bot 的 `allowed_tools` 等不变；v7 里已连接且同步过的服务变成 `sync_status=ok`，失败的服务变成 `error`，同意时间为空，工具行还在；空库没有 Bot | 通过（本地） |
+| MCP-01 | 迁移 | 已有 schema v6 库启动两次；另起空库启动两次；另用一份带服务器和工具行的 v7 库启动两次 | 版本变为当前 schema（插件 P1 起为 10）；出现 MCP 表以及 `consent_at`、`sync_status`、`circuit_failures`、`circuit_open_until`；存量 Bot 的 `allowed_tools` 等不变；v7 里已连接且同步过的服务变成 `sync_status=ok`，失败的服务变成 `error`，同意时间为空，工具行还在；空库没有 Bot | 通过（本地） |
 | MCP-HTTP | 客户端 | 假服务器分别返回 JSON 与 SSE；可选会话号；协议降到 `2025-03-26`；`isError` 与 JSON-RPC error；无会话号；更高协议；超时 | 每个请求带 `Accept: application/json, text/event-stream`。initialize 不带会话号和协议头。之后回传 `Mcp-Session-Id` 与协商版本。无会话号则省略。`isError` 与 RPC error 分开。超时为 `mcp_timeout` | 通过（本地假服务器） |
-| MCP-API | 目录 | 默认配置下列出服务 | Learn 为已连接并同步；AWS 为停用且没有请求打到它 | 通过（本地假服务器） |
+| MCP-API | 目录 | 默认配置下列出服务，再安装 Learn | 插件 P1 起：`GET /api/mcp/servers` 不再自动安装。空列表在 0.7 秒内返回且没有 initialize。`POST /api/plugins/microsoft_learn/install` 之后 Learn 已连接并同步，`consent_at` 为空；AWS 不存在，也没有请求打到它 | 通过（本地假服务器，2026-10-03 按插件 P1 调整预期） |
 | MCP-02 | 命名 | 同步工具名 | `microsoft_docs_search` → `mcp__learn__microsoft_docs_search`；`code.sample` → `mcp__learn__code_sample`；非法名丢弃 | 通过 |
 | MCP-04 | 权限 | 新 Bot；保存具体工具名；未知 MCP 名 | 新 Bot 的 `allowed_tools` 为空；合法全名可保存；`mcp__learn__nope` → 422 | 通过 |
 | MCP-CALL | 调用 | 允许的只读工具 | 结果包在清洗后的 `<untrusted_tool_result>` 里，并标记本轮不可再委派 | 通过 |
@@ -528,17 +546,42 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MCP-05 | 权限 | 白名单为空时调用 | `tool_not_allowed` | 通过 |
 | MCP-07 | 委派 | depth 1 调用 MCP | `not_delegable`，不访问 MCP | 通过 |
 | MCP-08 | 污染 | 读过 MCP 后再 `ask_bot` | `untrusted_tainted` | 通过 |
-| MCP-06 | 停用 | 把 AWS 保持关闭 | 状态仍是 disabled，不连外网 | 通过 |
+| MCP-06 | 停用 | 安装 AWS 后停用，再 GET 服务列表 | 状态仍是 disabled，不会被补成已启用，不连外网 | 通过（2026-10-03 按插件 P1 调整：不再依赖 GET 自动建出停用行） |
 | MCP-25 | 隔离 | 其他用户读工具列表 | 404「未找到该 MCP 服务」 | 通过 |
 | MCP-CONTRACT | 契约 | iOS CodingKeys 对照 `/api/mcp/catalog`、服务器、工具、`/api/tools` | iOS 键都是 JSON 键的子集（含 M2 的 `consent_at`、`sync_status`、`circuit_state`、`circuit_open_until`、`consecutive_failures`）；MCP 项 `source=mcp`，内置项 `source=builtin` | 通过 |
 | MCP-CONSENT | 同意 | 未同意时调用已授权的只读工具；`POST .../consent` 同意后再调用；再撤回 | 未同意：`mcp_consent_required`，假服务器没有 `tools/call`，文案提到 DeepSeek。同意后 `consent_at` 有时间且调用成功。撤回后时间为空且再次不调用。他人同意 → 404 | 通过（本地假服务器） |
 | MCP-SESSION | 会话 | 同一会话连续 `tools/call`；然后服务器对当前 `Mcp-Session-Id` 返回 404 | 第二次调用不再 `initialize`，并带上同一个会话号。404 后重新 `initialize` 一次并重试成功，新的会话号被用上下一次调用 | 通过（本地假服务器） |
 | MCP-AUDIT | 审计 | 未同意、成功、工具错误各打一次 | `audit_log` 有 `mcp_tool_call`，含工具、服务、`duration_ms`、`status`、`error_class`、起止时间、`user_id`、`bot_id`。明细里没有外部原文 | 通过（本地假服务器） |
-| MCP-SYNC | 列表 | 假服务器每个请求睡 1.2 秒时 `GET /api/mcp/servers` | 接口在 0.7 秒内返回，`sync_status` 为 `pending` 或 `syncing`；后台结束后变为 `ok` 且状态已连接。AWS 仍是停用且没有请求打到它 | 通过（本地假服务器） |
+| MCP-SYNC | 列表 | 假服务器每个请求睡 1.2 秒时 `GET /api/mcp/servers` | 插件 P1 起：接口在 0.7 秒内返回空列表，initialize 次数为 0（新用户不预装，这个请求不联网）。安装 Learn 之后的后台同步仍不挡这个 GET | 通过（本地假服务器，2026-10-03 按插件 P1 调整预期） |
 | MCP-RETRY | 重试 | 连续两次 HTTP 500 后成功；`isError`；HTTP 400；只读工具先超时再成功；非只读工具超时 | 500：共 3 次请求后成功。`isError` 与 400 只请求 1 次。只读超时会再试并成功。非只读超时返回 `result_unknown` 且不重试；`VERABOT_MCP_RETRY_MAX=0` 时非只读超时同样是 `result_unknown` (合并评审补充) | 通过（本地假服务器，退避设为 0） |
 | MCP-BREAKER | 熔断 | 阈值 2、冷却 0.4 秒，连续传输失败后再调用；冷却过后探测成功 | `circuit_state=open` 时不再发请求，返回 `mcp_circuit_open`。到期为 `half_open`，成功后回到 `closed` 且连续失败为 0 | 通过（本地假服务器） |
 | MCP-LIVE-LEARN | 公网 | `tools/call` `microsoft_docs_fetch`，参数 `{"url":"https://learn.microsoft.com/en-us/training/support/mcp"}` | `isError` 为 false，正文去掉前导空白后以 `# Microsoft Learn MCP Server overview` 开头 | 默认跳过。设置 `VERABOT_MCP_LIVE_TESTS=1` 才执行。2026-10-03 Boss 的 Mac (中国大陆网络) 实测 **通过**；单次 initialize ≈ 1.2–1.5 s、tools/list ≈ 0.4 s、tools/call (search) ≈ 1.0–1.6 s，合计中位数 2.9 s |
 | MCP-LIVE-AWS | 公网 | `tools/call` `aws___list_regions`，参数 `{}` | `isError` 为 false，去掉空白后的正文含 `"region_id":"af-south-1"` | 默认跳过。同上。2026-10-03 Mac 实测 **通过**；协商到 2025-03-26，合计中位数 2.4 s |
+
+## 插件 P1 (schema v10) — 2026-10-03
+
+自动化：`cd backend && uv run python scripts/test/plugin_test.py`。进程内假 MCP 服务器，不访问外网。设计 [PLUGIN_DESIGN.md](../design/PLUGIN_DESIGN.md) v1.0。iOS `PluginTests.swift` 本环境未跑（无 Swift）。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| PLG-01 | 迁移 | 空库、v8 库各启动两次 | 版本 10；有 `user_plugins`；`mcp_servers.plugin_id` 回填为 `catalog_id`；第二次启动不新增行 | 通过 |
+| PLG-02 | 迁移 | v9：Learn 已同意并同步 | `installed`；`consent_at` 与 Bot 白名单不变 | 通过 |
+| PLG-02b | 迁移 | v9：Learn 与 AWS 都未同意、未同步、没有 Bot 开启 | 都不是已安装；墓碑数为 0 | 通过 |
+| PLG-02c | 迁移 | Bot 白名单含 AWS 工具，Learn 未使用；另一份库 Learn 已同意但停用 | 用过的为 `installed`，没用过的没有行；停用但已同意的 Learn 为 `installed`；无墓碑 | 通过 |
+| PLG-04 | 新用户 | `default_installed()`；首次 `GET /api/plugins` | 空集。列表只有内置天气与提醒，0.7 秒内返回，假服务器 `tools/list` 为 0，`Cache-Control: no-store` | 通过 |
+| PLG-05 | 安装 | 安装 AWS 两次 | 201 然后 409；`consent_at` 为空；只有一行 aws | 通过 |
+| PLG-06 | 同意 | 未同意调用、同意、撤回 | `mcp_consent_required`；审计带 `plugin_id`；同意后 `ok`；撤回后再拒绝 | 通过 |
+| PLG-07 | 卸载 | 卸载 Learn | 白名单去掉该工具；工具缓存没了；`status=uninstalled`；审计 `plugin_uninstalled`；列表与 `/api/mcp/servers` 不再补回 | 通过 |
+| PLG-08 | 重装 | 卸载后再安装 | 201；新服务行；同意为空；旧卸载审计还在 | 通过 |
+| PLG-09 | 停用 | 停用后再同步、再调用 | 工具不进 schema；调用 `not_connected`；sync 409 | 通过 |
+| PLG-10 | 状态 | 依次写入 disabled / 熔断 / syncing / error / 未同意 / 已同意 | `disabled`、`circuit_open`、`syncing`、`error`、`needs_consent`、`ready` | 通过 |
+| PLG-11 | 内置 | 列表；对天气卸载 / 同意 / 启用 | `kind=builtin`、`removable=false`、`state=ready`；三个写接口 422 | 通过 |
+| PLG-12 | 隔离 | 另一用户读详情、工具、同意、卸载 | 均 404。目录、详情、工具与列表的 `Cache-Control` 为 `no-store` | 通过 |
+| PLG-13 | 工具列表 | `GET /api/tools` | 天气 `plugin_id=builtin_weather`；`ask_bot` 为 null；Learn 工具为 `microsoft_learn`，旧字段仍在 | 通过 |
+| PLG-14 | 并发 | `tools/call` 睡 1.5 秒，0.3 秒后卸载 | 卸载 0.5 秒内返回；调用 `plugin_uninstalled`；不重试；不污染；审计 `cancelled`；再次调用仍是 `plugin_uninstalled`；连接池无该会话 | 通过 |
+| PLG-15 | 并发 | `tools/list` 睡 1.5 秒，安装后立即卸载 | 没有该插件的工具行；状态仍是 `uninstalled`；没有外键 ERROR 日志 | 通过 |
+| PLG-CONTRACT | 契约 | iOS `Plugin` / `PluginSyncResult` / `PluginToolsResponse` / `MCPTool` / `ToolInfo` 的 CodingKeys | 都是对应 JSON 键的子集 | 通过 |
+| PLG-KIT / PLG-BUILD / PLG-UI-* | iOS | Kit 测试、模拟器编译、插件页与卸载确认 | 见设计 §10.2 | 未在本环境执行（无 Swift / Xcode） |
 
 ## 账号 v9：邮箱 / 手机号登录 (AUTH-M1) — 2026-10-03
 
@@ -546,7 +589,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
-| AUTH-01 | 迁移 | 旧库 (含用户名账号 demo) 初始化两次 | 到 v9；新增 6 列、`auth_codes` / `auth_refresh_tokens` / 两个部分唯一索引；demo 数据不变 | 通过 |
+| AUTH-01 | 迁移 | 旧库 (含用户名账号 demo) 初始化两次 | 到当前 schema（插件 P1 起为 v10）；账号列、`auth_codes` / `auth_refresh_tokens` / 两个部分唯一索引仍在；demo 数据不变 | 通过 |
 | AUTH-02 | 兼容 | `{username}` / `{identifier:"demo"}` 登录；旧用户名注册 | 返回刷新令牌、`expires_in`=7 天；错密码仍「用户名或密码错误」 | 通过 |
 | AUTH-03 | 邮箱 | 注册 (大小写 / 空格) 后登录；错密码；不存在的邮箱 | 小写存储、未验证、自动发验证码、`display_name` 为 @ 前部分；两种错误同一文案 | 通过 |
 | AUTH-04 | 校验 | 重复邮箱、坏邮箱、7 位密码、坏手机号 | 409 `email_taken`、422 `invalid_email` / `weak_password` / `invalid_phone` | 通过 |

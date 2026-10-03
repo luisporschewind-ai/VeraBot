@@ -25,20 +25,42 @@ final class ChatViewModel {
     var memoryOutcomes: [Int: String] = [:]
     var memoryBusy: Set<Int> = []
     var memoryConfirmTick = 0   // 触感反馈触发器：确认记住 +1
-    /// 执行状态机（由 SSE 事件推导，只读；目前界面未使用，见 docs/design/EXECUTION_STATE.md）
-    private(set) var execution = ExecutionStateMachine()
-    var executionState: ExecutionState { execution.state }
-    private var scheduledBlockedSerial = 0
+    /// 执行状态机与头像计时（对话页导航栏读取 `executionState`）。
+    private var playback = ExecutionAvatarController()
+    var executionState: ExecutionState { playback.state }
+    private var blockedTask: Task<Void, Never>?
+    private var idleTask: Task<Void, Never>?
 
-    /// 状态机输入的唯一入口：进入「短暂受阻」时计时，到点后回到原流程。
+    /// 状态机输入的唯一入口。命令由 `ExecutionAvatarController` 决定：受阻 1.2 s 后回到原流程，
+    /// 正常结束 1.5 s 后回到空闲；`reset`、提前离开或新一轮会取消尚未触发的计时。
     private func feed(_ event: ExecutionEvent) {
-        execution.send(event)
-        guard case .blocked = execution.state, execution.blockedSerial != scheduledBlockedSerial else { return }
-        let serial = execution.blockedSerial
-        scheduledBlockedSerial = serial
-        Task { [weak self] in
-            try? await Task.sleep(for: ExecutionStateMachine.blockedDisplayDuration)
-            self?.execution.send(.blockedElapsed(serial: serial))
+        apply(playback.send(event))
+    }
+
+    private func apply(_ commands: [ExecutionTimerCommand]) {
+        for command in commands {
+            switch command {
+            case .cancelBlocked:
+                blockedTask?.cancel()
+                blockedTask = nil
+            case .startBlocked(let serial):
+                blockedTask?.cancel()
+                blockedTask = Task { [weak self] in
+                    try? await Task.sleep(for: ExecutionStateMachine.blockedDisplayDuration)
+                    guard let self, !Task.isCancelled else { return }
+                    self.apply(self.playback.blockedFired(serial: serial))
+                }
+            case .cancelIdle:
+                idleTask?.cancel()
+                idleTask = nil
+            case .startIdle:
+                idleTask?.cancel()
+                idleTask = Task { [weak self] in
+                    try? await Task.sleep(for: ExecutionStateMachine.completedIdleDelay)
+                    guard let self, !Task.isCancelled else { return }
+                    self.apply(self.playback.idleFired())
+                }
+            }
         }
     }
 
@@ -166,7 +188,7 @@ final class ChatViewModel {
                 case .error(let msg):
                     appendError(msg, at: idx)
                 case .status, .done:
-                    break   // status 只驱动执行状态机，界面不变
+                    break   // 只驱动导航栏头像；消息正文不显示 status
                 }
                 scrollTick += 1
             }

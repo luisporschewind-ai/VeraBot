@@ -92,7 +92,12 @@ def apply(user_id: int, server: dict, tools: list[dict]) -> dict:
     """把一次 tools/list 写入 mcp_tools。返回 added / changed / removed / rejected。"""
     added, changed, rejected = [], [], []
     seen: set[str] = set()
-    taken = {t["full_name"] for t in mcp_store.list_tools(user_id)}
+    # 本服务已有的名字不算占用。否则每次重新同步都会把自己的工具当成冲突，改掉 full_name。
+    taken = {
+        t["full_name"]
+        for t in mcp_store.list_tools(user_id)
+        if t["server_id"] != server["id"]
+    }
     limit = _max_tools()
     kept = 0
     for tool in tools:

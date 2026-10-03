@@ -45,7 +45,7 @@ struct ChatView: View {
         }
         .safeAreaInset(edge: .bottom) { composer }
         .inAppBrowser()   // 消息里的 http/https 链接在 App 内 SFSafariViewController 打开；tel: / mailto: 交给系统
-        .navigationTitle("\(vm.bot.avatar) \(vm.bot.name)")
+        .navigationTitle(vm.bot.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // 标题（头像 + 名称）可点击 → Bot 详情；右上角不再放按钮
@@ -70,14 +70,19 @@ struct ChatView: View {
     }
 
     private var botTitleButton: some View {
-        Button { focused = false; showInfo = true } label: {   // 弹出 sheet 前收起键盘
+        let pose = AvatarLabState(vm.executionState)
+        return Button { focused = false; showInfo = true } label: {   // 弹出 sheet 前收起键盘
             HStack(spacing: 6) {
                 LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
-                               hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt, size: 26)
+                               hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt,
+                               size: 26, pose: pose, animated: true)
+                    .accessibilityHidden(true)
                 Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
             }
         }
-        .accessibilityLabel("\(vm.bot.name)，查看 Bot 详情")
+        .accessibilityLabel(vm.bot.hasAvatar
+            ? "\(vm.bot.name)，查看 Bot 详情"
+            : "\(vm.bot.name)，\(pose.title)，查看 Bot 详情")
     }
 
     /// 底部浮动输入栏（Liquid Glass）：[＋ 圆形玻璃按钮] [胶囊玻璃：输入框 … 🎙]。

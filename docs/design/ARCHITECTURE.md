@@ -26,11 +26,11 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v8：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断)、查询 | `database.py`、`schema.py`、`repository.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v10：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表)、查询 | `database.py`、`schema.py`、`repository.py`、`plugin_store.py`、`mcp_store.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
-| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆 (`services/memory/` 子包：策略检查、召回、确认流程、SQL) | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/{__init__,policy,recall,repository,errors}.py` |
+| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层 | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
-| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由 | `deps.py`、`schemas.py`、`routers/{auth,avatars,bots,chat,voice,reminders,meta,memories}.py` |
+| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由 | `deps.py`、`schemas.py`、`routers/{auth,avatars,bots,chat,voice,reminders,meta,memories,mcp,plugins}.py` |
 | `main.py` | 组装 FastAPI app：CORS、422 处理、启动 `init_db`、挂载路由、托管 Web | — |
 
 ### 2.2 依赖规则 (Dependency rules)
@@ -44,7 +44,7 @@ main ──▶ api ──▶ services ──▶ db ──▶ core
 - 只允许**向下**依赖：`api → services / agents → tools / db → core`。`core` 不依赖任何内部包；`db` 只依赖 `core`。
 - HTTP 细节 (FastAPI、`HTTPException`、pydantic 请求模型) 只出现在 `api/` 和 `main.py`。
 - 模块通过包引用调用 (`from ..services import llm` → `llm.complete(...)`)，测试可以直接替换 (monkeypatch) 模块属性，例如 `multi_agent_test.py` 用 mock LLM 替换 `llm.stream_chat`。
-- 两处**有意的例外** (插件注册，都有注释)：
+- 两处**有意的例外** (工具自注册例外，都有注释)：
   1. `tools/__init__.py` 导入 `agents.delegation` 与 `agents.memory_tools`，让 `ask_bot`、`remember`、`forget_memory` 按顺序注册到工具表 (`get_weather`、`create_reminder`、`list_reminders`、`ask_bot`，之后是 `kind="memory"` 的记忆工具；记忆工具不进 `allowed_tools`，由 `bots.memory_access` 控制，详见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §5.3)。
   2. `tools/registry.run_tool` 在函数内延迟导入 `agents.permissions.is_permitted` (执行前的二次权限检查)，避免循环导入。
 - 新增工具：在 `tools/` 新建模块并用 `@tool` 注册，在 `tools/__init__.py` import；权限白名单 `ALL_TOOLS_V2` 在 `db/schema.py`。

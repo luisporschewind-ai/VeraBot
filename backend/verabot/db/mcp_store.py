@@ -60,11 +60,11 @@ def insert_server(user_id: int, spec: dict, status: str) -> dict:
         cur = c.execute(
             """INSERT INTO mcp_servers(
                 user_id, slug, source, catalog_id, name, transport, url, trust, auth_type,
-                status, created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                status, plugin_id, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (user_id, spec["slug"], "catalog", spec["catalog_id"], spec["name"],
              spec["transport"], spec.get("url") or None, spec["trust"], spec["auth"],
-             status, now, now),
+             status, spec.get("catalog_id"), now, now),
         )
         sid = cur.lastrowid
     return get_server(user_id, sid)
