@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
-from .api.routers import auth, avatars, bots, chat, devices, mcp, memories, meta, notifications, plugins, reminders, voice
+from .api.routers import attachments, auth, avatars, bots, chat, devices, mcp, memories, meta, notifications, plugins, reminders, voice
 from .services.reminders import scheduler as reminder_scheduler
 from .core.config import WEB_DIR
 from .core.http_cache import NoStoreAPIMiddleware
@@ -44,12 +44,20 @@ async def _startup():
 
 @app.on_event("shutdown")
 async def _shutdown():
-    task = getattr(app.state, "reminder_scheduler", None)
-    if task is not None:
-        task.cancel()
+    for name in ("reminder_scheduler", "attachments_reconcile"):
+        task = getattr(app.state, name, None)
+        if task is not None:
+            task.cancel()
 
 
-for r in (auth.router, avatars.router, bots.router, chat.router, memories.router, voice.router, reminders.router,
+@app.on_event("startup")
+async def _attachments_reconcile():
+    """图片附件：清空 tmp/，启动对账一次，之后每天一次（见 services/attachments/repo.py）。"""
+    from .services.attachments.repo import reconcile_loop
+    app.state.attachments_reconcile = asyncio.create_task(reconcile_loop())
+
+
+for r in (attachments.router, auth.router, avatars.router, bots.router, chat.router, memories.router, voice.router, reminders.router,
           notifications.router, devices.router, meta.router, mcp.router, plugins.router):
     app.include_router(r)
 

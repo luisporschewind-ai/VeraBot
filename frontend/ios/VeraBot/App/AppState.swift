@@ -117,6 +117,7 @@ final class AppState {
         authSession.set(AuthTokens(access: auth.token, refresh: auth.refreshToken))
         if previous != nil && previous != auth.user.username {
             avatars.clearAll()
+            AttachmentImageStore.shared.clearAll()
         }
         applyUser(auth.user)
     }
@@ -200,6 +201,7 @@ final class AppState {
         hasAvatar = false
         avatarUpdatedAt = nil
         avatars.clearAll()
+        AttachmentImageStore.shared.clearAll()   // 对话图片内存缓存 + 全屏预览临时文件
         HTTPCachePurge.purgeAppCaches()
         let d = UserDefaults.standard
         for key in [Keys.email, Keys.emailVerified, Keys.phone, Keys.serverDisplayName] { d.removeObject(forKey: key) }

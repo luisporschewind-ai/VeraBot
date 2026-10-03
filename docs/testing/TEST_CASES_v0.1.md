@@ -626,6 +626,41 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | THEME-02 | iOS | 对比度 | 浅色 brand 在白底 5.2:1、`#EFEFEE` 4.5:1；深色 brand 在黑底 5.8:1；白字在 brandFill 上 ≥ 4.8:1 | 计算通过 (青绿版，已被 THEME-03 取代) |
 | THEME-03 | iOS | 方案 C「薰衣草 × 青绿」浅色 / 深色：首页、对话、设置、登录 | 主色 / 导航 / 主按钮为薰衣草 (`#6461D1` / `#D7D7FF`)，用户气泡薰衣草浅底 `#D7D7FF` + 深字 (深色 `#3F3D9E` + 白字)，开关与置顶为青绿 `#3D7A8C`；对比度：主色白底 5.0:1、`#F2F2F8` 4.5:1、白字 / `#6461D1` 5.0:1、深色主色 14:1、白字 / `#4B48B8` 7.2:1 | ✅ 模拟器 8 张截图 + 计算 (2026-10-03，`a8555e6`) |
 
+## 图片附件 P1 (schema v12) — 2026-10-03
+
+后端用例全部在 `backend/scripts/test/attachments_test.py` (临时 SQLite + 临时附件目录，假 LLM，不联网)。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| ATT-01 | 后端 | 上传 JPEG / PNG (透明 / 3000×1500) / WebP / GIF；HEIC | 201，字段齐全；长边 ≤ 2048；有缩略图；透明 PNG 保持 PNG；GIF 帧数不变、另有第一帧 JPEG；路径 `u<uid>/<xx>/att_<id>.jpg`、0700 / 0600；无 pillow-heif 时 HEIC 415 | ✅ (ATT-01 / 01b / 01c) |
+| ATT-02 | 后端 | 伪造扩展名 / 超大小 / 超像素 / 损坏 | 415 / 413 / 400 / 400 | ✅ |
+| ATT-03 | 后端 | 带 GPS、相机型号、Orientation 6 的 JPEG；带注释块的 GIF | 输出无 EXIF，方向转正；GIF 注释去掉、NETSCAPE 循环块保留 | ✅ |
+| ATT-04 | 后端 | 带 `attachment_ids` 发消息 | 本轮 user content 为数组 + base64 `image_url`；附件绑定到用户消息；消息列表带 `attachments` | ✅ |
+| ATT-05 | 后端 | 按需召回 | 首轮后 caption 存好 (用量 `caption`)；之后旧图只发「[图片 att_x：描述]」；「刚才那张图」重发最近一张；`view_image` 附原图，每轮最多 1 张；「确认…」开头不触发兜底 | ✅ (05a~05d) |
+| ATT-06 | 后端 | 他人 / 不存在 / 已发送 / 过期 / 其他 Bot 的附件；DELETE | 404 / 404 / 409 / 410 / 422，不调用模型；未发送可删，已发送 409 | ✅ (06 / 06b) |
+| ATT-07 | 后端 | 每条 2 张；每天超限；存储满；空白无图；只发图片 | 422 / 429 / 413 / 422 / 200 | ✅ |
+| ATT-08 | 后端 | 清空对话 / 删除 Bot / 删除账号 (无接口，直接删用户行) | 行与文件都被删除 (账号：级联 + 对账) | ✅ |
+| ATT-09 | 后端 | pending 超过 24 小时 | 对账删除行与文件 | ✅ |
+| ATT-10 | 后端 | 模型返回 does not support image / 500 | `vision_unsupported` / `vision_failed`，中文提示，不降级；无图错误不带 code | ✅ |
+| ATT-11 | 后端 | 委派 | 被委派 Bot 的 user 消息带同一图片；结果与审计含 `attachment_ids`；不带历史 | ✅ |
+| ATT-12 | 后端 | 插库失败 | 文件全部删除，`tmp/` 无残留 | ✅ |
+| ATT-13 | 后端 | 孤儿对账 | > 1 小时多余文件删除、新文件保留；库有磁盘无告警 + 410 | ✅ |
+| ATT-14 | 后端 | 路径穿越 | `../`、绝对路径、`tmp/`、反斜杠一律拒绝 | ✅ |
+| ATT-15 | 后端 | SQLite backup + 复制目录后恢复 | 每条记录的原图和缩略图都在 | ✅ |
+| ATT-16 | 后端 | 带图轮次 `create_reminder`；委派链；只读工具；下一条「确认」 | `image_needs_confirmation` 不执行；委派同样拦截；天气正常；确认后执行。(P1 用文字确认，没有确认卡片) | ✅ |
+| ATT-17 | 后端 | 删除单条消息 (无接口，直接删行) | 附件行级联删除，文件由对账清理 | ✅ |
+| ATT-18 | 后端 | GIF | 原图 `image/gif` 全部帧；发给模型第一帧 JPEG (Boss 2026-10-03 决定) | ✅ |
+| ATT-MIG | 后端 | schema v12 | `attachments` 字段齐全、`idx_att_user`；版本 12 | ✅ |
+| ATT-MIG-11 | 后端 | v11 库（无 attachments 表）再启动 | 补建表，版本 12，提醒数据不变 | ✅ |
+| ISO-ATT-01 | 后端 | B 读取 / 删除 A 的附件 (元数据、原图、缩略图、DELETE)；未登录 | 全部 404 / 401；本人 200，`private, no-store` + `nosniff` | ✅ |
+| ATT-CONTRACT | 后端 ↔ iOS | Swift `Attachment` CodingKeys、`ChatMessage.attachments`、`ChatRequest.attachment_ids`、上传路径 / 字段 | 与后端一致 | ✅ |
+| ATT-K-01 | Kit | `AttachmentTests.swift`：解码、旧后端缺 `attachments`、`attachment_ids` 编码、GIF 识别 | 通过 | ✅ Linux (只编 Core + Networking)；Mac `swift test` 待跑 |
+| ATT-UI-01 | iOS | PhotosPicker 选 1 张 (再选替换)、移除、上传中不能发送、失败重试、只发图片 | 正常 | ⏳ 待模拟器 |
+| ATT-UI-02 | iOS | 气泡显示、GIF 播放 (减弱动态效果时静止)、Quick Look 全屏 / 分享、加载失败重试；多轮后旧图仍显示原图；深色模式 | 正常 | ⏳ 待模拟器 |
+| ATT-UI-03 | iOS | 首次发图 | 不弹说明 | ⏳ |
+| ATT-UI-04 | iOS | 退出 / 换账号 | 新账号看不到旧账号图片缓存和预览临时文件 | ⏳ |
+| ATT-LIVE-01 | Mac | 真实 `deepseek-flash` 一条带图消息 | 200，回复描述图片；之后 caption 已存 | ⏳ |
+
 ## 模型 P0：deepseek-flash + 关闭思考 (Model switch) — 2026-10-03
 
 | ID | 模块 | 用例 | 预期 | 结果 |

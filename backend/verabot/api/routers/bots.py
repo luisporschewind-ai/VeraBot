@@ -8,6 +8,7 @@ from ... import db
 from ...core.config import MAX_BOTS_PER_USER
 from ...services import memory
 from ...services.bots import public_bot, remove_from_delegate_lists, validate_perms
+from ...services.attachments import repo as attachments
 from ..deps import current_user, require_bot
 from ..schemas import BotIn, BotPatch
 
@@ -83,8 +84,10 @@ def bots_patch(bot_id: int, body: BotPatch, user=Depends(current_user)):
 def bots_delete(bot_id: int, user=Depends(current_user)):
     """删除 Bot：其 bot / summary 记忆随外键级联删除；它提议的全局记忆保留（source_bot_id 置 NULL）。"""
     require_bot(user, bot_id)
+    att_keys = attachments.keys_for_bot(user["id"], bot_id)   # 图片行随 Bot 级联删除，文件在提交后删
     with db.tx() as c:
         c.execute("DELETE FROM bots WHERE id=? AND user_id=?", (bot_id, user["id"]))
+    attachments.delete_files(att_keys)
     remove_from_delegate_lists(user["id"], bot_id)   # 从其他 Bot 的委派白名单中移除该 id
     return {"ok": True}
 

@@ -1,5 +1,6 @@
 import SwiftUI
 import VeraBotCore
+import VeraBotNetworking
 
 struct MessageRow: View {
     let item: ChatViewModel.Item
@@ -12,10 +13,15 @@ struct MessageRow: View {
             HStack {
                 Spacer(minLength: 48)
                 VStack(alignment: .trailing, spacing: 6) {
-                    Text(item.text)
-                        .padding(.horizontal, 14).padding(.vertical, 10)
-                        .foregroundStyle(Color.userBubbleText)
-                        .background(Color.userBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    ForEach(item.attachments) { attachment in
+                        AttachmentBubble(attachment: attachment, api: vm.api)
+                    }
+                    if !item.text.isEmpty || item.attachments.isEmpty {
+                        Text(item.text)
+                            .padding(.horizontal, 14).padding(.vertical, 10)
+                            .foregroundStyle(Color.userBubbleText)
+                            .background(Color.userBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
                     if ttsEnabled && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)
                     }

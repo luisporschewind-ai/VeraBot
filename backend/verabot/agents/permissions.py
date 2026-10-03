@@ -20,6 +20,8 @@ def is_permitted(bot: dict, name: str, depth: int) -> tuple[bool, str]:
         if (bot.get("memory_access") or "none") == "none":
             return False, "memory_disabled"
         return True, ""
+    if t.kind == "attachment":                   # view_image：只给用户直接对话的 Bot（会话归属在工具内校验）
+        return (True, "") if depth == 0 else (False, "tool_not_allowed")
     if name not in (bot.get("allowed_tools") or []):
         return False, "tool_not_allowed"
     if t.delegation and depth >= MAX_DELEGATION_DEPTH:
@@ -31,7 +33,7 @@ def get_schemas(bot: dict, depth: int, memory_on: bool = False) -> list[dict]:
     """只向模型暴露该 Bot 有权使用的工具（最小暴露面）；真正的拦截在 run_tool。
     memory_on = VERABOT_MEMORY 且用户总开关打开（run_chat 开头读一次）；False 时不暴露记忆工具。"""
     return [t.schema() for t in REGISTRY.values()
-            if is_permitted(bot, t.name, depth)[0] and (t.kind != "memory" or memory_on)]
+            if is_permitted(bot, t.name, depth)[0] and (t.kind != "memory" or memory_on) and t.kind != "attachment"]
 
 
 def delegation_targets(user_id: int, bot: dict) -> list[dict]:
