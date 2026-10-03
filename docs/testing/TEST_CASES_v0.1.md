@@ -597,7 +597,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | AUTH-06 | 锁定 | 连续 5 次错密码，再用对的；锁定到期 | 429 `account_locked`；到期后可登录且计数清零 | 通过 |
 | AUTH-07 | 刷新 | 刷新、旧令牌复用、垃圾令牌、过期 | 新的一对可用；复用 → 401 且新发的也作废；其余 401 | 通过 |
 | AUTH-08 | 退出 | logout 单个；logout-all | 单个刷新令牌作废、其他会话不受影响；logout-all 后旧访问令牌 401「登录已失效」，刷新令牌作废 | 通过 |
-| AUTH-09 | 验证码登录 | 新邮箱发码 → 错码 → 正确码 → 再用一次；已有账号 | 新建已验证账号；码一次性；已有账号登录到同一账号 | 通过 |
+| AUTH-09 | 验证码登录 | 新邮箱发码 → 错码 → 正确码 → 再用一次；已验证的已有账号 | 新建已验证账号；码一次性；已验证账号登录到同一账号且密码仍可用 (未验证账号的认领见 AUTH-17) | 通过 |
 | AUTH-10 | 验证码限制 | 60 秒内重发；错 5 次；过期；新码替换旧码；坏邮箱 | 429 `code_cooldown`；作废；`code_expired`；旧码无效；422 | 通过 |
 | AUTH-11 | 邮箱验证 | 发验证码 → 错码 → 正确码；已验证再发；无邮箱账号 | `email_verified` 变 true；`already_verified`；400 | 通过 |
 | AUTH-12 | 令牌 / 字段 | `/api/me` 字段；JWT 声明；不带 `tv` 的旧令牌；刷新令牌当访问令牌 | 含 email / email_verified / phone，不泄露内部列；`typ=access`；旧令牌有效；401 | 通过 |
@@ -605,6 +605,8 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | AUTH-14 | 发信 | console 记录；smtp 无账号 | OUTBOX 有码；`MailError`；发码接口 503 `mail_failed` | 通过 |
 | AUTH-15 | 契约 | iOS `Auth.swift` / `Models.swift` CodingKeys 与后端响应、请求模型、路由对照 | 全部匹配 (字段映射见设计 §7) | 通过 |
 | AUTH-16 | 规则 | identifier 分类、手机号规范化 | 与 iOS `AuthInputRules` 一致 | 通过 |
+| AUTH-17 | 邮箱认领 | 未验证邮箱 + 密码注册并登录两次；真正持有者用验证码登录 | 同一账号且 `email_verified` 为 true；认领事务后 `password_hash` 为空字符串，`token_version` + 1，审计 `account_claimed_by_email_code` 一条，只剩主人那枚未吊销的刷新令牌。随后抢注者密码登录 401「账号或密码错误」；两枚旧访问令牌 401「登录已失效」；两枚旧刷新令牌 401；主人的新访问令牌仍可用 | 通过 |
+| AUTH-18 | 回归 | 已验证邮箱先密码登录，再用验证码登录 | 同一账号；密码仍可登录；旧访问令牌与旧刷新令牌仍有效；`password_hash` 与 `token_version` 不变；没有认领审计 | 通过 |
 | AUTH-K-01 | Kit | 解码新旧 `AuthResponse` / `User`、手机号显示、请求编码、输入规则、`AuthSession` 复用 / 无刷新令牌 / 网络失败保留登录 | `swift test` 105/105 | 通过 |
 | AUTH-UI-01 | iOS | 旧版本升级 (UserDefaults 令牌) | 迁到 Keychain，仍在登录状态；设置显示「用户名 demo」 | 模拟器通过 |
 | AUTH-UI-02 | iOS | 邮箱注册 → 设置「邮箱未验证 · 验证」→ 输入日志里的码 | 显示邮箱；验证后提示「邮箱已验证」，提醒行消失 | 模拟器通过 |
