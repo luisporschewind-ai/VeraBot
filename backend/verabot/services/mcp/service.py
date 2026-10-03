@@ -469,11 +469,12 @@ def _with_retries(op, *, idempotent: bool):
             if not isinstance(exc, (MCPTimeoutError, MCPUnavailableError)):
                 raise
             last = exc
-            can_retry = index + 1 < attempts
-            if not can_retry:
-                raise
+            # 非幂等：传输失败时请求可能已经执行，一律返回 result_unknown，不论还剩几次重试
+            # （之前先判断 can_retry，VERABOT_MCP_RETRY_MAX=0 时会漏成普通超时 / 不可用）。
             if not idempotent:
                 raise _ResultUnknown() from exc
+            if index + 1 >= attempts:
+                raise
             _sleep_backoff(index, exc)
     if last:
         raise last

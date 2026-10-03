@@ -520,6 +520,15 @@ try:
     check("MCP-RETRY non-idempotent timeout is result_unknown and not retried",
           unknown.get("code") == "result_unknown" and len(_reqs(api_mock, "tools/call")) == calls_now + 1,
           str(unknown)[:240])
+    os.environ["VERABOT_MCP_RETRY_MAX"] = "0"
+    calls_zero = len(_reqs(api_mock, "tools/call"))
+    api_mock.slow_calls = 1
+    unknown0 = mcp_service.invoke(me["id"], server_row, write_tool, {"query": "y"}, call_id="c_unknown0", bot_id=bot["id"])
+    os.environ["VERABOT_MCP_RETRY_MAX"] = "2"
+    check("MCP-RETRY non-idempotent timeout is result_unknown even with RETRY_MAX=0",
+          unknown0.get("code") == "result_unknown" and len(_reqs(api_mock, "tools/call")) == calls_zero + 1,
+          str(unknown0)[:240])
+    calls_now = len(_reqs(api_mock, "tools/call")) - 1
     api_mock.slow_calls = 1
     retried_to = asyncio_run(dispatch(ToolContext(user_id=me["id"], bot=fresh, depth=0, turn=TurnState()), full, "{}", call_id="c_timeout"))
     os.environ["VERABOT_MCP_TIMEOUT"] = "5"

@@ -22,6 +22,7 @@
   - **审计**：每次调用写 `mcp_tool_call`（成功、超时、错误、未同意、熔断），含工具、服务、耗时、`status` / `error_class`、起止时间、`user_id` / `bot_id`、`call_id`。不存外部原文。
   - **同步**：`GET /api/mcp/servers` 不再在请求里连外网。后台同步，`sync_status` 为 `pending` / `syncing` / `ok` / `error`，并带 `last_synced_at`。手动刷新仍是 `POST .../sync`。
   - **重试与熔断**：超时、5xx、429、连接错误才重试，默认再试 2 次，退避 `0.5,2` 秒加抖动。工具 `isError` 和 4xx 不重试。非只读且未标幂等的传输失败返回 `result_unknown` 且不重试。连续 5 次传输失败打开熔断 60 秒；到期后探测一次。字段 `circuit_state` / `circuit_open_until` / `consecutive_failures`。配置键见 `.env.example`。
+  - 合并评审 (2026-10-03)：`VERABOT_MCP_RETRY_MAX=0` 时非只读工具的传输失败漏成普通超时 / 不可用，改为一律 `result_unknown`，并补用例。Mac 上全部后端用例、`VERABOT_MCP_LIVE_TESTS=1` (Learn / AWS 公网通过)、`swift test` 95/95、xcodebuild 通过。
   - 测试：`mcp_test.py` 假服务器增加 404、5xx 和超时；v6→v8、空库 v8、已有 v7 库升级。公网用例仍要 `VERABOT_MCP_LIVE_TESTS=1`。字段对照见 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §18.3。
 - **方案文档**：[design/AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) 账号体系改为邮箱 / 手机号登录的方案草案 (现状审计、目标模型、分阶段流程、demo 迁移、API 与 iOS 同步、限流等安全措施、里程碑、待 Boss 决定事项)，未改代码。
 - **MCP M1 (schema v7)**：后端作为 MCP 客户端，连接免授权的公网服务。默认 Microsoft Learn（`VERABOT_MCP_LEARN_URL`，开）；备用 AWS Knowledge（`VERABOT_MCP_AWS_URL`，默认关，不访问网络）。地址可改，见 `backend/.env.example`。不改已有 Bot 的 `allowed_tools`。
