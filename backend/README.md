@@ -72,7 +72,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 verabot/
 ├── main.py          # FastAPI app：CORS、422 处理、启动时 init_db、挂载路由、托管 Web
 ├── core/            # config (环境变量)、security (bcrypt + JWT)
-├── db/              # database (连接 / 事务)、schema (建表 + 迁移)、repository (查询)
+├── db/              # database (连接 / 事务)、schema (迁移入口) + migrations/ (每版本一个模块)、repository 与 *_store (全部 SQL)
 ├── api/             # deps (鉴权依赖)、schemas (pydantic)、routers/ (auth, avatars, bots, chat, voice, reminders, meta, mcp, plugins)
 ├── services/        # llm、transcribe、bots (权限校验)、quota、users (昵称)、avatars (裁切与存储)、mcp (目录与 HTTP 客户端)、plugins (安装层)
 ├── agents/          # runtime (Agent Loop)、prompts、permissions、guardrails、context、delegation (ask_bot)
@@ -91,6 +91,7 @@ uv run python scripts/test/memory_test.py        # 长期记忆 MEM-01~36 (36/36
 uv run python scripts/test/mcp_test.py           # MCP：本地假服务器。公网用例默认跳过，VERABOT_MCP_LIVE_TESTS=1 才跑
 uv run python scripts/test/plugin_test.py        # 插件 P1：迁移、安装 / 卸载、派生状态、契约。进程内假 MCP，不访问外网
 uv run python scripts/test/mcp_disable_race_test.py # MCP-RACE-01~08：后台同步与「停用」竞态，假 MCP 服务器阻塞 tools/list，确定性
+uv run python scripts/test/sql_layer_check.py      # SQL-LAYER-01/02：db/ 以外不许有 execute( / SQL 语句字符串（AST 静态扫描，不连库）
 uv run python scripts/test/smoke_test.py         # 端到端 (真实 LLM，需后端运行在 :8000)；结束后清理测试账号
 uv run python scripts/test/api_regress.py        # 真实 LLM 回归 REG-*（创建临时用户 qa_reg_*）
 uv run python scripts/test/api_regress2.py       # 续跑（预算 / 软上限 / 422），结束时删除临时用户

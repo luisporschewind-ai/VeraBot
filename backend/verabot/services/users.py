@@ -1,9 +1,9 @@
 """用户公开资料（Public profile）：昵称校验与对外字段。不返回 password_hash。"""
 from .. import db
+from ..db import user_store
+from ..db.user_store import PUBLIC_USER_SQL as USER_SQL  # noqa: F401 — 旧名保留（SQL 在 db/user_store.py）
 
 NICKNAME_MAX = 32
-USER_SQL = ("SELECT id, username, created_at, nickname, avatar_updated_at, email, email_verified_at, phone, token_version "
-            "FROM users WHERE id=?")
 
 
 def clean_nickname(value: str) -> str:
@@ -50,12 +50,12 @@ def public_user(u: dict | None) -> dict | None:
 
 def load_public(user_id: int) -> dict | None:
     with db.tx() as c:
-        u = db.row(c.execute(USER_SQL, (user_id,)).fetchone())
+        u = user_store.get_public(c, user_id)
     return public_user(u)
 
 
 def update_nickname(user_id: int, nickname: str) -> dict:
     with db.tx() as c:
-        c.execute("UPDATE users SET nickname=? WHERE id=?", (nickname, user_id))
-        u = db.row(c.execute(USER_SQL, (user_id,)).fetchone())
+        user_store.set_nickname(c, user_id, nickname)
+        u = user_store.get_public(c, user_id)
     return public_user(u)

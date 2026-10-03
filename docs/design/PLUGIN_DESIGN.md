@@ -187,7 +187,7 @@ def plugin_default_installed() -> set[str]:
     # Q6：新账号不预装。VERABOT_MCP_LEARN_ENABLED / _AWS_ENABLED 不再决定预装。
     return set()
 
-# db/schema.py init_db() 中，紧接 v9 之后。整段由 ver < 10 守住，重复启动不再插入。
+# db/migrations/v010_plugins.py（init_db() 中紧接 v9 之后）。整段由 ver < 10 守住，重复启动不再插入。
 _add_column(c, "mcp_servers", "plugin_id", "TEXT")
 c.executescript(PLUGIN_SCHEMA)
 if ver < 10:

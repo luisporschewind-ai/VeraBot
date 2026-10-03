@@ -1,4 +1,5 @@
-"""附件元数据（SQLite）+ 文件生命周期。所有查询都带 user_id（租户隔离）。
+"""附件元数据 + 文件生命周期。所有查询都带 user_id（租户隔离）。SQL 在 db/attachment_store.py，
+这里保留对外函数名（路由 / agents / vision 照旧调用），只负责规则、文件与事务边界。
 
 写入：处理图片 → 写文件（原子）→ 插库；插库失败立即删文件。
 删除：先删库行并提交，再删文件（文件删除失败只会留下孤儿文件，由对账清理）。
@@ -16,6 +17,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from ... import db
+from ...db import attachment_store as store_sql
 from ...core.config import (ATTACHMENT_MAX_BYTES, ATTACHMENT_PENDING_TTL_HOURS, ATTACHMENT_USER_QUOTA_BYTES,
                             ATTACHMENTS_PER_DAY, TIMEZONE)
 from . import images
@@ -69,9 +71,8 @@ def create(user_id: int, bot_id: int | None, data: bytes) -> dict:
     if bot_id is not None and not db.get_bot(user_id, bot_id):
         raise AttachmentError(404, "Bot 不存在")
     with db.tx() as c:
-        n_today = c.execute("SELECT COUNT(*) FROM attachments WHERE user_id=? AND created_at>=?",
-                            (user_id, db.day_start_utc(TIMEZONE))).fetchone()[0]
-        used = c.execute("SELECT COALESCE(SUM(bytes),0) FROM attachments WHERE user_id=?", (user_id,)).fetchone()[0]
+        n_today = store_sql.count_since(c, user_id, db.day_start_utc(TIMEZONE))
+        used = store_sql.bytes_used(c, user_id)
     if n_today >= ATTACHMENTS_PER_DAY:
         raise AttachmentError(429, f"今天的图片已达上限（{ATTACHMENTS_PER_DAY} 张），请明天再试", "attachment_daily_limit")
     try:
@@ -95,13 +96,10 @@ def create(user_id: int, bot_id: int | None, data: bytes) -> dict:
         now = datetime.now(timezone.utc)
         expires = (now + timedelta(hours=ATTACHMENT_PENDING_TTL_HOURS)).isoformat(timespec="seconds")
         with db.tx() as c:
-            c.execute(
-                "INSERT INTO attachments(id,user_id,bot_id,message_id,kind,mime,bytes,width,height,sha256,"
-                "storage_backend,storage_key,thumb_key,status,created_at,expires_at)"
-                " VALUES (?,?,?,NULL,'image',?,?,?,?,?,?,?,?,'pending',?,?)",
-                (att_id, user_id, bot_id, p.mime, len(p.data), p.width, p.height,
-                 hashlib.sha256(p.data).hexdigest(), store.backend, key, thumb_key,
-                 now.isoformat(timespec="seconds"), expires))
+            store_sql.insert_pending(c, att_id=att_id, user_id=user_id, bot_id=bot_id, mime=p.mime, nbytes=len(p.data),
+                                     width=p.width, height=p.height, sha256=hashlib.sha256(p.data).hexdigest(),
+                                     storage_backend=store.backend, storage_key=key, thumb_key=thumb_key,
+                                     created_at=now.isoformat(timespec="seconds"), expires_at=expires)
     except BaseException:
         delete_files(written)
         raise
@@ -113,7 +111,7 @@ def get(user_id: int, att_id: str) -> dict | None:
     if not isinstance(att_id, str) or not att_id.startswith("att_") or len(att_id) > 40:
         return None
     with db.tx() as c:
-        return db.row(c.execute("SELECT * FROM attachments WHERE id=? AND user_id=?", (att_id, user_id)).fetchone())
+        return store_sql.get(c, user_id, att_id)
 
 
 def get_public(user_id: int, att_id: str) -> dict | None:
@@ -134,9 +132,7 @@ def for_messages(user_id: int, message_ids) -> dict[int, list[dict]]:
         return {}
     out: dict[int, list[dict]] = {}
     with db.tx() as c:
-        q = ",".join("?" * len(ids))
-        for r in c.execute(f"SELECT * FROM attachments WHERE user_id=? AND message_id IN ({q}) ORDER BY created_at, id",
-                           (user_id, *ids)).fetchall():
+        for r in store_sql.for_messages(c, user_id, ids):
             out.setdefault(r["message_id"], []).append(dict(r))
     return out
 
@@ -175,15 +171,13 @@ def attach(user_id: int, bot_id: int, ids: list[str], message_id: int) -> list[d
         return []
     with db.tx() as c:
         for att_id in ids:
-            c.execute("UPDATE attachments SET status='attached', message_id=?, bot_id=?, expires_at=NULL"
-                      " WHERE id=? AND user_id=? AND status='pending'", (message_id, bot_id, att_id, user_id))
+            store_sql.attach(c, user_id, att_id, message_id, bot_id)
     return [r for r in (get(user_id, i) for i in ids) if r]
 
 
 def set_caption(user_id: int, att_id: str, caption: str | None, status: str):
     with db.tx() as c:
-        c.execute("UPDATE attachments SET caption=?, caption_status=? WHERE id=? AND user_id=?",
-                  (caption, status, att_id, user_id))
+        store_sql.set_caption(c, user_id, att_id, caption, status)
 
 
 # ---------------------------------------------------------------- 删除
@@ -194,21 +188,21 @@ def delete_pending(user_id: int, att_id: str):
     if r["status"] != "pending":
         raise AttachmentError(409, "已发送的图片随消息一起删除（清空对话或删除 Bot）")
     with db.tx() as c:
-        c.execute("DELETE FROM attachments WHERE id=? AND user_id=?", (att_id, user_id))
+        store_sql.delete(c, user_id, att_id)
     delete_files(file_keys(r))
 
 
 def keys_for_bot(user_id: int, bot_id: int) -> list[str]:
     """清空对话 / 删除 Bot 前调用：先拿到文件 key，事务提交后再 delete_files。"""
     with db.tx() as c:
-        rs = db.rows(c.execute("SELECT * FROM attachments WHERE user_id=? AND bot_id=?", (user_id, bot_id)))
+        rs = store_sql.list_for_bot(c, user_id, bot_id)
     return [k for r in rs for k in file_keys(r)]
 
 
 def keys_for_user(user_id: int) -> list[str]:
     """删除账号前调用（目前没有删除账号接口；用户行级联删除后由对账清理文件）。"""
     with db.tx() as c:
-        rs = db.rows(c.execute("SELECT * FROM attachments WHERE user_id=?", (user_id,)))
+        rs = store_sql.list_for_user(c, user_id)
     return [k for r in rs for k in file_keys(r)]
 
 
@@ -218,16 +212,15 @@ def reconcile(now: float | None = None) -> dict:
     store.ensure_root()
     stats = {"expired": 0, "orphans": 0, "missing": 0}
     with db.tx() as c:
-        expired = db.rows(c.execute("SELECT * FROM attachments WHERE status='pending' AND expires_at<?",
-                                    (db.now_iso(),)))
+        expired = store_sql.expired_pending(c, db.now_iso())
         for r in expired:
-            c.execute("DELETE FROM attachments WHERE id=?", (r["id"],))
+            store_sql.delete_by_id(c, r["id"])
     for r in expired:
         delete_files(file_keys(r))
     stats["expired"] = len(expired)
 
     with db.tx() as c:
-        rs = db.rows(c.execute("SELECT id, storage_key, thumb_key FROM attachments"))
+        rs = store_sql.all_keys(c)
     known = {k for r in rs for k in file_keys(r)}
     cutoff = (now or time.time()) - ORPHAN_GRACE_SECONDS
     for key, mtime in list(store.iter_keys()):

@@ -48,12 +48,7 @@ def visible(c, user_id: int, bot: dict) -> list[dict]:
     access = bot.get("memory_access") or "none"
     if access == "none":
         return []
-    where = "m.status='active' AND ((m.scope='bot' AND m.bot_id=?)"
-    params: list = [bot["id"]]
-    if access == "bot_and_global":
-        where += " OR m.scope='global'"
-    where += ")"
-    return repo.query(c, user_id, where, tuple(params), order="m.updated_at DESC", limit=config.MEMORY_MAX_ACTIVE + 50)
+    return repo.visible_active(c, user_id, bot["id"], access == "bot_and_global", limit=config.MEMORY_MAX_ACTIVE + 50)
 
 
 def _days_since(*stamps) -> float:

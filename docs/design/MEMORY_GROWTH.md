@@ -163,7 +163,7 @@ _add_column(c, "messages", "memory_ids", "TEXT")                                
 backend/verabot/
 ├── services/memory/              # 新包：记忆的全部业务规则，不依赖 FastAPI
 │   ├── __init__.py               #   对外门面：recall / propose / confirm / reject / create / update / delete / clear / settings
-│   ├── repository.py             #   memories 表 SQL（每条都带 user_id）
+│   ├── repository.py             #   加解密 / 有效期辅助；memories 表 SQL 在 db/memory_store.py（每条都带 user_id），这里 re-export
 │   ├── policy.py                 #   规范化、content_hash、敏感检测、注入特征检测、上限常量
 │   ├── recall.py                 #   v1 规则 + 关键词召回、prompt 块渲染（转义 / 包裹 / 预算）
 │   ├── errors.py                 #   MemoryError(code, http_status, message) —— 由 api 层映射为 HTTP
@@ -470,7 +470,7 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 
 | 维度 | 规则 | 强制点 |
 |---|---|---|
-| 用户隔离 | 所有 SQL 带 `user_id`；他人 / 不存在 → 404 | `services/memory/repository.py` |
+| 用户隔离 | 所有 SQL 带 `user_id`；他人 / 不存在 → 404 | `db/memory_store.py`（经 `services/memory/repository.py` 调用） |
 | 用户总开关 | `users.memory_enabled = 0` → 不召回、不暴露工具 | `run_chat`、`get_schemas` |
 | 每 Bot 授权 | `memory_access`：`none` (不读不写) / `bot` (只读写本 Bot 记忆) / `bot_and_global` (另可读全局资料、可提议全局记忆) | `recall` 可见集合、`is_permitted`、`propose` 的 scope 降级 |
 | 默认值 | 新 Bot 与迁移后的存量 Bot：`bot_and_global` (理由：每条记忆都经用户确认，全局资料本就为所有 Bot 共享；敏感信息默认不存)。**这与工具「默认最小权限」不同，需 Boss 决定，见 Q1** | `db/schema.py` 列默认值 |
