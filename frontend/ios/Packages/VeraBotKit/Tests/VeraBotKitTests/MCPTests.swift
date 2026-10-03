@@ -55,3 +55,15 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
     let full = (0..<MCPToolRules.maxPerBot).map { "mcp__x__t\($0)" }
     #expect(MCPToolRules.addingReadOnly(current: full, tools: tools) == full)
 }
+
+@Test func mcpTraceTitleUsesChineseLabelsAndNeverRawText() {
+    #expect(MCPTraceText.title(for: "mcp__learn__microsoft_docs_search") == "🔌 Microsoft Learn · 搜索微软文档")
+    #expect(MCPTraceText.title(for: "mcp__aws__aws___list_regions") == "🔌 AWS Knowledge · 列出 AWS 区域")
+    #expect(MCPTraceText.title(for: "mcp__other__thing") == "🔌 other · thing")
+    #expect(MCPTraceText.title(for: "get_weather") == nil)
+    #expect(MCPTraceText.summary(contentLength: 8100, truncated: true).contains("已截断"))
+    // 工具自身错误的 error 字段是外部原文，界面只给固定说明；权限拒绝等短文案照常显示
+    #expect(MCPTraceText.errorText(code: "mcp_tool_error", error: "<untrusted_tool_result>…") == "外部服务返回了错误")
+    #expect(MCPTraceText.errorText(code: "mcp_timeout", error: "MCP 服务超时") == "外部服务超时")
+    #expect(MCPTraceText.errorText(code: "tool_not_allowed", error: "当前 Bot 未被授权使用该能力") == "当前 Bot 未被授权使用该能力")
+}

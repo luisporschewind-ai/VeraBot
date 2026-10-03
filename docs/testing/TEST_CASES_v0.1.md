@@ -509,6 +509,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MCP-04 | 权限 | 新 Bot；保存具体工具名；未知 MCP 名 | 新 Bot 的 `allowed_tools` 为空；合法全名可保存；`mcp__learn__nope` → 422 | 通过 |
 | MCP-CALL | 调用 | 允许的只读工具 | 结果包在清洗后的 `<untrusted_tool_result>` 里，并标记本轮不可再委派 | 通过 |
 | MCP-CALL-LONG | 调用 | 长结果 (2 万字) 进入 tool 消息 | 截到 8000 字并保留 `</untrusted_tool_result>` 结束标记；内置工具仍截到 6000 字 | 通过 (2026-10-03 合并评审时新增；之前 runtime 统一截 6000 字会切掉结束标记，真实 Learn 搜索约 3.6 万字) |
+| MCP-UI-01 | iOS 模拟器 | 设置 › MCP 服务 → Microsoft Learn → 应用到「研究助手」→ 开启全部只读；Bot 详情「MCP 服务」分组；对话里让 Bot 查 Microsoft Learn | 3 个工具中文名、均为只读并保存为具体名字 (内置工具保留)；对话里 Trace 显示「🔌 Microsoft Learn · 搜索微软文档」+ 一行摘要，回答带 learn.microsoft.com 链接 | 通过 (2026-10-03 iPhone 17 模拟器截图；修复前 Trace 直接显示 8000 字原文，见 CHANGELOG)；观感待 Boss 验收 |
 | MCP-KIT | iOS Kit | `MCPTests.swift`：服务器 / 目录 / 同步结果解码 (忽略多余键)、旧 `/api/tools` 无 `source` 当内置、「开启全部只读」保留内置工具、跳过写工具和已移除工具、遵守 20 个上限 | 通过 (`swift test` 92/92，Mac) |
 | MCP-05 | 权限 | 白名单为空时调用 | `tool_not_allowed` | 通过 |
 | MCP-07 | 委派 | depth 1 调用 MCP | `not_delegable`，不访问 MCP | 通过 |

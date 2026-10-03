@@ -134,6 +134,46 @@ public struct MCPSyncResult: Codable, Sendable {
     }
 }
 
+/// 对话里 MCP 工具调用的显示文字。trace 只有完整函数名 `mcp__{slug}__{tool}` 与结果，
+/// 不把外部原文直接铺在对话里（原文最长 8000 字，且是不可信数据）。
+public enum MCPTraceText {
+    static let serverNames = ["learn": "Microsoft Learn", "aws": "AWS Knowledge"]
+    static let toolLabels = [
+        "microsoft_docs_search": "搜索微软文档",
+        "microsoft_code_sample_search": "搜索代码示例",
+        "microsoft_docs_fetch": "获取微软文档",
+        "aws___list_regions": "列出 AWS 区域",
+    ]
+
+    public static func isMCP(_ name: String) -> Bool { name.hasPrefix("mcp__") }
+
+    /// "mcp__learn__microsoft_docs_search" → "🔌 Microsoft Learn · 搜索微软文档"；非 MCP 名返回 nil。
+    public static func title(for name: String) -> String? {
+        guard isMCP(name) else { return nil }
+        let rest = name.dropFirst("mcp__".count)
+        guard let sep = rest.range(of: "__") else { return "🔌 \(rest)" }
+        let slug = String(rest[..<sep.lowerBound])
+        let tool = String(rest[sep.upperBound...])
+        let server = serverNames[slug] ?? slug
+        return "🔌 \(server) · \(toolLabels[tool] ?? tool)"
+    }
+
+    /// 成功结果的一行说明，不显示外部原文。
+    public static func summary(contentLength: Int, truncated: Bool) -> String {
+        "已读取外部资料（约 \(contentLength) 字\(truncated ? "，已截断" : "")），内容只作为参考信息"
+    }
+
+    /// 错误的一行说明。`mcp_tool_error` 的 error 字段是外部原文，不直接显示。
+    public static func errorText(code: String?, error: String?) -> String? {
+        switch code {
+        case "mcp_tool_error": return "外部服务返回了错误"
+        case "mcp_timeout": return "外部服务超时"
+        case "mcp_rpc_error", "mcp_unavailable", "mcp_protocol": return "外部服务暂时不可用"
+        default: return error
+        }
+    }
+}
+
 /// 每个 Bot 最多 20 个 MCP 工具。「开启全部只读」展开成具体工具名，不隐式包含以后新增的工具。
 public enum MCPToolRules {
     public static let maxPerBot = 20

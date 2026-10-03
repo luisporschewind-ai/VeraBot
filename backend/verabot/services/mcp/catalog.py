@@ -80,6 +80,9 @@ def by_slug(slug: str) -> dict | None:
 
 
 def label_for(mcp_name: str, title: str | None) -> str:
+    """目录里有中文名就用中文名（界面不显示英文）；否则用服务器给的 title，再退回原名。"""
+    if mcp_name in _LABELS:
+        return _LABELS[mcp_name]
     if title and title.strip() and title.strip() != mcp_name:
         return title.strip()
-    return _LABELS.get(mcp_name, mcp_name)
+    return mcp_name

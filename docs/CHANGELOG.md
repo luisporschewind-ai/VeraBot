@@ -6,6 +6,7 @@
 
 ### 修复 (Fixed)
 
+- **iOS · 对话里的 MCP 工具调用**：之前 Trace 标题显示 `🔧 mcp__learn__microsoft_docs_search`，下面直接铺出最长 8000 字的外部原文 (含 `<untrusted_tool_result>` 标记和转义字符)；工具自身错误时把外部原文当错误显示。现在标题为「🔌 Microsoft Learn · 搜索微软文档」，正文只显示一行「已读取外部资料（约 N 字，已截断）」，错误按 code 显示固定说明 (`VeraBotCore.MCPTraceText`)。后端 `label_for` 优先用目录里的中文名 (Learn 服务器自带英文 title，之前界面显示英文)。Kit 测试 93/93。
 - **iOS · 头像实验室**：深色模式状态角标几乎看不清 (改为实色底 `avatarMarkFill` + 角色背景色描边 + 阴影)；角标挡住 V豆 顶部圆点和星点的星光 (移到右下角，尺寸 0.26)；「按状态机演示」停止后马上再开始可能两轮叠加、按钮状态错乱 (加运行令牌，手动选状态也会停止演示；演示帧事先由真实 `ExecutionStateMachine` 算好 `AvatarLabDemo.frames`)；角色固定 hex 色改为 `Theme.swift` 头像语义色 (浅色 / 深色各一套)。文档里演示顺序更正为 思考 → 委派 → 思考 → 执行 → 阻塞 → 思考 → 回复 → 完成 → 空闲。
 - **工具**：新增 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，离屏渲染 + 检查 AVLAB-T01~T13，输出浅色 / 深色对照图)，不进 App target。iPhone 17 模拟器截图 / 录屏复测 (AVLAB-02、T14)。
 

@@ -7,7 +7,12 @@ struct TraceView: View {
     let fromBot: String
 
     private var pending: Bool { trace.result == nil }
-    private var errorText: String? { trace.result?["error"]?.text }
+    private var errorText: String? {
+        let error = trace.result?["error"]?.text
+        guard MCPTraceText.isMCP(trace.name) else { return error }
+        guard error != nil else { return nil }
+        return MCPTraceText.errorText(code: trace.result?["code"]?.text, error: error)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -50,7 +55,7 @@ struct TraceView: View {
         case "list_reminders": return "📋 查看提醒"
         case "remember": return "🧠 记忆"
         case "forget_memory": return "🧠 忘掉记忆"
-        default: return "🔧 \(trace.name)"
+        default: return MCPTraceText.title(for: trace.name) ?? "🔧 \(trace.name)"
         }
     }
 
@@ -69,6 +74,10 @@ struct TraceView: View {
         case "list_reminders":
             return "共 \(r["count"]?.text ?? "0") 条未完成提醒"
         default:
+            if MCPTraceText.isMCP(trace.name) {
+                return MCPTraceText.summary(contentLength: r["content"]?.text.count ?? 0,
+                                            truncated: r["truncated"]?.text == "true")
+            }
             return r.text
         }
     }

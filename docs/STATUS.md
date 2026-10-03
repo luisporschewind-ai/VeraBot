@@ -26,6 +26,7 @@
 - **2026-10-03**：头像实验室测试与修复：iPhone 17 模拟器截图 / 录屏 (浅色 + 深色、演示一轮、减弱动态效果、退到后台再回来) + 新离屏检查 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，约 2.5 分钟，AVLAB-T01~T13 13/13，输出浅色 / 深色 × 68 / 104 / 148 的对照图到 `/tmp/avatarlab_harness`)。修复：深色模式状态角标几乎看不清；角标挡住 V豆 顶部圆点、星点星光 (移到右下角)；演示「停止 → 再开始」可能两轮叠加 (运行令牌)；角色色改为 Theme 语义色 (支持深色)；文档里演示顺序漏了中间的「思考中」。持续状态循环、离开 / 回来、减弱动态效果静止：模拟器复测正常。待 Boss 看观感。
 - **MCP M1（schema v7）**：已实现。默认服务 Microsoft Learn（开启），备用 AWS Knowledge（默认关闭）。Web 冻结，没有 MCP 界面。下一步是设计稿 M2（设置页健壮性 / 变更审阅），不是本提交的范围。iOS 工程在 Linux 上未编译。
 - **2026-10-03**：MCP M1 (PR #4) 合并评审：合并 main 的 status 事件、修复 MCP 长结果被截断导致结束标记丢失、设置页加 DeepSeek 数据说明、补 Kit 测试；Mac 实测 Learn / AWS 可用 (约 2.4–2.9 s / 次)。待办：D4 同意时间记录、会话复用 (M2)。
+- **2026-10-03**：PR #4 已合并到 main (`7d93a00`)；本机数据库已迁移到 v7 (迁移前备份 `backend/data/verabot.db.bak-before-v7-20261003-132234`)；「研究助手」已开启 Learn 3 个只读工具用于验收。合并后修复：对话里 MCP Trace 不再铺出外部原文、工具名显示中文。待 Boss 验收：设置 › MCP 服务、Bot 详情「MCP 服务」、对话里查微软文档 (MCP-UI-01)。
 - **待办**：
   1. **执行状态机**：v1.1 已完成 (后端 `status` 事件 + Core 新状态 + 头像实验室映射，见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md))；对话页尚未显示状态，界面方案待 Boss 决定。头像实验室小问题 (未改)：68pt 尺寸角标符号偏小；实验室是普通 ScrollView，把大预览滚出屏幕时循环不会停 (离开页面 / 退到后台会停)；`ChatViewModel` 的阻塞计时任务在 reset 时没有取消 (有 serial 校验，无实际影响)。
   2. **头像动画** (Boss 桌面的 `LiveBotAvatar.swift` 卡通头像)：**未决定**；与项目同名类 / `Color(hex:)` 冲突，且是自定义动画，违反现有规则，需 Boss 拍板是否例外。
