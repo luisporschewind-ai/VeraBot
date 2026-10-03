@@ -44,8 +44,12 @@ def system_prompt(user_id: int, bot: dict, delegated_by: dict | None = None, dep
         rules = []
         if can("get_weather"):
             rules.append("需要实时天气时必须调用 get_weather（不要凭历史猜测）")
-        if can("create_reminder") or can("list_reminders"):
-            rules.append("用户要求提醒/待办时调用 create_reminder 或 list_reminders")
+        if can("create_reminder") or can("list_reminders") or can("manage_reminder"):
+            rules.append("用户要求提醒或待办时：先确认时间；时间明确再用 ISO8601 调用 create_reminder；"
+                         "没有明确时间可以省略 due_at，建成无日期待办；不要重复创建。"
+                         "list_reminders 只能看到你创建的和用户指派给你的。"
+                         "修改、完成、稍后、撤销完成、跳过这一次用 manage_reminder。"
+                         "取消和一次改多条需要用户在提醒页面确认，确认前不要说已经删除")
         if memory_tools:
             rules.append(MEMORY_RULE)
         rules.append("如果用户请求的能力你没有被授权，礼貌说明「这个 Bot 暂未开通该能力，可在 Bot 设置中开启」，不要编造结果")

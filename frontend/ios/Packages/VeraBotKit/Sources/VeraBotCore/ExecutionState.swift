@@ -111,6 +111,8 @@ public enum ExecutionEvent: Sendable, Hashable {
     case error(String)
     /// SSE `done`。
     case done
+    /// SSE `notification`。不改变执行状态，只让界面去刷新收件箱。
+    case notification
     /// 流结束（无论是否收到 done）；仍在进行时按 done 处理。
     case streamEnded
     /// 「短暂受阻」展示时间到（客户端计时后发送，serial 取自 `blockedSerial`）。
@@ -215,6 +217,9 @@ public struct ExecutionStateMachine: Sendable, Hashable {
             guard state.isActive else { return }
             openTools = []
             state = .failed(message: message)
+
+        case .notification:
+            return
 
         case .done, .streamEnded:
             guard state.isActive else { return }

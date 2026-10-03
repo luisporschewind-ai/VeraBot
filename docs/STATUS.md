@@ -5,7 +5,7 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v10**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表；v8 MCP 同意 / 同步状态 / 熔断；v9 邮箱 / 手机号账号 + 刷新令牌；v10 插件安装表 `user_plugins` + `mcp_servers.plugin_id`）。iOS `0.1.0 (1)` |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v11**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表；v8 MCP 同意 / 同步状态 / 熔断；v9 邮箱 / 手机号账号 + 刷新令牌；v10 插件安装表 `user_plugins` + `mcp_servers.plugin_id`；v11 提醒、通知、设备与幂等键）。iOS `0.1.0 (1)` |
 | 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
@@ -35,6 +35,7 @@
 - **账号隔离 · HTTP 缓存 (2026-10-03)**：审计结论服务端隔离完好 (136 次跨账号请求全部 404 / 422)；修复设备侧两处：后端所有 `/api/*` 带 `Cache-Control: no-store` (头像 `private, no-store`)，iOS API 改走无缓存的 `APITransport.session`，退出 / 登录 / 升级后首次启动清 `Cache.db`；异步资料 / 头像结果按登录会话代号丢弃。`cache_headers_test.py` 8/8、Kit `swift test` 112/112；模拟器验证换账号后 Cache.db 无 API 响应。邮箱抢注已另修 (见上一条)。**Web 落后**：Web 端自己不缓存 API，后端头对它同样生效，无需改。
 - **主题色 (2026-10-03)**：iOS 品牌色改为 Vera CLI 青绿 (浅色 `#3A7485` / 深色 `#548EA0`，白字实色底深色 `#3D7A8C`，品牌文字 `#D7E4EE`)。**Web 落后**：仍是旧的 `#0F766E` (冻结)。
 - **插件 P1（schema v10，2026-10-03）**：设置「MCP 服务」改为「插件」。页内两组「内置」（天气、提醒，不可卸载、无需同意）和「外部」（已安装的 Microsoft Learn / AWS Knowledge）。新账号不预装外部插件。用过的老数据迁成已安装（演示账号已同意的 Learn 仍在）；没用过的不写卸载墓碑。卸载会清同意并从所有 Bot 去掉工具，iOS 先确认。设计 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。本机升级前备份 `backend/data/verabot.db.bak-before-v10-<时间戳>`。`plugin_test.py` 通过。iOS 未在本环境编译。**Web 落后：插件 P1 没有 Web 对应**（`frontend/web` 冻结；`/api/mcp/*` 仍可用，`/api/tools` 多了可忽略的 `plugin_id`）。
+- **提醒与推送 R1（schema v11，2026-10-03）**：设计 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) v1.0。提醒状态机、30 秒调度与睡眠补跑、CRUD、三个 Bot 工具、收件箱、通知偏好、iOS 本地通知。SQL 在 `db/reminder_store.py`。APNs 不做。升级前备份 `backend/data/verabot.db.bak-before-v11-<时间戳>`。`reminder_test.py`、`notify_test.py` 用假时钟、不访问外网。**本环境没有 Swift / Xcode，iOS 未编译、未跑模拟器。Web 冻结**：没有新的提醒界面；`POST /api/reminders/{id}/done` 和列表里的 `content` / `done` / `bot_name` / `due_at` 仍可用。
 - **待办**：
   1. **执行状态机**：v1.1 已接到对话页导航栏头像（见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md)）。首页列表只显示静态形象。`completed` 后 1.5 s 回空闲。先前三处遗留已修：68pt 角标符号、滚出屏幕后循环不停、`reset` 取消受阻计时。
   2. **头像动画**：采用头像实验室的五款形象和系统 `phaseAnimator`，不采用另一套自定义卡通动画。有相册照片时仍显示照片。
@@ -42,7 +43,7 @@
 
 ## 📍 当前进度 (Current progress) — main 工作区 (2026-10-01)
 
-v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v10** (v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号邮箱 / 手机号 / 刷新令牌；v10 插件安装表。置顶迁移前备份 `backend/data/verabot.db.bak-before-v6`；插件迁移前建议 `backend/data/verabot.db.bak-before-v10-<时间戳>`)；iOS 版本号仍为 `0.1.0 (1)`.
+v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v11** (v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号邮箱 / 手机号 / 刷新令牌；v10 插件安装表；v11 提醒与通知。置顶迁移前备份 `backend/data/verabot.db.bak-before-v6`；插件迁移前建议 `backend/data/verabot.db.bak-before-v10-<时间戳>`；提醒迁移前备份 `backend/data/verabot.db.bak-before-v11-<时间戳>`)；iOS 版本号仍为 `0.1.0 (1)`.
 
 ### 功能实现与验收状态 (Implementation and acceptance status)
 
@@ -108,7 +109,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot`；外部插件（Learn / AWS）需先安装并同意，再在 Bot 里单独打开 |
 | 多 Agent 协作 | ✅ | 工具白名单、委派白名单、接受委派、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 |
 | 每日 Token 预算 | ✅ | 超额 429，委派也被拒 |
-| 提醒 Reminders / 用量 Quota | ✅ | 提醒为 Tab 页，只落库、不推送；用量看板从设置页「用量」进入 (不再是 Tab)，不显示账号分组 |
+| 提醒 Reminders / 用量 Quota | ✅（R1，iOS 未在本环境编译） | 提醒 Tab 分段「提醒 / 通知」；服务端到时与补跑；本地通知；APNs 未做。用量看板从设置页「用量」进入 (不再是 Tab)，不显示账号分组。Web 冻结，没有新界面 |
 | 语音输入 Voice input | ✅ (Boss 手工验收通过) | Web `/api/transcribe`；iOS Speech 框架 |
 | 语音播放 TTS | ✅ | 用户 + Bot 气泡 🔊，本机 TTS；设置里可关闭 |
 | 设置页 Settings | ✅ | 首页头像入口；账号 → 用量 → 记忆 → 插件 → 通用 (外观 / 通知 / 触感反馈 / 语言) → 语音 → 关于 → 退出登录 (最底部)。右上角 🐞 进入「调试」页：服务器地址、健康检查、版本 / 构建信息。插件页界面验收未做 |

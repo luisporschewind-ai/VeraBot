@@ -46,8 +46,15 @@ async def chat(bot_id: int, body: ChatIn, user=Depends(current_user)):
         raise HTTPException(429, f"今日 Token 额度已用完（{used:,} / {budget:,}），请明天再试")
 
     async def gen():
-        async for ev in run_chat(user["id"], bot, body.message.strip()):
-            yield f"event: {ev['event']}\ndata: {json.dumps(ev['data'], ensure_ascii=False)}\n\n"
+        from ...services.notify import hub
+        queue = hub.subscribe(user["id"])
+        try:
+            async for ev in run_chat(user["id"], bot, body.message.strip()):
+                yield f"event: {ev['event']}\ndata: {json.dumps(ev['data'], ensure_ascii=False)}\n\n"
+                for note in hub.drain(queue):
+                    yield f"event: notification\ndata: {json.dumps(note, ensure_ascii=False)}\n\n"
+        finally:
+            hub.unsubscribe(user["id"], queue)
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

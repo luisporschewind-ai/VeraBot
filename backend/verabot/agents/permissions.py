@@ -3,12 +3,17 @@ from .. import db
 from ..tools.registry import REGISTRY
 
 
+REMINDER_TOOLS = {"create_reminder", "list_reminders", "manage_reminder"}
+
+
 def is_permitted(bot: dict, name: str, depth: int) -> tuple[bool, str]:
     """服务端权限判定：工具存在 + 在 Bot 白名单内 + 委派类工具未超过最大深度。"""
     from ..core.config import MAX_DELEGATION_DEPTH   # 调用时读取（测试可临时调整）
     t = REGISTRY.get(name)
     if t is None:
         return False, "unknown_tool"
+    if name in REMINDER_TOOLS and depth >= 1:    # 被委派的 Bot 不能读写提醒（与记忆相同）
+        return False, "reminder_not_delegable"
     if t.kind == "memory":                       # 记忆工具：不看 allowed_tools，看 memory_access；被委派时一律禁止
         if depth >= 1:
             return False, "memory_not_delegable"

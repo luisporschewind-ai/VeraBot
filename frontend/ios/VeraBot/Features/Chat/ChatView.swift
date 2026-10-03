@@ -11,8 +11,10 @@ struct ChatView: View {
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
     @State private var sendCount = 0            // 触感反馈触发器：每次发送 +1
     @Environment(AppState.self) private var app
+    let highlightMessageID: Int?
 
-    init(bot: Bot, api: any VeraBotAPI) {
+    init(bot: Bot, api: any VeraBotAPI, highlightMessageID: Int? = nil) {
+        self.highlightMessageID = highlightMessageID
         _vm = State(initialValue: ChatViewModel(bot: bot, api: api))
     }
 
@@ -22,6 +24,7 @@ struct ChatView: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(vm.items) { item in
                         MessageRow(item: item, bot: vm.bot, vm: vm)
+                            .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
                     }
                     if let e = vm.errorText {
                         Text(e).font(.footnote).foregroundStyle(.red)
@@ -35,7 +38,11 @@ struct ChatView: View {
             .onTapGesture { focused = false }             // 点空白处收起键盘（气泡内按钮优先响应）
             .background(Color.appBackground)
             .onChange(of: vm.scrollTick) {
-                proxy.scrollTo("bottom", anchor: .bottom)   // 新消息 / 流式输出：滚到最后一条
+                if let mid = highlightMessageID, vm.items.contains(where: { $0.messageID == mid }) {
+                    proxy.scrollTo("m\(mid)", anchor: .center)
+                } else {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
                 // 只响应本页输入框的键盘；sheet（Bot 详情）里的键盘不应滚动对话页

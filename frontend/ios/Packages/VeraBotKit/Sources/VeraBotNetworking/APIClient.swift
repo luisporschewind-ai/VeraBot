@@ -28,6 +28,8 @@ public enum ChatEvent: Sendable {
     case status(ChatStatus)
     case error(String)
     case done(ChatDone)
+    /// 对话进行中产生的通知。旧客户端忽略；状态机不因此改变。
+    case notification(ChatNotification)
 }
 
 extension ChatEvent {
@@ -40,6 +42,7 @@ extension ChatEvent {
         case .status(let s): .status(s)
         case .error(let msg): .error(msg)
         case .done: .done
+        case .notification: .notification
         }
     }
 }
@@ -301,8 +304,88 @@ public struct APIClient: VeraBotAPI {
     // MARK: - Reminders / Quota
     public func reminders() async throws -> RemindersResponse { try await call("/api/reminders") }
 
-    public func completeReminder(_ id: Int) async throws -> OKResponse {
-        try await call("/api/reminders/\(id)/done", method: "POST")
+    public func reminder(id: Int) async throws -> Reminder { try await call("/api/reminders/\(id)") }
+
+    public func createReminder(_ body: ReminderWrite) async throws -> Reminder {
+        try await call("/api/reminders", method: "POST", body: try encode(body), headers: idempotency(nil))
+    }
+
+    public func updateReminder(id: Int, _ body: ReminderWrite) async throws -> Reminder {
+        try await call("/api/reminders/\(id)", method: "PATCH", body: try encode(body), headers: idempotency(nil))
+    }
+
+    public func completeReminder(_ id: Int, idempotencyKey: String? = nil) async throws -> Reminder {
+        try await call("/api/reminders/\(id)/complete", method: "POST", body: Data("{}".utf8), headers: idempotency(idempotencyKey))
+    }
+
+    public func snoozeReminder(_ id: Int, minutes: Int? = nil, until: String? = nil, idempotencyKey: String? = nil) async throws -> Reminder {
+        try await call("/api/reminders/\(id)/snooze", method: "POST", body: try encode(SnoozeBody(minutes: minutes, until: until)),
+                       headers: idempotency(idempotencyKey))
+    }
+
+    public func reopenReminder(_ id: Int) async throws -> Reminder {
+        try await call("/api/reminders/\(id)/reopen", method: "POST", body: Data("{}".utf8), headers: idempotency(nil))
+    }
+
+    public func skipReminder(_ id: Int) async throws -> Reminder {
+        try await call("/api/reminders/\(id)/skip", method: "POST", body: Data("{}".utf8), headers: idempotency(nil))
+    }
+
+    public func restoreReminder(_ id: Int) async throws -> Reminder {
+        try await call("/api/reminders/\(id)/restore", method: "POST", body: Data("{}".utf8), headers: idempotency(nil))
+    }
+
+    public func deleteReminder(_ id: Int, scope: String = "series") async throws -> Reminder {
+        try await call("/api/reminders/\(id)", method: "DELETE", query: [URLQueryItem(name: "scope", value: scope)], headers: idempotency(nil))
+    }
+
+    public func notifications(unread: Bool = false, category: String? = nil) async throws -> NotificationsResponse {
+        var query: [URLQueryItem] = []
+        if unread { query.append(URLQueryItem(name: "unread", value: "true")) }
+        if let category { query.append(URLQueryItem(name: "category", value: category)) }
+        return try await call("/api/notifications", query: query)
+    }
+
+    public func notificationSummary() async throws -> NotificationSummary { try await call("/api/notifications/summary") }
+
+    public func markNotificationRead(_ id: Int) async throws -> InboxNotification {
+        try await call("/api/notifications/\(id)/read", method: "POST")
+    }
+
+    public func markNotificationUnread(_ id: Int) async throws -> InboxNotification {
+        try await call("/api/notifications/\(id)/unread", method: "POST")
+    }
+
+    public func markAllNotificationsRead() async throws -> OKResponse {
+        try await call("/api/notifications/read-all", method: "POST", body: Data("{}".utf8))
+    }
+
+    public func deleteNotification(_ id: Int) async throws -> OKResponse {
+        try await call("/api/notifications/\(id)", method: "DELETE")
+    }
+
+    public func reportNotification(id: Int, event: String, channel: String, deviceId: String?) async throws -> OKResponse {
+        try await call("/api/notifications/\(id)/events", method: "POST",
+                       body: try encode(DeliveryEventBody(event: event, channel: channel, deviceId: deviceId)))
+    }
+
+    public func notificationSettings() async throws -> NotificationSettings { try await call("/api/notification-settings") }
+
+    public func updateNotificationSettings(_ body: NotificationSettings) async throws -> NotificationSettings {
+        try await call("/api/notification-settings", method: "PATCH", body: try encode(body))
+    }
+
+    public func registerDevice(_ body: DeviceRegistration) async throws -> DeviceRegistration {
+        try await call("/api/devices", method: "POST", body: try encode(body))
+    }
+
+    public func deleteDevice(_ deviceId: String) async throws -> OKResponse {
+        let encoded = deviceId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? deviceId
+        return try await call("/api/devices/\(encoded)", method: "DELETE")
+    }
+
+    private func idempotency(_ key: String?) -> [String: String] {
+        ["Idempotency-Key": key ?? UUID().uuidString]
     }
 
     public func quota() async throws -> Quota { try await call("/api/quota") }
@@ -328,6 +411,7 @@ public struct APIClient: VeraBotAPI {
                     #else
                     func open(_ token: String?) async throws -> (URLSession.AsyncBytes, Int) {
                         var r = makeRequest(path, method: "POST", body: body, token: token)
+                        r.setValue("ios", forHTTPHeaderField: "X-VeraBot-Client")
                         r.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                         r.timeoutInterval = 180
                         let (bytes, response) = try await urlSession.bytes(for: r)
@@ -380,6 +464,8 @@ public struct APIClient: VeraBotAPI {
             return .error((try? decoder.decode(ErrorPayload.self, from: data))?.message ?? "未知错误")
         case "done":
             return .done((try? decoder.decode(ChatDone.self, from: data)) ?? ChatDone())
+        case "notification":
+            return (try? decoder.decode(ChatNotification.self, from: data)).map { .notification($0) }
         default:
             return nil
         }
@@ -391,12 +477,16 @@ public struct APIClient: VeraBotAPI {
     }
 
     private func makeRequest(_ path: String, method: String, body: Data?, query: [URLQueryItem] = [],
-                             token: String?) -> URLRequest {
+                             token: String?, headers: [String: String] = [:]) -> URLRequest {
         var url = baseURL.appending(path: path)
         if !query.isEmpty { url = url.appending(queryItems: query) }
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("ios", forHTTPHeaderField: "X-VeraBot-Client")
+        for (key, value) in headers {
+            req.setValue(value, forHTTPHeaderField: key)
+        }
         if let token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -425,8 +515,10 @@ public struct APIClient: VeraBotAPI {
     }
 
     private func call<T: Decodable & Sendable>(_ path: String, method: String = "GET", body: Data? = nil,
-                                               query: [URLQueryItem] = []) async throws -> T {
-        let (data, status) = try await send(path) { makeRequest(path, method: method, body: body, query: query, token: $0) }
+                                               query: [URLQueryItem] = [], headers: [String: String] = [:]) async throws -> T {
+        let (data, status) = try await send(path) {
+            makeRequest(path, method: method, body: body, query: query, token: $0, headers: headers)
+        }
         guard (200..<300).contains(status) else {
             throw Self.apiError(status: status, data: data)
         }
@@ -447,6 +539,7 @@ public struct APIClient: VeraBotAPI {
             var req = URLRequest(url: baseURL.appending(path: path))
             req.httpMethod = "POST"
             req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+            req.setValue("ios", forHTTPHeaderField: "X-VeraBot-Client")
             if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
             req.httpBody = payload
             req.timeoutInterval = 60
@@ -461,6 +554,7 @@ public struct APIClient: VeraBotAPI {
             var req = URLRequest(url: baseURL.appending(path: path))
             req.httpMethod = "GET"
             req.cachePolicy = .reloadIgnoringLocalCacheData
+            req.setValue("ios", forHTTPHeaderField: "X-VeraBot-Client")
             if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
             req.timeoutInterval = 30
             return req

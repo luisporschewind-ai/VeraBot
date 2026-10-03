@@ -34,14 +34,39 @@ struct RootView: View {
 
 struct MainTabView: View {
     @Environment(AppState.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        TabView {
+        @Bindable var app = app
+        TabView(selection: $app.selectedTab) {
             BotListView()
                 .tabItem { Label("助理", systemImage: "bubble.left.and.bubble.right") }
+                .tag(0)
             RemindersView()
                 .tabItem { Label("提醒", systemImage: "alarm") }
+                .badge(app.unreadCount)
+                .tag(1)
         }
-        .task { await app.refreshProfile() }
+        .task {
+            await app.refreshProfile()
+            NotificationCoordinator.shared.start(app: app)
+            await app.syncReminders()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await app.syncReminders() } }
+        }
+        .alert("提示", isPresented: Binding(
+            get: { app.missingNotice != nil },
+            set: { if !$0 { app.missingNotice = nil } }
+        )) {
+            Button("好") { app.missingNotice = nil }
+        } message: {
+            Text(app.missingNotice ?? "")
+        }
+        .sheet(isPresented: $app.showNotificationSettings) {
+            NavigationStack {
+                NotificationSettingsView()
+            }
+        }
     }
 }

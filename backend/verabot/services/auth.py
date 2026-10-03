@@ -10,6 +10,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from .. import db
+from ..db.reminder_store import disable_user_devices
 from ..core import ratelimit
 from ..core.config import (AUTH_CODE_COOLDOWN_SECONDS, AUTH_CODE_DAILY_LIMIT, AUTH_CODE_MAX_ATTEMPTS,
                            AUTH_CODE_TTL_SECONDS, AUTH_LOCK_MINUTES, AUTH_LOCK_THRESHOLD, REFRESH_TTL_DAYS,
@@ -206,20 +207,34 @@ def refresh(token: str) -> dict:
         return issue_session(c, u)
 
 
+def _disable_push_devices(c, user_id: int, now: str) -> None:
+    disable_user_devices(c, user_id, now)
+
+
 def logout(token: str | None) -> None:
     if not token:
         return
+    now = _iso(_now())
     with db.tx() as c:
+        row = c.execute("SELECT user_id FROM auth_refresh_tokens WHERE token_hash=?", (hash_secret(token),)).fetchone()
         c.execute("UPDATE auth_refresh_tokens SET revoked_at=? WHERE token_hash=? AND revoked_at IS NULL",
-                  (_iso(_now()), hash_secret(token)))
+                  (now, hash_secret(token)))
+        if row:
+            _disable_push_devices(c, row[0], now)
 
 
 def logout_all(user_id: int) -> None:
+    now = _iso(_now())
     with db.tx() as c:
         c.execute("UPDATE users SET token_version = token_version + 1 WHERE id=?", (user_id,))
-        c.execute("UPDATE auth_refresh_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL",
-                  (_iso(_now()), user_id))
+        c.execute("UPDATE auth_refresh_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL", (now, user_id))
+        _disable_push_devices(c, user_id, now)
         _audit(c, user_id, None, "auth_logout_all", {})
+
+
+def revoke_for_email_claim(user_id: int) -> None:
+    """邮箱被认领、会话作废时同时禁用推送设备。认领流程调用这里。"""
+    logout_all(user_id)
 
 
 # ---------- 邮箱验证码 ----------
@@ -293,6 +308,8 @@ def _claim_unverified_email(c, u: dict) -> dict:
         "UPDATE auth_refresh_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL",
         (now, u["id"]),
     )
+    # 与认领同一事务：禁用推送设备。不调用 logout_all（那会再开事务并再加一次 token_version）。
+    _disable_push_devices(c, u["id"], now)
     _audit(c, u["id"], None, "account_claimed_by_email_code", {})
     return _user_by(c, "id", u["id"])
 

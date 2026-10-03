@@ -11,6 +11,7 @@ final class ChatViewModel {
         var text: String
         var traces: [ToolTrace] = []
         var streaming = false
+        var messageID: Int?
     }
 
     var bot: Bot
@@ -72,7 +73,9 @@ final class ChatViewModel {
     func load() async {
         do {
             let r = try await api.messages(botID: bot.id)
-            items = r.messages.map { Item(isUser: $0.role == "user", text: $0.content, traces: $0.traces ?? []) }
+            items = r.messages.map {
+                Item(isUser: $0.role == "user", text: $0.content, traces: $0.traces ?? [], messageID: $0.id)
+            }
             if items.isEmpty {
                 items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
             }
@@ -185,10 +188,15 @@ final class ChatViewModel {
                     } else {
                         items[idx].traces.append(trace)
                     }
+                    if ["create_reminder", "manage_reminder", "list_reminders"].contains(trace.name) {
+                        NotificationCenter.default.post(name: .verabotRemindersChanged, object: nil)
+                    }
                 case .error(let msg):
                     appendError(msg, at: idx)
                 case .status, .done:
                     break   // 只驱动导航栏头像；消息正文不显示 status
+                case .notification:
+                    NotificationCenter.default.post(name: .verabotRemindersChanged, object: nil)
                 }
                 scrollTick += 1
             }

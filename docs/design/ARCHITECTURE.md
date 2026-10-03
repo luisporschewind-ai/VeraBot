@@ -26,11 +26,11 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v10：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表)、查询 | `database.py`、`schema.py`、`repository.py`、`plugin_store.py`、`mcp_store.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v11：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知)、查询 | `database.py`、`schema.py`、`repository.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
-| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层 | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py` |
+| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。提醒相关 SQL 不写在这里，只调用 `db/reminder_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
-| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由 | `deps.py`、`schemas.py`、`routers/{auth,avatars,bots,chat,voice,reminders,meta,memories,mcp,plugins}.py` |
+| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由。路由里没有提醒 / 通知 SQL | `deps.py`、`schemas.py`、`routers/{auth,avatars,bots,chat,voice,reminders,notifications,devices,meta,memories,mcp,plugins}.py` |
 | `main.py` | 组装 FastAPI app：CORS、422 处理、启动 `init_db`、挂载路由、托管 Web | — |
 
 ### 2.2 依赖规则 (Dependency rules)
@@ -97,13 +97,15 @@ erDiagram
     avatars { int user_id int bot_id string content_type blob data string updated_at }
     messages { int id int user_id int bot_id string role string content json traces json memory_ids }
     memories { int id int user_id string scope int bot_id string type string content string content_enc string content_hash string status string sensitivity string action int target_id int use_count }
-    reminders { int id int user_id int bot_id string content string due_at int done }
+    reminders { int id int user_id int bot_id string title string content string due_at string due_utc string timezone string status int version }
     delegations { int id int user_id int from_bot_id int to_bot_id string status string reason int depth json payload int total_tokens }
     usage_log { int id int user_id int bot_id string kind int prompt_tokens int completion_tokens int total_tokens }
     audit_log { int id int user_id int bot_id string kind string detail }
 ```
 
 另有 `transcriptions` (Web 语音转写计数，用于用量看板) 和 `avatars` (用户 / Bot 的 512 JPEG)。`schema_meta` 记录 schema 版本；`init_db()` 建表并做幂等迁移 (v1 → v2 → v3 → v4 → v5)。v3 只加列和头像表，不改 v2 的权限回填。v4 新增 `memories` 表和 `bots.memory_access` (默认 `bot_and_global`)、`users.memory_enabled` (默认 1)、`messages.memory_ids` 三列，不写入任何记忆。v5 只给 `bots` 加 `tags` (JSON 数组，默认 `[]`)，不改权限、记忆或头像。详见下文「资料与头像」「Bot 标签」与 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §3。
+
+v11 新增 `reminder_events`、`notifications`、`notification_deliveries`、`notification_prefs`、`push_devices`、`idempotency_keys`，并给 `reminders` 补状态、时区、重复和版本列。这些表的运行时 SQL 只在 `db/reminder_store.py`。公开 JSON 与 iOS `CodingKeys` 的对照表在 [REMINDER_PUSH_DESIGN.md](REMINDER_PUSH_DESIGN.md) §8（`source_bot_id` 与 `bot_id` 同值；`content` 等于 `title`；`done` 仍为 0/1）。契约测试 `reminder_test.py` REM-CONTRACT、`notify_test.py` NTF-CONTRACT。
 
 ## 3. iOS 客户端 (frontend/ios)
 

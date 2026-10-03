@@ -650,3 +650,19 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | CACHE-UI-02 | iOS | demo 浏览首页 / 对话 / 设置并发一条 SSE 消息 | Cache.db 0 条 | 模拟器通过 |
 | CACHE-UI-03 | iOS | demo 退出 → boss 登录 → 手机号登录 → demo | 每一步 Cache.db 不存在或 0 条；首页、设置、记忆只显示当前账号 (CACHE_28 / CACHE_30)，没有上一个账号的 Bot、昵称、头像、记忆 | 模拟器通过 |
 | CACHE-UI-04 | iOS | 快速换账号时旧请求回来 | 丢弃结果 | 由 CACHE-K-06 + 代码审查覆盖，未做界面复现 |
+
+## 提醒与推送 R1 (schema v11) — 2026-10-03
+
+自动化：`cd backend && uv run python scripts/test/reminder_test.py` 与 `notify_test.py`。假时钟，不访问外网。设计 [REMINDER_PUSH_DESIGN.md](../design/REMINDER_PUSH_DESIGN.md) v1.0，字段对照 §8。iOS Kit 用例本环境未跑（无 Swift）。模拟器用例未测。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| REM-01 | 迁移 | v10 库启动两次 | 版本 11；新表齐全；只备份一次；旧行按规则回填，未解析时间不进 `due_at` | 通过 |
+| REM-02 … REM-15 | 状态机 / 时间 / 重复 | 完成、稍后、冲突、过去时间、RRULE、夏令时、幂等、软删除 | 与设计 §16 一致；非法转移 409 | 通过 |
+| REM-BOT-01 … 07、09、10 | Bot | 可见范围、委派拒绝、写上限、删 Bot 保留提醒、工具归属 | `list_reminders` 只含本 Bot 创建或指派的；`manage_reminder` 的 `plugin_id=builtin_reminder` | 通过 |
+| ISO-REM-01 … 03 | 隔离 | 他人读写提醒、错误 Bot / 消息 | 404；响应 `Cache-Control: no-store` | 通过 |
+| REM-CONTRACT | 契约 | 提醒 JSON 键与 `Reminders.swift` CodingKeys | 键名一致 | 通过 |
+| NTF-01 … 08、10、11 | 通知 | 设备、收件箱、偏好、免打扰、SQLite 限流、预览、投递等级、退出禁用、token 迁移、无 APNs | 提醒不受免打扰和限流；R1 没有 `channel=apns` | 通过 |
+| NTF-CONTRACT | 契约 | 通知 / 偏好 / 设备 JSON 与 `Notifications.swift` | 键名一致 | 通过 |
+| REM-UI-01、REM-UI-06、NTF-UI-03 | iOS Kit | 分组、排程上限 60、深链接 | 纯逻辑在 Kit 测试里 | 未跑（本环境无 Swift） |
+| REM-UI-02 … 05、07、08、NTF-UI-01、02、04 | iOS 模拟器 | 界面、本地通知、退出清理 | 见设计 §16 | 未测 |

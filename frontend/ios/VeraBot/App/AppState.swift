@@ -25,6 +25,7 @@ final class AppState {
         static let hasAvatar = "vb_has_avatar"
         static let avatarUpdatedAt = "vb_avatar_updated_at"
         static let baseURL = "vb_base_url"
+        static let userID = "vb_user_id"
     }
 
     /// 是否已登录（非 nil 即已登录）；实际请求用 authSession 里的最新访问令牌。
@@ -38,6 +39,12 @@ final class AppState {
     private(set) var nickname: String?
     private(set) var hasAvatar = false
     private(set) var avatarUpdatedAt: String?
+    private(set) var userID: Int?
+    var unreadCount = 0
+    var selectedTab = 0
+    var pendingLink: DeepLink?
+    var missingNotice: String?
+    var showNotificationSettings = false
     var baseURLString: String
     let avatars = AvatarStore()
 
@@ -77,6 +84,8 @@ final class AppState {
         nickname = d.string(forKey: Keys.nickname)
         hasAvatar = d.bool(forKey: Keys.hasAvatar)
         avatarUpdatedAt = d.string(forKey: Keys.avatarUpdatedAt)
+        let storedUser = d.integer(forKey: Keys.userID)
+        userID = storedUser == 0 ? nil : storedUser
         baseURLString = d.string(forKey: Keys.baseURL) ?? AppConfig.defaultBaseURL
         if hasAvatar {
             avatars.loadCachedUser()
@@ -122,6 +131,8 @@ final class AppState {
         phone = user.phone
         serverDisplayName = user.displayName
         let d = UserDefaults.standard
+        userID = user.id
+        d.set(user.id, forKey: Keys.userID)
         d.set(user.username, forKey: Keys.username)
         d.set(user.email, forKey: Keys.email)
         d.set(user.emailVerified, forKey: Keys.emailVerified)
@@ -166,10 +177,17 @@ final class AppState {
     }
 
     func signOut() {
-        // 通知后端吊销刷新令牌（失败不影响本地退出）
-        if let refresh = authSession.tokens?.refresh {
-            let api = self.api
-            Task.detached { _ = try? await api.logout(refreshToken: refresh) }
+        let refresh = authSession.tokens?.refresh
+        let device = DeviceIdentity.current()
+        let uid = userID
+        let api = self.api
+        if let uid { ReminderOutboxStore.remove(userID: uid) }
+        NotificationCoordinator.shared.clearAll()
+        DeviceIdentity.rotate()
+        // 先注销设备，再吊销刷新令牌。失败不影响本地退出。
+        Task.detached {
+            _ = try? await api.deleteDevice(device)
+            if let refresh { _ = try? await api.logout(refreshToken: refresh) }
         }
         authSession.set(nil)
         token = nil
@@ -189,6 +207,10 @@ final class AppState {
         d.removeObject(forKey: Keys.nickname)
         d.removeObject(forKey: Keys.hasAvatar)
         d.removeObject(forKey: Keys.avatarUpdatedAt)
+        userID = nil
+        unreadCount = 0
+        pendingLink = nil
+        d.removeObject(forKey: Keys.userID)
     }
 
     /// 统一错误文案；401 时自动退出登录。

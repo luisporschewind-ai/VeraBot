@@ -13,6 +13,8 @@ struct BotListView: View {
     @State private var searchActive = false     // 点击右上角放大镜后才挂载搜索栏；未激活时页面上不存在搜索框
     @State private var searchPresented = false  // 系统搜索栏的焦点 / 展开状态；取消后收起并清空关键词
     @State private var pinning: Set<Int> = []    // 正在与服务端同步置顶状态的 Bot，避免连点重复提交
+    @State private var linkedChat: LinkedChat?
+    @State private var linkedPlugin: String?
 
     var body: some View {
         NavigationStack {
@@ -75,6 +77,22 @@ struct BotListView: View {
             .navigationDestination(for: Bot.self) { bot in
                 ChatView(bot: bot, api: app.api)
                     .toolbar(.hidden, for: .tabBar)   // 二级页面隐藏底部 Tab 栏，返回根页面时自动恢复
+            }
+            .navigationDestination(item: $linkedChat) { route in
+                ChatView(bot: route.bot, api: app.api, highlightMessageID: route.messageID)
+                    .toolbar(.hidden, for: .tabBar)
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { linkedPlugin != nil },
+                set: { if !$0 { linkedPlugin = nil } }
+            )) {
+                if let linkedPlugin {
+                    PluginDetailView(pluginID: linkedPlugin)
+                        .toolbar(.hidden, for: .tabBar)
+                }
+            }
+            .onChange(of: app.pendingLink) { _, link in
+                open(link)
             }
             .toolbar {
                 // iOS 26：系统会给工具栏项套一层 Liquid Glass 共享底（按内容算出的胶囊），
@@ -162,8 +180,24 @@ struct BotListView: View {
                 app.avatars.reconcileBot(id: bot.id, hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
             }
             errorText = nil
+            open(app.pendingLink)
         } catch {
             errorText = app.message(for: error)
+        }
+    }
+
+    private func open(_ link: DeepLink?) {
+        guard let link else { return }
+        switch link {
+        case .chat(let botID, let messageID):
+            guard let bot = bots.first(where: { $0.id == botID }) else { return }
+            linkedChat = LinkedChat(bot: bot, messageID: messageID)
+            app.pendingLink = nil
+        case .plugin(let id):
+            linkedPlugin = id
+            app.pendingLink = nil
+        default:
+            break
         }
     }
 
@@ -217,6 +251,12 @@ struct BotListView: View {
         }
     }
 
+}
+
+private struct LinkedChat: Identifiable, Hashable {
+    let bot: Bot
+    let messageID: Int?
+    var id: Int { bot.id }
 }
 
 private extension View {

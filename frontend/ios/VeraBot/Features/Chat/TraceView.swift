@@ -53,6 +53,7 @@ struct TraceView: View {
         case "get_weather": return "🌤 天气查询"
         case "create_reminder": return "⏰ 创建提醒"
         case "list_reminders": return "📋 查看提醒"
+        case "manage_reminder": return "⏰ 管理提醒"
         case "remember": return "🧠 记忆"
         case "forget_memory": return "🧠 忘掉记忆"
         default: return MCPTraceText.title(for: trace.name) ?? "🔧 \(trace.name)"
@@ -70,9 +71,14 @@ struct TraceView: View {
             }
             return s
         case "create_reminder":
-            return "已保存：\(r["content"]?.text ?? "") \(r["due_at"]?.text ?? "")"
+            if let summary = r["summary"]?.text, !summary.isEmpty { return summary }
+            let title = r["title"]?.text ?? r["content"]?.text ?? ""
+            return title.isEmpty ? "已创建提醒" : "已创建提醒：\(title)"
+        case "manage_reminder":
+            if let summary = r["summary"]?.text, !summary.isEmpty { return summary }
+            return "已更新提醒"
         case "list_reminders":
-            return "共 \(r["count"]?.text ?? "0") 条未完成提醒"
+            return "共 \(r["count"]?.text ?? "0") 条提醒"
         default:
             if MCPTraceText.isMCP(trace.name) {
                 return MCPTraceText.summary(contentLength: r["content"]?.text.count ?? 0,

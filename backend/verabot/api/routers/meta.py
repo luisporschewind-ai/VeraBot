@@ -19,11 +19,13 @@ def quota(user=Depends(current_user)):
 
 @router.get("/api/tools")
 def tools_list(user=Depends(current_user)):
-    labels = {"get_weather": "天气查询", "create_reminder": "创建提醒", "list_reminders": "查看提醒", "ask_bot": "委派其他 Bot"}
+    labels = {"get_weather": "天气查询", "create_reminder": "创建提醒", "list_reminders": "查看提醒",
+              "manage_reminder": "管理提醒", "ask_bot": "委派其他 Bot"}
     builtin_plugin = {
         "get_weather": "builtin_weather",
         "create_reminder": "builtin_reminder",
         "list_reminders": "builtin_reminder",
+        "manage_reminder": "builtin_reminder",
     }
     tools = [{"name": t.name, "label": labels.get(t.name, t.name), "description": t.description,
               "delegation": t.delegation, "source": "builtin", "server": None, "server_id": None,
