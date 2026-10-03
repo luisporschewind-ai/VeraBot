@@ -50,6 +50,15 @@ struct DebugView: View {
                 LabeledContent("构建配置", value: "Release")
                 #endif
             }
+
+            Section("实验") {
+                NavigationLink {
+                    AvatarLabView()
+                        .toolbar(.hidden, for: .tabBar)
+                } label: {
+                    Label("头像实验室", systemImage: "face.smiling")
+                }
+            }
         }
         .navigationTitle("调试")
         .navigationBarTitleDisplayMode(.inline)
