@@ -7,7 +7,7 @@ import os
 
 from .. import db
 from ..core.config import MCP_CALLS_PER_TURN_DEFAULT
-from ..db import mcp_store, plugin_store
+from ..db import delegation_store, mcp_store, plugin_store
 from ..services.mcp import catalog as mcp_catalog
 from ..services.mcp import service as mcp
 from ..tools.registry import ToolContext, run_tool
@@ -122,11 +122,7 @@ def _deny(ctx: ToolContext, name: str, reason: str, audited: bool = False) -> di
 
 
 def _delegation_rejected(ctx: ToolContext, name: str):
-    with db.tx() as c:
-        c.execute(
-            """INSERT INTO delegations(user_id,from_bot_id,to_bot_id,question,shared_context,answer,created_at,status,reason,depth)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (ctx.user_id, ctx.bot["id"], 0, name, "", "", db.now_iso(), "rejected", "not_delegable", ctx.depth),
-        )
+    delegation_store.insert(user_id=ctx.user_id, from_bot_id=ctx.bot["id"], to_bot_id=0, question=name,
+                            shared_context="", answer="", status="rejected", reason="not_delegable", depth=ctx.depth)
     db.audit(ctx.user_id, ctx.bot.get("id"), "tool_denied",
              {"tool": name, "reason": "not_delegable", "depth": ctx.depth})
