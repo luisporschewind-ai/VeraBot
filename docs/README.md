@@ -10,7 +10,7 @@
 | product/ | [FEATURES.md](product/FEATURES.md) | 功能清单、API 摘要、SSE 事件格式 |
 | design/ | [ARCHITECTURE.md](design/ARCHITECTURE.md) | 两个项目的架构、模块、依赖规则、依赖管理 (SPM / uv)、数据模型 |
 | design/ | [MULTI_AGENT_DESIGN.md](design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限模型、上下文隔离、护栏、审计、迁移、设置页 / TTS 扩展 |
-| design/ | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | **设计稿 (未实现)**：MCP 能力 — 后端作为 MCP Client (官方 Python SDK)、Streamable HTTP / stdio、服务器注册表、OAuth 2.1、工具发现与命名空间、Bot 白名单与委派限制、HITL 确认、不可信结果防注入、审计、iOS 界面、API / DB、MCP-xx 测试、里程碑与开放问题 |
+| design/ | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | **设计 v1.0 已批准；M1 已实现**（schema v7、免授权 Learn / AWS、字段对照见 §18）。M2 起（OAuth、HITL、Gmail、自定义 URL）仍是设计，未实现 |
 | design/ | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | **设计稿 (未实现)**：Gmail 能力 — 主路径经 Google 官方 Gmail MCP、候选服务器评估、直连 Gmail API 备用路径、Scope、发送人工确认 (HITL)、权限 / 委派集成、提示注入、里程碑与开放问题 |
 | design/ | [EXECUTION_STATE.md](design/EXECUTION_STATE.md) | **已实现 (iOS Core)**：执行状态机的状态、转移表、SSE 事件映射，以及以后对接头像实验室的状态映射 |
 | design/ | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | **实施方案 v1.0 (Boss 已批准；M1 已实现，schema v4，M2~M5 未开始)**：以记忆为核心的 Bot 成长体系 — 显式记忆与确认卡片、隐式候选、分层作用域 (全局 / Bot / 摘要)、风格校准、主动建议、快捷提问、了解程度与月度回顾；`memories` 表 / schema v4、API、prompt 注入与 Token 预算、权限与委派隔离、隐私与防注入、iOS 界面、MEM-xx 测试、M1~M5 里程碑与估算、开放问题 |

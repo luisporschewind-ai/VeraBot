@@ -4,6 +4,8 @@ import json
 from fastapi import HTTPException
 
 from .. import db
+from ..core.config import MCP_MAX_TOOLS_PER_BOT
+from ..db import mcp_store
 from ..tools import REGISTRY
 
 PUBLIC_FIELDS = ("id", "name", "avatar", "color", "persona", "instructions", "created_at",
@@ -27,11 +29,20 @@ def validate_perms(user: dict, body, self_id: int | None) -> dict:
     """服务端校验权限配置：工具必须存在；委派目标必须是本人的其他 Bot。返回需写入的列。"""
     out = {}
     if body.allowed_tools is not None:
-        bad = [t for t in body.allowed_tools if t not in REGISTRY]
-        if bad:
-            raise HTTPException(422, f"未知工具：{', '.join(bad)}")
-        if any(REGISTRY[t].kind == "memory" for t in body.allowed_tools):
-            raise HTTPException(422, "记忆能力在「记忆」设置中管理，不能放进工具白名单")
+        mcp_names = []
+        for name in body.allowed_tools:
+            if name.startswith("mcp__"):
+                tool = mcp_store.get_tool_by_full_name(user["id"], name)
+                if tool is None or tool["status"] != "active":
+                    raise HTTPException(422, f"未知工具：{name}")
+                mcp_names.append(name)
+                continue
+            if name not in REGISTRY:
+                raise HTTPException(422, f"未知工具：{name}")
+            if REGISTRY[name].kind == "memory":
+                raise HTTPException(422, "记忆能力在「记忆」设置中管理，不能放进工具白名单")
+        if len(set(mcp_names)) > MCP_MAX_TOOLS_PER_BOT:
+            raise HTTPException(422, f"每个 Bot 最多开启 {MCP_MAX_TOOLS_PER_BOT} 个 MCP 工具")
         out["allowed_tools"] = json.dumps(sorted(set(body.allowed_tools)))
     if body.delegate_to is not None:
         mine = {b["id"] for b in db.list_bots(user["id"])}

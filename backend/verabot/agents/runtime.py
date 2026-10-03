@@ -5,10 +5,10 @@ import logging
 from .. import db
 from ..core.config import EMPTY_REPLY_RETRIES, HISTORY_WINDOW, MAX_TOOL_ROUNDS
 from ..services import llm, memory
-from ..tools.registry import ToolContext, TurnState, run_tool
+from ..tools.registry import ToolContext, TurnState
 from .context import delegation_message
-from .permissions import get_schemas
 from .prompts import system_prompt
+from .tool_router import dispatch, schemas_for, trace_meta
 
 log = logging.getLogger("verabot.agent")
 EMPTY_REPLY_MSG = "模型没有返回内容（已自动重试），请稍后再试或换个说法"
@@ -74,7 +74,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
     messages = [{"role": "system", "content": system_prompt(user_id, bot, memory_block=rec.block, memory_tools=memory_tools)},
                 *history, {"role": "user", "content": user_text}]
     ctx = ToolContext(user_id=user_id, bot=bot, depth=0, chain=[], turn=TurnState(), user_message_id=user_mid)
-    tools = get_schemas(bot, 0, memory_on=memory_on)
+    tools = schemas_for(bot, 0, memory_on, user_id)
     usage_total: dict = {}
     traces: list = []
     answer = ""
@@ -111,8 +111,9 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
                     args = json.loads(tc["arguments"] or "{}")
                 except json.JSONDecodeError:
                     args = {"_raw": tc["arguments"]}
-                yield {"event": "tool_start", "data": {"id": tc["id"], "name": tc["name"], "args": args}}
-                result = await run_tool(ctx, tc["name"], tc["arguments"])
+                yield {"event": "tool_start", "data": {"id": tc["id"], "name": tc["name"], "args": args,
+                                                       **trace_meta(user_id, tc["name"])}}
+                result = await dispatch(ctx, tc["name"], tc["arguments"])
                 trace = {"id": tc["id"], "name": tc["name"], "args": args, "result": result}
                 if tc["name"] in MEMORY_TOOLS:
                     trace = _redact_memory_trace(trace)
@@ -147,7 +148,7 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
     messages = [{"role": "system", "content": system_prompt(user_id, bot, delegated_by=from_bot, depth=depth)},
                 {"role": "user", "content": user_msg}]
     ctx = ToolContext(user_id=user_id, bot=bot, depth=depth, chain=list(chain or []), turn=turn or TurnState())
-    tools = get_schemas(bot, depth)
+    tools = schemas_for(bot, depth, False, user_id)
     usage_total: dict = {}
     for _round in range(MAX_TOOL_ROUNDS + 1):
         use_tools = (tools or None) if _round < MAX_TOOL_ROUNDS else None
@@ -163,7 +164,7 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
             return content or f"（{bot['name']} 暂时没有给出答复）", usage_total, user_msg
         messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": calls})
         for tc in calls:
-            result = await run_tool(ctx, tc["function"]["name"], tc["function"].get("arguments", "{}"))
+            result = await dispatch(ctx, tc["function"]["name"], tc["function"].get("arguments", "{}"))
             messages.append({"role": "tool", "tool_call_id": tc["id"],
                              "content": json.dumps(result, ensure_ascii=False)[:6000]})
     return f"（{bot['name']} 暂时没有给出答复）", usage_total, user_msg

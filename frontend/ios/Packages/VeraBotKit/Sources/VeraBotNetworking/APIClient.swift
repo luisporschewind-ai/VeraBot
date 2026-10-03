@@ -132,6 +132,30 @@ public struct APIClient: VeraBotAPI {
 
     public func tools() async throws -> ToolsResponse { try await call("/api/tools") }
 
+    public func mcpCatalog() async throws -> MCPCatalogResponse { try await call("/api/mcp/catalog") }
+
+    public func mcpServers() async throws -> MCPServersResponse { try await call("/api/mcp/servers") }
+
+    public func addMCPServer(catalogID: String) async throws -> MCPServer {
+        try await call("/api/mcp/servers", method: "POST", body: try encode(["catalog_id": catalogID]))
+    }
+
+    public func updateMCPServer(id: Int, enabled: Bool) async throws -> MCPServer {
+        try await call("/api/mcp/servers/\(id)", method: "PATCH", body: try encode(["enabled": enabled]))
+    }
+
+    public func deleteMCPServer(id: Int) async throws -> OKResponse {
+        try await call("/api/mcp/servers/\(id)", method: "DELETE")
+    }
+
+    public func syncMCPServer(id: Int) async throws -> MCPSyncResult {
+        try await call("/api/mcp/servers/\(id)/sync", method: "POST")
+    }
+
+    public func mcpTools(serverID: Int) async throws -> MCPToolsResponse {
+        try await call("/api/mcp/servers/\(serverID)/tools")
+    }
+
     public func delegations(botID: Int) async throws -> DelegationsResponse {
         try await call("/api/bots/\(botID)/delegations")
     }

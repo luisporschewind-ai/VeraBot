@@ -63,3 +63,13 @@ MEMORY_PROPOSALS_PER_TURN = int(os.getenv("VERABOT_MEMORY_PROPOSALS_PER_TURN", "
 MEMORY_PROPOSAL_TTL_DAYS = int(os.getenv("VERABOT_MEMORY_PROPOSAL_TTL_DAYS", "7"))
 MEMORY_REJECT_COOLDOWN_DAYS = int(os.getenv("VERABOT_MEMORY_REJECT_COOLDOWN_DAYS", "30"))
 # 敏感记忆（健康 / 财务）加密密钥：VERABOT_MEMORY_ENC_KEY，留空则自动生成 data/.memory_key（见 core/crypto.py）
+
+# ---- MCP（schema v7，见 docs/design/MCP_CAPABILITY.md）----
+# 地址与开关在调用时读取环境变量，测试可以在导入之后再改。
+# 默认请求协议 2025-06-18；服务器若协商更低版本（如 AWS 的 2025-03-26），客户端接受并在后续请求带上。
+MCP_PROTOCOL_VERSION = "2025-06-18"
+MCP_TIMEOUT_DEFAULT = 15  # 秒。建议 10–15；测试可调低。
+MCP_CALLS_PER_TURN_DEFAULT = 8
+MCP_MAX_TOOLS_PER_SERVER_DEFAULT = 50
+MCP_MAX_RESULT_CHARS_DEFAULT = 8000
+MCP_MAX_TOOLS_PER_BOT = 20
