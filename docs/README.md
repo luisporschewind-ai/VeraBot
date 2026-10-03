@@ -13,6 +13,8 @@
 | design/ | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | **设计 v1.0 已批准；M1 与 M2 已实现**（schema v8：免授权 Learn / AWS、按服务同意、会话复用、审计、后台同步、熔断。字段对照见 §18）。其上的插件 P1 见下一行。M3 起（OAuth、HITL、Gmail、自定义 URL）仍是设计，未实现。`frontend/web` 冻结，没有 MCP 界面 |
 | design/ | [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) | **v1.0 已定稿并实现（schema v10）**：插件是用户看到的产品层，MCP 是能力。新账号不预装；内置天气 / 提醒与外部 Learn / AWS。字段对照见 MCP §18.4。`frontend/web` 冻结，插件 P1 没有 Web 对应 |
 | design/ | [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) | **v1.0 已定稿，R1 已实现（schema v11）**：提醒状态机、本地通知、收件箱与偏好。字段对照见 §8。SQL 在 `db/reminder_store.py`。APNs 未做。`frontend/web` 冻结 |
+| design/ | [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md) | **v1.0 定稿 (P1 未实现)**：聊天图片附件 — DeepSeek 视觉核查、P0 模型迁移 (已完成)、iOS PhotosPicker (每条 1 张、GIF 动画)、两步上传、按需召回 (图片描述 + 回指时重发原图)、委派转发图片、带图轮次写操作确认、schema v12、字段对照、ATT-xx 测试；Q1–Q12 Boss 已全部决定 |
+| design/ | [ATTACHMENT_STORAGE_RESEARCH.md](design/ATTACHMENT_STORAGE_RESEARCH.md) | **调研 (已采纳)**：附件存储 — 本地磁盘 + SQLite 元数据 + 薄存储接口、鉴权代理 + `no-store`、原子写入、孤儿对账、备份、FileVault + 0700、上云迁移路径 (Sonic) |
 | design/ | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | **设计稿 (未实现)**：Gmail 能力 — 主路径经 Google 官方 Gmail MCP、候选服务器评估、直连 Gmail API 备用路径、Scope、发送人工确认 (HITL)、权限 / 委派集成、提示注入、里程碑与开放问题 |
 | design/ | [EXECUTION_STATE.md](design/EXECUTION_STATE.md) | **已实现 (iOS Core)**：执行状态机的状态、转移表、SSE 事件映射，以及以后对接头像实验室的状态映射 |
 | design/ | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | **实施方案 v1.0 (Boss 已批准；M1 已实现，schema v4，M2~M5 未开始)**：以记忆为核心的 Bot 成长体系 — 显式记忆与确认卡片、隐式候选、分层作用域 (全局 / Bot / 摘要)、风格校准、主动建议、快捷提问、了解程度与月度回顾；`memories` 表 / schema v4、API、prompt 注入与 Token 预算、权限与委派隔离、隐私与防注入、iOS 界面、MEM-xx 测试、M1~M5 里程碑与估算、开放问题 |

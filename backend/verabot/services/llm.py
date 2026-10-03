@@ -4,7 +4,7 @@ from typing import AsyncIterator
 
 import httpx
 
-from ..core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from ..core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_THINKING
 
 
 class LLMError(RuntimeError):
@@ -19,6 +19,9 @@ def _headers():
 
 def _body(messages, tools, stream):
     body = {"model": DEEPSEEK_MODEL, "messages": messages, "stream": stream, "temperature": 0.7}
+    if not DEEPSEEK_THINKING:
+        # 关闭思考模式：否则带 tools 的多轮请求缺 reasoning_content 会 400（见 core/config.py）
+        body["thinking"] = {"type": "disabled"}
     if tools:
         body["tools"] = tools
     if stream:

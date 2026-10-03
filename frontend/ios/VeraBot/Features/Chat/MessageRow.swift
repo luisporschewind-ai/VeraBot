@@ -14,8 +14,8 @@ struct MessageRow: View {
                 VStack(alignment: .trailing, spacing: 6) {
                     Text(item.text)
                         .padding(.horizontal, 14).padding(.vertical, 10)
-                        .foregroundStyle(.white)
-                        .background(Color.brandFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .foregroundStyle(Color.userBubbleText)
+                        .background(Color.userBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     if ttsEnabled && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)
                     }
