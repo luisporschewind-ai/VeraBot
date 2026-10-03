@@ -22,6 +22,7 @@ import UIKit
 // 来源：薰衣草 #D7D7FF 与青绿 #3D7A8C 都取自 Vera CLI 主题（~/Vera/src/vera/terminal/theme.py，终端里显示的淡紫 + 青绿）。
 //
 // Liquid Glass：iOS 26 用系统 .glassEffect / .buttonStyle(.glass)；iOS 17–18 回退到材质 / bordered 样式。
+// 底部浮动栏用 bottomBar（iOS 26 safeAreaBar，带系统滚动边缘效果；旧系统 safeAreaInset）。
 
 extension Color {
     // 主题「薰衣草 × 青绿」（Lavender Teal Duo，2026-10-03 Boss 选定方案 C）：
@@ -152,6 +153,17 @@ extension View {
             buttonStyle(.glassProminent).tint(Color.brandFill)
         } else {
             buttonStyle(.borderedProminent).tint(Color.brandFill)
+        }
+    }
+
+    /// 底部浮动栏（如对话输入栏）：iOS 26 用 `safeAreaBar(edge: .bottom)`，系统在栏后方给滚动内容加底部滚动边缘效果
+    /// （Scroll edge effect，渐隐模糊，与顶部导航栏一致）；iOS 17–25 回退 `safeAreaInset(edge: .bottom)`。
+    /// 两者都把内容区底部安全区让出栏高、随键盘上移，键盘避让逻辑相同。不手写渐变 / 模糊。
+    @ViewBuilder func bottomBar<Bar: View>(@ViewBuilder _ bar: () -> Bar) -> some View {
+        if #available(iOS 26.0, *) {
+            safeAreaBar(edge: .bottom, content: bar)
+        } else {
+            safeAreaInset(edge: .bottom, content: bar)
         }
     }
 

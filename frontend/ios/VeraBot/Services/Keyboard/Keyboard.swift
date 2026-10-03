@@ -3,7 +3,7 @@ import UIKit
 
 // MARK: - 键盘处理（Keyboard handling）：只用系统原生行为，不做自定义动画 / 手动偏移
 //
-// - 对话页：输入栏通过 safeAreaInset 随键盘上移；消息列表 defaultScrollAnchor(.bottom)，
+// - 对话页：输入栏通过 bottomBar（iOS 26 safeAreaBar / 旧系统 safeAreaInset）随键盘上移；消息列表 defaultScrollAnchor(.bottom)，
 //   键盘弹出（keyboardDidShow）与新消息时滚动到底部；scrollDismissesKeyboard(.interactively)；点空白处收起。
 // - 表单：单行字段 @FocusState + submitLabel(.next)，回车跳到下一项；人设 / 指令为多行（回车换行）；键盘工具栏「完成」收起
 //   （sheet 内的表单不用键盘工具栏：会让下层对话页的键盘避让错乱，改为 保存 / 关闭 / 下拉收起）。

@@ -50,7 +50,7 @@ struct ChatView: View {
                 proxy.scrollTo("bottom", anchor: .bottom)   // 键盘弹出后：确保最后一条可见
             }
         }
-        .safeAreaInset(edge: .bottom) { composer }
+        .bottomBar { composer }   // iOS 26 safeAreaBar：消息滚到输入栏下方有系统滚动边缘效果（同顶部导航栏）；旧系统 safeAreaInset
         .inAppBrowser()   // 消息里的 http/https 链接在 App 内 SFSafariViewController 打开；tel: / mailto: 交给系统
         .navigationTitle(vm.bot.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -93,7 +93,8 @@ struct ChatView: View {
     }
 
     /// 底部浮动输入栏（Liquid Glass）：[＋ 圆形玻璃按钮] [胶囊玻璃：输入框 … 🎙]。
-    /// 无发送按钮：键盘 return 键（submitLabel .send）发送；无不透明底栏，消息从下方滚过，safeAreaInset 保证最后一条可见。
+    /// 无发送按钮：键盘 return 键（submitLabel .send）发送；无不透明底栏，消息从下方滚过；
+    /// 用 Theme 的 bottomBar（iOS 26 safeAreaBar，系统底部滚动边缘效果 Scroll edge effect；旧系统 safeAreaInset）保证最后一条可见、随键盘上移。
     private var composer: some View {
         VStack(spacing: 6) {
             if speech.isRecording {
