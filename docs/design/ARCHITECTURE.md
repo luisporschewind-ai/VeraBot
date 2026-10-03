@@ -149,17 +149,20 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 
 | Token | 浅色 | 深色 | 用途 |
 |---|---|---|---|
-| `Color.appBackground` | `#FFFFFF` | `#000000` | 页面背景 |
-| `Color.sectionFill` | `#EFEFEE` (RGB 239, 239, 238；原为 `#F2F2F7`) | `secondarySystemBackground` (sheet 内 elevated) | 分组 Section、卡片、输入框底 |
+| `Color.appBackground` | `#FFFFFF` | `#0B0B14` | 页面背景 |
+| `Color.sectionFill` | `#F2F2F8` | `#1C1B2E` | 分组 Section、卡片、输入框底 (略带薰衣草色调) |
 | `Color.botBubble` / `traceFill` | = `sectionFill` | = `sectionFill` | Bot 回复气泡、工具 Trace |
 | `Color.insetFill` | = `appBackground` | = `appBackground` | 卡片里再嵌一层的内容 |
-| `Color.brandSoft` | `#E7EEF3` | `#1A3144` | 表情选中、交接 Trace (Vera `surface_elevated`) |
-| `Color.brand` / `AccentColor` | `#3A7485` | `#548EA0` | 强调色 (`.tint`)：按钮文字、导航、置顶 (`pinTint`)、开关。Vera CLI 青绿 |
-| `Color.brandFill` | `#3A7485` | `#3D7A8C` | 白字下面的实色底：用户消息气泡、默认头像 |
-| `Color.brandText` | `#1A2B36` | `#D7E4EE` | 品牌文字：登录页「Vera Bot」、设置里的账号名 (Vera `text_primary`) |
-| `Color.brandLight` / `brandDark` | `#548EA0` / `#2F6F82` | `#5B9BB0` / `#2F6F82` | 品牌辅助色 (引用竖条、用量进度条) |
+| `Color.brandSoft` | `#EEEEFF` | `#26254A` | 选中态、交接 Trace |
+| `Color.brand` / `AccentColor` | `#6461D1` | `#D7D7FF` | 品牌主色 (`.tint`)：导航按钮、链接、选中态、强调文字与图标 |
+| `Color.brandFill` | `#6461D1` | `#4B48B8` | 白字下面的实色底：主按钮 (`prominentButtonStyle`)、默认头像 |
+| `Color.userBubble` / `userBubbleText` | `#D7D7FF` / `#1B1A3A` | `#3F3D9E` / `#FFFFFF` | 用户消息气泡底 / 文字 |
+| `Color.brandText` | `#2A2870` | `#D7D7FF` | 品牌文字：登录页「Vera Bot」、设置里的账号名 |
+| `Color.brandAccent` (= `brandLight`、`pinTint`) | `#3D7A8C` | `#5FA3B6` | 第二强调色 (Vera 青绿)：置顶、引用竖条、用量进度条 |
+| `Color.toggleTint` | `#3D7A8C` | `#4E9AAE` | 开关 (`CompactToggle`) |
+| `Color.brandDark` | `#2F6F82` | `#2F6F82` | 暗一档青绿 (预留) |
 
-品牌色来源 (2026-10-03 Boss 选定)：Vera CLI 默认「深海」主题 `~/Vera/src/vera/terminal/theme.py` —— `accent #3D7A8C` (VERA 点阵 Logo 主体)、`logo #548EA0` (扫光高光)、`text_primary #D7E4EE`。终端 256 色把它们显示成 `#5F8787` / `#5F87AF` / `#D7D7FF` (截图里的灰绿和淡紫)。浅色模式把 `#3D7A8C` 压暗为 `#3A7485` (白底 5.2:1、`#EFEFEE` 上 4.5:1)；深色模式文字 / 图标用 `#548EA0` (黑底 5.8:1)，白字实色底用 `#3D7A8C` (4.8:1)。Bot 自己的颜色选项 (`BotLook.colors`、后端默认 `#0F766E`) 是用户数据，不随主题改。
+主题「薰衣草 × 青绿」(Lavender Teal Duo，2026-10-03 Boss 在三套试色里选定方案 C，替换 `502e11e` 的纯青绿主题)：薰衣草 `#D7D7FF` 与青绿 `#3D7A8C` 都取自 Vera CLI 主题 `~/Vera/src/vera/terminal/theme.py`。浅色模式薰衣草加深为 `#6461D1` 做主色 (白底 5.0:1、`#F2F2F8` 上 4.5:1、白字 5.0:1)，`#D7D7FF` 做用户气泡和浅底；深色模式 `#D7D7FF` 直接做主色 (`#0B0B14` 上 14:1)，白字实色底 `#4B48B8` (7.2:1)。青绿只做第二强调色 (`#3D7A8C` 白底 4.8:1)。Bot 自己的颜色选项 (`BotLook.colors`、后端默认 `#0F766E`) 是用户数据，不随主题改。
 | `Color.codeFill` | = `insetFill` | = `insetFill` | 消息里的代码块 / 表格底 |
 | `Color.quoteBar` | = `brandLight` | = `brandLight` | 消息里引用块左侧竖条 |
 
