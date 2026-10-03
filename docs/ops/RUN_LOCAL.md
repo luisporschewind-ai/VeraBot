@@ -56,6 +56,10 @@ curl -s --noproxy '*' http://127.0.0.1:8000/api/health
 5. 打开某个 Bot → 点标题进详情 →「从相册设置头像」→ 使用。回到对话，标题和对方气泡是圆形照片；返回列表，这一行也是。（iOS 不再提供「恢复默认头像」入口。）
 6. 换一个账号登录（或另一台模拟器连同一后端），看不到 demo 的头像字节；demo 再登录，自己的昵称和头像还在。
 
+### 拉到 Bot 标签 / 置顶 (schema v5 / v6) 之后
+
+无新依赖。`./stop.sh` 后 `./start.sh --detach`，`init_db()` 自动迁到 v6 (迁移不可逆，建议先 `cp data/verabot.db data/verabot.db.bak-before-v6`)；不用改 `.env`、不用删库。
+
 ### 拉到长期记忆 (Memory M1，schema v4) 之后
 
 后端新增依赖 `cryptography`，启动时自动迁到 schema v4；不用改 `.env`，不用删库。建议先备份：

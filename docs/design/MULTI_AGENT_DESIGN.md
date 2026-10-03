@@ -77,7 +77,7 @@
 3. 清理孤儿委派记录 (orphan delegations)，即 Bot 已被删除的记录。
 4. 回滚：迁移不可逆，升级前请先复制 `backend/data/verabot.db`。(迭代 2 升级时的临时备份 `/tmp/verabot_prefix_backup.db` 已随 Mac 重启被清除。)
 
-当前库版本是 **schema v3**（昵称、用户头像、Bot 照片）。v2 → v3 只 `ALTER` 加列并创建 `avatars` 表，不重跑上面的权限回填。字段与 API 见 [ARCHITECTURE.md](ARCHITECTURE.md)「资料与头像」。
+当前库版本是 **schema v6**（v3 昵称、用户头像、Bot 照片；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶）。v2 → v3 只 `ALTER` 加列并创建 `avatars` 表，不重跑上面的权限回填。字段与 API 见 [ARCHITECTURE.md](ARCHITECTURE.md)「资料与头像」。
 
 ## 7. iOS 界面
 

@@ -19,7 +19,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 2. **Python**：按 `.python-version` (3.12) 由 uv 安装；失败时用 npmmirror 镜像 (`UV_PYTHON_INSTALL_MIRROR`)。
 3. **依赖**：`uv sync --frozen --no-dev`，严格按 `uv.lock` 安装到 `.venv/`；失败 (或 `VERABOT_FORCE_MIRROR=1`) 时改用清华 tuna 镜像 (`UV_INDEX_URL`，可用 `VERABOT_PYPI_MIRROR` 覆盖) 按 `requirements.txt` (同样锁定版本) 安装。
 4. **配置**：没有 `.env` 就从 `.env.example` 复制，并提示输入 DeepSeek Key (不回显，写入 `.env`，权限 600)。已 export 的环境变量优先于 `.env`。
-5. **数据库**：`init_db()` 建表 + 幂等迁移 (schema v3：在 v2 上增加昵称与头像)，数据在 `data/verabot.db`。已有库会在下次启动时自动升级，不用手写 SQL。
+5. **数据库**：`init_db()` 建表 + 幂等迁移 (当前 schema v6：v3 昵称与头像、v4 长期记忆、v5 Bot 标签、v6 Bot 置顶)，数据在 `data/verabot.db`。已有库会在下次启动时自动升级，不用手写 SQL。
 6. **启动** uvicorn，默认 `0.0.0.0:8000` (`HOST` / `PORT` 可改)。
 
 启动后：API 文档 <http://127.0.0.1:8000/docs>，健康检查 `GET /api/health` → `{"ok":true,...}`。

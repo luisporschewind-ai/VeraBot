@@ -1,4 +1,4 @@
-# 项目状态 (STATUS) — 2026-10-01
+# 项目状态 (STATUS) — 2026-10-03
 
 ## v0.1.0 · 原型验证完成 (Prototype validated, feasible)
 
@@ -10,20 +10,21 @@
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-chat` |
 
-## 🔁 交接 (Handoff for the next agent) — 2026-10-01 21:50 UTC+8
+## 🔁 交接 (Handoff for the next agent) — 2026-10-03 UTC+8
 
-- **HEAD**：功能与文档改动当前未提交，分支 `main`，仓库 `/Users/admin/Desktop/VeraBot-v0.1` (Mac)，origin `github.com/luisporschewind-ai/VeraBot`。
+- **HEAD**：功能与文档均已提交并推送 (置顶 `c5529ce`、首页头像正圆 `3504fef`、App 图标亮 / 暗色 `832cdb0`，及本次文档对齐)，分支 `main`，仓库 `/Users/admin/Desktop/VeraBot-v0.1` (Mac)，origin `github.com/luisporschewind-ai/VeraBot`。
 - **不要提交的本地改动**：`frontend/ios/VeraBot.xcodeproj/project.pbxproj` (`DEVELOPMENT_TEAM = 4M4EACBGAJ`，Boss 签名) 与 `frontend/ios/VeraBot/InfoPlist.xcstrings`。只 `git add` 自己的文件。不动 tag `v0.1.0`。
 - **规则**：前后端同步 (字段 / 文案 / 上限改动要有契约测试并写对照表)；Web 冻结 (只在 STATUS 记落后项)；iOS 只用原生默认样式、无自定义动画、Theme 语义色、头像正圆 (照片或表情 + 底色)；代码、测试、文档 (CHANGELOG / FEATURES / TEST_CASES / STATUS) 同一提交；作者 `Luis <luisporschewind@gmail.com>`；不做 UI 自动化 / 点按 / 截图；只装 **iPhone 17 模拟器** (UDID `6FD1E62D-DA65-42B1-81F5-554042006671`)，不装真机；不用 Homebrew。
 - **构建 / 测试**：`frontend/ios`：`xcodebuild -project VeraBot.xcodeproj -scheme VeraBot -sdk iphonesimulator -destination "id=<UDID>" -derivedDataPath /tmp/verabot_dd build`；Kit `swift test` (当前 55 条)；后端置顶/标签用例：`uv run python scripts/test/{bot_pin_test,bot_tags_test}.py`。
 - **后端启动**：`backend/stop.sh` 后 `backend/start.sh --detach` (默认 `0.0.0.0:8000`，日志 `data/server.log`)；健康检查 `curl http://192.168.0.104:8000/api/health`；demo / verabot2026。
 - **近期更新**：Bot 置顶已实现 (schema v6；见 [BOT_PIN.md](design/BOT_PIN.md))，本机数据库迁移前备份 `backend/data/verabot.db.bak-before-v6`。
 - **验收记录 (2026-10-01)**：Boss 确认 Bot 置顶功能无问题；TC-07 无效 token 返回 401 后自动回登录页；TC-29/30、设置、首页与导航、主要列表、消息、头像/昵称，以及触感反馈、语音、键盘相关验收通过。余下详情/创建页、长期记忆、用量、标签细节、删除流程及部分视觉页验收由 Boss 同意延期，不阻塞当前任务。详见测试用例记录。
-- **2026-10-03**：首页左上角头像外的 iOS 26 玻璃胶囊底已关掉 (`.sharedBackgroundVisibility(.hidden)`)，头像 44pt 正圆，与右侧按钮等大；待 Boss 验收 (UI-11b)。
+- **2026-10-03**：首页左上角头像外的 iOS 26 玻璃胶囊底已关掉 (`.sharedBackgroundVisibility(.hidden)`)，头像 44pt 正圆，与右侧按钮等大；Boss 已验收 (UI-11b)。
 - **待办**：
-  2. **执行状态机** (只读评估已完成，未决定)：iOS 现在无状态枚举，靠 `sending` / `streaming` / traces 推断；建议在 `VeraBotCore` 用现有 SSE 事件 (delta / tool_start / tool_result / error / done) 推导状态并原生显示「正在思考 / 正在调用… / 正在请教…」，可选后端 `status` 事件。
-  3. **遗留英文**：对话页委派 Trace 行 (`Features/Chat/TraceView.swift`) 仍显示「N tokens」。
-  4. **头像动画** (Boss 桌面的 `LiveBotAvatar.swift` 卡通头像)：**未决定**；与项目同名类 / `Color(hex:)` 冲突，且是自定义动画，违反现有规则，需 Boss 拍板是否例外。
+  1. **执行状态机** (只读评估已完成，未决定)：iOS 现在无状态枚举，靠 `sending` / `streaming` / traces 推断；建议在 `VeraBotCore` 用现有 SSE 事件 (delta / tool_start / tool_result / error / done) 推导状态并原生显示「正在思考 / 正在调用… / 正在请教…」，可选后端 `status` 事件。
+  2. **遗留英文**：对话页委派 Trace 行 (`Features/Chat/TraceView.swift`) 仍显示「N tokens」。
+  3. **头像动画** (Boss 桌面的 `LiveBotAvatar.swift` 卡通头像)：**未决定**；与项目同名类 / `Color(hex:)` 冲突，且是自定义动画，违反现有规则，需 Boss 拍板是否例外。
+  4. **仓库清理记录**：`frontend/ios/VeraBot/File.txt` (QA 遗留，内容「QA回归」) 已在 `c5529ce` 删除，工作区无残留 (见 TEST_CASES NEW-03)。
 
 ## 📍 当前进度 (Current progress) — main 工作区 (2026-10-01)
 
@@ -44,7 +45,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | **长期记忆 M1** (先确认后保存的记忆、确认卡片、「Vera 了解的你」、Bot 详情记忆分组、健康 / 财务加密、清空对话可选删记忆；schema v4) | 见 CHANGELOG | 后端 `memory_test.py` 36/36、MA 24/24、AV/NK 21/21；`swift test` 34/34；模拟器已构建 / 安装 / 启动；UI 验收延期 | MEM-*、MEM-UI-01~12、[MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §5.8 |
 | 设置 › 用量 行右侧「已用 N%」(今日 Token / 今日额度，iOS 计算，后端未改) | 见 CHANGELOG | MA-25 契约 25/25、`QuotaTests` 4 个；模拟器已构建 / 安装 / 启动；UI 验收延期 | QUOTA-03、QUOTA-04、UI-21 |
 | **Bot 标签** (schema v5；同日重新设计：3 个 / 4 字，首页一个浅灰圆角矩形、详情卡片一行、对话标题不显示、「基本信息」内单输入框) | 见 CHANGELOG | 后端 `bot_tags_test.py` 10/10 (含存量收敛与前后端契约)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；Kit 已测；iOS 标签 UI 验收延期 | TAG-01~10、TAG-UI-01~04 |
-| **Bot 置顶** (schema v6；列表排序、名称旁 pin 标识、左滑 / 长按入口、置顶行浅灰底) | 当前工作区，未提交 | 后端 `bot_pin_test.py` PIN-01~08 通过；回归 MA 25/25、AV/NK 21/21、MEM 36/36、TAG 10/10；`swift test` 55 项通过；Boss 确认功能无问题 | PIN-01~08、PIN-UI-01~03 |
+| **Bot 置顶** (schema v6；列表排序、名称旁 pin 标识、左滑 / 长按入口、置顶行浅灰底) | `c5529ce` | 后端 `bot_pin_test.py` PIN-01~08 通过；回归 MA 25/25、AV/NK 21/21、MEM 36/36、TAG 10/10；`swift test` 55 项通过；Boss 确认功能无问题 | PIN-01~08、PIN-UI-01~03 |
 | **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动；详情/创建 UI 验收延期 | DETAIL-UI-01~09 |
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
 | 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 对应 UI 验收延期 | UI-01~03、UI-10 |
