@@ -8,6 +8,11 @@
 
 - **提醒 R1 · iOS 编不过、Kit 测试编不过**（PR #9 合并复核，Boss 的 Mac，Xcode / Swift 6）：`NotificationCoordinator` 的 `UNUserNotificationCenterDelegate` 方法改为 `nonisolated`，先取出 `Sendable` 的 `NotificationTap`，再回主 actor 执行 `handleWillPresent` / `handleResponse`（原来跨 actor 传非 Sendable 的 `UNNotification`，Swift 6 严格并发报错）。`ReminderTests` 构造参数顺序改正（`repeatLabel` 在 `status` 前）；`NotificationSchedulerTests` 断言改为 `allSatisfy { $0.repeats }`。`backend/requirements.txt` 恢复「由 uv.lock 导出」的文件头。修复后 `swift test` 140 通过、`xcodebuild` 成功；模拟器上本地通知按时弹出，「完成」「稍后 10 分钟」可用，免打扰时段内提醒照常弹出（D8）。
 - **插件 · 卸载时进行中的调用要等满 MCP 超时**（PR #7 合并复核发现，`PLG-14` 在 Boss 的 Mac 上失败）：卸载会关掉池里的 httpx 客户端，但 macOS 上关闭套接字不会唤醒另一线程里阻塞的读取，进行中的调用要等 15 s 超时才返回 `plugin_uninstalled`。`services/mcp/service.py` 新增 `_interruptible`：单次调用放到后台线程，每 0.1 s 检查服务行，没了就立刻按「已发出」返回（只读 → `plugin_uninstalled`，非只读 → `result_unknown`，规则不变），后台线程结果丢弃。`plugin_test.py` 全部通过（PLG-14 卸载 < 0.5 s 返回）。
+- **MCP · 后台同步把「已停用」改回已连接 / 错误**（PR #11 拆分时在 `mcp_test` MCP-06 偶发失败中发现；box 压满 CPU 时 main 15 次失败 2 次，Boss 的 Mac 上 10/10 通过）：`services/mcp/sync.py` 的 `_sync_body()` 先读服务行、再按读到的状态写结果。用户在「读完、写之前」停用，同步结果就会覆盖 `disabled`。共有三个窗口：成功分支（改回 `connected`，最严重：已停用的服务重新出现在模型可用的工具里）、失败分支（改成 `error`）、未配置地址分支（改成 `error`）。`schedule_sync()` 后台线程兜底的「同步失败」写入也有同样的问题。
+  - 修复：`db/mcp_store.py` 新增 `update_server_unless_disabled()`，检查和写入放在同一条 SQL 里（`UPDATE … WHERE id=? AND user_id=? AND status!='disabled'`，返回是否写入）。上面四处写入都改用它。没有写入（已停用）时调用新的 `settle_disabled_sync()`，把 `sync_status` 从 `syncing` 收回 `pending`，与 `_sync_body()` 开头「已停用」分支的处理一致；这次同步的结果（`last_synced_at`、`last_error`、`url`）不写进服务行。
+  - 有意的小变化：以前停用发生在成功分支读取之前时，已停用的行会被写成 `sync_status='ok'` 并更新 `last_synced_at`；失败分支提前返回时，`sync_status` 会停在 `syncing`。现在两种情况都统一为 `pending`。`mcp_tools` 仍照常写入：停用本来就不删除工具，模型能否调用由服务 `status='connected'` 决定（`connected_tool_rows()`、`tool_router` 的 `not_connected`），所以不会让工具「复活」。熔断计数（`_record_success` / `_record_failure`）不受影响。
+  - 不改 schema，不改 iOS。`status` 和 `sync_status` 的取值集合不变。
+  - 测试：新增 `scripts/test/mcp_disable_race_test.py`，共 MCP-RACE-01~08。假 MCP 服务器的 `tools/list` 阻塞在事件上，测试在同步卡住时停用、再放行；「旧快照」模式让停用恰好落在读和写之间，覆盖成功、失败、未配置地址和后台意外异常四种情况，另有对照组和重新启用后的同步。修复前有 6 条失败，修复后全部通过。
 - **安全 · 邮箱抢注：验证码登录认领未验证账号** (此前在账号隔离审计里按当时决定延后，本次按 Boss 选定的修法落地)：
   - 问题：未验证邮箱可以注册并正常使用。真正的主人之后用验证码登录时，`login_with_code` 只把邮箱标为已验证并进入同一个账号，抢注者的密码和已发出的访问令牌、刷新令牌仍然有效，能读到主人之后写入的私密数据。
   - 修复：认领「邮箱尚未验证」的账号时，在同一个事务里把 `password_hash` 写成空字符串 (列是 `NOT NULL`，空字符串不是合法 bcrypt，密码登录失败)、`token_version` + 1、吊销该用户全部未作废的刷新令牌、写入审计 `account_claimed_by_email_code`，然后再签发新的令牌对，并把邮箱标为已验证。认领后没有密码，只能用验证码登录。未验证账号在被认领前仍可正常使用。已经验证过的邮箱，验证码登录不改密码、不吊销其他会话。API 响应字段不变，iOS 未改。不升 schema (仍是 v9)。
@@ -29,6 +34,13 @@
 - **iOS · 对话里的 MCP 工具调用**：之前 Trace 标题显示 `🔧 mcp__learn__microsoft_docs_search`，下面直接铺出最长 8000 字的外部原文 (含 `<untrusted_tool_result>` 标记和转义字符)；工具自身错误时把外部原文当错误显示。现在标题为「🔌 Microsoft Learn · 搜索微软文档」，正文只显示一行「已读取外部资料（约 N 字，已截断）」，错误按 code 显示固定说明 (`VeraBotCore.MCPTraceText`)。后端 `label_for` 优先用目录里的中文名 (Learn 服务器自带英文 title，之前界面显示英文)。Kit 测试 93/93。
 - **iOS · 头像实验室**：深色模式状态角标几乎看不清 (改为实色底 `avatarMarkFill` + 角色背景色描边 + 阴影)；角标挡住 V豆 顶部圆点和星点的星光 (移到右下角，尺寸 0.26)；「按状态机演示」停止后马上再开始可能两轮叠加、按钮状态错乱 (加运行令牌，手动选状态也会停止演示；演示帧事先由真实 `ExecutionStateMachine` 算好 `AvatarLabDemo.frames`)；角色固定 hex 色改为 `Theme.swift` 头像语义色 (浅色 / 深色各一套)。文档里演示顺序更正为 思考 → 委派 → 思考 → 执行 → 阻塞 → 思考 → 回复 → 完成 → 空闲。
 - **工具**：新增 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，离屏渲染 + 检查 AVLAB-T01~T13，输出浅色 / 深色对照图)，不进 App target。iPhone 17 模拟器截图 / 录屏复测 (AVLAB-02、T14)。
+
+### 内部重构 (Internal refactoring)
+
+只搬代码、不改行为。全部自包含测试、依赖 :8000 端口的脚本改动前后逐条结果一致。
+
+- **记忆服务拆出包入口**（PR #10）：`services/memory/__init__.py` 的业务逻辑移到 `services/memory/service.py`，`__init__.py` 只 re-export 原有名称，调用方不变。两处重复的 `INSERT INTO delegations`（`agents/delegation.py`、`agents/tool_router.py`）合并到新的 `db/delegation_store.insert()`，写入的行逐字段不变。
+- **MCP 服务按职责拆分**（PR #11）：`services/mcp/service.py`（695 行）拆成 `presenter.py`（展示 / 序列化）、`sync.py`（并入后台同步调度 `schedule_sync` / `sync_server` / `_sync_body`）、`invoke.py`（工具调用）、`resilience.py`（重试 + 熔断、调用中的卸载检测）、`audit.py`（调用审计）。`service.py` 作为门面只留服务管理，并 re-export 原有公开名称。
 
 ### 新增 (Added)
 

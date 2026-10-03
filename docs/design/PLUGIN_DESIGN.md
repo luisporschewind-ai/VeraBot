@@ -246,7 +246,7 @@ if ver < 10:
 |---|---|
 | 调用在等待服务器响应时会话被关闭 | `invoke()` 捕获异常后**先检查服务行是否仍存在**；不存在时返回 `{"error": "插件已卸载，本次调用已取消", "code": "plugin_uninstalled"}` |
 | 调用恰好在卸载提交后才返回成功结果 | 同样检查服务行；不存在则**丢弃结果**，返回 `plugin_uninstalled`，不把外部内容交给模型，也不设置污染标记（taint） |
-| 重试 | `plugin_uninstalled` 不重试（在 `_with_retries()` 的每次尝试前检查服务行） |
+| 重试 | `plugin_uninstalled` 不重试（在 `services/mcp/resilience.py` 的 `_with_retries()` 每次尝试前检查服务行） |
 | 熔断 | 不计入熔断（`_record_failure()` 不执行；服务行已不存在） |
 | 审计 | 仍写一条 `mcp_tool_call`，`status='cancelled'`、`error_class='plugin_uninstalled'`；不存外部原文 |
 | 同一轮之后的调用 | 工具已从 `mcp_tools` 删除。`tool_router._call_mcp()` 在 `get_tool_by_full_name()` 为空时，若名称的 slug 属于该用户 `uninstalled` 的插件，返回 `plugin_uninstalled`（而不是笼统的 `unknown_tool`），并写 `tool_denied` 审计 |
@@ -255,7 +255,11 @@ if ver < 10:
 
 **Trace 显示**：标题不变（`MCPTraceText.title(for:)` 由 slug 映射，例如「🔌 Microsoft Learn · 搜索微软文档」）；说明行为「插件已卸载，本次调用已取消」。实现上在 `VeraBotCore/MCP.swift` 的 `MCPTraceText.errorText(code:error:)` 中增加 `plugin_uninstalled` 分支。模型收到的是同一条错误，应在回答中说明该资料未能获取。
 
-**进行中的后台同步**：`_sync_body()` 在写入工具前和 `sync.apply()` 之后各检查一次服务行；不存在时中止并静默结束（不写 `error` 状态、不计熔断）。`schedule_sync()` 的线程若因外键错误抛出 `sqlite3.IntegrityError`，按「已卸载」处理并只记调试日志，不再尝试把不存在的行标记为 `error`。
+**进行中的后台同步**：`services/mcp/sync.py` 的 `_sync_body()` 在写入工具前和 `apply()`（同一模块）之后各检查一次服务行；不存在时中止并静默结束（不写 `error` 状态、不计熔断）。`schedule_sync()` 的线程若因外键错误抛出 `sqlite3.IntegrityError`，按「已卸载」处理并只记调试日志，不再尝试把不存在的行标记为 `error`。
+
+**停用与进行中的后台同步**：停用优先。`_sync_body()` 写同步结果（成功分支的 `connected`、失败分支和未配置地址分支的 `error`），以及 `schedule_sync()` 线程兜底的 `error`，都通过 `db/mcp_store.py` 的 `update_server_unless_disabled()` 完成，检查和写入在同一条 SQL 里（`… AND status!='disabled'`）。没有写入时调用 `settle_disabled_sync()`，把 `sync_status` 从 `syncing` 收回 `pending`。这次同步的结果不写进服务行。`mcp_tools` 照常写入（停用不删除工具，可用性由 `status='connected'` 决定）。以前的做法是先读后写，停用落在读和写之间时会被覆盖。`mcp_disable_race_test.py`（MCP-RACE-01~08）覆盖这几种情况。
+
+（模块位置：PR #11 起，`_sync_body()` / `schedule_sync()` 在 `services/mcp/sync.py`，`_with_retries()` / `_interruptible()` / `_record_failure()` 在 `services/mcp/resilience.py`，`invoke()` 在 `services/mcp/invoke.py`，`services/mcp/service.py` 是门面并 re-export。）
 
 ---
 
@@ -419,7 +423,7 @@ P1 的边界控制：不新增任何第三方插件；不改权限判定顺序�
 3. **重装后工具 id 变化**：`mcp_tools.id` 会变，但 Bot 白名单使用 `full_name`，卸载时已清除，不存在悬挂引用。
 4. **派生 `state` 前后端不一致**：对策：状态只在后端计算，iOS 只做文案映射，并纳入契约测试。
 5. **内置插件与 MCP 插件混排的认知负担**：对策：「内置」单独成组，明确标注「内置 · 无需安装」，详情页说明开关位置并提供导航。
-6. **卸载与进行中调用 / 后台同步竞争**：对策见 §4.4；以 PLG-14、PLG-15 覆盖。
+6. **卸载 / 停用与进行中调用 / 后台同步竞争**：对策见 §4.4（实现在 `services/mcp/sync.py` 的 `_sync_body()` 与 `services/mcp/resilience.py` 的 `_with_retries()` / `_interruptible()`）；卸载以 PLG-14、PLG-15 覆盖，停用以 MCP-RACE-01~08 覆盖。
 7. **与账号隔离修复的合并顺序**：schema 版本号与缓存头都可能冲突。对策：版本号取合并时的下一个可用值；缓存头按 §5.6 处理，后合并的一方负责对齐。
 
 ---

@@ -83,6 +83,36 @@ def update_server(user_id: int, server_id: int, **fields):
     return get_server(user_id, server_id)
 
 
+def update_server_unless_disabled(user_id: int, server_id: int, **fields) -> bool:
+    """同 update_server，但只在服务未停用时写入；检查和写入在同一条 SQL 里完成。
+
+    给后台同步写结果用：同步进行中用户可能已经停用，停用优先，不能被同步结果改回 connected / error。
+    返回是否写入（False：已停用，或行已不存在）。
+    """
+    fields["updated_at"] = now_iso()
+    cols = ", ".join(f"{k}=?" for k in fields)
+    with tx() as c:
+        cur = c.execute(
+            f"UPDATE mcp_servers SET {cols} WHERE id=? AND user_id=? AND status!='disabled'",
+            (*fields.values(), server_id, user_id),
+        )
+        return cur.rowcount > 0
+
+
+def settle_disabled_sync(user_id: int, server_id: int) -> bool:
+    """已停用的服务结束一次同步：sync_status 由 syncing 回到 pending（与 _sync_body 开头「已停用」分支一致）。
+
+    只改已停用且仍是 syncing 的行；其间若已重新启用（set_enabled 会写 pending），这里不动。
+    """
+    with tx() as c:
+        cur = c.execute(
+            "UPDATE mcp_servers SET sync_status='pending', updated_at=? "
+            "WHERE id=? AND user_id=? AND status='disabled' AND sync_status='syncing'",
+            (now_iso(), server_id, user_id),
+        )
+        return cur.rowcount > 0
+
+
 def delete_server(user_id: int, server_id: int) -> bool:
     with tx() as c:
         cur = c.execute(
