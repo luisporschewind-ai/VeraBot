@@ -36,7 +36,8 @@ legacy = c.execute('SELECT name,tags,pinned_at FROM bots WHERE id=1').fetchone()
 version = c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
 c.close()
 assert "pinned_at" in cols and legacy == ("Old", '["研究"]', None)
-assert version == str(db.SCHEMA_VERSION) == "6"
+assert version == str(db.SCHEMA_VERSION)
+assert int(version) >= 6
 
 from fastapi.testclient import TestClient
 from verabot.main import app

@@ -1,6 +1,6 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-> 与代码同步至 main (2026-10-03)：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6) 与独立的头像实验室试验页。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。
+> 与代码同步至 main (2026-10-03)：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1 (schema v7) 与独立的头像实验室试验页。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。Web 冻结，没有 MCP 界面。
 
 ## 功能 (Features)
 
@@ -13,13 +13,13 @@
 | 消息富文本 (Rich messages) | iOS Bot 气泡支持 Markdown（标题 / 粗体 / 斜体 / 行内代码 / 代码块 / 引用 / 列表 / 表格 / 分隔线），自动识别网址 / 电话 / 邮箱；网页链接在 App 内 SFSafariViewController 打开，电话 / 邮件交给系统；长按气泡可复制全文或复制链接；`~` 按原文显示 (BUG-01) |
 | 对话历史 (History) | 每个 Bot 独立保存历史，最近 20 条 (`VERABOT_HISTORY_WINDOW`) 注入上下文；清空对话 (二次确认：「仅清空对话」保留记忆 /「清空对话和「X」的记忆」) |
 | 长期记忆 (Memory, M1) | **先确认、后保存**：Bot 用 `remember` / `forget_memory` 只生成提议，对话里出现「要我记住吗？」卡片 (记住 / 不用 / 编辑后记住)，确认后生效。作用域：所有 Bot 共享的「关于你」(global) 或仅某个 Bot；每个 Bot 的 `memory_access` (不使用 / 仅本 Bot / 本 Bot + 共享资料，默认后者)；每轮最多注入 12 条 / 1000 字，被委派的 Bot 不读写记忆。密码 / 验证码 / 密钥 / 证件号 / 卡号永不保存；健康、财务信息加密保存并标为敏感。设置 › 记忆：「Vera 了解的你」(查看 / 编辑 / 删除 / 手动添加 / 清空，首次打开说明会发送给 DeepSeek) + 「允许 Bot 记住」总开关。Bot 详情 › 记忆。方案与契约见 [MEMORY_GROWTH.md](../design/MEMORY_GROWTH.md)。Web 无记忆 UI |
-| 工具 (Tool calling) | 可插拔注册表：`get_weather` (Open-Meteo，免 Key)、`create_reminder`、`list_reminders`、`ask_bot`；记忆工具 `remember`、`forget_memory` 不在白名单里，由 `memory_access` 控制 |
+| 工具 (Tool calling) | 可插拔注册表：`get_weather` (Open-Meteo，免 Key)、`create_reminder`、`list_reminders`、`ask_bot`；记忆工具 `remember`、`forget_memory` 不在白名单里，由 `memory_access` 控制。MCP 工具名形如 `mcp__learn__microsoft_docs_search`，默认不授权，在 Bot 详情按服务打开 |
 | 多 Agent 协作 | 工具 / 委派白名单、接受委派开关、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 → [MULTI_AGENT_DESIGN.md](../design/MULTI_AGENT_DESIGN.md) |
 | 每日 Token 预算 | 超额返回 429，委派也被拒 |
 | 提醒 / 用量 (Reminders / Quota) | 提醒为 Tab 页，只落库不推送；用量看板从「设置 › 用量」进入：请求数、Token、7 日趋势、按 Bot 分布 (不含账号信息，账号信息在设置页) |
 | 语音输入 (Voice input) | Web：录音 → `/api/transcribe` (OpenAI) → 填入输入框；iOS：系统 Speech 框架 (zh-CN)；都不自动发送 |
 | 语音播放 (TTS) | 用户消息和 Bot 回复下方 🔊，本机 AVSpeechSynthesizer；设置里可关闭；云端 TTS 占位 |
-| 设置页 (Settings) | 首页左上角头像进入；账号 (头像 / 昵称 / 用户名) → 用量 (push 用量看板) → 记忆 (「Vera 了解的你」+「允许 Bot 记住」) → 通用 (外观：跟随系统 / 浅色 / 深色；通知开关，开启时申请系统授权，被拒绝则回退并提供「前往设置」；触感反馈开关，控制 App 内所有 sensoryFeedback；语言：显示当前语言，点按打开系统设置中本 App 页面切换) → 语音 → 关于 (版本号) → 退出登录 (单独一组，位于最底部)。头像用系统 PhotosPicker，预览为圆形，确认后上传 |
+| 设置页 (Settings) | 首页左上角头像进入；账号 (头像 / 昵称 / 用户名) → 用量 (push 用量看板) → 记忆 (「Vera 了解的你」+「允许 Bot 记住」) → MCP 服务 (按服务启用、刷新、给某个 Bot 开只读工具) → 通用 (外观：跟随系统 / 浅色 / 深色；通知开关，开启时申请系统授权，被拒绝则回退并提供「前往设置」；触感反馈开关，控制 App 内所有 sensoryFeedback；语言：显示当前语言，点按打开系统设置中本 App 页面切换) → 语音 → 关于 (版本号) → 退出登录 (单独一组，位于最底部)。头像用系统 PhotosPicker，预览为圆形，确认后上传 |
 | 调试页 (Debug) | 设置页导航栏右上角 🐞 (`ladybug`) push 进入：服务器地址、后端健康检查 (`GET /api/health`)、版本 / 构建号 / Bundle ID / 系统版本 / 构建配置；另有「头像实验室」独立试验页，可切换五款角色、八种状态 (与执行状态机对应) 与三种尺寸，并可「按状态机演示一轮对话」；支持深色模式与减弱动态效果，预览选择不会保存到 Bot 资料 |
 | 导航 / 键盘 | 二级页面隐藏 Tab 栏；对话标题为可点击的原生胶囊按钮（iOS 26 Liquid Glass，旧系统 bordered 回退；头像 + 名称，不显示标签）并打开 Bot 详情 sheet；首页原生圆形按钮（左上角头像为正圆，iOS 26 隐藏系统共享玻璃底 (`.sharedBackgroundVisibility(.hidden)`) 并放大到 44pt，与右侧圆形按钮等大，旧系统 30pt；右上角 放大镜 搜索 与 ＋ 创建 为两个独立圆形按钮，iOS 26 用 `ToolbarSpacer(.fixed)` 分开）；工具栏 / sheet 的取消、关闭为系统圆形 X（iOS 26 `Button(role: .cancel / .close)`，确认框里的取消仍是文字）；输入栏随键盘上移、点空白 / 下拉收起。对话输入栏为浮动 Liquid Glass：圆形玻璃 ＋ 附件按钮 + 胶囊玻璃输入框（占位「向 {Bot 名} 提问」，尾部 🎙 语音输入），无发送按钮，键盘 return 发送 |
 | 视觉风格 (Visual style) | 页面白底（深色黑底），分组 / 卡片 / Bot 气泡浅灰 `#EFEFEE` (RGB 239, 239, 238)（深色 `secondarySystemBackground`）；「助理」列表为白底全宽平铺、无分隔线；iOS 26 Liquid Glass（系统导航栏 / Tab 栏 / 工具栏按钮，`.glass` 胶囊、`.glassProminent` 主按钮，旧系统 bordered 回退）。颜色集中在 `Core/UI/Theme.swift` 语义色，设置 › 外观 切换时全局一致；所有开关为缩小 85% 的系统 Toggle (`CompactToggle`) |
@@ -50,7 +50,13 @@
 | POST | `/api/transcribe` | 语音转写 (multipart `file` + `language`) → `{text, model, duration_s}` |
 | GET | `/api/reminders`；POST `/api/reminders/{id}/done` | 提醒列表 / 标记完成 |
 | GET | `/api/quota` | 用量看板 `{model, daily_token_quota, today, total, per_bot, daily, delegations, transcribe}`；`today` / `total` 为 `{requests, prompt_tokens, completion_tokens, total_tokens}`。设置 › 用量 行的「已用 N%」由 iOS 计算：round(`today.total_tokens` / `daily_token_quota` × 100)，额度 ≤ 0 时不显示 (字段映射见下方「用量字段映射」) |
-| GET | `/api/tools` | 工具列表 (中文标签，不含记忆工具) + 当前护栏参数 + `memory: {enabled, max_active, inject_max}` |
+| GET | `/api/tools` | 工具列表 (中文标签，不含记忆工具) + 当前护栏参数 + `memory: {enabled, max_active, inject_max}`。每项另有 `source`、`server`、`server_id`、`risk`、`requires_confirmation`、`delegable`、`status`。已连接的 MCP 工具附在后面。此接口不连接 MCP 服务器 |
+| GET | `/api/mcp/catalog` | 可添加的目录：`catalog[]`（含 `catalog_id`、`url_configured`，不含原始 URL） |
+| GET / POST | `/api/mcp/servers` | 当前用户的服务（首次 GET 会补齐目录；默认开启的才同步）。POST `{catalog_id}`，已存在 → 409 |
+| PATCH / DELETE | `/api/mcp/servers/{id}` | `{enabled}` 启用或停用 / 删除（并从各 Bot 白名单去掉该服务的工具） |
+| POST | `/api/mcp/servers/{id}/sync` | 重新拉取工具。服务已停用 → 409 |
+| GET | `/api/mcp/servers/{id}/tools` | 该服务的工具 |
+| POST | `/api/mcp/tools/{id}/accept-change` | 接受定义变更 |
 | GET / POST / DELETE | `/api/memories` | 列表 (`status` 逗号分隔或 `all`、`scope`、`bot_id`、`ids`、`visible_to`、`limit`、`before_id`) → `{memories, counts, limits}` / 手动添加 (201，直接生效) / 清空 (`scope`、`bot_id`、必须 `confirm=true`) → `{ok, deleted}` |
 | GET / PATCH / DELETE | `/api/memories/{id}` | 单条 / 编辑 (仅 active，重新做敏感检查) / 删除 |
 | POST | `/api/memories/{id}/confirm`、`/api/memories/{id}/reject` | 确认提议 (可带 `{content}` 编辑后确认；删除提议返回 `{ok, deleted_id}`) / 拒绝 |
@@ -58,6 +64,8 @@
 | GET | `/api/health` | 健康检查 `{ok, model}` |
 
 Bot 置顶 (schema v6)：Bot JSON 含 `pinned_at` (UTC ISO 8601 或 null)；PATCH `/api/bots/{id}` 接受 `pinned: true/false`，省略或 null 不修改。GET `/api/bots` 将置顶项按时间倒序、同时间按 id 升序排列，再列出未置顶项 (id 升序)。Web 客户端冻结，不实现置顶 UI。
+
+MCP 字段映射 (schema v7，完整表见 [MCP_CAPABILITY.md](../design/MCP_CAPABILITY.md) §18.2)：`MCPCatalogItem` / `MCPServer` / `MCPTool` / `ToolInfo` 的 CodingKeys 与上表 JSON 同名（蛇形）。`ToolInfo.source` 缺省时不当作 MCP。Web 不使用这些接口的界面。
 
 Bot 详情改版字段映射 (2026-10-01，**无 API 变更**，全部是已有接口与字段)：
 

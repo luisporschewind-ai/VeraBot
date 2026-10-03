@@ -18,6 +18,13 @@ public protocol VeraBotAPI: Sendable {
     func deleteBot(_ id: Int) async throws -> OKResponse
     func updateBot(_ id: Int, _ patch: BotPatch) async throws -> Bot
     func tools() async throws -> ToolsResponse
+    func mcpCatalog() async throws -> MCPCatalogResponse
+    func mcpServers() async throws -> MCPServersResponse
+    func addMCPServer(catalogID: String) async throws -> MCPServer
+    func updateMCPServer(id: Int, enabled: Bool) async throws -> MCPServer
+    func deleteMCPServer(id: Int) async throws -> OKResponse
+    func syncMCPServer(id: Int) async throws -> MCPSyncResult
+    func mcpTools(serverID: Int) async throws -> MCPToolsResponse
     func delegations(botID: Int) async throws -> DelegationsResponse
     func messages(botID: Int) async throws -> MessagesResponse
     /// includeMemories：同时删除该 Bot 的「本 Bot 记忆」与对话摘要（默认 false，记忆保留）

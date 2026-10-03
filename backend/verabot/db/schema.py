@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v6）。"""
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v7）。"""
 import json
 
 from .database import tx
@@ -122,7 +122,83 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mem_dedupe
 """
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
+
+# v7：MCP 服务器与工具缓存。与 docs/design/MCP_CAPABILITY.md §12.2 同一次迁移。
+# 凭据 / oauth_states / pending_actions 先建表，OAuth 与确认卡片在后续里程碑使用。
+MCP_SCHEMA = """
+CREATE TABLE IF NOT EXISTS mcp_servers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL,
+  source TEXT NOT NULL,
+  catalog_id TEXT,
+  name TEXT NOT NULL,
+  transport TEXT NOT NULL,
+  url TEXT,
+  trust TEXT NOT NULL,
+  auth_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'needs_auth',
+  account_label TEXT,
+  granted_scopes TEXT,
+  discover_json TEXT,
+  last_synced_at TEXT, last_error TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(user_id, slug)
+);
+CREATE TABLE IF NOT EXISTS mcp_credentials (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  server_id INTEGER REFERENCES mcp_servers(id) ON DELETE CASCADE,
+  provider TEXT,
+  issuer TEXT NOT NULL,
+  client_info_enc BLOB,
+  refresh_token_enc BLOB,
+  access_token_enc BLOB,
+  expires_at TEXT, scopes TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(user_id, server_id, issuer)
+);
+CREATE TABLE IF NOT EXISTS mcp_tools (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  server_id INTEGER NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  mcp_name TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  title TEXT, description TEXT NOT NULL,
+  input_schema TEXT NOT NULL, output_schema TEXT, annotations TEXT,
+  def_hash TEXT NOT NULL,
+  accepted_hash TEXT,
+  risk TEXT NOT NULL,
+  confirm_policy TEXT NOT NULL DEFAULT 'default',
+  status TEXT NOT NULL DEFAULT 'active',
+  first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL,
+  UNIQUE(server_id, mcp_name), UNIQUE(user_id, full_name)
+);
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  server_id INTEGER REFERENCES mcp_servers(id) ON DELETE CASCADE,
+  provider TEXT,
+  payload_enc BLOB NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pending_actions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  bot_id INTEGER REFERENCES bots(id) ON DELETE SET NULL,
+  kind TEXT NOT NULL,
+  server_id INTEGER REFERENCES mcp_servers(id) ON DELETE CASCADE,
+  tool_full_name TEXT,
+  payload_enc BLOB NOT NULL,
+  payload_hash TEXT NOT NULL, tool_def_hash TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  result TEXT,
+  created_at TEXT NOT NULL, expires_at TEXT NOT NULL, decided_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pending_user ON pending_actions(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_mcp_tools_user ON mcp_tools(user_id, status);
+"""
 ALL_TOOLS_V2 = ["get_weather", "create_reminder", "list_reminders", "ask_bot"]
 
 
@@ -143,6 +219,7 @@ def init_db():
     v3 → v4：长期记忆 memories 表 + bots.memory_access / users.memory_enabled / messages.memory_ids。
     v4 → v5：bots.tags（JSON 数组，默认 []）。不改权限、记忆、头像。
     v5 → v6：bots.pinned_at（UTC ISO 8601，NULL = 未置顶）。
+    v6 → v7：MCP 表（mcp_servers / mcp_tools 等）。不改 allowed_tools，不给存量 Bot 授予 MCP 工具。
     """
     with tx() as c:
         c.executescript(SCHEMA)
@@ -188,6 +265,8 @@ def init_db():
         _add_column(c, "bots", "tags", "TEXT NOT NULL DEFAULT '[]'")
         # --- v6：Bot 置顶。NULL 表示未置顶，不回填其他数据 ---
         _add_column(c, "bots", "pinned_at", "TEXT")
+        # --- v7：MCP。只建表，不回填、不改写任何 Bot 的 allowed_tools ---
+        c.executescript(MCP_SCHEMA)
         # 标签上限收紧 (2026-10-01：最多 3 个、每个 4 字)。结构不变 (仍是 v5)；每次启动把超限的存量标签收敛：
         # 保留前 3 个、每个截断到 4 字、去重。幂等，只改写确实变化的行。
         from ..core.tags import coerce_stored_tags

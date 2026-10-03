@@ -7,8 +7,15 @@ annotated-types==0.8.0
 anyio==4.15.1
     # via
     #   httpx
+    #   httpx2
+    #   mcp
+    #   sse-starlette
     #   starlette
     #   watchfiles
+attrs==26.1.0
+    # via
+    #   jsonschema
+    #   referencing
 bcrypt==5.0.0
     # via verabot-backend
 certifi==2026.7.22
@@ -20,58 +27,113 @@ cffi==2.1.1 ; platform_python_implementation != 'PyPy'
 click==8.5.0
     # via uvicorn
 cryptography==50.0.2
-    # via verabot-backend
+    # via
+    #   pyjwt
+    #   verabot-backend
 fastapi==0.142.1
     # via verabot-backend
 h11==0.16.0
     # via
     #   httpcore
+    #   httpcore2
     #   uvicorn
 httpcore==1.0.9
     # via httpx
+httpcore2==2.13.1 ; sys_platform != 'emscripten'
+    # via httpx2
 httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
     # via verabot-backend
+httpx2==2.13.1
+    # via mcp
+httpx2-jsfetch==1.0 ; python_full_version >= '3.12' and sys_platform == 'emscripten'
+    # via httpx2
 idna==3.20
     # via
     #   anyio
     #   httpx
+    #   httpx2
+jsonschema==4.25.1
+    # via
+    #   mcp
+    #   verabot-backend
+jsonschema-specifications==2025.9.1
+    # via jsonschema
+mcp==2.2.0
+    # via verabot-backend
+mcp-types==2.2.0
+    # via mcp
 opentelemetry-api==1.45.0
-    # via fastapi
+    # via
+    #   fastapi
+    #   mcp
 pillow==11.3.0
     # via verabot-backend
 pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.13.5
-    # via fastapi
+    # via
+    #   fastapi
+    #   mcp
+    #   mcp-types
 pydantic-core==2.46.5
     # via pydantic
 pyjwt==2.15.1
-    # via verabot-backend
+    # via
+    #   mcp
+    #   verabot-backend
 python-dotenv==1.2.3
     # via uvicorn
 python-multipart==0.0.32
-    # via verabot-backend
+    # via
+    #   mcp
+    #   verabot-backend
+pywin32==312 ; sys_platform == 'win32'
+    # via mcp
 pyyaml==6.0.3
     # via uvicorn
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+rpds-py==2026.6.3
+    # via
+    #   jsonschema
+    #   referencing
+sse-starlette==3.5.0
+    # via mcp
 starlette==1.7.0
-    # via fastapi
+    # via
+    #   fastapi
+    #   mcp
+    #   sse-starlette
+truststore==0.10.4 ; sys_platform != 'emscripten'
+    # via
+    #   httpcore2
+    #   httpx2
 typing-extensions==4.16.0
     # via
     #   anyio
     #   fastapi
+    #   httpx2
+    #   mcp
+    #   mcp-types
     #   opentelemetry-api
     #   pydantic
     #   pydantic-core
+    #   referencing
     #   starlette
     #   typing-inspection
 typing-inspection==0.4.4
     # via
     #   fastapi
+    #   mcp
     #   pydantic
 uvicorn==0.54.0
-    # via verabot-backend
+    # via
+    #   mcp
+    #   verabot-backend
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
 watchfiles==1.3.0

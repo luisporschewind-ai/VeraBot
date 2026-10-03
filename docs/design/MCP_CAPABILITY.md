@@ -1,6 +1,7 @@
 # MCP 能力设计 (MCP Capability Design) — v1.0
 
-> 状态：**v1.0 已批准 (Approved)，尚未实现**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)；**开发等待额度重置后开始** (从 §15 的 M1 开始)。决定与正文冲突时以 §16 为准。
+> 状态：**v1.0 已批准 (Approved)**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)。决定与正文冲突时以 §16 为准。
+> **实现进度 (2026-10-03)**：**M1 已实现**（schema v7、免授权目录、Streamable HTTP 客户端、Bot 工具开关、iOS 设置）。**M2 及以后未实现**（OAuth、HITL 确认卡片、Gmail、自定义 URL、stdio）。实现与正文的差异只记在 §18，不改已批准的决定。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
 > **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，Bot 标签 (commit `1d18e1b`) 占用 **schema v5**，Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md)) 预留 **schema v6**，本文的迁移使用 **schema v7** (§16 D2)。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密复用该依赖，但使用独立密钥 `VERABOT_TOKEN_ENC_KEY` (§16 D2)。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
@@ -634,3 +635,38 @@ CREATE INDEX IF NOT EXISTS idx_mcp_tools_user ON mcp_tools(user_id, status);
 - Google Workspace MCP 服务器配置：<https://developers.google.com/workspace/guides/configure-mcp-servers>
 - Gmail MCP 参考 (`gmailmcp.googleapis.com`)：<https://developers.google.com/workspace/gmail/api/reference/mcp>
 - Google Workspace Updates (2026-05)：Workspace MCP 服务器公开开发者预览
+
+## 18. M1 实现记录 (2026-10-03)
+
+M1 已落地。本节只记录实现与上文的差异，以及前后端字段对照。§16 的决定不改。OAuth、HITL 确认卡片、Gmail、自定义 URL、stdio 生命周期都还没做；对应表已随 v7 建好，目前为空。
+
+### 18.1 与正文的差异
+
+| 项 | 实现 |
+|---|---|
+| 目录 | 两个免授权服务。Microsoft Learn（`https://learn.microsoft.com/api/mcp`）默认开启；AWS Knowledge（`https://knowledge-mcp.global.api.aws`）写进目录但默认停用，不发网络请求。地址与开关仍可改，见 `.env.example` |
+| 传输客户端 | 仓库内 `services/mcp/http_client.py`（httpx）。官方 SDK `mcp==2.2.0` 已锁定，但不用它的 `Client` 自动握手：当前 SDK 会按 2025-11-25 / 2026-07-28 探测，对不上这两个服务器（Learn 要会话号，AWS 在客户端请求 2025-06-18 时协商到 2025-03-26） |
+| 协议 | 每个请求带 `Accept: application/json, text/event-stream`，JSON 与 SSE 都解析。服务器返回 `Mcp-Session-Id` 才在后续请求带回，否则不带。接受不高于请求值的 `protocolVersion`，之后用 `MCP-Protocol-Version` 头发送协商结果 |
+| 超时 | 单一 `VERABOT_MCP_TIMEOUT`，默认 15 秒（建议 10–15）。测试可以设得更低 |
+| 工具错误 | HTTP 200 且 `result.isError == true` → `mcp_tool_error`。JSON-RPC `error` → `mcp_rpc_error`。超时 → `mcp_timeout` |
+| 非只读工具 | 不调用远程服务，直接返回 `needs_confirmation`（确认卡片属于 M3）。目录里写明的 Learn 三个工具和 `aws___list_regions`，在注解没有把 `readOnlyHint` 设为 false 时按只读 |
+| 同步时机 | 只在 MCP 接口（列表 / 启用 / 刷新）同步。`GET /api/tools` 和对话组 schema 不连外网 |
+| 地址不下发 | 公开 JSON 只有 `url_configured`，没有原始 URL |
+| 结果长度 | 结果在 `sanitize.wrap` 截到 `VERABOT_MCP_MAX_RESULT_CHARS` 再包裹；`runtime` 写 tool 消息时对 `mcp__` 结果不再二次截断 (内置工具仍 6000 字) |
+| 会话 | 每次 `tools/call` 新建会话 (initialize + initialized + call)，中国大陆网络实测 initialize 约 1.3 s；会话复用留到 M2 |
+| 同意记录 (D4) | M1 只在设置页说明结果会发送给 DeepSeek，**尚未记录同意时间**；按 D4 需要在 M2「连接」流程里补上 |
+| 设置页 | M1 同时做了设置 › MCP 服务（启用、刷新、按 Bot 开关）和 Bot 详情「MCP 服务」。设计稿把设置列表放在 M2；本次按实现范围提前了只读开关，不含 OAuth |
+
+### 18.2 前后端字段
+
+契约测试 `mcp_test.py` MCP-CONTRACT：iOS `CodingKeys` 是对应 JSON 键的子集（多出来的键可以忽略）。
+
+| 后端 JSON | iOS |
+|---|---|
+| `GET /api/mcp/catalog` → `catalog[]`：`catalog_id`、`slug`、`name`、`description`、`trust`、`transport`、`auth`、`enabled_by_default`、`url_configured` | `MCPCatalogItem` |
+| `GET /api/mcp/servers` → `servers[]`：`id`、`slug`、`catalog_id`、`name`、`source`、`transport`、`trust`、`auth_type`、`status`、`enabled`、`account_label`、`tools_count`、`last_error`、`last_synced_at` | `MCPServer` |
+| `GET /api/mcp/servers/{id}/tools` → `tools[]`：`id`、`server_id`、`full_name`、`mcp_name`、`label`、`description`、`risk`、`requires_confirmation`、`delegable`、`status`（另有 `annotations`，iOS 不解码） | `MCPTool` |
+| `POST .../sync`：`added`、`changed`、`removed`、`server`（另有 `rejected`，iOS 不解码） | `MCPSyncResult` |
+| `GET /api/tools` 每项：`name`、`label`、`description`、`delegation`、`source`（`builtin` / `mcp`）、`server`、`server_id`、`risk`、`requires_confirmation`、`delegable`、`status`。MCP 项的 `name` 等于 `full_name` | `ToolInfo`（新字段可选；旧 JSON 缺这些键时 `source` 为 nil，不当作 MCP） |
+
+Bot 工具开关仍用已有的 `allowed_tools`，写入完整函数名 `mcp__{slug}__{tool}`（点号改成下划线）。「开启全部只读」在客户端展开成具体名字，最多 20 个 MCP 工具。保存时要带上原有内置工具名，避免被清空。

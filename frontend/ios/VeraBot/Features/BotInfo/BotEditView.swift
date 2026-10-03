@@ -25,6 +25,8 @@ struct BotEditView: View {
     @State private var persona = ""
     @State private var instructions = ""
     @State private var tools: [ToolInfo] = []
+    @State private var mcpServers: [MCPServer] = []
+    @State private var mcpTools: [MCPTool] = []
     @State private var guardrails: Guardrails?
     @State private var others: [Bot] = []
     @State private var allowedTools: Set<String> = []
@@ -153,7 +155,7 @@ struct BotEditView: View {
             }
 
             Section {
-                ForEach(tools) { t in
+                ForEach(tools.filter { !$0.isMCP }) { t in
                     CompactToggle(isOn: binding(for: t.name)) {
                         Text(t.displayName)
                     }
@@ -162,6 +164,39 @@ struct BotEditView: View {
                 Text("工具权限")
             } footer: {
                 Text("未勾选的工具不会提供给模型，且服务端会拒绝越权调用并记录审计日志。")
+            }
+
+            Section {
+                if mcpServers.isEmpty {
+                    Text("暂无 MCP 服务").foregroundStyle(.secondary)
+                }
+                ForEach(mcpServers) { server in
+                    let rows = mcpTools.filter { $0.serverId == server.id }
+                    Text(server.name).font(.subheadline)
+                    if server.status != "connected" {
+                        Text(server.status == "disabled" ? "已停用，可在设置中开启" : "需先在设置中连接")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    } else if rows.isEmpty {
+                        Text("还没有工具").font(.footnote).foregroundStyle(.secondary)
+                    } else {
+                        Button("开启全部只读") {
+                            allowedTools = Set(MCPToolRules.addingReadOnly(current: Array(allowedTools), tools: rows))
+                        }
+                        ForEach(rows) { tool in
+                            CompactToggle(isOn: binding(for: tool.fullName)) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(tool.label)
+                                    Text(tool.riskText).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            .disabled(tool.status != "active")
+                        }
+                    }
+                }
+            } header: {
+                Text("MCP 服务")
+            } footer: {
+                Text("按服务分组，默认关闭。每个 Bot 最多 \(MCPToolRules.maxPerBot) 个。「开启全部只读」只写入当前这些只读工具的名字。")
             }
 
             Section {
@@ -347,6 +382,17 @@ struct BotEditView: View {
             loaded = true
         } catch {
             errorText = app.message(for: error)
+        }
+        do {
+            let response = try await app.api.mcpServers()
+            mcpServers = response.servers
+            var rows: [MCPTool] = []
+            for server in response.servers {
+                rows.append(contentsOf: try await app.api.mcpTools(serverID: server.id).tools)
+            }
+            mcpTools = rows
+        } catch {
+            if errorText == nil { errorText = app.message(for: error) }
         }
     }
 

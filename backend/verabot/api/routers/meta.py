@@ -5,6 +5,7 @@ from ...core.config import (DEEPSEEK_MODEL, MAX_BOTS_PER_USER, MAX_DELEGATION_DE
                             MAX_SHARED_CONTEXT, MEMORY_INJECT_MAX, MEMORY_MAX_ACTIVE)
 from ...services import memory
 from ...services.quota import compute_quota
+from ...services.mcp import service as mcp_service
 from ...tools import REGISTRY
 from ..deps import current_user
 
@@ -19,8 +20,14 @@ def quota(user=Depends(current_user)):
 @router.get("/api/tools")
 def tools_list(user=Depends(current_user)):
     labels = {"get_weather": "天气查询", "create_reminder": "创建提醒", "list_reminders": "查看提醒", "ask_bot": "委派其他 Bot"}
-    return {"tools": [{"name": t.name, "label": labels.get(t.name, t.name), "description": t.description,
-                       "delegation": t.delegation} for t in REGISTRY.values() if t.kind != "memory"],
+    tools = [{"name": t.name, "label": labels.get(t.name, t.name), "description": t.description,
+              "delegation": t.delegation, "source": "builtin", "server": None, "server_id": None,
+              "risk": None, "requires_confirmation": False, "delegable": not t.delegation, "status": "active"}
+             for t in REGISTRY.values() if t.kind != "memory"]
+    for tool, server in mcp_service.connected_tool_rows(user["id"]):
+        tools.append({**mcp_service.public_tool(tool), "name": tool["full_name"],
+                      "delegation": False, "source": "mcp", "server": server["name"]})
+    return {"tools": tools,
             # 记忆工具不在工具白名单里（由 Bot 的 memory_access 控制），这里只给摘要信息；旧客户端忽略该字段
             "memory": {"enabled": memory.enabled_for(user["id"]), "max_active": MEMORY_MAX_ACTIVE,
                        "inject_max": MEMORY_INJECT_MAX},

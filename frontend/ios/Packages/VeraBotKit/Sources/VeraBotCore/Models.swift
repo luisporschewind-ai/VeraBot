@@ -227,7 +227,30 @@ public struct ToolInfo: Codable, Sendable, Hashable, Identifiable {
     public let label: String?
     public let description: String
     public let delegation: Bool?
+    /// builtin / mcp。旧后端没有该字段时当作内置工具。
+    public let source: String?
+    public let server: String?
+    public let serverId: Int?
+    public let risk: String?
+    public let requiresConfirmation: Bool?
+    public let delegable: Bool?
+    public let status: String?
     public var id: String { name }
+    public var isMCP: Bool { source == "mcp" }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case label
+        case description
+        case delegation
+        case source
+        case server
+        case serverId = "server_id"
+        case risk
+        case requiresConfirmation = "requires_confirmation"
+        case delegable
+        case status
+    }
 }
 
 public struct Guardrails: Codable, Sendable, Hashable {

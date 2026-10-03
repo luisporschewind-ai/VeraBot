@@ -14,6 +14,8 @@ dependencies = [
     "python-multipart==0.0.32",
     "pillow==11.3.0",
     "cryptography==50.0.2",
+    "mcp==2.2.0",
+    "jsonschema==4.25.1",
 ]
 
 [project.optional-dependencies]

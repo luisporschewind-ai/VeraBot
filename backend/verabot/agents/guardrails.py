@@ -34,6 +34,8 @@ def check_delegation(ctx: ToolContext, target: dict) -> Rejection | None:
                          {"available_bots": allowed_target_names(ctx)})
     if not target.get("accept_delegation"):
         return Rejection("target_refuses", f"「{target['name']}」不接受其他 Bot 的委派")
+    if getattr(ctx.turn, "untrusted_tainted", False):
+        return Rejection("untrusted_tainted", "本轮已读取外部 MCP 服务的结果，不能再委派其他 Bot")
     if ctx.turn.delegations >= MAX_DELEGATIONS_PER_TURN:
         return Rejection("turn_cap", f"本轮对话的委派次数已达上限（{MAX_DELEGATIONS_PER_TURN} 次）")
     used, budget = db.token_budget(ctx.user_id)

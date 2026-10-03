@@ -67,7 +67,7 @@ def _clean_name(v):
 
 class BotPerms(BaseModel):
     """多 Agent 权限（Permissions）。None = 不修改。"""
-    allowed_tools: list[str] | None = Field(default=None, max_length=20)   # 工具白名单
+    allowed_tools: list[str] | None = Field(default=None, max_length=40)   # 内置工具 + 最多 20 个 MCP 工具
     delegate_to: list[int] | None = Field(default=None, max_length=100)    # 可委派的目标 Bot id
     accept_delegation: bool | None = None                                  # 是否接受其他 Bot 委派
     memory_access: Literal["none", "bot", "bot_and_global"] | None = None   # 记忆授权（v4）；None = 不修改 / 用默认值
