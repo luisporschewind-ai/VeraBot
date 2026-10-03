@@ -29,6 +29,17 @@ enum ReminderOutboxStore {
     }
 }
 
+/// 通知代理回调里取出的值（Sendable），交给主线程处理。
+struct NotificationTap: Sendable {
+    let uid: Int?
+    let reminderID: Int?
+    let nid: Int?
+    let link: String?
+    let identifier: String
+    let actionIdentifier: String
+    let title: String
+}
+
 @MainActor
 final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationCoordinator()
@@ -96,27 +107,45 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         center.removePendingNotificationRequests(withIdentifiers: ids)
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        if let app, let uid = notification.request.content.userInfo["uid"] as? Int, uid != app.userID {
+    // 系统在非主线程调用这两个代理方法，参数（UNNotification 等）不是 Sendable。
+    // 先在 nonisolated 方法里取出需要的值（都是 Sendable 的基本类型），再回到主线程处理（Swift 6 严格并发）。
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        let info = notification.request.content.userInfo
+        return await handleWillPresent(uid: info["uid"] as? Int, nid: info["nid"] as? Int)
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let request = response.notification.request
+        let info = request.content.userInfo
+        let tap = NotificationTap(
+            uid: info["uid"] as? Int, reminderID: info["reminder_id"] as? Int, nid: info["nid"] as? Int,
+            link: info["link"] as? String, identifier: request.identifier,
+            actionIdentifier: response.actionIdentifier, title: request.content.title
+        )
+        await handleResponse(tap)
+    }
+
+    private func handleWillPresent(uid: Int?, nid: Int?) async -> UNNotificationPresentationOptions {
+        if let app, let uid, uid != app.userID {
             return []
         }
-        if let nid = notification.request.content.userInfo["nid"] as? Int {
+        if let nid {
             await app?.report(notificationID: nid, event: "delivered", channel: "local")
         }
         return [.banner, .sound, .list]
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        let info = response.notification.request.content.userInfo
-        let uid = info["uid"] as? Int
+    private func handleResponse(_ tap: NotificationTap) async {
+        let center = UNUserNotificationCenter.current()
+        let uid = tap.uid
         guard let app, uid == app.userID else {
-            center.removeDeliveredNotifications(withIdentifiers: [response.notification.request.identifier])
-            center.removePendingNotificationRequests(withIdentifiers: [response.notification.request.identifier])
+            center.removeDeliveredNotifications(withIdentifiers: [tap.identifier])
+            center.removePendingNotificationRequests(withIdentifiers: [tap.identifier])
             return
         }
-        let reminderID = info["reminder_id"] as? Int
-        let identifier = response.notification.request.identifier
-        switch response.actionIdentifier {
+        let reminderID = tap.reminderID
+        let identifier = tap.identifier
+        switch tap.actionIdentifier {
         case "VB_DONE":
             if let reminderID {
                 await removeReminder(reminderID, userID: app.userID ?? uid ?? 0)
@@ -126,19 +155,19 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         case "VB_SNOOZE_10":
             if let reminderID {
                 await scheduleSnooze(userID: app.userID ?? uid ?? 0, reminderID: reminderID,
-                                     title: response.notification.request.content.title)
+                                     title: tap.title)
                 await app.performReminderAction(reminderID: reminderID, action: "snooze", minutes: 10,
                                                 idempotencyKey: identifier + ":snooze")
             }
         case UNNotificationDismissActionIdentifier:
-            if let nid = info["nid"] as? Int {
+            if let nid = tap.nid {
                 await app.report(notificationID: nid, event: "dismissed", channel: "local")
             }
         default:
-            if let link = info["link"] as? String {
+            if let link = tap.link {
                 await app.open(link: link)
             }
-            if let nid = info["nid"] as? Int {
+            if let nid = tap.nid {
                 await app.report(notificationID: nid, event: "opened", channel: "local")
             }
         }

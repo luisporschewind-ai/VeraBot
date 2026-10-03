@@ -33,7 +33,7 @@ import Testing
     #expect(dailyItem?.identifier == "vb.4.rem.1.daily")
     let days = planned.filter { $0.reminderID == 2 }
     #expect(days.count == 5)
-    #expect(days.allSatisfy(\.repeats))
+    #expect(days.allSatisfy { $0.repeats })
     #expect(Set(days.map(\.identifier)) == Set((1...5).map { "vb.4.rem.2.wd.\($0)" }))
     let limited = planned.filter { $0.reminderID == 3 }
     #expect(limited.allSatisfy { !$0.repeats })

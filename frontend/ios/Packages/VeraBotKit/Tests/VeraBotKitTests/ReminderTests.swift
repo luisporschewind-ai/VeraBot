@@ -37,7 +37,7 @@ import Testing
     calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
     let now = date("2026-10-03T02:00:00+00:00")
     let due = Reminder(id: 1, title: "逾期", dueUTC: date("2026-10-03T01:00:00+00:00"), status: .due)
-    let today = Reminder(id: 2, title: "今天", dueUTC: date("2026-10-03T07:00:00+00:00"), status: .scheduled, repeatLabel: "工作日 09:00", botName: "研究助手")
+    let today = Reminder(id: 2, title: "今天", dueUTC: date("2026-10-03T07:00:00+00:00"), repeatLabel: "工作日 09:00", status: .scheduled, botName: "研究助手")
     let later = Reminder(id: 3, title: "以后", dueUTC: date("2026-10-05T01:00:00+00:00"), status: .scheduled)
     let undated = Reminder(id: 4, title: "没时间", status: .scheduled, notify: false)
     let missed = Reminder(id: 5, title: "错过", dueUTC: date("2026-10-02T01:00:00+00:00"), status: .missed, updatedAt: "2026-10-02T01:00:00+00:00")

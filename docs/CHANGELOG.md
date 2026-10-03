@@ -6,6 +6,7 @@
 
 ### 修复 (Fixed)
 
+- **提醒 R1 · iOS 编不过、Kit 测试编不过**（PR #9 合并复核，Boss 的 Mac，Xcode / Swift 6）：`NotificationCoordinator` 的 `UNUserNotificationCenterDelegate` 方法改为 `nonisolated`，先取出 `Sendable` 的 `NotificationTap`，再回主 actor 执行 `handleWillPresent` / `handleResponse`（原来跨 actor 传非 Sendable 的 `UNNotification`，Swift 6 严格并发报错）。`ReminderTests` 构造参数顺序改正（`repeatLabel` 在 `status` 前）；`NotificationSchedulerTests` 断言改为 `allSatisfy { $0.repeats }`。`backend/requirements.txt` 恢复「由 uv.lock 导出」的文件头。修复后 `swift test` 140 通过、`xcodebuild` 成功；模拟器上本地通知按时弹出，「完成」「稍后 10 分钟」可用，免打扰时段内提醒照常弹出（D8）。
 - **插件 · 卸载时进行中的调用要等满 MCP 超时**（PR #7 合并复核发现，`PLG-14` 在 Boss 的 Mac 上失败）：卸载会关掉池里的 httpx 客户端，但 macOS 上关闭套接字不会唤醒另一线程里阻塞的读取，进行中的调用要等 15 s 超时才返回 `plugin_uninstalled`。`services/mcp/service.py` 新增 `_interruptible`：单次调用放到后台线程，每 0.1 s 检查服务行，没了就立刻按「已发出」返回（只读 → `plugin_uninstalled`，非只读 → `result_unknown`，规则不变），后台线程结果丢弃。`plugin_test.py` 全部通过（PLG-14 卸载 < 0.5 s 返回）。
 - **安全 · 邮箱抢注：验证码登录认领未验证账号** (此前在账号隔离审计里按当时决定延后，本次按 Boss 选定的修法落地)：
   - 问题：未验证邮箱可以注册并正常使用。真正的主人之后用验证码登录时，`login_with_code` 只把邮箱标为已验证并进入同一个账号，抢注者的密码和已发出的访问令牌、刷新令牌仍然有效，能读到主人之后写入的私密数据。

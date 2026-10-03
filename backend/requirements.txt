@@ -1,3 +1,5 @@
+# 由 uv.lock 导出（备用安装方式 / 国内镜像回退），请勿手改：
+#   uv export --frozen --no-hashes --no-dev --no-emit-project --no-header -o requirements.txt
 annotated-doc==0.0.5
     # via fastapi
 annotated-types==0.8.0
