@@ -24,6 +24,8 @@ public enum ChatEvent: Sendable {
     case delta(String)
     case toolStart(ToolTrace)
     case toolResult(ToolTrace)
+    /// 召回记忆 / 委派内部进度（新后端；旧后端不发）
+    case status(ChatStatus)
     case error(String)
     case done(ChatDone)
 }
@@ -35,6 +37,7 @@ extension ChatEvent {
         case .delta(let t): .delta(t)
         case .toolStart(let trace): .toolStart(trace)
         case .toolResult(let trace): .toolResult(trace)
+        case .status(let s): .status(s)
         case .error(let msg): .error(msg)
         case .done: .done
         }
@@ -269,7 +272,7 @@ public struct APIClient: VeraBotAPI {
         }
     }
 
-    private static func parse(event: String, data: Data) -> ChatEvent? {
+    static func parse(event: String, data: Data) -> ChatEvent? {
         let decoder = JSONDecoder()
         switch event {
         case "delta":
@@ -278,6 +281,8 @@ public struct APIClient: VeraBotAPI {
             return (try? decoder.decode(ToolTrace.self, from: data)).map { .toolStart($0) }
         case "tool_result":
             return (try? decoder.decode(ToolTrace.self, from: data)).map { .toolResult($0) }
+        case "status":
+            return (try? decoder.decode(ChatStatus.self, from: data)).map { .status($0) }
         case "error":
             return .error((try? decoder.decode(ErrorPayload.self, from: data))?.message ?? "未知错误")
         case "done":

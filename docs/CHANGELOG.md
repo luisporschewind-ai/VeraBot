@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 修复 (Fixed)
+
+- **iOS · 头像实验室**：深色模式状态角标几乎看不清 (改为实色底 `avatarMarkFill` + 角色背景色描边 + 阴影)；角标挡住 V豆 顶部圆点和星点的星光 (移到右下角，尺寸 0.26)；「按状态机演示」停止后马上再开始可能两轮叠加、按钮状态错乱 (加运行令牌，手动选状态也会停止演示；演示帧事先由真实 `ExecutionStateMachine` 算好 `AvatarLabDemo.frames`)；角色固定 hex 色改为 `Theme.swift` 头像语义色 (浅色 / 深色各一套)。文档里演示顺序更正为 思考 → 委派 → 思考 → 执行 → 阻塞 → 思考 → 回复 → 完成 → 空闲。
+- **工具**：新增 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，离屏渲染 + 检查 AVLAB-T01~T13，输出浅色 / 深色对照图)，不进 App target。iPhone 17 模拟器截图 / 录屏复测 (AVLAB-02、T14)。
+
 ### 新增 (Added)
 
 - **MCP M1 (schema v7)**：后端作为 MCP 客户端，连接免授权的公网服务。默认 Microsoft Learn（`VERABOT_MCP_LEARN_URL`，开）；备用 AWS Knowledge（`VERABOT_MCP_AWS_URL`，默认关，不访问网络）。地址可改，见 `backend/.env.example`。不改已有 Bot 的 `allowed_tools`。
@@ -12,6 +17,7 @@
   - 权限：命名空间 `mcp__{slug}__{tool}`；每 Bot 最多 20 个 MCP 工具；被委派不能调用；读过 MCP 结果的轮次不能 `ask_bot`；非只读工具不执行，返回需要确认。结果清洗后包在 `<untrusted_tool_result>` 里。
   - iOS：设置 › MCP 服务（用量 / 记忆之后）；Bot 详情「MCP 服务」分组开关和「开启全部只读」。Web 未改。
   - 测试：`backend/scripts/test/mcp_test.py`（本地假服务器覆盖 JSON / SSE、会话号、协议降级、两种错误；v6→v7 与全新库）。真实 Learn / AWS 用例默认跳过，`VERABOT_MCP_LIVE_TESTS=1` 才跑。回归 PIN-01~08、MEM 36/36。字段对照见 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §18.2。
+- **执行状态机 v1.1 (前后端)**：后端 SSE 新增 `status` 事件 `{phase, depth, bot_name, tool, parent_id}`：`recalling` (每轮召回记忆前，仅开启记忆时，depth 0)，以及被委派 Bot 的 `thinking` / `tool` (经 `TurnState.status_queue` 实时转发，位于外层 `tool_start` 与 `tool_result` 之间，`parent_id` = 外层 tool id，支持多跳 depth)；不写入 traces，旧客户端 / Web 忽略。iOS：`VeraBotCore.ChatStatus`、`ChatEvent.status`；`ExecutionState` 新增 `recalling`、`delegating(botName:progress:)`、`blocked(code:message:)` (tool_result 带 `error` 时短暂受阻，`ChatViewModel` 1.2 s 后发 `blockedElapsed` 回到原流程，整轮失败仍是 `failed`)。头像实验室：新增「委派中」「回复中」两种状态 (共 8 种)，`AvatarLabState(ExecutionState)` 映射，思考 / 执行 / 委派 / 回复在可见且前台时用系统 `phaseAnimator` 循环、离屏停止，减弱动态效果时静态，「遇到阻塞」改为轻摇一次，新增「按状态机演示一轮对话」。对话界面未改。测试：`status_event_test.py` STAT-01~08、`swift test` 新增 14 个 (共 88)。设计见 [design/EXECUTION_STATE.md](design/EXECUTION_STATE.md) v1.1。
 - **iOS Core · 执行状态机**：`VeraBotCore/ExecutionState.swift` 新增 `ExecutionState` (idle / thinking / callingTool / delegating / replying / awaitingConfirmation / completed / failed)、`ExecutionEvent` 与值类型 `ExecutionStateMachine`，由现有 SSE 事件 (delta / tool_start / tool_result / error / done) 加客户端事件 (发送、流结束、记忆卡片处理、重置) 推导；`ask_bot` → 委派，记忆提议卡片 → 等你确认，error 后的 done 保持出错，迟到事件忽略。`VeraBotNetworking` 新增 `ChatEvent.executionEvent`。`ChatViewModel` 只读暴露 `executionState`，**界面未改、后端未改**。设计与转移表见 [design/EXECUTION_STATE.md](design/EXECUTION_STATE.md)。`swift test` 新增 19 个 (共 74/74)，用例 EXEC-01~19。
 - **iOS · 头像实验室 (独立试验页)**：在「设置 › 调试 › 头像实验室」加入五款可交互角色预览（V豆、芽芽、星点、云朵、方糖），可切换六种状态、三种尺寸并重播状态动作；本页选择仅用于预览，不会写入 Bot 头像或资料。云朵从参考图提取轮廓并去除原图蓝色背景，使用实验页配色与柔和高光。仅影响独立实验页，不改现有 Bot 头像方案；iPhone 17 模拟器构建、安装、启动通过，视觉手工验收待进行。
 - **Bot 置顶 (schema v6)**：新增 nullable `bots.pinned_at`，v5 → v6 幂等迁移且迁移前备份本地数据库。PATCH `/api/bots/{id}` 接受严格布尔 `pinned`，重复置顶保留原时间，取消置顶置空；Bot JSON 返回 `pinned_at`，仅列表 API 按置顶时间倒序、同时间 id 升序，其余 id 升序。iOS 首页支持左滑和长按置顶 / 取消置顶，置顶行使用主题浅灰底；搜索结果保持同序。Web 冻结。PIN-01~08、Kit 解码 / 编码 / 排序用例覆盖。

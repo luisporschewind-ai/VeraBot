@@ -421,25 +421,71 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 
 | ID | 模块 | 用例 | 结果 |
 |---|---|---|---|
-| EXEC-01 | iOS Kit | 初始 idle；sent → thinking | 通过 (`swift test` 74/74，Mac) |
-| EXEC-02 | iOS Kit | 纯文字回复：delta → replying，done → completed，reset → idle | 通过 (`swift test` 74/74，Mac) |
-| EXEC-03 | iOS Kit | 空 delta 不改变 thinking | 通过 (`swift test` 74/74，Mac) |
-| EXEC-04 | iOS Kit | 工具：tool_start → callingTool，tool_result → thinking，再 delta → replying → completed | 通过 (`swift test` 74/74，Mac) |
-| EXEC-05 | iOS Kit | 先出字再调工具 → callingTool | 通过 (`swift test` 74/74，Mac) |
-| EXEC-06 | iOS Kit | ask_bot → delegating(小研)，返回后 thinking | 通过 (`swift test` 74/74，Mac) |
-| EXEC-07 | iOS Kit | ask_bot 缺 bot_name → delegating("") | 通过 (`swift test` 74/74，Mac) |
-| EXEC-08 | iOS Kit | 两个未返回工具：先返回后开始的，回落到仍在进行的那个 | 通过 (`swift test` 74/74，Mac) |
-| EXEC-09 | iOS Kit | tool_result 无对应 start 也接受 | 通过 (`swift test` 74/74，Mac) |
-| EXEC-10 | iOS Kit | remember 提议卡片 → done 后 awaitingConfirmation；无关 id 忽略；处理后 idle | 通过 (`swift test` 74/74，Mac) |
-| EXEC-11 | iOS Kit | 两张卡片都处理后才回 idle | 通过 (`swift test` 74/74，Mac) |
-| EXEC-12 | iOS Kit | already_known 等非卡片结果 → completed | 通过 (`swift test` 74/74，Mac) |
-| EXEC-13 | iOS Kit | error 后 done / streamEnded 保持 failed | 通过 (`swift test` 74/74，Mac) |
-| EXEC-14 | iOS Kit | 出错优先于待确认 | 通过 (`swift test` 74/74，Mac) |
-| EXEC-15 | iOS Kit | 未收到 done 的流结束按 done 处理 | 通过 (`swift test` 74/74，Mac) |
-| EXEC-16 | iOS Kit | 非活跃状态的迟到事件全部忽略 | 通过 (`swift test` 74/74，Mac) |
-| EXEC-17 | iOS Kit | 新一轮 sent 清掉上一轮待确认 / 出错 | 通过 (`swift test` 74/74，Mac) |
-| EXEC-18 | iOS Kit | 任意状态 reset 回到初始值 | 通过 (`swift test` 74/74，Mac) |
-| EXEC-19 | iOS Kit | ChatEvent → ExecutionEvent 映射 (5 种 SSE 事件) | 通过 (`swift test` 74/74，Mac) |
+| EXEC-01 | iOS Kit | 初始 idle；sent → thinking | 通过 (`swift test` 88/88，Mac) |
+| EXEC-02 | iOS Kit | 纯文字回复：delta → replying，done → completed，reset → idle | 通过 (`swift test` 88/88，Mac) |
+| EXEC-03 | iOS Kit | 空 delta 不改变 thinking | 通过 (`swift test` 88/88，Mac) |
+| EXEC-04 | iOS Kit | 工具：tool_start → callingTool，tool_result → thinking，再 delta → replying → completed | 通过 (`swift test` 88/88，Mac) |
+| EXEC-05 | iOS Kit | 先出字再调工具 → callingTool | 通过 (`swift test` 88/88，Mac) |
+| EXEC-06 | iOS Kit | ask_bot → delegating(小研)，返回后 thinking | 通过 (`swift test` 88/88，Mac) |
+| EXEC-07 | iOS Kit | ask_bot 缺 bot_name → delegating("") | 通过 (`swift test` 88/88，Mac) |
+| EXEC-08 | iOS Kit | 两个未返回工具：先返回后开始的，回落到仍在进行的那个 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-09 | iOS Kit | tool_result 无对应 start 也接受 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-10 | iOS Kit | remember 提议卡片 → done 后 awaitingConfirmation；无关 id 忽略；处理后 idle | 通过 (`swift test` 88/88，Mac) |
+| EXEC-11 | iOS Kit | 两张卡片都处理后才回 idle | 通过 (`swift test` 88/88，Mac) |
+| EXEC-12 | iOS Kit | already_known 等非卡片结果 → completed | 通过 (`swift test` 88/88，Mac) |
+| EXEC-13 | iOS Kit | error 后 done / streamEnded 保持 failed | 通过 (`swift test` 88/88，Mac) |
+| EXEC-14 | iOS Kit | 出错优先于待确认 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-15 | iOS Kit | 未收到 done 的流结束按 done 处理 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-16 | iOS Kit | 非活跃状态的迟到事件全部忽略 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-17 | iOS Kit | 新一轮 sent 清掉上一轮待确认 / 出错 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-18 | iOS Kit | 任意状态 reset 回到初始值 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-19 | iOS Kit | ChatEvent → ExecutionEvent 映射 (5 种 SSE 事件) | 通过 (`swift test` 88/88，Mac) |
+
+## 执行状态机 v1.1 · status 事件 (Execution state v1.1) — 2026-10-03
+
+后端 `scripts/test/status_event_test.py` (临时 SQLite + mock LLM，`VERABOT_MAX_DELEGATION_DEPTH=2`)；iOS `ExecutionStateTests.swift`。设计见 [EXECUTION_STATE.md](../design/EXECUTION_STATE.md)。回归：MA 25/25、MEM 36/36、AV/NK 21/21、TAG 10/10、PIN 8/8。
+
+| ID | 模块 | 用例 | 结果 |
+|---|---|---|---|
+| STAT-01 | 后端 / 契约 | 首个事件 status recalling (depth 0、当前 Bot、tool / parent_id 为 null) | 通过 (8/8，Mac) |
+| STAT-02 | 后端 / 契约 | 两跳委派进度：B thinking → B tool ask_bot → C thinking (depth 2) → B thinking，parent_id 均为外层 id | 通过 (8/8，Mac) |
+| STAT-03 | 后端 / 契约 | 进度全部位于外层 tool_start 与 tool_result 之间；done 仍最后且唯一 | 通过 (8/8，Mac) |
+| STAT-04 | 后端 / 契约 | 每个 payload 恰好 5 个键，phase ∈ STATUS_PHASES | 通过 (8/8，Mac) |
+| STAT-05 | 后端 / 契约 | 向后兼容：tool_result / done 字段不变，委派答复正常 | 通过 (8/8，Mac) |
+| STAT-06 | 后端 / 契约 | status 不写入 messages.traces | 通过 (8/8，Mac) |
+| STAT-07 | 后端 / 契约 | 关闭记忆 → 不发 recalling；无工具时无 status | 通过 (8/8，Mac) |
+| STAT-08 | 后端 / 契约 | 契约：status 键 = iOS ChatStatus CodingKeys，phase = ChatStatus.Phase (读取 Swift 源码) | 通过 (8/8，Mac) |
+| EXEC-20 | iOS Kit | ChatStatus 解码后端 payload；缺字段 / 未知 phase 容错 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-21 | iOS Kit | SSE 解析 status 事件；未知事件返回 nil | 通过 (`swift test` 88/88，Mac) |
+| EXEC-22 | iOS Kit | recalling → delta → replying → completed | 通过 (`swift test` 88/88，Mac) |
+| EXEC-23 | iOS Kit | 已出字 / 已调工具后的 recalling 忽略 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-24 | iOS Kit | 委派进度：thinking → tool(get_weather) → depth 2 → 返回后 thinking | 通过 (`swift test` 88/88，Mac) |
+| EXEC-25 | iOS Kit | parent_id 不匹配或指向非委派工具：忽略 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-26 | iOS Kit | 未知 status phase 忽略 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-27 | iOS Kit | 委派被拒 (target_refuses) → blocked → blockedElapsed 回到 thinking | 通过 (`swift test` 88/88，Mac) |
+| EXEC-28 | iOS Kit | 6 种委派拒绝码 + 5 种权限码 + 无 code 的工具失败都进入 blocked | 通过 (`swift test` 88/88，Mac) |
+| EXEC-29 | iOS Kit | 成功结果 / error 为 null / 无 result 不受阻 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-30 | iOS Kit | blocked 期间 delta / tool_start / done / error 提前结束受阻 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-31 | iOS Kit | 旧计时器 (serial 过期) 忽略；非 blocked 时忽略 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-32 | iOS Kit | 受阻结束回到仍在进行的委派，期间进度保留 | 通过 (`swift test` 88/88，Mac) |
+| EXEC-33 | iOS Kit | 记忆工具错误 (proposal_cap) 受阻且不产生待确认 | 通过 (`swift test` 88/88，Mac) |
+| AVLAB-02 | iOS 头像实验室 | 设置 › 调试 › 头像实验室：选「委派中」「回复中」；切到持续状态后离开页面再回来；开启「减弱动态效果」；点「按状态机演示一轮对话」 | 8 种状态可选；持续状态循环、离开页面停止；减弱动态效果时静止；演示依次显示 思考中 → 委派中 (进度文字变化) → 思考中 → 执行中 → 遇到阻塞 (约 1.2 s) → 思考中 → 回复中 → 已完成 → 空闲 | 2026-10-03 模拟器截图 / 录屏：顺序正确；持续状态循环、减弱动态效果时静止 (见 AVLAB-T14)；深色角标看不清、角标挡住 V豆 圆点 / 星点星光 (已修复)；最终观感待 Boss 手工验收 |
+| AVLAB-T01 | 头像实验室离屏检查 | `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，Mac Catalyst 离屏渲染) | 11 种 `ExecutionState` 输入映射正确 | 通过 |
+| AVLAB-T02 | 同上 | 同上 | 8 种头像状态都能由状态机到达 | 通过 |
+| AVLAB-T03 | 同上 | 同上 | 持续状态集合 = 思考 / 执行 / 委派 / 回复 | 通过 |
+| AVLAB-T04 | 同上 | 同上 | 8 种状态标题与 SF Symbol 都非空且能加载 | 通过 |
+| AVLAB-T05 | 同上 | 同上 | 5 角色 × 8 状态 = 40 条读屏文字互不相同 | 通过 |
+| AVLAB-T06 | 同上 | 同上 | 演示序列 = 思考→委派→思考→执行→阻塞→思考→回复→完成→空闲 | 通过 |
+| AVLAB-T07 | 同上 | 同上 | 演示中只有一帧阻塞，停留 1200 ms (= `blockedDisplayDuration`) | 通过 |
+| AVLAB-T08 | 同上 | 同上 | 演示字幕包含召回、委派进度、阻塞 | 通过 |
+| AVLAB-T09 | 同上 | 同上 | 演示结束于空闲 | 通过 |
+| AVLAB-T10 | 同上 | 同上 | 5 角色 × 8 状态 × 3 尺寸 (68 / 104 / 148) = 120 次渲染全部非空 | 通过 |
+| AVLAB-T11 | 同上 | 同上 | 角色与角标不超出画布 (容差 3%) | 通过 |
+| AVLAB-T12 | 同上 | 同上 | 云朵轮廓资源能加载 | 通过 |
+| AVLAB-T13 | 同上 | 同上 | 深色配色与浅色不同；输出 `sheet_{light,dark}_{68,104,148}.png` 供目检 | 通过 |
+| AVLAB-T14 | 头像实验室模拟器 | iPhone 17 模拟器，星点 +「执行中」，`simctl io recordVideo` 录 5 s；再开「减弱动态效果」重录 | 正常时画面持续变化 (录屏约 5 MB)；减弱动态效果时静止 (约 110 KB，只有首帧) | 通过 (2026-10-03) |
+
+汇总：AVLAB-T01~T13 **13/13 通过** (2026-10-03，Mac)。
 
 ## MCP M1 (schema v7) — 2026-10-03
 

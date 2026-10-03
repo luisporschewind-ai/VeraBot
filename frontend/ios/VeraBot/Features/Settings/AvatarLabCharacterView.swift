@@ -9,22 +9,49 @@ struct AvatarLabCharacterView: View {
     var replayID = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    /// 只在屏幕上可见、App 在前台时循环播放持续状态，离开屏幕即停止（省电）。
+    @State private var isVisible = false
+
+    /// 单次动作的触发键：状态切换或点「重播」都会重新播放一次。
+    private struct OneShotKey: Equatable {
+        let replay: Int
+        let state: AvatarLabState
+    }
+
+    /// 读屏文字：「角色，状态」。
+    static func accessibilityText(kind: AvatarLabCharacterKind, state: AvatarLabState) -> String {
+        "\(kind.title)，\(state.title)"
+    }
 
     var body: some View {
         Group {
-            if animated && !reduceMotion && state != .blocked {
-                art.phaseAnimator([false, true], trigger: replayID) { content, phase in
+            if !animated || reduceMotion {
+                art   // 减弱动态效果：只保留静态表情
+            } else if state.isContinuous {
+                if isVisible && scenePhase == .active {
+                    // 持续状态（思考 / 执行 / 委派 / 回复）：系统 phaseAnimator 无 trigger 时循环播放
+                    art.phaseAnimator([false, true]) { content, phase in
+                        moving(content, phase: phase)
+                    } animation: { _ in
+                        .easeInOut(duration: state.motionDuration / 2)
+                    }
+                } else {
+                    art
+                }
+            } else {
+                art.phaseAnimator([false, true], trigger: OneShotKey(replay: replayID, state: state)) { content, phase in
                     moving(content, phase: phase)
                 } animation: { _ in
                     .spring(response: state.motionDuration, dampingFraction: 0.58)
                 }
-            } else {
-                art
             }
         }
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(kind.title)，\(state.title)")
+        .accessibilityLabel(Self.accessibilityText(kind: kind, state: state))
     }
 
     private var art: some View {
@@ -221,14 +248,15 @@ struct AvatarLabCharacterView: View {
     }
 
     private func face(in side: CGFloat) -> some View {
-        let gaze = state == .thinking ? side * 0.025 : 0
+        // 思考时看向一侧；委派时看向另一侧（看向被委派的 Bot）
+        let gaze = state == .thinking ? side * 0.025 : (state == .delegating ? -side * 0.035 : 0)
         let eyeHeight = side * (state == .done ? 0.075 : 0.095)
 
         return VStack(spacing: side * 0.075) {
             HStack(spacing: side * 0.16) {
-                Capsule().fill(Color(hex: "#344047"))
+                Capsule().fill(Color.avatarInk)
                     .frame(width: side * 0.06, height: eyeHeight)
-                Capsule().fill(Color(hex: "#344047"))
+                Capsule().fill(Color.avatarInk)
                     .frame(width: side * 0.06, height: eyeHeight)
             }
             .offset(x: gaze, y: side * (state == .thinking ? -0.018 : 0))
@@ -238,8 +266,8 @@ struct AvatarLabCharacterView: View {
         }
         .overlay(alignment: .top) {
             HStack(spacing: side * 0.16) {
-                Circle().fill(Color(hex: "#FF8293").opacity(0.5)).frame(width: side * 0.07, height: side * 0.045)
-                Circle().fill(Color(hex: "#FF8293").opacity(0.5)).frame(width: side * 0.07, height: side * 0.045)
+                Circle().fill(Color.avatarBlush.opacity(0.5)).frame(width: side * 0.07, height: side * 0.045)
+                Circle().fill(Color.avatarBlush.opacity(0.5)).frame(width: side * 0.07, height: side * 0.045)
             }
             .offset(y: side * 0.065)
         }
@@ -251,31 +279,33 @@ struct AvatarLabCharacterView: View {
         switch state {
         case .idle, .done:
             AvatarLabSmileShape()
-                .stroke(Color(hex: "#344047"), style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
-        case .thinking, .working:
-            Capsule().fill(Color(hex: "#344047")).frame(width: side * 0.07, height: side * 0.018)
+                .stroke(Color.avatarInk, style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
+        case .thinking, .working, .delegating:
+            Capsule().fill(Color.avatarInk).frame(width: side * 0.07, height: side * 0.018)
+        case .replying:
+            Ellipse().fill(Color.avatarInk).frame(width: side * 0.06, height: side * 0.04)
         case .waiting:
-            Circle().fill(Color(hex: "#344047")).frame(width: side * 0.025, height: side * 0.025)
+            Circle().fill(Color.avatarInk).frame(width: side * 0.025, height: side * 0.025)
         case .blocked:
             AvatarLabFrownShape()
-                .stroke(Color(hex: "#344047"), style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
+                .stroke(Color.avatarInk, style: StrokeStyle(lineWidth: side * 0.018, lineCap: .round))
         }
     }
 
     @ViewBuilder
     private func stateMark(in side: CGFloat) -> some View {
         if state != .idle {
+            // 右下角状态角标：避开顶部的配件（V豆的圆点、星点的闪光）；底色用语义色，深色模式下符号仍清晰
             ZStack {
-                Circle()
-                    .fill(LinearGradient(colors: [.white, kind.backdropColor], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Circle().stroke(.white.opacity(0.95), lineWidth: side * 0.012)
+                Circle().fill(Color.avatarMarkFill)
+                Circle().stroke(kind.backdropColor, lineWidth: side * 0.014)
                 Image(systemName: state.symbol)
-                    .font(.system(size: side * 0.12, weight: .bold))
-                    .foregroundStyle(state == .blocked ? Color.orange : kind.accentColor)
+                    .font(.system(size: side * 0.13, weight: .bold))
+                    .foregroundStyle(state == .blocked ? Color.avatarBlockedMark : kind.accentColor)
             }
-            .frame(width: side * 0.24, height: side * 0.24)
-            .shadow(color: kind.accentColor.opacity(0.2), radius: side * 0.03, y: side * 0.015)
-            .offset(x: side * 0.32, y: -side * 0.31)
+            .frame(width: side * 0.26, height: side * 0.26)
+            .shadow(color: .black.opacity(0.12), radius: side * 0.025, y: side * 0.01)
+            .offset(x: side * 0.33, y: side * 0.33)
         }
     }
 
@@ -288,12 +318,16 @@ struct AvatarLabCharacterView: View {
             content.rotationEffect(.degrees(phase ? 2 : -2))
         case .working:
             content.offset(y: phase ? -size * 0.025 : size * 0.02)
+        case .delegating:
+            content.offset(x: phase ? -size * 0.03 : size * 0.01).rotationEffect(.degrees(phase ? -3 : 0))
+        case .replying:
+            content.scaleEffect(x: phase ? 0.99 : 1.0, y: phase ? 1.035 : 0.985, anchor: .bottom)
         case .waiting:
             content.rotationEffect(.degrees(phase ? -2.5 : 2.5))
         case .done:
             content.scaleEffect(phase ? 1.045 : 0.98)
         case .blocked:
-            content
+            content.offset(x: phase ? size * 0.03 : -size * 0.015)   // 轻摇一下
         }
     }
 }

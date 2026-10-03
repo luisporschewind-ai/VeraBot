@@ -19,6 +19,9 @@ class TurnState:
     memory_proposals: int = 0     # 本轮记忆提议次数（remember / forget_memory），上限 VERABOT_MEMORY_PROPOSALS_PER_TURN
     mcp_calls: int = 0            # 本轮已经打到 MCP 服务器的次数
     untrusted_tainted: bool = False  # 本轮已经读过 MCP 结果，不能再 ask_bot
+    # SSE status 事件（委派内部进度）：外层工具执行期间由 run_chat 设置；None = 不推送（如测试直接调用 run_tool）
+    status_queue: Any = None
+    parent_id: str | None = None  # 外层（depth 0）工具调用 id，委派树内所有 status 事件都带它
 
 
 @dataclass

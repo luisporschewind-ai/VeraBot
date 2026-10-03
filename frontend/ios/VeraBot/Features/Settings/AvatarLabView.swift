@@ -1,4 +1,5 @@
 import SwiftUI
+import VeraBotCore
 
 /// 仅供设计试验的头像预览页。选择和状态只保存在本页面，不会写入 Bot 配置。
 struct AvatarLabView: View {
@@ -6,6 +7,10 @@ struct AvatarLabView: View {
     @State private var selectedState: AvatarLabState = .idle
     @State private var selectedSize: AvatarLabSize = .medium
     @State private var replayID = 0
+    @State private var demo: Task<Void, Never>?
+    /// 每次开始 / 停止演示 +1；旧任务看到不一致就退出，避免快速「停止→开始」时两个演示并行或误清状态
+    @State private var demoRun = 0
+    @State private var demoCaption: String?
 
     private let stateColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
 
@@ -17,6 +22,7 @@ struct AvatarLabView: View {
                 statePicker
                 sizePicker
                 replayButton
+                demoSection
                 Text("此页面只用于比较新形象和状态表现，不会更改 Bot 的头像或资料。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -27,6 +33,53 @@ struct AvatarLabView: View {
         .themedPageBackground()
         .navigationTitle("头像实验室")
         .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { stopDemo() }
+    }
+
+    // MARK: - 按执行状态机演示一轮对话
+
+    private var demoSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                if demo == nil { startDemo() } else { stopDemo() }
+            } label: {
+                Label(demo == nil ? "按状态机演示一轮对话" : "停止演示",
+                      systemImage: demo == nil ? "play.circle" : "stop.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            if let demoCaption {
+                Text(demoCaption)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func startDemo() {
+        demoRun += 1
+        let run = demoRun
+        demo = Task { @MainActor in
+            for frame in AvatarLabDemo.frames {
+                guard !Task.isCancelled, run == demoRun else { return }
+                show(frame.state)
+                try? await Task.sleep(for: .milliseconds(frame.holdMS))
+            }
+            if run == demoRun { demo = nil }
+        }
+    }
+
+    private func stopDemo() {
+        demoRun += 1
+        demo?.cancel()
+        demo = nil
+    }
+
+    private func show(_ execution: ExecutionState) {
+        let next = AvatarLabState(execution)
+        if next != selectedState { selectedState = next } else if !next.isContinuous { replayID += 1 }
+        demoCaption = "状态机：\(AvatarLabDemo.caption(execution)) → 头像：\(next.title)"
     }
 
     private var previewCard: some View {
@@ -82,6 +135,7 @@ struct AvatarLabView: View {
             LazyVGrid(columns: stateColumns, spacing: 8) {
                 ForEach(AvatarLabState.allCases) { state in
                     Button {
+                        stopDemo()
                         selectedState = state
                         replayID += 1
                     } label: {
@@ -186,31 +240,31 @@ enum AvatarLabCharacterKind: String, CaseIterable, Identifiable {
 
     var bodyColor: Color {
         switch self {
-        case .veraBean: Color(hex: "#FFD783")
-        case .sprout: Color(hex: "#8EE3A1")
-        case .star: Color(hex: "#74D3F2")
-        case .cloud: Color(hex: "#C4A0F5")
-        case .sugar: Color(hex: "#FF9FC5")
+        case .veraBean: .avatarBeanBody
+        case .sprout: .avatarSproutBody
+        case .star: .avatarStarBody
+        case .cloud: .avatarCloudBody
+        case .sugar: .avatarSugarBody
         }
     }
 
     var backdropColor: Color {
         switch self {
-        case .veraBean: Color(hex: "#FFF4D9")
-        case .sprout: Color(hex: "#E7FAE9")
-        case .star: Color(hex: "#E5F8FD")
-        case .cloud: Color(hex: "#F2EAFE")
-        case .sugar: Color(hex: "#FFF0F6")
+        case .veraBean: .avatarBeanBackdrop
+        case .sprout: .avatarSproutBackdrop
+        case .star: .avatarStarBackdrop
+        case .cloud: .avatarCloudBackdrop
+        case .sugar: .avatarSugarBackdrop
         }
     }
 
     var accentColor: Color {
         switch self {
-        case .veraBean: Color(hex: "#E89A28")
-        case .sprout: Color(hex: "#32B85E")
-        case .star: Color(hex: "#159BC5")
-        case .cloud: Color(hex: "#8652D2")
-        case .sugar: Color(hex: "#E94F91")
+        case .veraBean: .avatarBeanAccent
+        case .sprout: .avatarSproutAccent
+        case .star: .avatarStarAccent
+        case .cloud: .avatarCloudAccent
+        case .sugar: .avatarSugarAccent
         }
     }
 }
@@ -219,6 +273,8 @@ enum AvatarLabState: String, CaseIterable, Identifiable {
     case idle
     case thinking
     case working
+    case delegating
+    case replying
     case waiting
     case done
     case blocked
@@ -230,6 +286,8 @@ enum AvatarLabState: String, CaseIterable, Identifiable {
         case .idle: "空闲"
         case .thinking: "思考中"
         case .working: "执行中"
+        case .delegating: "委派中"
+        case .replying: "回复中"
         case .waiting: "等你确认"
         case .done: "已完成"
         case .blocked: "遇到阻塞"
@@ -241,6 +299,8 @@ enum AvatarLabState: String, CaseIterable, Identifiable {
         case .idle: "circle"
         case .thinking: "ellipsis"
         case .working: "arrow.triangle.2.circlepath"
+        case .delegating: "person.2"
+        case .replying: "text.bubble"
         case .waiting: "hourglass"
         case .done: "checkmark"
         case .blocked: "exclamationmark"
@@ -252,6 +312,8 @@ enum AvatarLabState: String, CaseIterable, Identifiable {
         case .idle: 2.2
         case .thinking: 1.5
         case .working: 0.72
+        case .delegating: 1.2
+        case .replying: 0.6
         case .waiting: 1.8
         case .done: 1.05
         case .blocked: 1.0
@@ -278,6 +340,104 @@ private enum AvatarLabSize: String, CaseIterable, Identifiable {
         case .small: 68
         case .medium: 104
         case .large: 148
+        }
+    }
+}
+
+extension AvatarLabState {
+    /// 持续状态：可见时循环播放；其余状态切换时播放一次。
+    var isContinuous: Bool {
+        switch self {
+        case .thinking, .working, .delegating, .replying: true
+        case .idle, .waiting, .done, .blocked: false
+        }
+    }
+
+    /// 执行状态机 → 头像状态（对照表见 docs/design/EXECUTION_STATE.md §6）。
+    init(_ execution: ExecutionState) {
+        switch execution {
+        case .idle: self = .idle
+        case .recalling, .thinking: self = .thinking
+        case .callingTool: self = .working
+        case .delegating: self = .delegating
+        case .replying: self = .replying
+        case .blocked, .failed: self = .blocked
+        case .awaitingConfirmation: self = .waiting
+        case .completed: self = .done
+        }
+    }
+}
+
+/// 演示脚本：模拟后端一轮带召回、委派进度、被拒工具的 SSE 事件（字段与后端一致）。
+enum AvatarLabDemo {
+    struct Step {
+        let event: ExecutionEvent
+        let holdMS: Int
+    }
+
+    struct Frame {
+        let state: ExecutionState
+        let holdMS: Int
+    }
+
+    /// 受阻帧的展示时长，与 `ExecutionStateMachine.blockedDisplayDuration` 一致。
+    static let blockedHoldMS: Int = {
+        let c = ExecutionStateMachine.blockedDisplayDuration.components
+        return Int(c.seconds) * 1000 + Int(c.attoseconds / 1_000_000_000_000_000)
+    }()
+
+    /// 用真实状态机跑脚本得到的画面序列；受阻时插入一帧并自动回到原流程。界面播放和测试共用这一份。
+    static let frames: [Frame] = {
+        var machine = ExecutionStateMachine()
+        var out: [Frame] = []
+        for step in script {
+            machine.send(step.event)
+            if case .blocked = machine.state {
+                out.append(Frame(state: machine.state, holdMS: blockedHoldMS))
+                machine.send(.blockedElapsed(serial: machine.blockedSerial))
+            }
+            out.append(Frame(state: machine.state, holdMS: step.holdMS))
+        }
+        return out
+    }()
+
+    private static func trace(_ json: String) -> ToolTrace? {
+        try? JSONDecoder().decode(ToolTrace.self, from: Data(json.utf8))
+    }
+
+    static let script: [Step] = {
+        var steps: [Step] = [Step(event: .sent, holdMS: 900),
+                             Step(event: .status(ChatStatus(phase: "recalling", depth: 0, botName: "Vera")), holdMS: 1200)]
+        if let start = trace(#"{"id":"d1","name":"ask_bot","args":{"bot_name":"小研","question":"q"}}"#),
+           let done = trace(#"{"id":"d1","name":"ask_bot","args":{"bot_name":"小研"},"result":{"answer":"a"}}"#),
+           let wStart = trace(#"{"id":"d2","name":"get_weather","args":{"city":"石家庄"}}"#),
+           let denied = trace(#"{"id":"d2","name":"get_weather","args":{},"result":{"error":"当前 Bot 未被授权使用该能力","code":"tool_not_allowed"}}"#) {
+            steps += [Step(event: .toolStart(start), holdMS: 1000),
+                      Step(event: .status(ChatStatus(phase: "thinking", depth: 1, botName: "小研", parentID: "d1")), holdMS: 1400),
+                      Step(event: .status(ChatStatus(phase: "tool", depth: 1, botName: "小研", tool: "get_weather", parentID: "d1")), holdMS: 1400),
+                      Step(event: .toolResult(done), holdMS: 900),
+                      Step(event: .toolStart(wStart), holdMS: 1000),
+                      Step(event: .toolResult(denied), holdMS: 600)]
+        }
+        steps += [Step(event: .delta("好的，"), holdMS: 2200),
+                  Step(event: .done, holdMS: 1600),
+                  Step(event: .reset, holdMS: 0)]
+        return steps
+    }()
+
+    static func caption(_ s: ExecutionState) -> String {
+        switch s {
+        case .idle: "空闲"
+        case .recalling: "正在回忆"
+        case .thinking: "思考中"
+        case .callingTool(let name): "调用工具 \(name)"
+        case .delegating(let bot, let p):
+            if let p { "委派 \(bot) · \(p.botName)\(p.tool.map { " 调用 \($0)" } ?? " 思考中")" } else { "委派 \(bot)" }
+        case .replying: "回复中"
+        case .blocked(let code, _): "短暂受阻\(code.map { "（\($0)）" } ?? "")"
+        case .awaitingConfirmation: "等你确认"
+        case .completed: "已完成"
+        case .failed: "出错"
         }
     }
 }

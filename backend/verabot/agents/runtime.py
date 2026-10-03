@@ -1,4 +1,5 @@
 """Agent 执行循环（Runtime）：Prompt 组装 → LLM（流式）→ Tool Calling → 回填结果 → 继续，直至给出最终回答。"""
+import asyncio
 import json
 import logging
 
@@ -12,6 +13,60 @@ from .tool_router import dispatch, schemas_for, trace_meta
 
 log = logging.getLogger("verabot.agent")
 EMPTY_REPLY_MSG = "模型没有返回内容（已自动重试），请稍后再试或换个说法"
+
+# SSE `status` 事件（v6 后新增，向后兼容：旧客户端忽略未知事件）。payload 固定 5 个键：
+#   phase      "recalling" 召回记忆 / 准备上下文（depth 0）；"thinking" 被委派 Bot 等待模型；"tool" 被委派 Bot 调用工具
+#   depth      0 = 用户直接对话的 Bot；≥1 = 委派链上的 Bot
+#   bot_name   正在工作的 Bot 昵称
+#   tool       phase = "tool" 时的工具名，否则 null
+#   parent_id  depth ≥ 1 时为外层 tool_start 的 id（客户端据此挂到对应的 ask_bot 上），否则 null
+# 契约测试：scripts/test/status_event_test.py（与 iOS VeraBotCore `ChatStatus` 的 CodingKeys / Phase 对照）。
+STATUS_PHASES = ("recalling", "thinking", "tool")
+STATUS_KEYS = ("phase", "depth", "bot_name", "tool", "parent_id")
+
+
+def status_data(phase: str, *, depth: int, bot_name: str | None, tool: str | None = None,
+                parent_id: str | None = None) -> dict:
+    assert phase in STATUS_PHASES
+    return {"phase": phase, "depth": depth, "bot_name": bot_name, "tool": tool, "parent_id": parent_id}
+
+
+def _emit_status(ctx: ToolContext, phase: str, tool: str | None = None):
+    """被委派 Bot 的进度：放进外层队列，由 run_chat 转成 SSE status 事件。没有队列时什么也不做。"""
+    q = ctx.turn.status_queue
+    if q is not None:
+        q.put_nowait(status_data(phase, depth=ctx.depth, bot_name=ctx.bot.get("name"), tool=tool,
+                                 parent_id=ctx.turn.parent_id))
+
+
+async def _run_tool_streaming(ctx: ToolContext, tc: dict):
+    """执行一个外层工具调用，期间把委派树里产生的 status 实时转发；最后产出 ("result", dict)。"""
+    queue: asyncio.Queue = asyncio.Queue()
+    ctx.turn.status_queue, ctx.turn.parent_id = queue, tc["id"]
+    task = asyncio.ensure_future(dispatch(ctx, tc["name"], tc["arguments"]))
+    try:
+        while not task.done() or not queue.empty():
+            if not queue.empty():
+                yield ("status", queue.get_nowait())
+                continue
+            getter = asyncio.ensure_future(queue.get())
+            done, _ = await asyncio.wait({task, getter}, return_when=asyncio.FIRST_COMPLETED)
+            if getter in done:
+                yield ("status", getter.result())
+            else:
+                getter.cancel()
+        yield ("result", task.result())
+    finally:
+        if not task.done():
+            task.cancel()
+        ctx.turn.status_queue, ctx.turn.parent_id = None, None
+
+
+def _tool_content(name: str, result: dict) -> str:
+    """工具结果 → tool 消息。内置工具截到 6000 字；MCP 结果已在 sanitize 里截断并包裹，
+    不能再按字符截，否则会切掉 </untrusted_tool_result> 结束标记。"""
+    text = json.dumps(result, ensure_ascii=False)
+    return text if name.startswith("mcp__") else text[:6000]
 
 
 def _add_usage(total: dict, u: dict):
@@ -68,6 +123,8 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
     """流式对话主循环，产出给前端的 SSE 事件 dict。"""
     history = _history(user_id, bot["id"])
     memory_on = memory.enabled_for(user_id)
+    if memory_on:
+        yield {"event": "status", "data": status_data("recalling", depth=0, bot_name=bot.get("name"))}
     rec = memory.recall(user_id, bot, _memory_query(history, user_text)) if memory_on else memory.EMPTY
     user_mid = db.add_message(user_id, bot["id"], "user", user_text)
     memory_tools = memory_on and (bot.get("memory_access") or "none") != "none"
@@ -113,14 +170,19 @@ async def run_chat(user_id: int, bot: dict, user_text: str):
                     args = {"_raw": tc["arguments"]}
                 yield {"event": "tool_start", "data": {"id": tc["id"], "name": tc["name"], "args": args,
                                                        **trace_meta(user_id, tc["name"])}}
-                result = await dispatch(ctx, tc["name"], tc["arguments"])
+                result: dict = {}
+                async for kind, val in _run_tool_streaming(ctx, tc):
+                    if kind == "status":
+                        yield {"event": "status", "data": val}
+                    else:
+                        result = val
                 trace = {"id": tc["id"], "name": tc["name"], "args": args, "result": result}
                 if tc["name"] in MEMORY_TOOLS:
                     trace = _redact_memory_trace(trace)
                 traces.append(trace)
                 yield {"event": "tool_result", "data": trace}
                 messages.append({"role": "tool", "tool_call_id": tc["id"],
-                                 "content": json.dumps(result, ensure_ascii=False)[:6000]})
+                                 "content": _tool_content(tc["name"], result)})
         if not answer.strip():
             errored = True
             yield {"event": "error", "data": {"message": EMPTY_REPLY_MSG, "code": "empty_reply"}}
@@ -153,6 +215,7 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
     for _round in range(MAX_TOOL_ROUNDS + 1):
         use_tools = (tools or None) if _round < MAX_TOOL_ROUNDS else None
         for attempt in range(EMPTY_REPLY_RETRIES + 1):
+            _emit_status(ctx, "thinking")
             msg, usage = await llm.complete(messages, use_tools)
             _add_usage(usage_total, usage)
             calls = msg.get("tool_calls") or []
@@ -164,7 +227,8 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
             return content or f"（{bot['name']} 暂时没有给出答复）", usage_total, user_msg
         messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": calls})
         for tc in calls:
+            _emit_status(ctx, "tool", tool=tc["function"]["name"])
             result = await dispatch(ctx, tc["function"]["name"], tc["function"].get("arguments", "{}"))
             messages.append({"role": "tool", "tool_call_id": tc["id"],
-                             "content": json.dumps(result, ensure_ascii=False)[:6000]})
+                             "content": _tool_content(tc["function"]["name"], result)})
     return f"（{bot['name']} 暂时没有给出答复）", usage_total, user_msg

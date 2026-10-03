@@ -180,3 +180,35 @@ struct GlassGroup<Content: View>: View {
         }
     }
 }
+
+// MARK: - 头像实验室角色色 (Avatar lab palette，浅色 / 深色)
+
+extension Color {
+    /// 五官：始终画在浅色身体上，两种模式相同。
+    static let avatarInk = Color(hex: "#344047")
+    static let avatarBlush = Color(hex: "#FF8293")
+    /// 「遇到阻塞」角标：系统橙色（自动适配深色）。
+    static let avatarBlockedMark = Color(uiColor: .systemOrange)
+    /// 状态角标底色：浅色白、深色系统深灰 (secondarySystemBackground 深色值)。
+    static let avatarMarkFill = Color.dynamic(light: .white, dark: UIColor(hex: 0x2C2C2E))
+
+    static let avatarBeanBody = Color.dynamic(light: UIColor(hex: 0xFFD783), dark: UIColor(hex: 0xF2C66E))
+    static let avatarBeanBackdrop = Color.dynamic(light: UIColor(hex: 0xFFF4D9), dark: UIColor(hex: 0x3D3218))
+    static let avatarBeanAccent = Color.dynamic(light: UIColor(hex: 0xE89A28), dark: UIColor(hex: 0xF5B54A))
+
+    static let avatarSproutBody = Color.dynamic(light: UIColor(hex: 0x8EE3A1), dark: UIColor(hex: 0x7ED493))
+    static let avatarSproutBackdrop = Color.dynamic(light: UIColor(hex: 0xE7FAE9), dark: UIColor(hex: 0x17361F))
+    static let avatarSproutAccent = Color.dynamic(light: UIColor(hex: 0x32B85E), dark: UIColor(hex: 0x5BD27F))
+
+    static let avatarStarBody = Color.dynamic(light: UIColor(hex: 0x74D3F2), dark: UIColor(hex: 0x66C4E3))
+    static let avatarStarBackdrop = Color.dynamic(light: UIColor(hex: 0xE5F8FD), dark: UIColor(hex: 0x12323D))
+    static let avatarStarAccent = Color.dynamic(light: UIColor(hex: 0x159BC5), dark: UIColor(hex: 0x4CC3EA))
+
+    static let avatarCloudBody = Color.dynamic(light: UIColor(hex: 0xC4A0F5), dark: UIColor(hex: 0xB592EA))
+    static let avatarCloudBackdrop = Color.dynamic(light: UIColor(hex: 0xF2EAFE), dark: UIColor(hex: 0x2C2142))
+    static let avatarCloudAccent = Color.dynamic(light: UIColor(hex: 0x8652D2), dark: UIColor(hex: 0xA57BE8))
+
+    static let avatarSugarBody = Color.dynamic(light: UIColor(hex: 0xFF9FC5), dark: UIColor(hex: 0xF290B8))
+    static let avatarSugarBackdrop = Color.dynamic(light: UIColor(hex: 0xFFF0F6), dark: UIColor(hex: 0x3D1A2A))
+    static let avatarSugarAccent = Color.dynamic(light: UIColor(hex: 0xE94F91), dark: UIColor(hex: 0xF57AAE))
+}
