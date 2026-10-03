@@ -6,7 +6,12 @@
 
 ### 修复 (Fixed)
 
-- **安全 · 账号隔离：HTTP 缓存与换账号竞态** (2026-10-03 隔离审计发现的漏洞 2 + 建议 #3；邮箱抢注问题按 Boss 决定延后，未改)：
+- **安全 · 邮箱抢注：验证码登录认领未验证账号** (此前在账号隔离审计里按当时决定延后，本次按 Boss 选定的修法落地)：
+  - 问题：未验证邮箱可以注册并正常使用。真正的主人之后用验证码登录时，`login_with_code` 只把邮箱标为已验证并进入同一个账号，抢注者的密码和已发出的访问令牌、刷新令牌仍然有效，能读到主人之后写入的私密数据。
+  - 修复：认领「邮箱尚未验证」的账号时，在同一个事务里把 `password_hash` 写成空字符串 (列是 `NOT NULL`，空字符串不是合法 bcrypt，密码登录失败)、`token_version` + 1、吊销该用户全部未作废的刷新令牌、写入审计 `account_claimed_by_email_code`，然后再签发新的令牌对，并把邮箱标为已验证。认领后没有密码，只能用验证码登录。未验证账号在被认领前仍可正常使用。已经验证过的邮箱，验证码登录不改密码、不吊销其他会话。API 响应字段不变，iOS 未改。不升 schema (仍是 v9)。
+  - **仍不能修**：手机号抢注。短信验证 (AUTH-M3) 之前没有持有者证明，只记为已知限制。
+  - 测试：`auth_test.py` 新增 AUTH-17 (认领后抢注者密码登录 401、旧访问令牌 401、旧刷新令牌 401、主人新会话可用)、AUTH-18 (已验证账号的验证码登录不受影响)，共 18/18。见 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) §5.2。
+- **安全 · 账号隔离：HTTP 缓存与换账号竞态** (2026-10-03 隔离审计发现的漏洞 2 + 建议 #3；邮箱抢注问题按当时决定延后，已由上一条修复)：
   - 问题：iOS 所有请求走 `URLSession.shared` (默认 URLCache)，后端又不发缓存头，登录 / 刷新响应 (访问令牌 + 刷新令牌)、聊天记录、已解密的健康记忆被明文写进 `Library/Caches/com.verabot.app/Cache.db`，退出登录、换账号后仍在 (界面不显示，属于设备上的数据残留)。另外 `refreshProfile` / 头像下载只判断「有没有登录」，A 的请求在 B 登录后才回来时，可能把 A 的资料或头像写到 B 的界面上。
   - 后端：新中间件 `core/http_cache.py` (纯 ASGI，不缓冲 SSE)：所有 `/api/*` 响应 (含错误、CORS 预检、SSE) 带 `Cache-Control: no-store` + `Pragma: no-cache`；SSE 原来的 `no-cache` 换成 `no-store`。头像接口从 `private, max-age=86400` 改为 **`private, no-store`**：头像是用户照片，`/api/me/avatar` 的 URL 人人相同，不能进 HTTP 缓存；iOS 本来就按账号缓存在 `Caches/verabot-avatars`，退出时整个删除，所以不影响加载速度。`/`、`/static`、`/docs` 不变。
   - iOS Kit：新 `APITransport.session` (ephemeral，`urlCache = nil`，`reloadIgnoringLocalCacheData`，不存 cookie / 凭据)，`APIClient` (JSON、上传、头像下载、SSE 聊天) 和 `AuthSession` 刷新令牌都改用它 (可注入，便于测试)；`HTTPCachePurge` 清 `URLCache.shared` 并删除 `Caches/<bundle id>/` 下的 `Cache.db`、`-shm`、`-wal`、`fsCachedData` (Metal 缓存、头像目录不动)；`AuthSession.generation` / `isCurrent(_:)` 登录会话代号 (每次 `set` 加 1，透明刷新不变)。

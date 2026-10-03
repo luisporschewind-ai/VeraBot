@@ -278,8 +278,32 @@ def _consume_code(c, email: str, purpose: str, code: str) -> None:
     c.execute("UPDATE auth_codes SET consumed_at=? WHERE id=?", (now, r["id"]))
 
 
+def _claim_unverified_email(c, u: dict) -> dict:
+    """验证码登录认领尚未验证的邮箱账号。与签发新会话在同一个事务里完成。
+
+    `password_hash` 是 NOT NULL，写成空字符串（不是合法 bcrypt，密码登录失败）。
+    `token_version + 1` 让旧访问令牌失效；未吊销的刷新令牌全部作废。不升 schema。
+    """
+    now = _iso(_now())
+    c.execute(
+        "UPDATE users SET password_hash='', email_verified_at=?, token_version=token_version+1 WHERE id=?",
+        (now, u["id"]),
+    )
+    c.execute(
+        "UPDATE auth_refresh_tokens SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL",
+        (now, u["id"]),
+    )
+    _audit(c, u["id"], None, "account_claimed_by_email_code", {})
+    return _user_by(c, "id", u["id"])
+
+
 def login_with_code(email: str, code: str) -> dict:
-    """邮箱验证码登录。邮箱还没有账号时直接创建（邮箱视为已验证，没有密码）。"""
+    """邮箱验证码登录。
+
+    邮箱还没有账号时直接创建（邮箱视为已验证，随机不可用密码）。
+    邮箱已注册但尚未验证时认领该账号：清密码、作废旧会话，再发新令牌。
+    邮箱已经验证时只登录，不改密码、不吊销其他会话。
+    """
     email = normalize_email(email)
     with db.tx() as c:
         _consume_code(c, email, "login", code)
@@ -288,8 +312,7 @@ def login_with_code(email: str, code: str) -> dict:
         if created:
             u = _create_user(c, email=email, email_verified=True)
         elif not u.get("email_verified_at"):
-            c.execute("UPDATE users SET email_verified_at=? WHERE id=?", (db.now_iso(), u["id"]))
-            u = _user_by(c, "id", u["id"])
+            u = _claim_unverified_email(c, u)
         _audit(c, u["id"], None, "auth_login", {"method": "email_code", "created": created})
         return issue_session(c, u)
 

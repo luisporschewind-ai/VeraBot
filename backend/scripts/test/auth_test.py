@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """账号 v9（AUTH-01..18）：迁移、邮箱 / 手机号 / 用户名登录、锁定、刷新令牌轮换与复用检测、退出、
-验证码登录与限流、邮箱验证、/api/me 字段、iOS 契约。只用临时 SQLite + console 邮件后端。"""
+验证码登录与限流、邮箱验证、/api/me 字段、iOS 契约、未验证邮箱认领与已验证账号回归。只用临时 SQLite + console 邮件后端。"""
 import os, re, sqlite3, sys, tempfile
 from pathlib import Path
 
@@ -192,11 +192,15 @@ def code_login_creates_account():
     assert u["email"] == "new@example.com" and u["email_verified"] is True
     r = cli.post("/api/auth/email/login", json={"email": "new@example.com", "code": code})   # 一次性
     assert r.status_code == 400 and detail_code(r) == "code_expired"
-    # 已有邮箱账号用验证码登录 → 同一个账号
+    # 已验证的邮箱账号用验证码登录 → 同一个账号（未验证账号的认领会清密码，见 AUTH-17）
+    with db.tx() as c:
+        c.execute("UPDATE users SET email_verified_at=COALESCE(email_verified_at, ?) WHERE email='luis@example.com'",
+                  (db.now_iso(),))
     ratelimit.reset()
     cli.post("/api/auth/email/send-code", json={"email": "luis@example.com"})
     r = cli.post("/api/auth/email/login", json={"email": "luis@example.com", "code": last_code("luis@example.com")})
     assert r.status_code == 200 and r.json()["user"]["display_name"] == "luis"
+    assert cli.post("/api/auth/login", json={"identifier": "luis@example.com", "password": "pass12345"}).status_code == 200
 
 
 @check("AUTH-10")
@@ -360,5 +364,81 @@ def classify_and_normalize():
     assert svc.normalize_phone("0086 138 0013 8000") == "+8613800138000"
 
 
-print(f"AUTH tests passed: {len(PASSED)}/16 ({', '.join(PASSED)})")
-assert len(PASSED) == 16
+@check("AUTH-17")
+def email_squat_claim():
+    """未验证邮箱被抢注后，真正持有者用验证码登录会认领同一账号并踢掉抢注者。"""
+    email = "squat@example.com"
+    reg = cli.post("/api/auth/register", json={"email": email, "password": "attacker1"})
+    assert reg.status_code == 200, reg.text
+    attacker = reg.json()
+    uid = attacker["user"]["id"]
+    assert attacker["user"]["email_verified"] is False
+    second = cli.post("/api/auth/login", json={"identifier": email, "password": "attacker1"})
+    assert second.status_code == 200, second.text
+    second = second.json()
+    assert cli.get("/api/me", headers=H(attacker["token"])).status_code == 200
+    assert cli.get("/api/me", headers=H(second["token"])).status_code == 200
+    with db.tx() as c:
+        tv_before = c.execute("SELECT token_version FROM users WHERE id=?", (uid,)).fetchone()[0]
+    ratelimit.reset()
+    sent = cli.post("/api/auth/email/send-code", json={"email": email})
+    assert sent.status_code == 200, sent.text
+    claimed = cli.post("/api/auth/email/login", json={"email": email, "code": last_code(email)})
+    assert claimed.status_code == 200, claimed.text
+    owner = claimed.json()
+    assert owner["user"]["id"] == uid and owner["user"]["email_verified"] is True
+    assert owner["token"] and owner["refresh_token"]
+    # 先看认领事务的结果。之后再拿抢注者的旧刷新令牌来换新的，会命中既有的「已吊销令牌复用」逻辑，
+    # 把主人刚拿到的刷新令牌也作废；那一步不能用来判断认领本身留了几枚令牌。
+    with db.tx() as c:
+        pw, tv, verified = c.execute(
+            "SELECT password_hash, token_version, email_verified_at FROM users WHERE id=?", (uid,)).fetchone()
+        audit = c.execute(
+            "SELECT COUNT(*) FROM audit_log WHERE user_id=? AND kind='account_claimed_by_email_code'",
+            (uid,)).fetchone()[0]
+        live = c.execute(
+            "SELECT COUNT(*) FROM auth_refresh_tokens WHERE user_id=? AND revoked_at IS NULL", (uid,)).fetchone()[0]
+    assert pw == "" and verified and tv == tv_before + 1 and audit == 1 and live == 1
+    bad = cli.post("/api/auth/login", json={"identifier": email, "password": "attacker1"})
+    assert bad.status_code == 401 and bad.json()["detail"] == "账号或密码错误"
+    for tok in (attacker["token"], second["token"]):
+        r = cli.get("/api/me", headers=H(tok))
+        assert r.status_code == 401 and "登录已失效" in r.json()["detail"]
+    for refresh in (attacker["refresh_token"], second["refresh_token"]):
+        assert cli.post("/api/auth/refresh", json={"refresh_token": refresh}).status_code == 401
+    assert cli.get("/api/me", headers=H(owner["token"])).status_code == 200
+
+
+@check("AUTH-18")
+def code_login_verified_unchanged():
+    """已验证邮箱的验证码登录不改密码、不增加 token_version、不吊销已有会话。"""
+    email = "verified-keep@example.com"
+    reg = cli.post("/api/auth/register", json={"email": email, "password": "ownerpass1"})
+    assert reg.status_code == 200, reg.text
+    uid = reg.json()["user"]["id"]
+    with db.tx() as c:
+        c.execute("UPDATE users SET email_verified_at=? WHERE id=?", (db.now_iso(), uid))
+        before = c.execute("SELECT password_hash, token_version FROM users WHERE id=?", (uid,)).fetchone()
+    sess = cli.post("/api/auth/login", json={"identifier": email, "password": "ownerpass1"})
+    assert sess.status_code == 200, sess.text
+    sess = sess.json()
+    ratelimit.reset()
+    assert cli.post("/api/auth/email/send-code", json={"email": email}).status_code == 200
+    r = cli.post("/api/auth/email/login", json={"email": email, "code": last_code(email)})
+    assert r.status_code == 200, r.text
+    owner = r.json()
+    assert owner["user"]["id"] == uid and owner["user"]["email_verified"] is True
+    assert cli.post("/api/auth/login", json={"identifier": email, "password": "ownerpass1"}).status_code == 200
+    assert cli.get("/api/me", headers=H(sess["token"])).status_code == 200
+    assert cli.post("/api/auth/refresh", json={"refresh_token": sess["refresh_token"]}).status_code == 200
+    assert cli.get("/api/me", headers=H(owner["token"])).status_code == 200
+    with db.tx() as c:
+        after = c.execute("SELECT password_hash, token_version FROM users WHERE id=?", (uid,)).fetchone()
+        claimed = c.execute(
+            "SELECT COUNT(*) FROM audit_log WHERE user_id=? AND kind='account_claimed_by_email_code'",
+            (uid,)).fetchone()[0]
+    assert after == before and claimed == 0
+
+
+print(f"AUTH tests passed: {len(PASSED)}/18 ({', '.join(PASSED)})")
+assert len(PASSED) == 18
