@@ -62,6 +62,12 @@ def list_for_bot(c, user_id: int, bot_id: int) -> list[dict]:
     return rows(c.execute("SELECT * FROM attachments WHERE user_id=? AND bot_id=?", (user_id, bot_id)))
 
 
+def list_for_message(c, user_id: int, bot_id: int, message_id: int) -> list[dict]:
+    """删除单条消息前取该消息的图片行（Q12）；行本身随 messages 外键级联删除。"""
+    return rows(c.execute("SELECT * FROM attachments WHERE user_id=? AND bot_id=? AND message_id=?",
+                          (user_id, bot_id, message_id)))
+
+
 def list_for_user(c, user_id: int) -> list[dict]:
     return rows(c.execute("SELECT * FROM attachments WHERE user_id=?", (user_id,)))
 

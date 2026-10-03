@@ -51,7 +51,7 @@ def messages_delete(bot_id: int, message_id: int, user=Depends(current_user)):
     图片（v12，设计稿 Q12）：attachments 行随外键级联删除（与消息同一事务），提交后立即删原图、缩略图（GIF 另有第一帧），
     与清空对话相同的顺序（先库后文件；文件删失败留给对账）。
     不先调 require_bot：WHERE 已含 user_id + bot_id，他人的 Bot / 消息与不存在的消息返回完全相同的 404（不泄露存在性）。
-    SQL 只在 db.delete_message 与 attachments.keys_for_message 里（便于 PR #18 后移入 *_store.py）。"""
+    SQL 只在 db 层：db.delete_message（repository.py）与 attachment_store.list_for_message（经 attachments.keys_for_message）。"""
     keys = attachments.keys_for_message(user["id"], bot_id, message_id)
     if not db.delete_message(user["id"], bot_id, message_id):
         raise HTTPException(404, "消息不存在")

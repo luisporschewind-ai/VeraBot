@@ -200,11 +200,9 @@ def keys_for_bot(user_id: int, bot_id: int) -> list[str]:
 
 
 def keys_for_message(user_id: int, bot_id: int, message_id: int) -> list[str]:
-    """删除单条消息前调用（Q12）：先拿到该消息图片的文件 key，消息删除（行随外键级联）提交后再 delete_files。
-    （PR #18 之后 SQL 移到 db/attachment_store.py，这里只留门面）"""
+    """删除单条消息前调用（Q12）：先拿到该消息图片的文件 key，消息删除（行随外键级联）提交后再 delete_files。"""
     with db.tx() as c:
-        rs = db.rows(c.execute("SELECT * FROM attachments WHERE user_id=? AND bot_id=? AND message_id=?",
-                               (user_id, bot_id, message_id)))
+        rs = store_sql.list_for_message(c, user_id, bot_id, message_id)
     return [k for r in rs for k in file_keys(r)]
 
 
