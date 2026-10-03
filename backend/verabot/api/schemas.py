@@ -2,7 +2,7 @@
 import unicodedata
 from typing import Literal
 
-from pydantic import BaseModel, Field, StrictBool, field_validator
+from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
 
 from ..core.tags import MAX_BOT_TAGS, MAX_TAG_CHARS   # 3 个 / 每个 4 字
 from ..services.users import clean_nickname
@@ -157,15 +157,16 @@ class BotPatch(BotPerms):
 
 
 class ChatIn(BaseModel):
-    message: str = Field(min_length=1, max_length=4000)
+    message: str = Field(default="", max_length=4000)
+    # 图片附件（v12）：先 POST /api/attachments 拿到 id。最多 1 张（多于 1 张 422）；有图时 message 可以为空
+    attachment_ids: list[str] = Field(default_factory=list, max_length=1)
 
-    @field_validator("message")
-    @classmethod
-    def _not_blank(cls, v: str) -> str:
-        """BUG-04：纯空白消息拒绝（422）。"""
-        if not v.strip():
+    @model_validator(mode="after")
+    def _not_blank(self):
+        """BUG-04：纯空白消息拒绝（422）；只发图片时允许没有文字。"""
+        if not self.message.strip() and not self.attachment_ids:
             raise ValueError("消息不能为空")
-        return v
+        return self
 
 
 # ---------------- 记忆（Memory，v4） ----------------

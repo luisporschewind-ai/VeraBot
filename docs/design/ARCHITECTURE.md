@@ -26,11 +26,11 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v11：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知)、查询 | `database.py`、`schema.py`、`repository.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v12：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件)、查询 | `database.py`、`schema.py`、`repository.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
-| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。提醒相关 SQL 不写在这里，只调用 `db/reminder_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/` |
+| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。提醒相关 SQL 不写在这里，只调用 `db/reminder_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/`、`attachments/{store,images,repo,vision}.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
-| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由。路由里没有提醒 / 通知 SQL | `deps.py`、`schemas.py`、`routers/{auth,avatars,bots,chat,voice,reminders,notifications,devices,meta,memories,mcp,plugins}.py` |
+| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由。路由里没有提醒 / 通知 SQL | `deps.py`、`schemas.py`、`routers/{attachments,auth,avatars,bots,chat,voice,reminders,notifications,devices,meta,memories,mcp,plugins}.py` |
 | `main.py` | 组装 FastAPI app：CORS、422 处理、启动 `init_db`、挂载路由、托管 Web | — |
 
 ### 2.2 依赖规则 (Dependency rules)
@@ -237,6 +237,14 @@ iOS 在上传前用 `AvatarImage.jpegData` 把照片收成边长 1024 的 JPEG�
 读写仍走现有 Bot 接口，查询带 `user_id`；他人的 Bot 返回 404，不会改到别人的标签。标签不进入 system prompt，也不参与记忆。
 
 iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（字数按 Unicode scalar，与 Python `len` 对齐），另有 `parse` (按「,」「，」「、」与空白拆分) 和 `display` (「a, b, c」)。`Bot.tags` 在字段缺失或 JSON null 时解码为 `[]`。展示用 `Core/UI/BotTagViews.swift`：首页行名称后的 `BotTagChip` (一个 `Color.sectionFill` 圆角 5 的矩形，「搜索, 查询, 调研」，`.caption` 次要字，单行尾部截断，无 `+N`)；Bot 详情卡片名称下方一行文字；对话标题不显示标签。创建页用 `BotTagsField` (一行原生 TextField，输入时即时校验)；Bot 详情点卡片标签行弹出系统 alert 修改，经 `VeraBotCore/BotProfileDraft.swift` 暂存 (昵称 / 标签 / 照片的待保存改动，点「保存」才依次 `PATCH /api/bots/{id}` 与 `POST`/`DELETE /api/bots/{id}/avatar`)。无自定义动画。
+
+## 5.4 图片附件 (Attachments) — schema v12
+
+- **模块**：`services/attachments/` 四个文件，彼此单向依赖：`store.py` (薄接口 `AttachmentStore` + `LocalStore`，只管字节和路径安全) ← `repo.py` (SQLite 元数据、配额、绑定、删除、对账) ← `vision.py` (组装多模态消息、caption、召回、`view_image` 工具、带图写工具拦截、错误映射)；`images.py` (Pillow 处理) 只被 `repo` 调用。HTTP 在 `api/routers/attachments.py`。表在 `db/attachment_schema.py`，`init_db` 只多一行调用。
+- **接入点 (尽量少改共享文件)**：`runtime.run_chat` (绑定附件、历史替换为描述、召回、`done` 后生成描述)、`run_once` (委派时附图)、`tool_router.dispatch` (带图写工具拦截)、`permissions` (`kind="attachment"` 只给 depth 0、不进 `get_schemas`)、`TurnState` (`image_ids` / `image_tainted` / `recalls` / `pending_images`)、`chat.py` / `bots.py` (删除时先删行后删文件)、`main.py` (启动对账任务)。没有改 `services/mcp/service.py` 和记忆模块。
+- **存储**：`DATA_DIR/attachments/u<user>/<xx>/att_<id>.<ext>` + `_thumb.jpg` (+ GIF `_still.jpg`)；0700 / 0600；原子写入；`storage_backend` / `storage_key` 让以后换对象存储只换实现。备份必须同时备份 SQLite 和 `attachments/`。
+- **数据流**：iOS 压缩 → `POST /api/attachments` (pending，24 小时过期) → `POST /chat {attachment_ids}` → 绑定到用户消息 (attached) → 本轮 base64 `image_url` → 回复后存 caption → 之后的轮次只发描述，回指时重发原图。下载走鉴权代理，`private, no-store`；iOS 只在内存缓存 (`AttachmentImageStore`)，退出 / 换账号清空。
+- **安全**：图片内容视同外部资料 (prompt 规则 + 带图轮次写工具需确认)；按文件头识别类型；去 EXIF；所有查询带 `user_id`，他人 404。
 
 ## 6. 关键设计决策
 

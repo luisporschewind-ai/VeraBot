@@ -1,6 +1,7 @@
 # 附件模块设计 (Attachments Design) — v1.0 定稿（P1：仅图片）
 
-> 状态：**v1.0 定稿，Q1–Q12 均已由 Boss 决定（2026-10-03，见 §14）**。P0 模型迁移已实现；P1 尚未实现（仅文档）。
+> 状态：**v1.0 定稿，Q1–Q12 均已由 Boss 决定（2026-10-03，见 §14）**。P0 模型迁移已实现；**P1 已实现（分支 `feat/attachments-p1`，Draft PR，schema v12，迁移 v11 → v12）**。
+> 实现与本稿的差异（Boss 2026-10-03 实现说明）：① GIF 发给模型的是**第一帧静态 JPEG**（不再「原样发 GIF、出错改第一帧」），气泡里仍播放原 GIF；② 带图轮次的写操作暂用**文字确认**（工具返回 `image_needs_confirmation`，用户下一条回复「确认」后执行），确认卡片随 HITL 再做；③ 没有「删除单条消息」「删除账号」接口，靠外键级联删行 + 对账删文件（ATT-08 / ATT-17）；④ 召回除 `view_image` 工具外还有关键词兜底（每轮最多 1 张，「确认」开头的消息不触发）。
 > 存储方案采纳 Sonic 的调研 [ATTACHMENT_STORAGE_RESEARCH.md](ATTACHMENT_STORAGE_RESEARCH.md)（含其 §10 修订建议）。
 > 版本：v0.1 草案 → v0.2 草案（Q1–Q4、Q6–Q10、Q12 决定）→ **v1.0**（Q5 采纳存储调研、Q6 改为按需召回、Q11 按推荐）。
 > 依据代码：`luisporschewind-ai/VeraBot` `main`（`SCHEMA_VERSION = 9`）。schema 依赖：PR #7 插件 P1 占 **v10**，提醒 R1（[REMINDER_PUSH_DESIGN.md](REMINDER_PUSH_DESIGN.md) v1.0）占 **v11**，本方案预计 **v12**（按合并顺序取下一个可用号）。

@@ -10,6 +10,7 @@ from ..core.config import MCP_CALLS_PER_TURN_DEFAULT
 from ..db import delegation_store, mcp_store, plugin_store
 from ..services.mcp import catalog as mcp_catalog
 from ..services.mcp import service as mcp
+from ..services.attachments.vision import guard_write as image_guard
 from ..tools.registry import ToolContext, run_tool
 from .permissions import get_schemas
 
@@ -59,6 +60,9 @@ def trace_meta(user_id: int, name: str) -> dict:
 async def dispatch(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
     if name.startswith("mcp__"):
         return await asyncio.to_thread(_call_mcp, ctx, name, raw_args, call_id)
+    denied = image_guard(ctx, name)   # 带图轮次：写工具需要用户确认（MCP 非只读工具本来就被拒绝）
+    if denied:
+        return denied
     return await run_tool(ctx, name, raw_args)
 
 

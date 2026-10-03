@@ -24,6 +24,12 @@ class TurnState:
     # SSE status 事件（委派内部进度）：外层工具执行期间由 run_chat 设置；None = 不推送（如测试直接调用 run_tool）
     status_queue: Any = None
     parent_id: str | None = None  # 外层（depth 0）工具调用 id，委派树内所有 status 事件都带它
+    # 图片附件（v12）：本轮模型看到的图片 id（新图 + 召回，委派时原样转给被委派 Bot）；
+    # image_tainted = 本轮含图片，写工具需要用户确认；pending_images = view_image 待附上的原图
+    image_ids: list = field(default_factory=list)
+    image_tainted: bool = False
+    recalls: int = 0
+    pending_images: list = field(default_factory=list)
 
 
 @dataclass
@@ -44,7 +50,8 @@ class Tool:
     parameters: dict
     handler: Callable[..., Awaitable[Any]]
     delegation: bool = False       # 是否为委派类工具（受 MAX_DELEGATION_DEPTH 约束）
-    kind: str = "builtin"          # builtin / memory。memory 类工具不进 allowed_tools，由 bots.memory_access 控制
+    kind: str = "builtin"          # builtin / memory / attachment。memory 类工具不进 allowed_tools，由 bots.memory_access 控制；
+                                   # attachment（view_image）只在对话含图时由 runtime 暴露，不进 allowed_tools，被委派时禁止
 
     def schema(self) -> dict:
         return {"type": "function",
