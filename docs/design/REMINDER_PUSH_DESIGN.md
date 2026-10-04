@@ -1,6 +1,7 @@
 # 提醒与推送模块设计 (Reminder & Push/Notification Design) — v1.0 定稿
 
-> 状态：**v1.0 定稿**（Boss 于 2026-10-03 批准，§15 D1–D18 全部按推荐执行）。未写代码、未提交；按 §14 R1 实施。
+> 状态：**v1.0 定稿**（Boss 于 2026-10-03 批准，§15 D1–D18 全部按推荐执行）。按 §14 R1 实施。
+> 实施与验收：**R1 已实现并合入 main（schema v11）**；Boss 于 2026-10-04 验收通过（模拟器）。点按提醒通知按 §9.5 执行（打开该提醒，不直接进对话），已按设计接受。真机与 APNs (R2) 未测。
 > 依据代码：`luisporschewind-ai/VeraBot` `main`（含缓存修复 `2a0dc0f` 之后的 main；`SCHEMA_VERSION = 9`），并参考未合并的 PR #6（头像）、**PR #7（插件 P1，schema v10，`builtin_reminder` 插件）**、PR #8（邮箱认领修复，schema 仍 v9）。
 > schema 版本取合并时下一个可用号：PR #7 占 v10，本方案预计 **v11**（若届时 v10 未合并，则顺延到合并时的下一个号）。
 > 目标路径：`docs/design/REMINDER_PUSH_DESIGN.md`。与实现代码在同一个 PR 里提交。
@@ -482,6 +483,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_push_token ON push_devices(apns_token) WHE
 | `inbox` | 通知收件箱 |
 | `settings/notifications` | 设置 › 通知 |
 
+- **点按通知本体的路由规则**：提醒通知 (`reminder/{id}`) → 打开「提醒」Tab → 该提醒页；对话从该页「来源」里的「查看对话」进入。只有 Bot 消息通知 (`bot/{id}/chat?message={mid}`) 直接打开对话。Boss 于 2026-10-04 按此设计验收。
 - 不注册自定义 URL Scheme（R1 不需要外部唤起，也就不用改 Info.plist / pbxproj）；路由由 App 内 `DeepLinkRouter` 解析，未知路径落到收件箱。
 - 打开前校验：通知所属 `user_id` 必须等于当前登录用户；目标不存在（已删除）→ 提示「内容已不存在」。
 
@@ -713,16 +715,19 @@ R1 是一个 PR；前后端同一提交更新 CHANGELOG / FEATURES / TEST_CASES 
 | REM-UI-01 | 分组（逾期 / 今天 / 即将 / 无日期 / 已错过 / 已完成）与筛选 | 与 §4.4 一致，时间按设备时区显示 |
 | REM-UI-02 | 新建 / 编辑 sheet（预设重复、归属 Bot、查看对话） | 保存成功；409 冲突提示 |
 | REM-UI-03 | 左滑完成 / 删除（重复提醒二选一），右滑稍后 | 正确；触感反馈受开关控制 |
-| REM-UI-04 | 本地通知：建 1 分钟后的提醒，App 退到后台 / 杀掉 | 按时响；通知上「完成」「稍后 10 分钟」生效 |
+| REM-UI-04 | 本地通知：建 1 分钟后的提醒，App 退到后台 / 杀掉 | 按时响；通知上「完成」「稍后 10 分钟」生效。模拟器：通知中心 → 通知左滑 → 「查看」→ 选动作；真机：长按通知 |
 | REM-UI-05 | 后端停掉时点通知「完成」 | 本地立即生效；后端恢复、App 回前台后同步 |
 | REM-UI-06 | reconcile：上限 60、修改 / 删除后通知随之变化、简单重复用 repeats | `NotificationSchedulerTests` 覆盖 |
 | REM-UI-07 | 对话里「明天 9 点提醒我交周报」 | 工具卡片中文；提醒 Tab 出现；本地通知已排 |
 | NTF-UI-01 | 通知分段：未读圆点、点按跳转、已读 / 全部已读、角标 | 正确 |
 | NTF-UI-02 | 设置 › 通知：分类、免打扰、显示内容、被拒授权回退 | 与服务端同步 |
 | NTF-UI-03 | 深链接（各 link，目标已删除） | 跳转正确 / 提示「内容已不存在」 |
+| NTF-UI-05 | 点按通知本体（提醒通知 / Bot 消息通知） | 提醒通知 → 「提醒」Tab → 该提醒页，「来源」的「查看对话」跳到对话；只有 Bot 消息通知直接打开对话（§9.5） |
 | NTF-UI-04 | 退出登录 / 换账号 | 本地待发与已送达通知、角标、离线队列清空；新账号看不到旧账号通知 |
 | PUSH-SIM-01（R2） | `xcrun simctl push` 发送 fixture（前台 / 后台 / 带动作 / 错误 uid） | 展示、动作、深链接正确；错误 uid 被丢弃 |
 | REM-UI-08 | 深色模式、动态字体 | 原生样式正常 |
+
+验收：上表 R1 用例（不含 R2 的 PUSH-SIM-01）Boss 于 2026-10-04 在模拟器上验收通过；Kit `swift test` 于 main 6800822 上运行，148/148 通过。
 
 ## 17. 改动范围与风险 (Files & risks)
 
