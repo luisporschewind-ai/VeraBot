@@ -1,6 +1,7 @@
 # 附件模块设计 (Attachments Design) — v1.0 定稿（P1：仅图片）
 
 > 状态：**v1.0 定稿，Q1–Q12 均已由 Boss 决定（2026-10-03，见 §14）**。P0 模型迁移已实现；**P1 已实现（分支 `feat/attachments-p1`，Draft PR，schema v12，迁移 v11 → v12）**。
+> **P2 相机拍照已实现（2026-10-04，分支 `cursor/camera-capture`）**：＋ 菜单「拍照」→ 系统相机 `UIImagePickerController(sourceType: .camera)`（`UIViewControllerRepresentable` + `.fullScreenCover`，系统默认界面），拍到的图与相册选图走同一路径（`ComposerAttachmentModel` / `ImagePreparer`：每条 1 张、再拍替换、长边 2048、JPEG 0.8、不带 EXIF / GPS、上传中不能发送）；无相机设备（含模拟器）不显示该项；新增 `NSCameraUsageDescription`（中 / 英），拒绝权限时弹系统 alert「前往设置」。后端未改。保存到相册、OCR 仍待做。
 > 实现与本稿的差异（Boss 2026-10-03 实现说明）：① GIF 发给模型的是**第一帧静态 JPEG**（不再「原样发 GIF、出错改第一帧」），气泡里仍播放原 GIF；② 带图轮次的写操作暂用**文字确认**（工具返回 `image_needs_confirmation`，用户下一条回复「确认」后执行），确认卡片随 HITL 再做；③ 没有「删除单条消息」「删除账号」接口，靠外键级联删行 + 对账删文件（ATT-08 / ATT-17）；④ 召回除 `view_image` 工具外还有关键词兜底（每轮最多 1 张，「确认」开头的消息不触发）。
 > 存储方案采纳 Sonic 的调研 [ATTACHMENT_STORAGE_RESEARCH.md](ATTACHMENT_STORAGE_RESEARCH.md)（含其 §10 修订建议）。
 > 版本：v0.1 草案 → v0.2 草案（Q1–Q4、Q6–Q10、Q12 决定）→ **v1.0**（Q5 采纳存储调研、Q6 改为按需召回、Q11 按推荐）。
@@ -255,7 +256,7 @@ CREATE INDEX IF NOT EXISTS idx_att_user ON attachments(user_id, message_id);
 |---|---|---|
 | **P0 模型迁移（已完成）** | 默认改 `deepseek-flash` + 关闭思考；回归 + 冒烟 | 约 0.5 人日 |
 | **P1 图片** | §4–§9 全部；PhotosPicker（1 张）、压缩、上传、存储层（§5.6）、v12、多模态请求、图片描述与按需召回、委派带图、带图写操作确认、气泡（含 GIF 动画）与全屏、隔离与契约测试 | 约 4.5 人日（后端 2、iOS 2、测试文档 0.5；存储 1.5 人日含在后端内） |
-| **P2 图片增强** | 相机拍照（Q4，需要 `NSCameraUsageDescription`，改 Info.plist / `InfoPlist.xcstrings`，需 Boss 同意）；保存到相册；iOS 端 OCR（方案 D，可选）；DeepSeek Files API 复用上传；可选逐文件加密 | 约 2 人日 |
+| **P2 图片增强** | 相机拍照（Q4，**已实现 2026-10-04**，需要 `NSCameraUsageDescription`，改 Info.plist / `InfoPlist.xcstrings`，需 Boss 同意）；保存到相册；iOS 端 OCR（方案 D，可选）；DeepSeek Files API 复用上传；可选逐文件加密 | 约 2 人日 |
 | **P3 文件 / PDF** | 文件选择器（`fileImporter`）；PDF 用服务端文本抽取（如 `pypdf`，新依赖）后作为文字发送，扫描件按页转图走视觉；Word / Excel 后续再议；容量与保留策略 | 另行评估 |
 
 ## 12. 风险

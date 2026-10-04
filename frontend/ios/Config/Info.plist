@@ -20,6 +20,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>VeraBot 需要使用相机，以便拍照发送给 Bot。</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>VeraBot 需要访问局域网内的 VeraBot 服务器。</string>
 	<key>NSMicrophoneUsageDescription</key>

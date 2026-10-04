@@ -14,6 +14,8 @@ struct ChatView: View {
     @State private var attachment: ComposerAttachmentModel   // 待发送图片（最多 1 张）
     @State private var showPhotos = false
     @State private var photoItem: PhotosPickerItem?
+    @State private var showCamera = false
+    @State private var cameraDenied = false
     @Environment(AppState.self) private var app
     @Environment(\.scenePhase) private var scenePhase
     let highlightMessageID: Int?
@@ -85,8 +87,27 @@ struct ChatView: View {
             attachment.pick(item)
             photoItem = nil
         }
+        // 拍照：系统相机全屏（UIImagePickerController），拍到的图与相册选图走同一路径
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraPicker { attachment.pick($0) }.ignoresSafeArea()
+        }
+        .alert("无法使用相机", isPresented: $cameraDenied) {
+            Button("前往设置") {
+                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("请在「设置」中允许 VeraBot 使用相机。")
+        }
         .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）
         .onDisappear { focused = false }   // 返回 / 离开页面时收起键盘
+    }
+
+    /// 先查相机权限：未决定时系统弹窗；已拒绝则提示前往设置
+    private func openCamera() {
+        Task {
+            if await CameraPicker.requestAccess() { showCamera = true } else { cameraDenied = true }
+        }
     }
 
     private var botTitleButton: some View {
@@ -125,11 +146,13 @@ struct ChatView: View {
             }
             GlassGroup(spacing: 10) {
                 HStack(alignment: .bottom, spacing: 10) {
-                    // 附件菜单：图片（相册，每条 1 张）；相机 / 文件暂不支持
+                    // 附件菜单：图片（相册）/ 拍照（系统相机，无相机的设备与模拟器不显示），每条 1 张；文件暂不支持
                     Menu {
                         Section("添加附件") {
                             Button { focused = false; showPhotos = true } label: { Label("图片", systemImage: "photo") }
-                            Button {} label: { Label("相机（即将支持）", systemImage: "camera") }.disabled(true)
+                            if CameraPicker.isAvailable {
+                                Button { focused = false; openCamera() } label: { Label("拍照", systemImage: "camera") }
+                            }
                             Button {} label: { Label("文件（即将支持）", systemImage: "paperclip") }.disabled(true)
                         }
                     } label: {

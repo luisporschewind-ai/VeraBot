@@ -662,6 +662,9 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | ATT-UI-03 | iOS | 首次发图 | 不弹说明 | ⏳ |
 | ATT-UI-04 | iOS | 退出 / 换账号 | 新账号看不到旧账号图片缓存和预览临时文件 | ⏳ |
 | ATT-LIVE-01 | Mac | 真实 `deepseek-flash` 一条带图消息 | 200，回复描述图片；之后 caption 已存 | ⏳ |
+| ATT-CAM-01 | iOS 真机 | ＋ →「拍照」→ 首次允许相机 → 拍照 →「使用照片」→ 发送；再拍一张替换 | 系统相机全屏；输入栏出现缩略图，上传中不能发送；发送后气泡显示图片、方向正确；服务器上的图不带 EXIF / GPS；再拍替换上一张 | ⏳ 待 Boss 真机 |
+| ATT-CAM-02 | iOS 真机 | 「设置」里关闭 VeraBot 相机权限 → ＋ →「拍照」 | 不打开相机，弹出「无法使用相机」alert，「前往设置」跳到 VeraBot 设置页，「取消」关闭 | ⏳ 待 Boss 真机 |
+| ATT-CAM-03 | iOS 模拟器 | 无相机设备点 ＋ | 菜单里没有「拍照」，「图片」照常可用 | ⏳ |
 
 ## 模型 P0：deepseek-flash + 关闭思考 (Model switch) — 2026-10-03
 
