@@ -6,7 +6,7 @@
 
 ### 变更 (Changed)
 
-- **iOS · 设置底部面板高度改为约 60% 屏高**（Boss 2026-10-05，原 70%），仍为自定义 BottomPanel，不用系统半屏 sheet。
+- **iOS · 设置面板改为悬浮卡片**（Boss 2026-10-05，取代同日的 60% 屏高）：四角圆角 36、距左右下边 8pt，顶端停在首页导航栏下方（约 88% 屏高，导航栏一行仍露出并变暗）；左上角圆形 xmark 关闭按钮，无标题；仍为自定义 BottomPanel（`topInset` 取代 `heightFraction`），不用系统 sheet。
 
 ### 修复 (Fixed)
 

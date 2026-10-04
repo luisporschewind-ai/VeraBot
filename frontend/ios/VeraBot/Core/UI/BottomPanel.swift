@@ -2,28 +2,29 @@ import SwiftUI
 
 // MARK: - 自定义底部面板（Bottom panel）
 //
-// 圆角卡片从底部以弹簧动画弹起，默认约屏幕高度的 70%，背景变暗；点空白处或下拉顶部把手关闭。
-// 用 fullScreenCover 承载，以盖住 Tab 栏；系统自带的上滑动画被关闭、背景设为透明，
+// 悬浮圆角卡片（四角 36、距左右下边 8pt）从底部以弹簧动画弹起，顶端停在首页导航栏下方
+// （topInset，默认 52pt，导航栏一行仍露出并变暗），背景变暗；点空白处、下拉顶部把手或面板内
+// 关闭按钮（环境值 `dismissBottomPanel`）关闭。用 fullScreenCover 承载，以盖住 Tab 栏；系统自带的上滑动画被关闭、背景设为透明，
 // 弹起 / 收起动画全部由面板自己控制。用法：`.bottomPanel(isPresented: $show) { ... }`。
 
 extension View {
     func bottomPanel<Panel: View>(isPresented: Binding<Bool>,
-                                  heightFraction: CGFloat = 0.7,
+                                  topInset: CGFloat = 52,
                                   @ViewBuilder content: @escaping () -> Panel) -> some View {
-        modifier(BottomPanelModifier(isPresented: isPresented, heightFraction: heightFraction, panel: content))
+        modifier(BottomPanelModifier(isPresented: isPresented, topInset: topInset, panel: content))
     }
 }
 
 private struct BottomPanelModifier<Panel: View>: ViewModifier {
     @Binding var isPresented: Bool
-    let heightFraction: CGFloat
+    let topInset: CGFloat
     let panel: () -> Panel
     @State private var coverShown = false
 
     func body(content: Content) -> some View {
         content
             .fullScreenCover(isPresented: $coverShown) {
-                BottomPanelContainer(heightFraction: heightFraction,
+                BottomPanelContainer(topInset: topInset,
                                      onClosed: { setCover(false); isPresented = false },
                                      panel: panel)
                     .presentationBackground(.clear)
@@ -42,7 +43,7 @@ private struct BottomPanelModifier<Panel: View>: ViewModifier {
 }
 
 private struct BottomPanelContainer<Panel: View>: View {
-    let heightFraction: CGFloat
+    let topInset: CGFloat
     let onClosed: () -> Void
     let panel: () -> Panel
 
@@ -52,35 +53,40 @@ private struct BottomPanelContainer<Panel: View>: View {
 
     var body: some View {
         GeometryReader { geo in
-            let height = geo.size.height * heightFraction
+            // geo：顶部守安全区、底部到屏幕边（见下方 ignoresSafeArea），键盘弹出时随键盘缩短
+            let height = max(geo.size.height - topInset - 8, 200)
             ZStack(alignment: .bottom) {
                 Color.black.opacity(shown ? 0.35 : 0)
+                    .ignoresSafeArea()
                     .contentShape(Rectangle())
                     .onTapGesture { close() }
                     .accessibilityLabel("关闭")
                     .accessibilityAddTraits(.isButton)
 
-                VStack(spacing: 0) {
-                    // 顶部把手：下拉关闭只绑在把手区，避免与面板内列表滚动冲突
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.45))
-                        .frame(width: 36, height: 5)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .contentShape(Rectangle())
-                        .gesture(dragGesture)
-                    panel()
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: height)
-                .background(Color.appBackground)
-                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous))
-                .shadow(color: .black.opacity(0.15), radius: 16, y: -2)
-                .offset(y: shown ? dragOffset : height + 40)
+                panel()
+                    .environment(\.dismissBottomPanel, close)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: height)
+                    .background(Color.appBackground)
+                    .overlay(alignment: .top) {
+                        // 顶部居中把手：下拉关闭只绑在这一窄条，不挡导航栏左右按钮，也不与列表滚动冲突
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.4))
+                            .frame(width: 36, height: 5)
+                            .padding(.top, 6)
+                            .frame(width: 160, height: 30, alignment: .top)
+                            .contentShape(Rectangle())
+                            .gesture(dragGesture)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+                    .shadow(color: .black.opacity(0.15), radius: 16, y: 2)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                    .offset(y: shown ? dragOffset : height + 60)
             }
         }
-        // 只忽略容器安全区：键盘弹出时（如调试页的服务器地址）面板随键盘上移，输入框不被挡住
-        .ignoresSafeArea(.container)
+        // 只让底部伸到屏幕边（卡片自己留 8pt）；键盘安全区仍生效，调试页输入框不被挡住
+        .ignoresSafeArea(.container, edges: .bottom)
         .accessibilityAction(.escape) { close() }   // VoiceOver 双指 Z 手势关闭
         .onAppear { withAnimation(spring) { shown = true } }
     }
@@ -104,6 +110,36 @@ private struct BottomPanelContainer<Panel: View>: View {
         } completion: {
             dragOffset = 0
             onClosed()
+        }
+    }
+}
+
+private struct DismissBottomPanelKey: EnvironmentKey {
+    nonisolated(unsafe) static let defaultValue: (() -> Void)? = nil   // 只读的 nil 默认值
+}
+
+extension EnvironmentValues {
+    /// 面板内的关闭动作（带收起动画）；不在 bottomPanel 里时为 nil。
+    var dismissBottomPanel: (() -> Void)? {
+        get { self[DismissBottomPanelKey.self] }
+        set { self[DismissBottomPanelKey.self] = newValue }
+    }
+}
+
+/// 面板左上角的圆形关闭按钮（浅灰圆底 + xmark）。
+struct BottomPanelCloseButton: View {
+    @Environment(\.dismissBottomPanel) private var dismiss
+    var body: some View {
+        if let dismiss {
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(Color(.systemGray5)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("关闭")
         }
     }
 }
