@@ -8,6 +8,7 @@ struct BotListView: View {
     @State private var editing: Bot?
     @State private var pendingDelete: Bot?   // 左滑「删除」只弹确认框，确认后才调用 API
     @State private var showCreate = false
+    @State private var showSettings = false   // 点头像：设置页以自定义底部面板弹出（不占全屏）
     @State private var errorText: String?
     @State private var query = ""
     @State private var searchActive = false     // 点击右上角放大镜后才挂载搜索栏；未激活时页面上不存在搜索框
@@ -127,17 +128,23 @@ struct BotListView: View {
             .sheet(item: $editing, onDismiss: { Task { await load() } }) { bot in
                 NavigationStack { BotEditView(bot: bot) { _ in }.toolbar(.hidden, for: .tabBar) }
             }
+            .bottomPanel(isPresented: $showSettings) {
+                // 设置内部仍要 push 二级页（用量、插件、调试等），面板内自带 NavigationStack
+                NavigationStack { SettingsView() }
+                    .environment(app)
+            }
+            // 在面板里退出登录：根视图换成登录页之前先收起承载层，避免残留的 fullScreenCover
+            .onChange(of: app.token) { _, token in
+                if token == nil { showSettings = false }
+            }
             .onAppear { Task { await load() } }   // 从对话页返回时刷新（对话页可能新建了 Bot）
             .refreshable { await load() }
         }
     }
 
-    /// 首页左上角：正圆头像（照片或首字圆底），点按进入设置。
+    /// 首页左上角：正圆头像（照片或首字圆底），点按弹出设置底部面板（见 Core/UI/BottomPanel）。
     private func settingsLink(avatarSize: CGFloat) -> some View {
-        NavigationLink {
-            SettingsView()
-                .toolbar(.hidden, for: .tabBar)
-        } label: {
+        Button { showSettings = true } label: {
             HomeAvatarLabel(name: app.displayName, image: app.avatars.userImage, size: avatarSize)
         }
         .accessibilityLabel("设置")

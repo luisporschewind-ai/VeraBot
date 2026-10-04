@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 变更 (Changed)
+
+- **iOS · 设置页改为自定义底部面板**（Boss 2026-10-04）：首页点头像不再 push 设置页，改为圆角卡片从底部以弹簧动画弹起（约 70% 屏高，背景变暗），点空白处或下拉顶部把手关闭；面板内自带 NavigationStack，用量 / 插件 / 调试等二级页照常 push。新增通用修饰符 `.bottomPanel(isPresented:heightFraction:content:)`（`Core/UI/BottomPanel.swift`，fullScreenCover 承载以盖住 Tab 栏，关闭系统动画、透明背景）。仅 iOS，后端与 Web 未改。
+
 ### 新增 (Added) — 需授权 MCP 连接器 P1（schema v13）
 
 - **后端**：按 [MCP_AUTH_CONNECTORS_PLAN.md](design/MCP_AUTH_CONNECTORS_PLAN.md) v1.0（Boss 2026-10-04 决定 D1–D11 全部按建议）实现 P1：授权抽象 `AuthProvider`（`none` / `static_bearer`，`services/mcp/auth.py`）；目录新增 GitHub（`/mcp/readonly` + `X-MCP-Readonly / Toolsets / Lockdown`，15 个只读工具白名单）与 Linear（`/mcp/readonly`）两个只读连接器；`PUT / DELETE /api/plugins/{id}/credential`（只接受本机回环或 HTTPS，校验后 Fernet 加密写 `mcp_credentials`，新密钥 `VERABOT_TOKEN_ENC_KEY` / `data/.token_key`）；`needs_auth` 状态流（无凭据不调度同步、401 回到 `needs_auth` 不重试不计熔断、网络错误 `network_unreachable` 保留凭据、工具级越权 `mcp_permission_denied`）；日志脱敏（`core/log_redact.py`）；D7「接受工具更新」`POST /api/plugins/{id}/accept-tool-changes`；迁移 v13（`mcp_credentials` 加 `kind / token_hint / last_verified_at`，`mcp_servers.auth_error`，新表 `mcp_oauth_clients`）。`.env` 未改，新变量只写进 `.env.example`。新测试 `connector_test.py`（CONN-01~12、SEC-01、D7、CONTRACT）；其他套件的版本断言改为 13。
