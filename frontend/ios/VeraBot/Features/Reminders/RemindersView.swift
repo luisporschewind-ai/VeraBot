@@ -17,21 +17,18 @@ struct RemindersView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("提醒或通知", selection: $segment) {
-                    Text("提醒").tag(0)
-                    Text("通知").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.top, 8)
+            // 整页只有一个列表在滚动：分段控件不再放在列表上方的 VStack 里（那样列表不是导航栏下的主滚动视图，
+            // 大标题不会随滚动收起），而是用 topBar 挂在列表顶部安全区，吸在导航栏下方；大标题「提醒」上滑时收进导航栏中间。
+            Group {
                 if segment == 0 {
                     reminderList
                 } else {
                     InboxView()
                 }
             }
+            .topBar { segmentPicker }
             .navigationTitle("提醒")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { filterMenu }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -71,6 +68,17 @@ struct RemindersView: View {
                 apply(link)
             }
         }
+    }
+
+    /// 「提醒／通知」分段（吸顶，见 Theme.topBar）
+    private var segmentPicker: some View {
+        Picker("提醒或通知", selection: $segment) {
+            Text("提醒").tag(0)
+            Text("通知").tag(1)
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
     }
 
     private var reminderList: some View {

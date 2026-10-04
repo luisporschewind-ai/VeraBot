@@ -22,7 +22,7 @@ import UIKit
 // 来源：薰衣草 #D7D7FF 与青绿 #3D7A8C 都取自 Vera CLI 主题（~/Vera/src/vera/terminal/theme.py，终端里显示的淡紫 + 青绿）。
 //
 // Liquid Glass：iOS 26 用系统 .glassEffect / .buttonStyle(.glass)；iOS 17–18 回退到材质 / bordered 样式。
-// 底部浮动栏用 bottomBar（iOS 26 safeAreaBar，带系统滚动边缘效果；旧系统 safeAreaInset）。
+// 底部浮动栏用 bottomBar、导航栏下方的吸顶栏用 topBar（iOS 26 safeAreaBar，带系统滚动边缘效果；旧系统 safeAreaInset）。
 
 extension Color {
     // 主题「薰衣草 × 青绿」（Lavender Teal Duo，2026-10-03 Boss 选定方案 C）：
@@ -164,6 +164,17 @@ extension View {
             safeAreaBar(edge: .bottom, content: bar)
         } else {
             safeAreaInset(edge: .bottom, content: bar)
+        }
+    }
+
+    /// 导航栏下方的吸顶栏（如提醒页「提醒／通知」分段）：iOS 26 用 `safeAreaBar(edge: .top)`，系统在栏后方给滚动内容加
+    /// 顶部滚动边缘效果；iOS 17–25 回退 `safeAreaInset(edge: .top)` + 系统 `.bar` 材质底（与导航栏同材质）。
+    /// 内容仍是同一个列表在滚动，大标题照常随滚动收进导航栏中间（Large title collapse）。不手写渐变 / 模糊。
+    @ViewBuilder func topBar<Bar: View>(@ViewBuilder _ bar: () -> Bar) -> some View {
+        if #available(iOS 26.0, *) {
+            safeAreaBar(edge: .top, content: bar)
+        } else {
+            safeAreaInset(edge: .top, spacing: 0) { bar().background(.bar) }
         }
     }
 
