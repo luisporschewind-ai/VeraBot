@@ -115,7 +115,7 @@ private struct BottomPanelContainer<Panel: View>: View {
 }
 
 private struct DismissBottomPanelKey: EnvironmentKey {
-    static let defaultValue: (() -> Void)? = nil
+    nonisolated(unsafe) static let defaultValue: (() -> Void)? = nil   // 只读的 nil 默认值
 }
 
 extension EnvironmentValues {
