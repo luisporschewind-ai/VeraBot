@@ -727,7 +727,7 @@ R1 是一个 PR；前后端同一提交更新 CHANGELOG / FEATURES / TEST_CASES 
 | PUSH-SIM-01（R2） | `xcrun simctl push` 发送 fixture（前台 / 后台 / 带动作 / 错误 uid） | 展示、动作、深链接正确；错误 uid 被丢弃 |
 | REM-UI-08 | 深色模式、动态字体 | 原生样式正常 |
 
-验收：上表 R1 用例（不含 R2 的 PUSH-SIM-01）Boss 于 2026-10-04 在模拟器上验收通过；Kit `swift test` 148 个通过。
+验收：上表 R1 用例（不含 R2 的 PUSH-SIM-01）Boss 于 2026-10-04 在模拟器上验收通过；Kit `swift test` 于 main 6800822 上运行，148/148 通过。
 
 ## 17. 改动范围与风险 (Files & risks)
 
