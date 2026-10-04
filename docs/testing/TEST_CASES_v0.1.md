@@ -678,6 +678,8 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 自动化：`backend/scripts/test/cache_headers_test.py` (临时 SQLite)；Kit `CacheIsolationTests.swift`。说明见 [AUTH_REFACTOR.md](../design/AUTH_REFACTOR.md) §5.1。
 
+**验收**：本节 CACHE-* 全部用例 Boss 于 2026-10-04 验收通过。
+
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
 | CACHE-01 | 后端 | 注册 / 登录 / 刷新 | `Cache-Control: no-store`、`Pragma: no-cache`，只有一个 Cache-Control | 通过 |
@@ -702,7 +704,11 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 ## 提醒与推送 R1 (schema v11) — 2026-10-03
 
-自动化：`cd backend && uv run python scripts/test/reminder_test.py` 与 `notify_test.py`。假时钟，不访问外网。设计 [REMINDER_PUSH_DESIGN.md](../design/REMINDER_PUSH_DESIGN.md) v1.0，字段对照 §8。iOS Kit 用例本环境未跑（无 Swift）。模拟器用例未测。
+自动化：`cd backend && uv run python scripts/test/reminder_test.py` 与 `notify_test.py`。假时钟，不访问外网。设计 [REMINDER_PUSH_DESIGN.md](../design/REMINDER_PUSH_DESIGN.md) v1.0，字段对照 §8。iOS Kit 用例已在 Mac 上跑 `swift test`（148 个全部通过）；模拟器用例已测。
+
+**验收**：本节 REM-* / NTF-* R1 用例 Boss 于 2026-10-04 验收通过（第 5 步「点按提醒通知」按设计 §9.5 执行，见 NTF-UI-05）。
+
+**模拟器操作说明**：模拟器上通知动作（「完成」「稍后 10 分钟」）从通知中心进入：打开通知中心 → 通知左滑 → 「查看」→ 选择动作；真机上长按通知即可。
 
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
@@ -713,8 +719,9 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | REM-CONTRACT | 契约 | 提醒 JSON 键与 `Reminders.swift` CodingKeys | 键名一致 | 通过 |
 | NTF-01 … 08、10、11 | 通知 | 设备、收件箱、偏好、免打扰、SQLite 限流、预览、投递等级、退出禁用、token 迁移、无 APNs | 提醒不受免打扰和限流；R1 没有 `channel=apns` | 通过 |
 | NTF-CONTRACT | 契约 | 通知 / 偏好 / 设备 JSON 与 `Notifications.swift` | 键名一致 | 通过 |
-| REM-UI-01、REM-UI-06、NTF-UI-03 | iOS Kit | 分组、排程上限 60、深链接 | 纯逻辑在 Kit 测试里 | 未跑（本环境无 Swift） |
-| REM-UI-02 … 05、07、08、NTF-UI-01、02、04 | iOS 模拟器 | 界面、本地通知、退出清理 | 见设计 §16 | 未测 |
+| REM-UI-01、REM-UI-06、NTF-UI-03 | iOS Kit | 分组、排程上限 60、深链接 | 纯逻辑在 Kit 测试里 | 通过（Mac `swift test`）；Boss 2026-10-04 验收 |
+| REM-UI-02 … 05、07、08、NTF-UI-01、02、04 | iOS 模拟器 | 界面、本地通知、退出清理 | 见设计 §16 | 模拟器通过；Boss 2026-10-04 验收 |
+| NTF-UI-05 | iOS 模拟器 | 点按通知本体：提醒通知、Bot 消息通知 | 提醒通知 → 打开「提醒」Tab → 该提醒页；在「来源」里点「查看对话」跳到对话。只有 Bot 消息通知 (`bot/{id}/chat?message=`) 直接打开对话 | 模拟器通过；Boss 2026-10-04 验收 |
 
 ## 删除单条消息 (Delete message) — 2026-10-03
 
