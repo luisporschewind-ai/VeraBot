@@ -128,7 +128,7 @@ struct BotListView: View {
             .sheet(item: $editing, onDismiss: { Task { await load() } }) { bot in
                 NavigationStack { BotEditView(bot: bot) { _ in }.toolbar(.hidden, for: .tabBar) }
             }
-            .bottomPanel(isPresented: $showSettings) {
+            .bottomPanel(isPresented: $showSettings, heightFraction: 0.6) {   // Boss：一多半屏
                 // 设置内部仍要 push 二级页（用量、插件、调试等），面板内自带 NavigationStack
                 NavigationStack { SettingsView() }
                     .environment(app)
