@@ -167,6 +167,37 @@ def _parse_sse(text: str) -> dict:
     raise MCPProtocolError("空的 SSE 响应")
 
 
+_TEXT_MIME_HINTS = ("json", "xml", "yaml", "javascript", "markdown", "csv", "toml", "x-sh", "sql")
+
+
+def _text_like(mime: str) -> bool:
+    mime = (mime or "").lower()
+    return not mime or mime.startswith("text/") or any(h in mime for h in _TEXT_MIME_HINTS)
+
+
+def _embedded_resource_text(res: dict) -> str:
+    """内嵌资源 {uri, mimeType, text|blob}：正文进入结果（总长度由 sanitize.wrap 截断）。
+    blob 为 base64：文本类 mime 解码成文字，其余只记类型与大小。"""
+    uri = str(res.get("uri") or "").split("?", 1)[0]
+    mime = str(res.get("mimeType") or "")
+    header = "[资源] " + " ".join(x for x in (uri, mime) if x)
+    if isinstance(res.get("text"), str):
+        return header + "\n" + res["text"]
+    blob = res.get("blob")
+    if isinstance(blob, str) and blob:
+        import base64, binascii
+        try:
+            raw = base64.b64decode(blob, validate=False)
+        except (binascii.Error, ValueError):
+            return header + "\n[二进制内容无法解码]"
+        if _text_like(mime):
+            # 解码上限与 MCP 结果总截断一致，避免超大 blob 先整体解码成巨型字符串
+            from .sanitize import max_chars
+            return header + "\n" + raw[: max_chars() * 4].decode("utf-8", errors="replace")
+        return header + f"\n[二进制内容 {len(raw)} 字节，未展开]"
+    return header
+
+
 def result_text(result: dict) -> str:
     """把 tools/call 的 content / structuredContent 收成一段文字。图片不进入正文。"""
     parts: list[str] = []
@@ -180,6 +211,8 @@ def result_text(result: dict) -> str:
             parts.append("[图片 1 张，已在卡片中显示]")
         elif kind == "audio":
             parts.append("[音频 1 段，已在卡片中显示]")
+        elif kind == "resource" and isinstance(block.get("resource"), dict):
+            parts.append(_embedded_resource_text(block["resource"]))
         elif kind in ("resource_link", "resource"):
             uri = str(block.get("uri") or "")
             if "?" in uri:

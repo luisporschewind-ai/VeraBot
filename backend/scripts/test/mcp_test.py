@@ -160,6 +160,14 @@ class _Handler(BaseHTTPRequestHandler):
                 self._reply(200, {"jsonrpc": "2.0", "id": body.get("id"), "result": {
                     "content": [{"type": "text", "text": "nope"}], "isError": True}})
                 return
+            if name == "get_file_contents":
+                # 与 GitHub MCP 相同：一段元数据文字 + 一个内嵌资源（正文）
+                self._reply(200, {"jsonrpc": "2.0", "id": body.get("id"), "result": {"content": [
+                    {"type": "text", "text": "successfully downloaded text file (SHA: abc123)"},
+                    {"type": "resource", "resource": {"uri": "repo://o/r/contents/README.md?ref=main",
+                                                      "mimeType": "text/markdown", "text": "# VeraBot README body"}},
+                ], "isError": False}})
+                return
             text = "hello"
             if name == "microsoft_docs_fetch":
                 text = "# Microsoft Learn MCP Server overview\n"
@@ -255,6 +263,28 @@ try:
           follow["session"] is None and follow["protocol"] == "2025-06-18", str(follow))
 finally:
     bare.stop()
+
+# GitHub get_file_contents：正文在内嵌 resource 块里，必须进入模型看到的工具结果
+import base64 as _b64
+from verabot.services.mcp.http_client import result_text as _rt
+from verabot.services.mcp.sanitize import wrap as _wrap
+res_mock = MockMCP(mode="json", session_id="s-res", tools=[])
+try:
+    with MCPSession(res_mock.url, timeout=5) as session:
+        session.initialize()
+        got = session.call_tool("get_file_contents", {"owner": "o", "repo": "r", "path": "README.md"})
+    model_in, _ = _wrap("github", "get_file_contents", "c1", got.text)
+    check("MCP-RES embedded resource text reaches model input",
+          got.is_error is False and "SHA: abc123" in model_in and "# VeraBot README body" in model_in
+          and "repo://o/r/contents/README.md" in model_in and "ref=main" not in model_in, model_in[:300])
+finally:
+    res_mock.stop()
+blob_txt = _rt({"content": [{"type": "resource", "resource": {"uri": "file:///a.json", "mimeType": "application/json",
+                                                                "blob": _b64.b64encode(b'{"k":1}').decode()}}]})
+blob_bin = _rt({"content": [{"type": "resource", "resource": {"uri": "file:///a.png", "mimeType": "image/png",
+                                                                "blob": _b64.b64encode(b"\x89PNG" + b"0" * 96).decode()}}]})
+check("MCP-RES blob: text-like decoded, binary summarized",
+      '{"k":1}' in blob_txt and "100 字节" in blob_bin and "PNG" not in blob_bin.split("\n", 1)[1], blob_txt + " | " + blob_bin)
 
 high = MockMCP(mode="json", session_id="s", server_protocol="2026-07-28", tools=[])
 try:

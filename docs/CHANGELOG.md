@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 修复 (Fixed)
+
+- **MCP 内嵌资源正文丢失**（Boss 2026-10-05）：GitHub `get_file_contents` 等工具把文件正文放在 `{type:"resource", resource:{uri, mimeType, text|blob}}` 里，`result_text` 只读块顶层的 uri/name，正文被丢掉，模型只看到「下载成功 + SHA」。现在内嵌资源输出 `[资源] uri mime` 标题加正文；`blob` 为文本类 mime 时解码，否则只注明类型与字节数；总长度仍由 `VERABOT_MCP_MAX_RESULT_CHARS` 截断。测试 MCP-RES。
+
 ### 变更 (Changed)
 
 - **iOS · 设置页改为自定义底部面板**（Boss 2026-10-04）：首页点头像不再 push 设置页，改为圆角卡片从底部以弹簧动画弹起（约 70% 屏高，背景变暗），点空白处或下拉顶部把手关闭；面板内自带 NavigationStack，用量 / 插件 / 调试等二级页照常 push。新增通用修饰符 `.bottomPanel(isPresented:heightFraction:content:)`（`Core/UI/BottomPanel.swift`，fullScreenCover 承载以盖住 Tab 栏，关闭系统动画、透明背景）。仅 iOS，后端与 Web 未改。
