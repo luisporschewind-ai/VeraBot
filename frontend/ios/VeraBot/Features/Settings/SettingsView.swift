@@ -21,9 +21,10 @@ struct SettingsView: View {
             AboutSettingsSection()
             SignOutSettingsSection()   // 退出登录固定在最底部
         }
-        .navigationTitle("设置")
+        .navigationTitle("")   // 底部面板里不显示标题（Boss 参考样式）
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) { BottomPanelCloseButton() }
             // 开发 / 调试信息（服务器地址、健康检查、构建信息）统一放在调试页，不出现在普通设置里
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
