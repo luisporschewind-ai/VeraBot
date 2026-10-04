@@ -38,6 +38,7 @@
 - **提醒与推送 R1（schema v11，2026-10-03）**：设计 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) v1.0。提醒状态机、30 秒调度与睡眠补跑、CRUD、三个 Bot 工具、收件箱、通知偏好、iOS 本地通知。SQL 在 `db/reminder_store.py`。APNs 不做。升级前备份 `backend/data/verabot.db.bak-before-v11-<时间戳>`。`reminder_test.py`、`notify_test.py` 用假时钟、不访问外网。合并复核（Boss 的 Mac）修了 Swift 6 并发编译错误和两处 Kit 测试，`swift test` 140 通过、`xcodebuild` 成功；模拟器验证了提醒 / 通知分段、设置 › 通知、本地通知按时弹出及「完成」「稍后 10 分钟」、免打扰不影响提醒。之后发现复核时的并发修复让通知代理在非主线程回调 completionHandler，点通知后切后台会崩溃，已改为在主线程回调（修复 PR 见 CHANGELOG）。APNs 和真机未验证。**Web 冻结**：没有新的提醒界面；`POST /api/reminders/{id}/done` 和列表里的 `content` / `done` / `bot_name` / `due_at` 仍可用。
 - **模型 P0 (2026-10-03)**：后端默认模型 `deepseek-chat` (官方已停用的旧名) → `deepseek-flash`，请求体固定 `thinking: {"type":"disabled"}` (`VERABOT_DEEPSEEK_THINKING=0`)。`.env` 未覆盖模型、未改；`/api/health` 现为 `deepseek-flash`。`llm_body_test.py` 5/5；模拟器普通对话与工具调用 (天气 + Learn) 正常。图片附件 P1 仍未实现 (设计见 [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md))。
 - **图片附件设计 v1.0 (2026-10-03，未实现)**：[ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md) Q1–Q12 全部由 Boss 决定：`deepseek-flash` + 关闭思考 (P0 已完成)；看图失败直接提示不降级；每条 1 张；相机 P2；存储采纳 [ATTACHMENT_STORAGE_RESEARCH.md](design/ATTACHMENT_STORAGE_RESEARCH.md) (本地磁盘 + SQLite 元数据 + 薄存储接口，鉴权代理 `no-store`，不用签名 URL，原子写入，孤儿对账，FileVault + 0700)；界面始终显示原图，发给模型按需召回 (首轮存描述、之后只发描述、回指时重发原图)；不弹首次说明；委派必须转发图片 (P1)；GIF 完整播放；记忆提议需确认、图片不进记忆；带图轮次写操作需确认；图片随消息删除。预计 schema v12，约 4.5 人日。**下一步**：等 Boss 排期 P1。
+- **图片附件 P2 拍照 (2026-10-04)**：＋ 菜单「拍照」用系统 `UIImagePickerController`，与相册选图同一压缩 / 上传路径；新增 `NSCameraUsageDescription`；拒绝权限提示「前往设置」。后端未改。ATT-CAM-01~03 待 Boss 真机验收。
 - **图片附件 P1（schema v12，分支 `feat/attachments-p1`，Draft PR）**：后端 + iOS 已实现（见 CHANGELOG）。已 rebase 到含提醒 R1（v11，`f9e39c6`）的 main，迁移为 v11 → v12。本机库升级前先备份 `backend/data/verabot.db.bak-before-v12-<时间戳>`，附件目录 `backend/data/attachments/` 需一起备份（FileVault 需在 Mac 上确认已开启）。`attachments_test.py` 28/28，后端回归通过。**未验证**：Xcode 编译、PhotosPicker / GIF 播放 / Quick Look 实机或模拟器、ATT-LIVE-01 真实 `deepseek-flash` 带图请求。**限制**：带图轮次的写操作用文字「确认」代替确认卡片；没有删除单条消息 / 删除账号接口（级联 + 对账清文件）。**Web 落后**：Web 不能发送或查看图片附件（冻结；带图消息在 Web 里只显示文字，空文字消息显示为空气泡）。
 - **待办**：
   1. **执行状态机**：v1.1 已接到对话页导航栏头像（见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md)）。首页列表只显示静态形象。`completed` 后 1.5 s 回空闲。先前三处遗留已修：68pt 角标符号、滚出屏幕后循环不停、`reset` 取消受阻计时。
@@ -127,7 +128,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 输入栏 Composer | ✅ | 浮动玻璃：圆形 ＋ (附件占位菜单) + 胶囊输入框 + 🎙；无发送按钮，return 发送；Boss 已验收 |
 | 消息富文本 Rich messages | ✅ | Markdown 排版、自动识别网址 / 电话 / 邮箱、网页在 App 内打开、长按复制；解析有单元测试，Boss 已验收 |
 | App 图标 / 名称 | ✅ | 主屏「Vera Bot」；AppIcon 1024 单尺寸 |
-| 附件 Attachments | 🟡 占位 | ＋ 菜单：图片 / 相机 / 文件「即将支持」(禁用) |
+| 附件 Attachments | 🟡 部分 | ＋ 菜单：「图片」(PhotosPicker，P1) 与「拍照」(系统相机，P2，2026-10-04；无相机设备不显示) 可用；「文件」仍「即将支持」(禁用) |
 
 ## 2. 已知限制 (Known limits)
 

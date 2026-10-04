@@ -48,6 +48,16 @@ final class ComposerAttachmentModel {
     }
 
     func pick(_ item: PhotosPickerItem) {
+        start { try await item.loadTransferable(type: Data.self) }
+    }
+
+    /// 拍照（系统相机）：先编码成 JPEG 原始数据（方向写在 EXIF 里，由 ImagePreparer 转正），
+    /// 再走与相册相同的压缩路径（长边 2048、JPEG 0.8、重新写出不带 EXIF / GPS）；拍新照片同样替换当前这张。
+    func pick(_ photo: UIImage) {
+        start { photo.jpegData(compressionQuality: 1) }
+    }
+
+    private func start(_ load: @escaping @MainActor () async throws -> Data?) {
         discardUploaded()
         task?.cancel()
         state = .preparing
@@ -55,7 +65,7 @@ final class ComposerAttachmentModel {
         prepared = nil
         task = Task { [weak self] in
             do {
-                guard let raw = try await item.loadTransferable(type: Data.self) else {
+                guard let raw = try await load() else {
                     self?.fail(ImagePreparer.Failure.unreadable.localizedDescription)
                     return
                 }
