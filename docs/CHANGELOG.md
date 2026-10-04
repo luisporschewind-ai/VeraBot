@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 变更 (Changed)
+
+- **iOS · 设置页改为自定义底部面板**（Boss 2026-10-04）：首页点头像不再 push 设置页，改为圆角卡片从底部以弹簧动画弹起（约 70% 屏高，背景变暗），点空白处或下拉顶部把手关闭；面板内自带 NavigationStack，用量 / 插件 / 调试等二级页照常 push。新增通用修饰符 `.bottomPanel(isPresented:heightFraction:content:)`（`Core/UI/BottomPanel.swift`，fullScreenCover 承载以盖住 Tab 栏，关闭系统动画、透明背景）。仅 iOS，后端与 Web 未改。
+
 ### 修复 (Fixed)
 
 - **iOS · Bot 开始回复时开头出现黑色竖条**：根因是 `MessageRow.swift` 在生成中给正文追加光标字符「▍」(U+258D)，首个 token 到达前气泡里只有这个字符，显示成一根黑色竖条。去掉该字符；等待首个 token 时气泡里显示系统 `ProgressView`，之后正文照常逐字出现。仅 iOS。
