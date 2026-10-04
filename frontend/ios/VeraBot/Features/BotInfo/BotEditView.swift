@@ -166,6 +166,9 @@ struct BotEditView: View {
                     if !plugin.enabled || plugin.state == "disabled" {
                         Text("已停用，可在设置中开启")
                             .font(.footnote).foregroundStyle(.secondary)
+                    } else if plugin.state == "needs_auth" {
+                        Text("需先在插件页连接")
+                            .font(.footnote).foregroundStyle(.secondary)
                     } else if plugin.state == "needs_consent" {
                         Text("需先在设置中同意")
                             .font(.footnote).foregroundStyle(.secondary)

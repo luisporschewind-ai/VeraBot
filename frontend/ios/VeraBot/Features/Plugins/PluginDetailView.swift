@@ -18,6 +18,8 @@ struct PluginDetailView: View {
     @State private var confirmUninstall = false
     @State private var showConsentPrompt = false
     @State private var didPrompt = false
+    @State private var showTokenSheet = false
+    @State private var confirmDisconnect = false
 
     var body: some View {
         ThemedForm {
@@ -32,6 +34,24 @@ struct PluginDetailView: View {
                         Image(systemName: plugin.icon)
                     }
                     Text(plugin.description).font(.subheadline).foregroundStyle(.secondary)
+                }
+
+                if plugin.needsToken {
+                    accountSection(plugin)
+                }
+
+                if !plugin.toolsChanged.isEmpty {
+                    Section {
+                        ForEach(plugin.toolsChanged, id: \.self) { name in
+                            Text(MCPTraceText.toolLabel(name))
+                        }
+                        Button("接受工具更新") { Task { await acceptChanges() } }
+                            .disabled(busy)
+                    } header: {
+                        Text("工具更新")
+                    } footer: {
+                        Text("服务方修改了这些工具的定义，接受之前不会调用它们。")
+                    }
                 }
 
                 Section {
@@ -115,7 +135,25 @@ struct PluginDetailView: View {
         .alert("需要同意", isPresented: $showConsentPrompt) {
             Button("好", role: .cancel) {}
         } message: {
-            Text("安装完成。同意把工具结果发送给 DeepSeek 之后，这个插件才会被调用。")
+            Text(plugin?.needsToken == true
+                 ? "安装完成。连接账号并同意把工具结果发送给 DeepSeek 之后，这个插件才会被调用。"
+                 : "安装完成。同意把工具结果发送给 DeepSeek 之后，这个插件才会被调用。")
+        }
+        .sheet(isPresented: $showTokenSheet) {
+            if let plugin {
+                NavigationStack {
+                    ConnectorTokenSheet(plugin: plugin) { updated in
+                        self.plugin = updated
+                        Task { await load() }
+                    }
+                }
+            }
+        }
+        .confirmationDialog("断开「\(plugin?.name ?? "插件")」？", isPresented: $confirmDisconnect, titleVisibility: .visible) {
+            Button("断开", role: .destructive) { Task { await disconnect() } }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("会删除 VeraBot 服务器上保存的令牌。同意记录和 Bot 的工具开关会保留，重新连接即可使用。")
         }
         .task {
             if promptConsent && !didPrompt {
@@ -123,6 +161,67 @@ struct PluginDetailView: View {
                 showConsentPrompt = true
             }
             await watch()
+        }
+    }
+
+    /// 「账号」分组：未连接 → 连接按钮；已连接 → 账号 / 令牌末 4 位 / 到期（7 天内橙色）/ 更换 / 断开。
+    @ViewBuilder private func accountSection(_ plugin: Plugin) -> some View {
+        Section {
+            if plugin.authConnected == true {
+                LabeledContent("账号", value: plugin.accountLabel ?? "已连接")
+                if let hint = plugin.credentialHint {
+                    LabeledContent("令牌", value: hint)
+                }
+                if let expires = ListTimestamp.parse(plugin.credentialExpiresAt) {
+                    LabeledContent("到期") {
+                        Text(ListTimestamp.fullLabel(for: expires))
+                            .foregroundStyle(expires.timeIntervalSinceNow < 7 * 86_400 ? .orange : .secondary)
+                    }
+                }
+                if let text = plugin.authErrorText {
+                    Text(text).font(.footnote).foregroundStyle(.orange)
+                }
+                Button("更换令牌") { showTokenSheet = true }
+                    .disabled(busy)
+                Button("断开", role: .destructive) { confirmDisconnect = true }
+                    .disabled(busy)
+            } else {
+                if let text = plugin.authErrorText {
+                    Text(text).font(.footnote).foregroundStyle(.red)
+                }
+                Button("连接 \(plugin.name)") { showTokenSheet = true }
+                    .disabled(busy || !plugin.available)
+            }
+        } header: {
+            Text("账号")
+        } footer: {
+            Text(plugin.authError == "network_unreachable"
+                 ? "请确认 Mac 的代理已开启。令牌仍然保存着。"
+                 : "令牌只能经本机（127.0.0.1）或 HTTPS 上传，加密保存在 VeraBot 服务器，不会返回给 App，也不会发给 DeepSeek。")
+        }
+    }
+
+    private func disconnect() async {
+        busy = true
+        defer { busy = false }
+        do {
+            plugin = try await app.api.deletePluginCredential(id: pluginID)
+            tools = try await app.api.pluginTools(id: pluginID).tools
+            errorText = nil
+        } catch {
+            errorText = app.message(for: error)
+        }
+    }
+
+    private func acceptChanges() async {
+        busy = true
+        defer { busy = false }
+        do {
+            plugin = try await app.api.acceptPluginToolChanges(id: pluginID).plugin
+            tools = try await app.api.pluginTools(id: pluginID).tools
+            errorText = nil
+        } catch {
+            errorText = app.message(for: error)
         }
     }
 
@@ -134,7 +233,8 @@ struct PluginDetailView: View {
     private func watch() async {
         for _ in 0..<20 {
             await load()
-            let waiting = plugin?.enabled == true && (plugin?.state == "syncing" || plugin?.syncStatus == "pending" || plugin?.syncStatus == "syncing")
+            let waiting = plugin?.enabled == true && plugin?.state != "needs_auth"
+                && (plugin?.state == "syncing" || plugin?.syncStatus == "pending" || plugin?.syncStatus == "syncing")
             if !waiting { return }
             try? await Task.sleep(nanoseconds: 500_000_000)
             if Task.isCancelled { return }

@@ -44,6 +44,10 @@ public protocol VeraBotAPI: Sendable {
     func setPluginConsent(id: String, granted: Bool) async throws -> Plugin
     func pluginTools(id: String) async throws -> PluginToolsResponse
     func syncPlugin(id: String) async throws -> PluginSyncResult
+    /// 需授权连接器（v13）：上传令牌（后端校验后加密保存，响应不含令牌）/ 断开 / 接受工具更新
+    func setPluginCredential(id: String, token: String) async throws -> Plugin
+    func deletePluginCredential(id: String) async throws -> Plugin
+    func acceptPluginToolChanges(id: String) async throws -> PluginAcceptChangesResult
     func delegations(botID: Int) async throws -> DelegationsResponse
     func messages(botID: Int) async throws -> MessagesResponse
     /// includeMemories：同时删除该 Bot 的「本 Bot 记忆」与对话摘要（默认 false，记忆保留）

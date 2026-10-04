@@ -70,6 +70,9 @@
 | POST | `/api/plugins/{plugin_id}/consent` | `{granted}`。写入其下服务的同意时间。内置插件 422。未安装 404 |
 | GET | `/api/plugins/{plugin_id}/tools` | 该插件的工具，字段同 MCP 工具并带 `plugin_id`。内置插件 404（开关在 Bot 的工具权限） |
 | POST | `/api/plugins/{plugin_id}/sync` | `{added, changed, removed, plugin}`。已停用 → 409 |
+| PUT | `/api/plugins/{plugin_id}/credential` | 需令牌插件（GitHub / Linear，`auth_mode=bearer`）：`{token}`。只接受本机回环或 HTTPS（否则 403 `insecure_transport`，`VERABOT_ALLOW_LAN_CREDENTIALS=1` 可放开）；格式错 422 `credential_format`；服务 401 → 422 `credential_invalid`（不保存）；网络不通 502 `network_unreachable`。成功：Fernet 加密保存、同步工具，返回 Plugin（不含令牌）。Plugin 新增可选字段 `auth_connected`、`account_label`、`credential_hint`（末 4 位）、`credential_expires_at`、`auth_error`、`credential_help`、`credential_help_url`、`tools_changed`；`state` 新值 `needs_auth`。对照表见 [MCP_AUTH_CONNECTORS_PLAN.md](../design/MCP_AUTH_CONNECTORS_PLAN.md) §13.1 |
+| DELETE | `/api/plugins/{plugin_id}/credential` | 断开：删令牌、回到 `needs_auth`，保留同意与 Bot 工具开关。未连接 404 |
+| POST | `/api/plugins/{plugin_id}/accept-tool-changes` | 接受该插件所有定义已变化的工具：`{accepted, plugin}` |
 | GET | `/api/mcp/catalog` | **已弃用。** 可添加的目录：`catalog[]`（含 `catalog_id`、`url_configured`，不含原始 URL）。新客户端用 `/api/plugins/catalog` |
 | GET / POST | `/api/mcp/servers` | **已弃用。** GET 只返回已安装插件的服务，不再补未安装的目录行，也不在这个请求里连外网。POST `{catalog_id}` 走插件安装，已存在 → 409「已经添加过这个服务」。每项另有 `consent_at`、`sync_status`、`circuit_state`、`circuit_open_until`、`consecutive_failures` |
 | PATCH / DELETE | `/api/mcp/servers/{id}` | `{enabled}` 启用或停用 / 删除（并从各 Bot 白名单去掉该服务的工具）。启用后后台同步 |

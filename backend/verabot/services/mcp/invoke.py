@@ -7,7 +7,9 @@ from ... import db
 from ...db import mcp_store
 from . import catalog
 from .audit import _audit_call, _elapsed_ms
+from . import auth as mcp_auth
 from .http_client import (
+    MCPAuthError,
     MCPClientError,
     MCPRPCError,
     MCPSessionExpiredError,
@@ -34,6 +36,15 @@ from .sanitize import wrap
 
 _CONSENT_MESSAGE = "尚未同意把这个 MCP 服务的工具结果发送给 DeepSeek，因此没有调用它。请在设置里同意后再试。"
 _UNKNOWN_MESSAGE = "请求可能已执行，也可能没有。请到对应服务核实。"
+_AUTH_MESSAGE = "这个服务需要重新连接（令牌无效、过期或已撤销）。请让用户在插件页更换令牌。"
+_PERMISSION_MESSAGE = "服务拒绝了这次请求：令牌没有这个资源或这项权限。"
+# fine-grained PAT 越权：HTTP 200 + isError，正文是 GitHub API 的 403 / 404 文本（计划 §5.3）
+_PERMISSION_MARKERS = ("resource not accessible by personal access token", "403", "not found", "404")
+
+
+def _permission_denied(text: str) -> bool:
+    folded = (text or "").lower()
+    return any(marker in folded for marker in _PERMISSION_MARKERS)
 
 
 def invoke(user_id: int, server: dict, tool: dict, arguments: dict, call_id: str, bot_id: int | None = None) -> dict:
@@ -73,11 +84,21 @@ def invoke(user_id: int, server: dict, tool: dict, arguments: dict, call_id: str
     alive = lambda: _server_alive(user_id, server["id"])
     if not alive():
         return _uninstalled_result(finish, tool)
-    session = borrow_session((user_id, server["id"]), url, timeout_seconds())
+    provider = mcp_auth.provider_for(spec)
+    headers = provider.headers(user_id, fresh)
+    if headers is None or not provider.has_credential(user_id, fresh):
+        return finish({"error": _AUTH_MESSAGE, "code": "mcp_auth_required"}, "error", "mcp_auth_required")
+    timeout = float(spec["timeout"]) if spec and spec.get("timeout") else timeout_seconds()
+    session = borrow_session((user_id, server["id"]), url, timeout, auth=headers)
     try:
         outcome = _call_with_retries(session, tool, arguments, alive=alive)
     except PluginUninstalled as exc:
         return _uninstalled_result(finish, tool, sent=exc.sent)
+    except MCPAuthError as exc:
+        # 运行中 401 / insufficient_scope：needs_auth，不重试、不计熔断，工具随即不进 schema
+        from .sync import mark_auth_failed
+        mark_auth_failed(user_id, server["id"], exc.auth_error, _plugin_id_of(fresh))
+        return finish({"error": _AUTH_MESSAGE, "code": "mcp_auth_required"}, "error", "mcp_auth_required")
     except MCPTimeoutError as exc:
         if not alive():
             return _uninstalled_result(finish, tool, sent=True)
@@ -116,11 +137,14 @@ def invoke(user_id: int, server: dict, tool: dict, arguments: dict, call_id: str
     _record_success(user_id, server["id"])
     wrapped, truncated = wrap(slug, mcp_name, call_id, outcome.text)
     status = "error" if outcome.is_error else "ok"
-    error_class = "mcp_tool_error" if outcome.is_error else None
+    code = outcome.code
+    if outcome.is_error and mcp_auth.requires_auth(spec) and _permission_denied(outcome.text):
+        code = "mcp_permission_denied"   # 不计熔断；结果仍按不可信数据交给模型
+    error_class = code if outcome.is_error else None
     audited = finish(
         {
             "content": wrapped,
-            "code": outcome.code,
+            "code": code,
             "is_error": outcome.is_error,
             "truncated": truncated,
             **({"error": wrapped} if outcome.is_error else {}),

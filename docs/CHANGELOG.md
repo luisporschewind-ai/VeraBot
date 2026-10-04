@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 新增 (Added) — 需授权 MCP 连接器 P1（schema v13）
+
+- **后端**：按 [MCP_AUTH_CONNECTORS_PLAN.md](design/MCP_AUTH_CONNECTORS_PLAN.md) v1.0（Boss 2026-10-04 决定 D1–D11 全部按建议）实现 P1：授权抽象 `AuthProvider`（`none` / `static_bearer`，`services/mcp/auth.py`）；目录新增 GitHub（`/mcp/readonly` + `X-MCP-Readonly / Toolsets / Lockdown`，15 个只读工具白名单）与 Linear（`/mcp/readonly`）两个只读连接器；`PUT / DELETE /api/plugins/{id}/credential`（只接受本机回环或 HTTPS，校验后 Fernet 加密写 `mcp_credentials`，新密钥 `VERABOT_TOKEN_ENC_KEY` / `data/.token_key`）；`needs_auth` 状态流（无凭据不调度同步、401 回到 `needs_auth` 不重试不计熔断、网络错误 `network_unreachable` 保留凭据、工具级越权 `mcp_permission_denied`）；日志脱敏（`core/log_redact.py`）；D7「接受工具更新」`POST /api/plugins/{id}/accept-tool-changes`；迁移 v13（`mcp_credentials` 加 `kind / token_hint / last_verified_at`，`mcp_servers.auth_error`，新表 `mcp_oauth_clients`）。`.env` 未改，新变量只写进 `.env.example`。新测试 `connector_test.py`（CONN-01~12、SEC-01、D7、CONTRACT）；其他套件的版本断言改为 13。
+- **iOS**：插件详情新增「账号」分组与令牌 sheet（系统 `Form` + `SecureField`，Keychain 暂存、上传成功即删除）、「工具更新」分组（D7）；目录显示「需要令牌」；Bot 编辑页提示「需先在插件页连接」；Kit `Plugin` 新可选字段、`needs_auth` 文案、`authErrorText`，Trace 错误文案 `mcp_auth_required / mcp_permission_denied`，GitHub 工具中文名；`VeraBotAPI.setPluginCredential / deletePluginCredential / acceptPluginToolChanges`。
+- **Web 落后**：`frontend/web` 冻结，没有连接器界面。
+
 ### 修复 (Fixed)
 
 - **iOS · Bot 开始回复时开头出现黑色竖条**：根因是 `MessageRow.swift` 在生成中给正文追加光标字符「▍」(U+258D)，首个 token 到达前气泡里只有这个字符，显示成一根黑色竖条。去掉该字符；等待首个 token 时气泡里显示系统 `ProgressView`，之后正文照常逐字出现。仅 iOS。

@@ -242,3 +242,34 @@ def strip_slug_from_bots(user_id: int, slug: str):
                     "UPDATE bots SET allowed_tools=? WHERE id=?",
                     (json.dumps(sorted(set(kept)), ensure_ascii=False), row["id"]),
                 )
+
+
+# ---------------- 连接器凭据（v13）。只存密文；明文令牌不经过这一层以外的任何地方落库。 ----------------
+def get_credential(user_id: int, server_id: int) -> dict | None:
+    with tx() as c:
+        row = c.execute(
+            "SELECT * FROM mcp_credentials WHERE user_id=? AND server_id=? ORDER BY id DESC LIMIT 1",
+            (user_id, server_id),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def upsert_credential(user_id: int, server_id: int, *, kind: str, issuer: str, access_token_enc: str,
+                      token_hint: str | None, expires_at: str | None, scopes: str | None = None) -> dict:
+    now = now_iso()
+    with tx() as c:
+        c.execute("DELETE FROM mcp_credentials WHERE user_id=? AND server_id=?", (user_id, server_id))
+        c.execute(
+            """INSERT INTO mcp_credentials(user_id, server_id, provider, issuer, access_token_enc, expires_at, scopes,
+                   kind, token_hint, last_verified_at, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (user_id, server_id, kind, issuer, access_token_enc, expires_at, scopes,
+             kind, token_hint, now, now, now),
+        )
+    return get_credential(user_id, server_id)
+
+
+def delete_credential(user_id: int, server_id: int) -> bool:
+    with tx() as c:
+        cur = c.execute("DELETE FROM mcp_credentials WHERE user_id=? AND server_id=?", (user_id, server_id))
+        return cur.rowcount > 0

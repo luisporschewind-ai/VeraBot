@@ -28,8 +28,31 @@ public struct Plugin: Decodable, Sendable, Hashable, Identifiable {
     public let circuitOpenUntil: String?
     public let consecutiveFailures: Int
     public let servers: [MCPServer]
+    // v13 需授权连接器（后端可选字段，旧后端缺键为 nil / 空）。令牌本身永远不在响应里。
+    public let authConnected: Bool?
+    public let accountLabel: String?
+    public let credentialHint: String?
+    public let credentialExpiresAt: String?
+    public let authError: String?
+    public let credentialHelp: String?
+    public let credentialHelpURL: String?
+    public let toolsChanged: [String]
 
     public var id: String { pluginId }
+    /// 需要用户提供令牌（auth_mode = bearer）
+    public var needsToken: Bool { authMode == "bearer" }
+
+    /// 授权错误的一行说明（详情页「账号」分组）。
+    public var authErrorText: String? {
+        switch authError ?? "" {
+        case "token_invalid": return "令牌无效或已撤销"
+        case "expired": return "授权已过期"
+        case "insufficient_scope": return "权限不足"
+        case "network_unreachable": return "网络不可达"
+        case "": return nil
+        default: return authError
+        }
+    }
     public var isBuiltin: Bool { kind == "builtin" }
     public var consented: Bool { !(consentAt ?? "").isEmpty }
 
@@ -38,6 +61,7 @@ public struct Plugin: Decodable, Sendable, Hashable, Identifiable {
         if isBuiltin { return "内置 · 无需安装" }
         switch state {
         case "ready": return "可用"
+        case "needs_auth": return "需要连接"
         case "needs_consent": return "待同意"
         case "syncing": return "正在同步"
         case "disabled": return "已停用"
@@ -94,6 +118,14 @@ public struct Plugin: Decodable, Sendable, Hashable, Identifiable {
         case circuitOpenUntil = "circuit_open_until"
         case consecutiveFailures = "consecutive_failures"
         case servers
+        case authConnected = "auth_connected"
+        case accountLabel = "account_label"
+        case credentialHint = "credential_hint"
+        case credentialExpiresAt = "credential_expires_at"
+        case authError = "auth_error"
+        case credentialHelp = "credential_help"
+        case credentialHelpURL = "credential_help_url"
+        case toolsChanged = "tools_changed"
     }
 
     public init(from decoder: Decoder) throws {
@@ -124,6 +156,14 @@ public struct Plugin: Decodable, Sendable, Hashable, Identifiable {
         circuitOpenUntil = try c.decodeIfPresent(String.self, forKey: .circuitOpenUntil)
         consecutiveFailures = try c.decodeIfPresent(Int.self, forKey: .consecutiveFailures) ?? 0
         servers = try c.decodeIfPresent([MCPServer].self, forKey: .servers) ?? []
+        authConnected = try c.decodeIfPresent(Bool.self, forKey: .authConnected)
+        accountLabel = try c.decodeIfPresent(String.self, forKey: .accountLabel)
+        credentialHint = try c.decodeIfPresent(String.self, forKey: .credentialHint)
+        credentialExpiresAt = try c.decodeIfPresent(String.self, forKey: .credentialExpiresAt)
+        authError = try c.decodeIfPresent(String.self, forKey: .authError)
+        credentialHelp = try c.decodeIfPresent(String.self, forKey: .credentialHelp)
+        credentialHelpURL = try c.decodeIfPresent(String.self, forKey: .credentialHelpURL)
+        toolsChanged = try c.decodeIfPresent([String].self, forKey: .toolsChanged) ?? []
     }
 }
 
@@ -166,5 +206,16 @@ public struct PluginUninstallResult: Decodable, Sendable {
         case ok
         case removedTools = "removed_tools"
         case affectedBots = "affected_bots"
+    }
+}
+
+/// POST /api/plugins/{id}/accept-tool-changes（D7：一键接受定义已变化的工具）
+public struct PluginAcceptChangesResult: Decodable, Sendable {
+    public let accepted: [String]
+    public let plugin: Plugin
+
+    enum CodingKeys: String, CodingKey {
+        case accepted
+        case plugin
     }
 }
