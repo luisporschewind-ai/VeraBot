@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 变更 (Changed)
+
+- **iOS · 设置底部面板高度改为约 60% 屏高**（Boss 2026-10-05，原 70%），仍为自定义 BottomPanel，不用系统半屏 sheet。
+
 ### 修复 (Fixed)
 
 - **MCP 内嵌资源正文丢失**（Boss 2026-10-05）：GitHub `get_file_contents` 等工具把文件正文放在 `{type:"resource", resource:{uri, mimeType, text|blob}}` 里，`result_text` 只读块顶层的 uri/name，正文被丢掉，模型只看到「下载成功 + SHA」。现在内嵌资源输出 `[资源] uri mime` 标题加正文；`blob` 为文本类 mime 时解码，否则只注明类型与字节数；总长度仍由 `VERABOT_MCP_MAX_RESULT_CHARS` 截断。测试 MCP-RES。
