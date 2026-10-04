@@ -131,6 +131,11 @@ struct BotListView: View {
             .bottomPanel(isPresented: $showSettings) {
                 // 设置内部仍要 push 二级页（用量、插件、调试等），面板内自带 NavigationStack
                 NavigationStack { SettingsView() }
+                    .environment(app)
+            }
+            // 在面板里退出登录：根视图换成登录页之前先收起承载层，避免残留的 fullScreenCover
+            .onChange(of: app.token) { _, token in
+                if token == nil { showSettings = false }
             }
             .onAppear { Task { await load() } }   // 从对话页返回时刷新（对话页可能新建了 Bot）
             .refreshable { await load() }

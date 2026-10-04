@@ -66,7 +66,7 @@ private struct BottomPanelContainer<Panel: View>: View {
                         .fill(Color.secondary.opacity(0.45))
                         .frame(width: 36, height: 5)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                         .contentShape(Rectangle())
                         .gesture(dragGesture)
                     panel()
@@ -79,7 +79,9 @@ private struct BottomPanelContainer<Panel: View>: View {
                 .offset(y: shown ? dragOffset : height + 40)
             }
         }
-        .ignoresSafeArea()
+        // 只忽略容器安全区：键盘弹出时（如调试页的服务器地址）面板随键盘上移，输入框不被挡住
+        .ignoresSafeArea(.container)
+        .accessibilityAction(.escape) { close() }   // VoiceOver 双指 Z 手势关闭
         .onAppear { withAnimation(spring) { shown = true } }
     }
 
@@ -96,6 +98,7 @@ private struct BottomPanelContainer<Panel: View>: View {
     }
 
     private func close() {
+        guard shown else { return }   // 收起动画进行中再点 / 再拖不重复触发
         withAnimation(spring, completionCriteria: .logicallyComplete) {
             shown = false
         } completion: {
