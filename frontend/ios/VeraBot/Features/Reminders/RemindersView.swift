@@ -17,21 +17,17 @@ struct RemindersView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("提醒或通知", selection: $segment) {
-                    Text("提醒").tag(0)
-                    Text("通知").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.top, 8)
+            // 整页只有一个列表在滚动：分段控件是列表里第一个分组的头（section header），在大标题「提醒」下方，
+            // 随内容一起滚动；大标题上滑时照常收进导航栏中间。不挂在安全区（safeAreaBar 会盖住大标题）。
+            Group {
                 if segment == 0 {
                     reminderList
                 } else {
-                    InboxView()
+                    InboxView(header: AnyView(segmentPicker))
                 }
             }
             .navigationTitle("提醒")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { filterMenu }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -73,8 +69,20 @@ struct RemindersView: View {
         }
     }
 
+    /// 「提醒／通知」分段：作为列表第一个分组的头，位于大标题下方
+    private var segmentPicker: some View {
+        Picker("提醒或通知", selection: $segment) {
+            Text("提醒").tag(0)
+            Text("通知").tag(1)
+        }
+        .pickerStyle(.segmented)
+        .textCase(nil)
+        .padding(.bottom, 4)
+    }
+
     private var reminderList: some View {
         ThemedList {
+            Section { } header: { segmentPicker }
             let sections = ReminderGrouping.sections(reminders, filter: filter, showDone: showDone)
             ForEach(sections, id: \.0) { bucket, rows in
                 Section(bucket.title) {
