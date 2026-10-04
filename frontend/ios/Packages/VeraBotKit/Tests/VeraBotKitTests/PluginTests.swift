@@ -81,3 +81,36 @@ private let learnJSON = """
     """)
     #expect(old.pluginId == nil && !old.isMCP)
 }
+
+private let githubJSON = """
+{"plugin_id":"github","kind":"mcp","name":"GitHub","auth_mode":"bearer","state":"needs_auth","installed":true,
+ "available":true,"auth_connected":false,"account_label":null,"credential_hint":null,"credential_expires_at":null,
+ "auth_error":"token_invalid","credential_help":"只选测试仓库","credential_help_url":"https://github.com/settings/personal-access-tokens/new",
+ "tools_changed":["list_issues"]}
+"""
+
+@Test func connectorFieldsDecodeAndOldBackendDefaults() throws {
+    let gh = try decode(Plugin.self, githubJSON)
+    #expect(gh.needsToken)
+    #expect(gh.stateTitle == "需要连接")
+    #expect(gh.authConnected == false)
+    #expect(gh.authErrorText == "令牌无效或已撤销")
+    #expect(gh.toolsChanged == ["list_issues"])
+    #expect(gh.credentialHelpURL?.hasPrefix("https://github.com/") == true)
+    let old = try decode(Plugin.self, learnJSON)
+    #expect(old.authConnected == nil && old.credentialHint == nil && old.authError == nil)
+    #expect(old.toolsChanged.isEmpty && !old.needsToken && old.authErrorText == nil)
+}
+
+@Test func connectorAuthErrorTextsAndTrace() throws {
+    let texts = ["expired": "授权已过期", "insufficient_scope": "权限不足", "network_unreachable": "网络不可达"]
+    for (code, text) in texts {
+        let p = try decode(Plugin.self, githubJSON.replacingOccurrences(of: "\"token_invalid\"", with: "\"\(code)\""))
+        #expect(p.authErrorText == text)
+    }
+    #expect(MCPTraceText.errorText(code: "mcp_auth_required", error: nil) == "需要在插件页重新连接")
+    #expect(MCPTraceText.errorText(code: "mcp_permission_denied", error: "raw") == "服务拒绝：令牌没有这个资源或这项权限")
+    #expect(MCPTraceText.title(for: "mcp__github__list_issues") == "🔌 GitHub · 列出 issue")
+    let accepted = try decode(PluginAcceptChangesResult.self, "{\"accepted\":[\"list_issues\"],\"plugin\":\(githubJSON)}")
+    #expect(accepted.accepted == ["list_issues"])
+}

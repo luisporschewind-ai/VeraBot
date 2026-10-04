@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v12）的入口 / 门面。
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v13）的入口 / 门面。
 
 DDL 与每个版本的迁移步骤在 db/migrations/（一个版本一个模块）；这里原样 re-export 旧名字，
 `from verabot import db` / `db.init_db()` / `db.SCHEMA` 等写法不变。
@@ -40,6 +40,8 @@ def init_db():
              notification_deliveries、notification_prefs、push_devices、idempotency_keys。
              不改其他表的数据。迁移前备份 verabot.db.bak-before-v11-<时间戳>。
     v11 → v12：attachments 表（图片元数据；文件在 DATA_DIR/attachments）。v11 是提醒 R1。
+    v12 → v13：需授权 MCP 连接器：mcp_credentials 加 kind / token_hint / last_verified_at，mcp_servers 加 auth_error，
+             新表 mcp_oauth_clients（P2 用）。只加列 / 建表，不改已有行。
     """
     _backup_before_v11()
     with tx() as c:

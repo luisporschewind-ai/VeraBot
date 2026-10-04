@@ -15,7 +15,8 @@ from ... import db
 from ...core.config import MCP_MAX_TOOLS_PER_SERVER_DEFAULT
 from ...db import mcp_store
 from . import catalog
-from .http_client import MCPClientError, borrow_session, timeout_seconds
+from . import auth as mcp_auth
+from .http_client import MCPAuthError, MCPClientError, MCPTimeoutError, MCPUnavailableError, borrow_session, timeout_seconds
 from .naming import header_rejected, namespace
 from .presenter import _empty_summary, circuit_state, public_server
 from .resilience import (
@@ -125,9 +126,13 @@ def apply(user_id: int, server: dict, tools: list[dict]) -> dict:
     }
     limit = _max_tools()
     kept = 0
+    spec = mcp_auth.spec_for(server)
+    allowlist = (spec or {}).get("tool_allowlist")
     for tool in tools:
         reason = _reject_reason(tool)
         mcp_name = tool.get("name") if isinstance(tool.get("name"), str) else ""
+        if reason is None and allowlist is not None and mcp_name not in allowlist:
+            reason = "allowlist"   # 目录 tool_allowlist 之外的工具不接收（计划 §7.1）
         if reason:
             rejected.append({"name": mcp_name or "?", "reason": reason})
             db.audit(user_id, None, "mcp_tool_rejected", {"server_id": server["id"], "name": mcp_name, "reason": reason})
@@ -184,7 +189,27 @@ def _should_schedule(row: dict, spec: dict | None) -> bool:
     if (row.get("sync_status") or "pending") != "pending":
         return False
     url = ((spec or {}).get("url") or row.get("url") or "")
-    return bool(url)
+    if not url:
+        return False
+    # 需授权但没有有效凭据：停在 needs_auth，不调度（否则 401 会打满熔断）
+    if mcp_auth.requires_auth(spec) and not mcp_auth.provider_for(spec).has_credential(row["user_id"], row):
+        return False
+    return True
+
+
+def server_timeout(spec: dict | None) -> float:
+    """目录条目可单独设超时（GitHub / Linear 30 s，经 Mac 代理握手 1.6–2.5 s）；否则 VERABOT_MCP_TIMEOUT。"""
+    value = (spec or {}).get("timeout")
+    return float(value) if value else timeout_seconds()
+
+
+def mark_auth_failed(user_id: int, server_id: int, auth_error: str, plugin_id: str | None) -> None:
+    """运行中 401 / 403 insufficient_scope：回到 needs_auth，不重试、不计熔断；sync_status=error 防止反复调度。"""
+    mcp_store.update_server_unless_disabled(
+        user_id, server_id, status="needs_auth", auth_error=auth_error, sync_status="error",
+        last_error="令牌无效或已撤销" if auth_error == "token_invalid" else "授权已失效",
+    )
+    db.audit(user_id, None, "mcp_auth_failed", {"plugin_id": plugin_id, "reason": auth_error})
 
 
 def schedule_sync(user_id: int, server_id: int) -> bool:
@@ -267,9 +292,16 @@ def _sync_body(user_id: int, server_id: int) -> dict:
         return {**_empty_summary(), "server": public_server(fresh)}
     if not _server_alive(user_id, server_id):
         return _empty_summary()
+    provider = mcp_auth.provider_for(spec)
+    headers = provider.headers(user_id, row)
+    if headers is None or not provider.has_credential(user_id, row):
+        # 需授权但没有凭据：不发任何网络请求
+        if not mcp_store.update_server_unless_disabled(user_id, server_id, status="needs_auth", sync_status="pending"):
+            mcp_store.settle_disabled_sync(user_id, server_id)
+        return {**_empty_summary(), "server": public_server(mcp_store.get_server(user_id, server_id) or row)}
     mcp_store.update_server(user_id, server_id, sync_status="syncing", url=url)
     try:
-        session = borrow_session((user_id, server_id), url, timeout_seconds())
+        session = borrow_session((user_id, server_id), url, server_timeout(spec), auth=headers)
         if not _server_alive(user_id, server_id):
             return _empty_summary()
         tools = _with_retries(
@@ -287,7 +319,7 @@ def _sync_body(user_id: int, server_id: int) -> dict:
         # 已停用时这次结果不写进服务行，只把 syncing 收回 pending。
         if not mcp_store.update_server_unless_disabled(
             user_id, server_id, url=url, last_error=None, last_synced_at=db.now_iso(),
-            sync_status="ok", status="connected",
+            sync_status="ok", status="connected", auth_error=None,
         ):
             mcp_store.settle_disabled_sync(user_id, server_id)
         fresh = mcp_store.get_server(user_id, server_id)
@@ -299,6 +331,11 @@ def _sync_body(user_id: int, server_id: int) -> dict:
     except sqlite3.IntegrityError:
         log.debug("mcp sync aborted, plugin uninstalled user=%s server=%s", user_id, server_id)
         return _empty_summary()
+    except MCPAuthError as exc:
+        if not _server_alive(user_id, server_id):
+            return _empty_summary()
+        mark_auth_failed(user_id, server_id, exc.auth_error, row.get("plugin_id") or row.get("catalog_id"))
+        return {**_empty_summary(), "server": public_server(mcp_store.get_server(user_id, server_id) or row)}
     except MCPClientError as exc:
         if not _server_alive(user_id, server_id):
             log.debug("mcp sync aborted, plugin uninstalled user=%s server=%s", user_id, server_id)
@@ -310,9 +347,10 @@ def _sync_body(user_id: int, server_id: int) -> dict:
         if _counts_toward_breaker(exc):
             _record_failure(user_id, server_id)
         # 上面的检查和这里的写入之间仍可能被停用：写入本身带 status!='disabled' 条件
+        network = isinstance(exc, (MCPTimeoutError, MCPUnavailableError))
         if not mcp_store.update_server_unless_disabled(
             user_id, server_id, status="error", url=url, sync_status="error",
-            last_error=_safe_error(exc),
+            last_error=_safe_error(exc), auth_error="network_unreachable" if network else None,
         ):
             mcp_store.settle_disabled_sync(user_id, server_id)
         fresh = mcp_store.get_server(user_id, server_id)

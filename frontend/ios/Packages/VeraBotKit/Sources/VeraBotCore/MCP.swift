@@ -181,15 +181,33 @@ public struct MCPSyncResult: Codable, Sendable {
 /// 对话里 MCP 工具调用的显示文字。trace 只有完整函数名 `mcp__{slug}__{tool}` 与结果，
 /// 不把外部原文直接铺在对话里（原文最长 8000 字，且是不可信数据）。
 public enum MCPTraceText {
-    static let serverNames = ["learn": "Microsoft Learn", "aws": "AWS Knowledge"]
+    static let serverNames = ["learn": "Microsoft Learn", "aws": "AWS Knowledge", "github": "GitHub", "linear": "Linear"]
     static let toolLabels = [
         "microsoft_docs_search": "搜索微软文档",
         "microsoft_code_sample_search": "搜索代码示例",
         "microsoft_docs_fetch": "获取微软文档",
         "aws___list_regions": "列出 AWS 区域",
+        "get_file_contents": "读取文件",
+        "list_branches": "列出分支",
+        "list_commits": "列出提交",
+        "get_commit": "查看提交",
+        "list_tags": "列出标签",
+        "list_releases": "列出发布",
+        "get_latest_release": "查看最新发布",
+        "search_code": "搜索代码",
+        "search_repositories": "搜索仓库",
+        "issue_read": "读取 issue",
+        "list_issues": "列出 issue",
+        "search_issues": "搜索 issue",
+        "pull_request_read": "读取 PR",
+        "list_pull_requests": "列出 PR",
+        "search_pull_requests": "搜索 PR",
     ]
 
     public static func isMCP(_ name: String) -> Bool { name.hasPrefix("mcp__") }
+
+    /// 工具原名（如 list_issues）的中文名；没有就用原名。
+    public static func toolLabel(_ mcpName: String) -> String { toolLabels[mcpName] ?? mcpName }
 
     /// "mcp__learn__microsoft_docs_search" → "🔌 Microsoft Learn · 搜索微软文档"；非 MCP 名返回 nil。
     public static func title(for name: String) -> String? {
@@ -217,6 +235,8 @@ public enum MCPTraceText {
         case "mcp_circuit_open": return "该服务连续失败，已暂时停止连接"
         case "result_unknown": return "请求结果未知，请到对应服务核实"
         case "plugin_uninstalled": return "插件已卸载，本次调用已取消"
+        case "mcp_auth_required": return "需要在插件页重新连接"
+        case "mcp_permission_denied": return "服务拒绝：令牌没有这个资源或这项权限"
         default: return error
         }
     }
