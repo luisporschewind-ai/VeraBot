@@ -72,9 +72,17 @@ struct MessageRow: View {
                         }
                     }
                     if !item.text.isEmpty || item.streaming {
-                        MessageContentView(text: item.text + (item.streaming ? " ▍" : ""))
-                            .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        // 不再追加「▍」光标字符：首个 token 到达前气泡里只有它，显示成回复开头的一根黑色竖条。
+                        // 等待首个 token 时用系统 ProgressView；之后正文逐字出现即可表示正在生成。
+                        Group {
+                            if item.text.isEmpty {
+                                ProgressView().accessibilityLabel("正在回复")
+                            } else {
+                                MessageContentView(text: item.text)
+                            }
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                        .background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                     if ttsEnabled && !item.streaming && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)
