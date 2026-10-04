@@ -7,9 +7,12 @@ struct InboxView: View {
     @State private var items: [InboxNotification] = []
     @State private var category: String?
     @State private var errorText: String?
+    /// 列表第一个分组的头（提醒页传入「提醒／通知」分段），随列表滚动、位于大标题下方
+    var header: AnyView = AnyView(EmptyView())
 
     var body: some View {
         ThemedList {
+            Section { } header: { header }
             ForEach(items) { item in
                 Button { Task { await open(item) } } label: { row(item) }
                     .swipeActions(edge: .trailing) {
