@@ -1,4 +1,4 @@
-"""Streamable HTTP MCP 客户端（无授权）。
+"""Streamable HTTP MCP 客户端。授权头由调用方经 `headers` 传入（services/mcp/auth.py），只在内存中使用。
 
 微软 Learn 与 AWS Knowledge 都走 2025 年的会话式 Streamable HTTP，而不是
 SDK 默认的 2026-07-28 `server/discover`（那条路径没有 `Mcp-Session-Id`，
@@ -47,11 +47,28 @@ class MCPTimeoutError(MCPClientError):
 
 
 class MCPUnavailableError(MCPClientError):
-    """连接失败、HTTP 5xx、429。可以按策略重试。`retry_after` 来自 Retry-After 头（秒）。"""
+    """连接失败、HTTP 5xx、429。可以按策略重试。`retry_after` 来自 Retry-After 头（秒）。
+    `reason`：connect / proxy / dns / tls / transport / 5xx / 429，用于区分「网络不可达」。"""
 
-    def __init__(self, message: str = "MCP 服务不可用", retry_after: float | None = None):
+    def __init__(self, message: str = "MCP 服务不可用", retry_after: float | None = None, reason: str = "transport"):
         super().__init__("mcp_unavailable", message)
         self.retry_after = retry_after
+        self.reason = reason
+
+
+class MCPAuthError(MCPClientError):
+    """HTTP 401：令牌缺失、无效、过期或被撤销。不重试、不计熔断；服务回到 needs_auth。"""
+
+    def __init__(self, message: str = "MCP 服务要求重新授权", auth_error: str = "token_invalid"):
+        super().__init__("mcp_auth_required", message)
+        self.auth_error = auth_error
+
+
+class MCPScopeError(MCPAuthError):
+    """HTTP 403 + insufficient_scope。"""
+
+    def __init__(self):
+        super().__init__("MCP 服务认为权限不足", "insufficient_scope")
 
 
 class MCPProtocolError(MCPClientError):
@@ -181,6 +198,8 @@ class MCPSession:
     """一次到某个 MCP 端点的会话。initialize 之后工具调用复用 session id 与协议版本。"""
     url: str
     timeout: float | None = None
+    headers: dict = field(default_factory=dict, repr=False)   # 固定头 + 授权头；不进 repr / 日志
+    auth_version: str = "none"
     session_id: str | None = None
     protocol_version: str | None = None
     _next_id: int = 1
@@ -291,6 +310,7 @@ class MCPSession:
             payload["id"] = self._next_id
             self._next_id += 1
         headers = {
+            **self.headers,
             "Accept": ACCEPT,
             "Content-Type": "application/json",
         }
@@ -307,7 +327,7 @@ class MCPSession:
         except httpx.TimeoutException as exc:
             raise MCPTimeoutError() from exc
         except httpx.TransportError as exc:
-            raise MCPUnavailableError(f"MCP 服务不可用（{type(exc).__name__}）") from exc
+            raise MCPUnavailableError(f"MCP 服务不可用（{type(exc).__name__}）", reason=_transport_reason(exc)) from None
         # 404 只在「我们带了会话号」时当成会话失效。没带会话号的 404 是地址错误，不能反复握手。
         if response.status_code == 404 and sent_session:
             raise MCPSessionExpiredError()
@@ -318,7 +338,12 @@ class MCPSession:
             raise MCPUnavailableError(
                 f"MCP 服务返回 HTTP {response.status_code}",
                 retry_after=_retry_after(response),
+                reason="429" if response.status_code == 429 else "5xx",
             )
+        if response.status_code == 401:
+            raise MCPAuthError()
+        if response.status_code == 403 and "insufficient_scope" in response.headers.get("WWW-Authenticate", ""):
+            raise MCPScopeError()
         if response.status_code >= 400:
             raise MCPProtocolError(f"MCP 服务返回 HTTP {response.status_code}")
         message = parse_message(response.headers.get("content-type", ""), response.text)
@@ -326,6 +351,19 @@ class MCPSession:
             err = message["error"] if isinstance(message["error"], dict) else {"message": str(message["error"])}
             raise MCPRPCError(str(err.get("message") or "MCP 请求被拒绝"), err.get("code"))
         return message
+
+
+def _transport_reason(exc: Exception) -> str:
+    if isinstance(exc, httpx.ProxyError):
+        return "proxy"
+    text = str(exc).lower()
+    if "ssl" in text or "certificate" in text:
+        return "tls"
+    if "name or service" in text or "nodename" in text or "getaddrinfo" in text:
+        return "dns"
+    if isinstance(exc, httpx.ConnectError):
+        return "connect"
+    return "transport"
 
 
 def _retry_after(response: httpx.Response) -> float | None:
@@ -338,20 +376,22 @@ def _retry_after(response: httpx.Response) -> float | None:
         return None
 
 
-# 按 (user_id, server_id) 复用会话与连接。URL 变了就丢掉旧的。
+# 按 (user_id, server_id) 复用会话与连接。URL 或凭据版本（换令牌）变了就丢掉旧的。
 _POOL: dict[tuple, MCPSession] = {}
 _POOL_LOCK = threading.Lock()
 
 
-def borrow_session(key: tuple, url: str, timeout: float | None = None) -> MCPSession:
-    """取出或创建一条可跨调用复用的会话。调用方不要 close。"""
+def borrow_session(key: tuple, url: str, timeout: float | None = None, auth=None) -> MCPSession:
+    """取出或创建一条可跨调用复用的会话。调用方不要 close。`auth` 为 services.mcp.auth.AuthHeaders。"""
     timeout = timeout if timeout is not None else timeout_seconds()
+    headers = dict(auth.headers) if auth is not None else {}
+    version = auth.version if auth is not None else "none"
     with _POOL_LOCK:
         session = _POOL.get(key)
-        if session is None or session.url != url:
+        if session is None or session.url != url or session.auth_version != version:
             if session is not None:
                 session.close()
-            session = MCPSession(url, timeout=timeout)
+            session = MCPSession(url, timeout=timeout, headers=headers, auth_version=version)
             _POOL[key] = session
         else:
             session.timeout = timeout

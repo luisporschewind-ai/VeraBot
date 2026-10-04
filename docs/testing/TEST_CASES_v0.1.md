@@ -762,3 +762,27 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | REM-SCROLL-UI-03 | iOS 模拟器 | 切到「通知」再滚动 | 行为同 UI-01 / 02；「全部已读」、分类菜单等工具栏按钮不变 | 待验收 |
 | REM-SCROLL-UI-04 | iOS 模拟器 | 回归：下拉刷新、左右滑（完成 / 稍后 / 删除、已读 / 未读）、空状态、筛选 / ＋ 按钮 | 与改动前一致 | 待验收 |
 
+## 需授权 MCP 连接器 P1 (MCP auth connectors) — 2026-10-04
+
+`backend/scripts/test/connector_test.py`（进程内假 GitHub MCP + 假 REST `/user`，不访问外网）。设计 [MCP_AUTH_CONNECTORS_PLAN.md](../design/MCP_AUTH_CONNECTORS_PLAN.md) §9。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| CONN-01 | 后端 | 迁移到 v13，启动两次 | 新列 / 新表存在，幂等 | ✅ |
+| CONN-02 | 后端 | 安装 GitHub；无令牌手动刷新 | `needs_auth`，不发任何请求，不调度同步 | ✅ |
+| CONN-03 | 后端 | 设置令牌 | 带 `Authorization: Bearer` + 三个 `X-MCP-*` 头；connected；白名单外工具被拒并审计；账号名 / 末 4 位 / 到期 | ✅ |
+| CONN-04 | 后端 | 格式错；服务 401 | 422 `credential_format` / `credential_invalid`，不保存 | ✅ |
+| CONN-05 | 后端 | 令牌不泄露 | 数据库无明文；API、会话 repr、日志无令牌；`.token_key` 600 | ✅ |
+| CONN-06 | 后端 | 运行中 401 | `mcp_auth_required`、`needs_auth/token_invalid`、不重试、熔断不变、工具不进 schema | ✅ |
+| CONN-07 | 后端 | 工具级 403 文本 | `mcp_permission_denied`，不计熔断，taint 置位 | ✅ |
+| CONN-08 | 后端 | 网络错误 | `network_unreachable`，凭据保留 | ✅ |
+| CONN-09 | 后端 | 局域网明文上传 | 403 `insecure_transport`；回环通过 | ✅ |
+| CONN-10 | 后端 | 断开；卸载 | 断开保留同意与 Bot 工具；卸载全部清除 | ✅ |
+| CONN-11 | 后端 | 换令牌 | 会话池换新会话 | ✅ |
+| CONN-12 | 后端 | 用户 B 操作 A 的凭据 | 404 | ✅ |
+| CONN-SEC-01 | 后端 | 注入样本 | 写工具不可达（白名单 + needs_confirmation），taint | ✅ |
+| CONN-D7 | 后端 | 工具定义变化 | `tools_changed` 列出，一键接受 | ✅ |
+| CONN-CONTRACT | 后端 ↔ iOS | `Plugin` / `PluginAcceptChangesResult` CodingKeys ⊆ JSON | 通过 | ✅ |
+| CONN-K-01 | Kit | `PluginTests`：新字段解码、旧后端缺键、`needs_auth` / 错误文案、Trace 文案 | 通过 | 见 PR |
+| CONN-UI-01~10 | iOS 模拟器 | 方案 §9.5 验收清单 | — | ⏳ 待 Boss |
+| CONN-LIVE-01~06 | Mac | 真实 GitHub / Linear 冒烟 | — | ⏳ 待 Boss 令牌 |

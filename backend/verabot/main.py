@@ -15,9 +15,11 @@ from . import __version__, db
 from .api.routers import attachments, auth, avatars, bots, chat, devices, mcp, memories, meta, notifications, plugins, reminders, voice
 from .services.reminders import scheduler as reminder_scheduler
 from .core.config import WEB_DIR
+from .core import log_redact
 from .core.http_cache import NoStoreAPIMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log_redact.install()   # 令牌样式字符串在所有日志里脱敏（MCP 连接器 P1）
 app = FastAPI(title="VeraBot API", version=__version__)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 # 最外层：所有 /api/* 响应（含 CORS 预检、错误、SSE）都带 Cache-Control: no-store，见 core/http_cache.py

@@ -1,10 +1,11 @@
-"""内置插件目录。P1 只有两个免授权 MCP 插件，以及天气 / 提醒两个只读内置插件。
+"""内置插件目录。免授权 MCP 插件（Learn、AWS）、需令牌的只读连接器（GitHub、Linear），以及天气 / 提醒两个内置插件。
 
 不从网络拉取。`default_installed` 不在这里：见 `core.config.plugin_default_installed`（当前为空）。
 """
 from __future__ import annotations
 
 DATA_NOTICE = "工具返回的内容会发送给 DeepSeek 用来生成回答。"
+TOKEN_NOTICE = "令牌加密保存在 VeraBot 服务器，不会发给 DeepSeek，也不会返回给 App。"
 BUILTIN_NOTICE = "内置能力由 VeraBot 提供，不需要单独同意。"
 
 
@@ -40,6 +41,40 @@ def mcp_plugins() -> list[dict]:
             "trust": "verified",
             "data_notice": DATA_NOTICE,
             "catalog_id": "aws_knowledge",
+            "removable": True,
+            "consent_required": True,
+            "tools": [],
+        },
+        {
+            "plugin_id": "github",
+            "kind": "mcp",
+            "name": "GitHub",
+            "description": "只读访问你授权的 GitHub 仓库：文件、提交、issue、PR。",
+            "category": "开发工具",
+            "publisher": "GitHub",
+            "version": "1.0.0",
+            "icon": "chevron.left.forwardslash.chevron.right",
+            "auth_mode": "bearer",
+            "trust": "verified",
+            "data_notice": "仓库内容会发送给 DeepSeek 用来生成回答。" + TOKEN_NOTICE,
+            "catalog_id": "github",
+            "removable": True,
+            "consent_required": True,
+            "tools": [],
+        },
+        {
+            "plugin_id": "linear",
+            "kind": "mcp",
+            "name": "Linear",
+            "description": "只读访问 Linear 的 issue 与项目。",
+            "category": "开发工具",
+            "publisher": "Linear",
+            "version": "1.0.0",
+            "icon": "list.bullet.rectangle",
+            "auth_mode": "bearer",
+            "trust": "verified",
+            "data_notice": "Linear 内容会发送给 DeepSeek 用来生成回答。" + TOKEN_NOTICE,
+            "catalog_id": "linear",
             "removable": True,
             "consent_required": True,
             "tools": [],

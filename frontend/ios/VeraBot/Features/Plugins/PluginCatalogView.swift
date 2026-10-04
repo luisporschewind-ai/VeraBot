@@ -47,6 +47,8 @@ struct PluginCatalogView: View {
                 Text(item.description).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 if !item.available {
                     Text("服务地址未配置").font(.caption).foregroundStyle(.secondary)
+                } else if item.needsToken {
+                    Text("需要令牌").font(.caption).foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 8)

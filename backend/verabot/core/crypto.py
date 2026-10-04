@@ -3,9 +3,10 @@
 密钥与数据库分离：优先读环境变量，否则使用数据目录下单独的密钥文件（权限 600，已 gitignore，
 与 .jwt_secret 同样的方式自动生成）。只备份数据库而没有密钥文件时，加密内容无法解密。
 
-每个用途一把独立密钥（key name），目前只有 memory（敏感记忆正文）；MCP / Gmail 的 Token 加密以后可用
-同一模块新增 name（如 token），互不影响。
+每个用途一把独立密钥（key name），互不影响：
   memory → 环境变量 VERABOT_MEMORY_ENC_KEY（逗号分隔多把 = 轮换，第一把用于加密），否则 data/.memory_key
+  token  → 环境变量 VERABOT_TOKEN_ENC_KEY（同上），否则 data/.token_key：连接器令牌（mcp_credentials，v13）。
+           必须与数据库一起备份；丢失后凭据无法解密，插件回到「需要连接」。
 """
 import hashlib
 import hmac
@@ -16,7 +17,7 @@ from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 
 from .config import DATA_DIR
 
-_KEYS = {"memory": ("VERABOT_MEMORY_ENC_KEY", ".memory_key")}
+_KEYS = {"memory": ("VERABOT_MEMORY_ENC_KEY", ".memory_key"), "token": ("VERABOT_TOKEN_ENC_KEY", ".token_key")}
 _cache: dict[str, list[bytes]] = {}
 _lock = threading.Lock()
 

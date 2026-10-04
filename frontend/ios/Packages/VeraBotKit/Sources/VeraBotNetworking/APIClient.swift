@@ -252,6 +252,18 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/plugins/\(id)/sync", method: "POST")
     }
 
+    public func setPluginCredential(id: String, token: String) async throws -> Plugin {
+        try await call("/api/plugins/\(id)/credential", method: "PUT", body: try encode(["token": token]))
+    }
+
+    public func deletePluginCredential(id: String) async throws -> Plugin {
+        try await call("/api/plugins/\(id)/credential", method: "DELETE")
+    }
+
+    public func acceptPluginToolChanges(id: String) async throws -> PluginAcceptChangesResult {
+        try await call("/api/plugins/\(id)/accept-tool-changes", method: "POST")
+    }
+
     public func delegations(botID: Int) async throws -> DelegationsResponse {
         try await call("/api/bots/\(botID)/delegations")
     }
