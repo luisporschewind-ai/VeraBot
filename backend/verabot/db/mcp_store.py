@@ -224,6 +224,20 @@ def accept_change(user_id: int, tool_id: int) -> dict | None:
     return get_tool(user_id, tool_id)
 
 
+def set_confirm_policy(user_id: int, tool_id: int, policy: str) -> dict | None:
+    with tx() as c:
+        row = c.execute(
+            "SELECT id FROM mcp_tools WHERE id=? AND user_id=?", (tool_id, user_id)
+        ).fetchone()
+        if row is None:
+            return None
+        c.execute(
+            "UPDATE mcp_tools SET confirm_policy=? WHERE id=? AND user_id=?",
+            (policy, tool_id, user_id),
+        )
+    return get_tool(user_id, tool_id)
+
+
 def strip_slug_from_bots(user_id: int, slug: str):
     """从该用户所有 Bot 的白名单里去掉 `mcp__{slug}__*`。"""
     prefix = f"mcp__{slug}__"

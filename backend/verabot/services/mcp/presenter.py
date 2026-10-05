@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from ...db import mcp_store
 from . import catalog
+from . import policy as mcp_policy
 from .naming import strip_extensions
 from .sanitize import clean_description
 
@@ -88,7 +89,7 @@ def public_tool(row: dict) -> dict:
         "label": catalog.label_for(row["mcp_name"], title),
         "description": row.get("description") or "",
         "risk": row["risk"],
-        "requires_confirmation": row["risk"] != "read",
+        "requires_confirmation": mcp_policy.requires_confirmation(row),
         "delegable": False,
         "status": row["status"],
         "annotations": row.get("annotations"),

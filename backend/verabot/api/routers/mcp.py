@@ -97,6 +97,33 @@ def server_tools(server_id: int, user=Depends(current_user)):
     return {"tools": [mcp.public_tool(t) for t in mcp_store.list_tools(user["id"], server_id)]}
 
 
+class ToolPolicyPatch(BaseModel):
+    confirm_policy: str = Field(min_length=1, max_length=16)
+
+
+@router.patch("/api/mcp/tools/{tool_id}")
+def patch_tool_policy(tool_id: int, body: ToolPolicyPatch, user=Depends(current_user)):
+    """只能更严格：always | default。发送 / 破坏性不能设为自动执行（MCP-13）。"""
+    from ...services.mcp import policy as mcp_policy
+    row = mcp_store.get_tool(user["id"], tool_id)
+    if row is None:
+        raise HTTPException(404, "未找到该工具")
+    err = mcp_policy.validate_confirm_policy(row, body.confirm_policy)
+    if err:
+        raise HTTPException(422, err)
+    # 发送 / 破坏性：拒绝任何想跳过确认的取值（当前 API 无 auto/never；预留）
+    if row.get("risk") in ("send", "destructive") and body.confirm_policy not in ("always", "default"):
+        raise HTTPException(422, "发送或破坏性操作必须每次确认，不能设为自动执行")
+    updated = mcp_store.set_confirm_policy(user["id"], tool_id, body.confirm_policy)
+    if updated is None:
+        raise HTTPException(404, "未找到该工具")
+    db.audit(user["id"], None, "mcp_tool_policy", {
+        "tool_id": tool_id, "full_name": updated["full_name"],
+        "confirm_policy": body.confirm_policy, "risk": updated.get("risk"),
+    })
+    return mcp.public_tool(updated)
+
+
 @router.post("/api/mcp/tools/{tool_id}/accept-change")
 def accept_change(tool_id: int, user=Depends(current_user)):
     row = mcp_store.accept_change(user["id"], tool_id)

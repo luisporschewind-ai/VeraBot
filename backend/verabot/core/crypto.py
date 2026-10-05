@@ -7,6 +7,8 @@
   memory → 环境变量 VERABOT_MEMORY_ENC_KEY（逗号分隔多把 = 轮换，第一把用于加密），否则 data/.memory_key
   token  → 环境变量 VERABOT_TOKEN_ENC_KEY（同上），否则 data/.token_key：连接器令牌（mcp_credentials，v13）。
            必须与数据库一起备份；丢失后凭据无法解密，插件回到「需要连接」。
+  action → 环境变量 VERABOT_ACTION_ENC_KEY（同上），否则 data/.action_key：待确认操作冻结参数（pending_actions，M3）。
+           丢失后未确认的操作无法执行，只能取消或过期。
 """
 import hashlib
 import hmac
@@ -17,7 +19,11 @@ from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 
 from .config import DATA_DIR
 
-_KEYS = {"memory": ("VERABOT_MEMORY_ENC_KEY", ".memory_key"), "token": ("VERABOT_TOKEN_ENC_KEY", ".token_key")}
+_KEYS = {
+    "memory": ("VERABOT_MEMORY_ENC_KEY", ".memory_key"),
+    "token": ("VERABOT_TOKEN_ENC_KEY", ".token_key"),
+    "action": ("VERABOT_ACTION_ENC_KEY", ".action_key"),
+}
 _cache: dict[str, list[bytes]] = {}
 _lock = threading.Lock()
 

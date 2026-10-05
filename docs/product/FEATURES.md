@@ -1,6 +1,6 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-> 与代码同步至 main (2026-10-03)，另含分支 `feat/attachments-p1` 的图片附件 P1 (schema v12)：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1 (schema v7)、MCP M2 (schema v8) 与独立的头像实验室试验页。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)「当前进度」。`frontend/web` 冻结，没有 MCP 界面。
+> 与代码同步至 2026-10-05（含 MCP M3 HITL）：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1–M3、插件 P1、记忆 M2、图片附件等。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)。`frontend/web` 冻结，没有 MCP / 确认卡片界面。
 
 ## 功能 (Features)
 
@@ -13,7 +13,7 @@
 | 消息富文本 (Rich messages) | iOS Bot 气泡支持 Markdown（标题 / 粗体 / 斜体 / 行内代码 / 代码块 / 引用 / 列表 / 表格 / 分隔线），自动识别网址 / 电话 / 邮箱；网页链接在 App 内 SFSafariViewController 打开，电话 / 邮件交给系统；长按气泡可复制全文或复制链接，用户 / Bot 气泡长按均有「删除」(系统确认框二次确认，只删这一条；欢迎语与正在生成的回复不显示)；`~` 按原文显示 (BUG-01) |
 | 对话历史 (History) | 每个 Bot 独立保存历史，最近 20 条 (`VERABOT_HISTORY_WINDOW`) 注入上下文；清空对话 (二次确认：「仅清空对话」删除对话摘要、保留已确认记忆 /「清空对话和「X」的记忆」再删该 Bot 的记忆) |
 | 长期记忆 (Memory, M1 + M2) | **先确认、后保存**：Bot 用 `remember` / `forget_memory` 只生成提议，对话里出现「要我记住吗？」卡片 (记住 / 不用 / 编辑后记住)，确认后生效。作用域：所有 Bot 共享的「关于你」(global) 或仅某个 Bot；每个 Bot 的 `memory_access` (不使用 / 仅本 Bot / 本 Bot + 共享资料，默认后者)；每轮最多注入 12 条 / 1000 字，风格最多 3 条排在最前，被委派的 Bot 不读写记忆。密码 / 验证码 / 密钥 / 证件号 / 卡号永不保存；健康、财务信息加密保存并标为敏感。**M2**：每个 Bot 一条滚动摘要（窗口外积压满 20 条才压缩，≤ 400 字，不经确认，清空对话时删除）；回复气泡可 👍 / 👎，「再短一点」或 14 天内 3 次「太长」只提议风格（「以后都这样回答吗？」），确认前不生效。设置 › 记忆：「Vera 了解的你」(查看 / 编辑 / 删除 / 手动添加 / 清空，首次打开说明会发送给 DeepSeek) + 「允许 Bot 记住」总开关。Bot 详情 › 记忆。方案与契约见 [MEMORY_GROWTH.md](../design/MEMORY_GROWTH.md)。Web 无记忆 UI |
-| 工具 (Tool calling) | 可插拔注册表：`get_weather` (Open-Meteo，免 Key)、`create_reminder`、`list_reminders`、`manage_reminder`、`ask_bot`；记忆工具 `remember`、`forget_memory` 不在白名单里，由 `memory_access` 控制。`list_reminders` 只返回这个 Bot 创建的或指派给它的提醒。`manage_reminder` 只做单条的修改、完成、稍后、重开、跳过；取消和批量要用户在提醒页确认。MCP 工具名形如 `mcp__learn__microsoft_docs_search`，默认不授权，在 Bot 详情按服务打开 |
+| 工具 (Tool calling) | 可插拔注册表：`get_weather`、提醒三件套、`ask_bot`；记忆工具由 `memory_access` 控制。MCP 工具默认关闭；**写 / 发送 / 破坏性**调用会弹出确认卡片（M3，`pending_actions`），确认后才执行冻结参数；只读可直接执行。委派深度 ≥ 1 不能用 MCP |
 | 多 Agent 协作 | 工具 / 委派白名单、接受委派开关、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 → [MULTI_AGENT_DESIGN.md](../design/MULTI_AGENT_DESIGN.md) |
 | 每日 Token 预算 | 超额返回 429，委派也被拒 |
 | 提醒 / 用量 (Reminders / Quota) | 提醒为 Tab 页，顶部分段「提醒 / 通知」。提醒按逾期、今天、即将、无日期分组，可新建、编辑、完成、稍后、跳过；到时由服务端调度，iOS 用本地通知（「完成」「稍后 10 分钟」），R1 不发 APNs。点按提醒通知 → 「提醒」Tab → 该提醒页，「来源」里「查看对话」进入对话；只有 Bot 消息通知直接打开对话。设置 › 通知管理分类、免打扰和显示内容。用量看板从「设置 › 用量」进入：请求数、Token、7 日趋势、按 Bot 分布 (不含账号信息，账号信息在设置页)。Web 没有新的提醒界面。**R1 Boss 于 2026-10-04 验收通过**（模拟器；真机未测） |
@@ -61,6 +61,8 @@
 | GET / POST / PATCH / DELETE | `/api/reminders`、`/api/reminders/{id}`、`.../complete`、`.../done`、`.../snooze`、`.../reopen`、`.../skip`、`.../restore`、`.../events` | 提醒列表与单条操作。写接口认 `Idempotency-Key`。`/done` 仍是完成的别名。字段见 [REMINDER_PUSH_DESIGN.md](../design/REMINDER_PUSH_DESIGN.md) §8 |
 | GET / POST / PATCH / DELETE | `/api/notifications`、`/summary`、`/read-all`、`/{id}/read`、`/{id}/unread`、`/{id}/events`、`/api/notification-settings`、`/api/devices` | 收件箱、偏好、设备。R1 不发 APNs。响应 `Cache-Control: no-store` |
 | GET | `/api/quota` | 用量看板 `{model, daily_token_quota, today, total, per_bot, daily, delegations, transcribe}`；`today` / `total` 为 `{requests, prompt_tokens, completion_tokens, total_tokens}`。设置 › 用量 行的「已用 N%」由 iOS 计算：round(`today.total_tokens` / `daily_token_quota` × 100)，额度 ≤ 0 时不显示 (字段映射见下方「用量字段映射」) |
+| GET / POST | `/api/pending-actions`、`/api/pending-actions/{id}/confirm`、`/cancel` | MCP M3：待确认操作列表 / 确认执行冻结参数 / 取消。他人 404；已处理 409；过期 410。SSE 另有 `confirmation_required` |
+| GET | `/api/bots/{id}/tool-calls` | MCP M3：该 Bot 的工具调用 / 确认相关审计摘要（不含原文） |
 | GET | `/api/tools` | 工具列表 (中文标签，不含记忆工具) + 当前护栏参数 + `memory: {enabled, max_active, inject_max}`。每项另有 `source`、`server`、`server_id`、`risk`、`requires_confirmation`、`delegable`、`status`、`plugin_id`（天气 `builtin_weather`，提醒工具 `builtin_reminder`，`ask_bot` 为 `null`，已连接的外部工具为插件 id）。已连接且已同意的外部工具附在后面。此接口不连接外部服务 |
 | GET | `/api/plugins/catalog` | 可安装的外部插件目录。每项是 Plugin JSON，含当前用户的 `installed`、`available`。不含原始 URL |
 | GET | `/api/plugins` | 内置插件 + 已安装的外部插件。新用户只有天气和提醒。不在这个请求里联网。响应 `Cache-Control: no-store` |

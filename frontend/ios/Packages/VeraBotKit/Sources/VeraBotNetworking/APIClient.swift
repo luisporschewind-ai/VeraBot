@@ -26,6 +26,8 @@ public enum ChatEvent: Sendable {
     case toolResult(ToolTrace)
     /// 召回记忆 / 委派内部进度（新后端；旧后端不发）
     case status(ChatStatus)
+    /// MCP M3：待确认操作（旧客户端忽略）
+    case confirmationRequired(ConfirmationRequired)
     case error(String)
     case done(ChatDone)
     /// 对话进行中产生的通知。旧客户端忽略；状态机不因此改变。
@@ -40,6 +42,7 @@ extension ChatEvent {
         case .toolStart(let trace): .toolStart(trace)
         case .toolResult(let trace): .toolResult(trace)
         case .status(let s): .status(s)
+        case .confirmationRequired: .notification   // 不改变流程；等用户点确认
         case .error(let msg): .error(msg)
         case .done: .done
         case .notification: .notification
@@ -494,6 +497,8 @@ public struct APIClient: VeraBotAPI {
             return (try? decoder.decode(ToolTrace.self, from: data)).map { .toolResult($0) }
         case "status":
             return (try? decoder.decode(ChatStatus.self, from: data)).map { .status($0) }
+        case "confirmation_required":
+            return (try? decoder.decode(ConfirmationRequired.self, from: data)).map { .confirmationRequired($0) }
         case "error":
             return .error((try? decoder.decode(ErrorPayload.self, from: data))?.message ?? "未知错误")
         case "done":

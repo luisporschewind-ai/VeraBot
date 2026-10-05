@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 新增 (Added) — MCP M3：通用 HITL 确认卡片（复用 schema v7 `pending_actions`，不升版本）
+
+- **后端**：按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §7 / §15 M3。非只读 MCP 工具（及 `confirm_policy=always` 的只读工具）不再直接拒绝，而是冻结参数写入 `pending_actions`（Fernet，`VERABOT_ACTION_ENC_KEY` / `data/.action_key`，默认 15 分钟过期）、审计 `mcp_action_requested`，工具结果 `{status:pending_confirmation, action_id, …}`，SSE 另发 `confirmation_required`。`POST /api/pending-actions/{id}/confirm|cancel`、`GET /api/pending-actions`；确认后执行冻结参数、写结果摘要进对话历史、**不**自动再调 LLM。确认前工具变更 / 服务断开 → 409；过期 → 410；他人 → 404；重复 → 409。单轮待确认上限 `VERABOT_MCP_PENDING_PER_TURN`（默认 2）。`PATCH /api/mcp/tools/{id}` 仅接受 `always`/`default`，拒绝 `never`/`auto`（MCP-13）。跨服务读→写时卡片带警告。协作记录新增 `GET /api/bots/{id}/tool-calls`。过期 pending 由调度器标 `expired`（不再直接删）。
+- **iOS**：`ToolConfirmationCard`（服务 / 工具 / 风险 / 参数表 / 警告 / 执行·取消）；`ChatEvent.confirmationRequired`；Kit `PendingAction` / `ConfirmationRequired`；打开对话恢复 pending；协作记录页增加「工具调用」分段。
+- **Web 冻结**：无确认卡片界面。
+- **测试**：`mcp_m3_test.py`（MCP-10~13、pending 上限、跨服务警告、契约键）；Kit `PendingActionTests`。iOS 未在云端编译。
+
 ### 新增 (Added) — 记忆 M2：滚动摘要 + 风格校准（schema v14）
 
 - **后端**：按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §11.1。新表 `memory_jobs`、`message_feedback`（`SCHEMA_VERSION=14`，幂等）。对话落库后入队摘要；进程内单 worker（启动恢复 `running`→`pending`，关闭时取消）。窗口外未覆盖消息满 20 条才压缩成每个 Bot 一条滚动摘要（≤ 400 字，不经确认）；用量 `kind=memory`；预算 ≥ 90% 或积压不够则 `skipped`；失败最多再试 2 次。清空对话删除摘要、保留已确认记忆。用户消息命中「再短一点」等短语，或 14 天内 3 次 👎 `too_long`，只生成 style 提议。`POST / DELETE /api/messages/{id}/feedback`；消息列表回显 `feedback`。审计和日志不写正文。

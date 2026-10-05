@@ -75,6 +75,8 @@ def remove_server(user_id: int, server_id: int) -> bool:
     if row is None:
         return False
     drop_session((user_id, server_id))
+    from ...db import action_store
+    action_store.cancel_for_server(user_id, server_id)
     mcp_store.strip_slug_from_bots(user_id, row["slug"])
     ok = mcp_store.delete_server(user_id, server_id)
     if ok:

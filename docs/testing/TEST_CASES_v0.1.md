@@ -558,6 +558,20 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MCP-LIVE-LEARN | 公网 | `tools/call` `microsoft_docs_fetch`，参数 `{"url":"https://learn.microsoft.com/en-us/training/support/mcp"}` | `isError` 为 false，正文去掉前导空白后以 `# Microsoft Learn MCP Server overview` 开头 | 默认跳过。设置 `VERABOT_MCP_LIVE_TESTS=1` 才执行。2026-10-03 Boss 的 Mac (中国大陆网络) 实测 **通过**；单次 initialize ≈ 1.2–1.5 s、tools/list ≈ 0.4 s、tools/call (search) ≈ 1.0–1.6 s，合计中位数 2.9 s |
 | MCP-LIVE-AWS | 公网 | `tools/call` `aws___list_regions`，参数 `{}` | `isError` 为 false，去掉空白后的正文含 `"region_id":"af-south-1"` | 默认跳过。同上。2026-10-03 Mac 实测 **通过**；协商到 2025-03-26，合计中位数 2.4 s |
 
+## MCP M3 HITL（pending_actions，不升 schema）— 2026-10-05
+
+自动化：`cd backend && uv run python scripts/test/mcp_m3_test.py`。假 MCP 带写工具 `delete_item`，不访问外网。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| MCP-10 | 确认 | 白名单含破坏性工具时调用 | `pending_confirmation` + `action_id`；假服务器 `tools/call` 次数不变 | ✅ |
+| MCP-11 | 确认 | confirm；再 confirm；他人 confirm；过期后 confirm | 冻结参数执行一次；重复 409；他人 404；过期 410 | ✅ |
+| MCP-12 | 确认 | confirm 前工具 `changed`；服务停用 | 409，不调用远程 | ✅ |
+| MCP-13 | 策略 | `PATCH` 发送类工具 `confirm_policy=never` / `auto` | 422；`always` 可接受且仍需确认 | ✅ |
+| MCP-29 | 上限 | `VERABOT_MCP_PENDING_PER_TURN=2` 时连续三次写 | 前两次 pending，第三次 `pending_cap` | ✅ |
+| M3-UI | iOS | 对话出现确认卡片 → 执行 / 取消；重启后恢复 pending；协作记录「工具调用」 | 待 Boss 模拟器验收 | ⏳ |
+| M3-KIT | Kit | `PendingActionTests`：REST / SSE / Trace / tool-calls 解码 | 待 Mac `swift test` | ⏳ |
+
 ## 插件 P1 (schema v10) — 2026-10-03
 
 自动化：`cd backend && uv run python scripts/test/plugin_test.py`。进程内假 MCP 服务器，不访问外网。设计 [PLUGIN_DESIGN.md](../design/PLUGIN_DESIGN.md) v1.0。iOS `PluginTests.swift` 本环境未跑（无 Swift）。

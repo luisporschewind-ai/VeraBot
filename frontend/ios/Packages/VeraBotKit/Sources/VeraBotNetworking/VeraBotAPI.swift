@@ -100,6 +100,12 @@ public protocol VeraBotAPI: Sendable {
     func attachmentContent(id: String) async throws -> Data
     func attachmentThumb(id: String) async throws -> Data
     func deleteAttachment(id: String) async throws -> OKResponse
+    // MCP M3：待确认操作
+    func pendingActions(status: String?, botID: Int?) async throws -> PendingActionsResponse
+    func pendingAction(id: Int) async throws -> PendingAction
+    func confirmPendingAction(id: Int) async throws -> PendingAction
+    func cancelPendingAction(id: Int) async throws -> PendingAction
+    func toolCalls(botID: Int) async throws -> ToolCallsResponse
 }
 
 /// 创建 / 修改提醒。未设置的字段不发送；`clearDue` / `clearRrule` / `clearAssignee` 显式写成 null。

@@ -68,6 +68,11 @@ struct MessageRow: View {
                             } else {
                                 MemoryToolNote(proposal: p)
                             }
+                        } else if let pending = trace.pendingConfirmation {
+                            ToolConfirmationCard(
+                                action: vm.actionStates[pending.actionId] ?? pending.asPending(),
+                                vm: vm
+                            )
                         } else {
                             TraceView(trace: trace, fromBot: bot.name)
                         }

@@ -92,3 +92,39 @@ def bot_delegations(bot_id: int, limit: int = 50, user=Depends(current_user)):
     with db.tx() as c:
         rs = delegation_store.list_for_bot(c, user["id"], bot_id, min(max(limit, 1), 200))
     return {"delegations": rs}
+
+
+@router.get("/api/bots/{bot_id}/tool-calls")
+def bot_tool_calls(bot_id: int, limit: int = 50, user=Depends(current_user)):
+    """工具调用记录（MCP M3）：该 Bot 的 mcp_tool_call / mcp_action_* 审计，不含原文。"""
+    require_bot(user, bot_id)
+    kinds = (
+        "mcp_tool_call", "mcp_action_requested", "mcp_action_confirmed",
+        "mcp_action_cancelled", "mcp_action_expired", "mcp_action_failed",
+    )
+    lim = min(max(limit, 1), 200)
+    placeholders = ",".join("?" * len(kinds))
+    with db.tx() as c:
+        rows = c.execute(
+            f"""SELECT id, kind, detail, created_at FROM audit_log
+                WHERE user_id=? AND bot_id=? AND kind IN ({placeholders})
+                ORDER BY id DESC LIMIT ?""",
+            (user["id"], bot_id, *kinds, lim),
+        ).fetchall()
+    out = []
+    for r in rows:
+        try:
+            detail = json.loads(r["detail"] or "{}")
+        except ValueError:
+            detail = {}
+        out.append({
+            "id": r["id"],
+            "kind": r["kind"],
+            "created_at": r["created_at"],
+            "server": detail.get("server") or detail.get("server_id"),
+            "tool": detail.get("tool") or detail.get("full_name"),
+            "status": detail.get("status") or detail.get("error_class"),
+            "action_id": detail.get("action_id"),
+            "duration_ms": detail.get("duration_ms"),
+        })
+    return {"tool_calls": out}
