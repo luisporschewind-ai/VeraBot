@@ -10,7 +10,7 @@
 
 ### 修复 (Fixed)
 
-- **iOS · 提醒编辑页「日期」「时间」各出现两行**（Boss 2026-10-04 验收 R1 时发现）：开关行（`Toggle`）和选择器行（`DatePicker`）用了同一个标签「日期」/「时间」，看起来像重复行。`DatePicker` 改用 `.labelsHidden()`，只显示所选日期 / 时间，含义由上方开关行提供（`ReminderEditorView.swift`）。仅 iOS；无新测试（纯视觉）。
+- **iOS · 提醒编辑页「日期」「时间」各出现两行**（Boss 2026-10-04 验收 R1 时发现）：开关行和选择器行用了同一个标签「日期」/「时间」，看起来像重复行。两个 `DatePicker` 改用 `.labelsHidden()`（含义由上方开关行提供），并设区分开的 `accessibilityLabel`（「提醒日期」「提醒时间」）避免 VoiceOver 里重复播报；两个开关同时改用全 App 统一的 `CompactToggle`（85% 青绿，THEME-03 / UI-23 此前未覆盖本页）。设计稿 §10.2 已同步。仅 iOS；无新测试（纯视觉）。
 - **MCP 内嵌资源正文丢失**（Boss 2026-10-05）：GitHub `get_file_contents` 等工具把文件正文放在 `{type:"resource", resource:{uri, mimeType, text|blob}}` 里，`result_text` 只读块顶层的 uri/name，正文被丢掉，模型只看到「下载成功 + SHA」。现在内嵌资源输出 `[资源] uri mime` 标题加正文；`blob` 为文本类 mime 时解码，否则只注明类型与字节数；总长度仍由 `VERABOT_MCP_MAX_RESULT_CHARS` 截断。测试 MCP-RES。
 
 ### 变更 (Changed)
