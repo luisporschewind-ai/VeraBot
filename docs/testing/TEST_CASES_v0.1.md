@@ -723,7 +723,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | NTF-01 … 08、10、11 | 通知 | 设备、收件箱、偏好、免打扰、SQLite 限流、预览、投递等级、退出禁用、token 迁移、无 APNs | 提醒不受免打扰和限流；R1 没有 `channel=apns` | 通过 |
 | NTF-CONTRACT | 契约 | 通知 / 偏好 / 设备 JSON 与 `Notifications.swift` | 键名一致 | 通过 |
 | REM-UI-01、REM-UI-06、NTF-UI-03 | iOS Kit | 分组、排程上限 60、深链接 | 纯逻辑在 Kit 测试里 | 通过（Kit `swift test` 于 main 6800822 上运行，148/148）；Boss 2026-10-04 验收 |
-| REM-UI-02 … 05、07、08、NTF-UI-01、02、04 | iOS 模拟器 | 界面、本地通知、退出清理 | 见设计 §16 | 模拟器通过；Boss 2026-10-04 验收 |
+| REM-UI-02 … 05、07、08、NTF-UI-01、02、04 | iOS 模拟器 | 界面、本地通知、退出清理 | 见设计 §16 | 模拟器通过；Boss 2026-10-04 验收。**2026-10-05 编辑页改版（PR #27：重复标签修复、开关换 `CompactToggle`）后 REM-UI-02 需重验** |
 | NTF-UI-05 | iOS 模拟器 | 点按通知本体：提醒通知、Bot 消息通知 | 提醒通知 → 打开「提醒」Tab → 该提醒页；在「来源」里点「查看对话」跳到对话。只有 Bot 消息通知 (`bot/{id}/chat?message=`) 直接打开对话 | 模拟器通过；Boss 2026-10-04 验收 |
 
 ## 删除单条消息 (Delete message) — 2026-10-03
