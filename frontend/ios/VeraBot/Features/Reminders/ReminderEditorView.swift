@@ -29,12 +29,16 @@ struct ReminderEditorView: View {
                     .lineLimit(3...6)
             }
             Section {
-                Toggle("日期", isOn: $hasDate)
+                CompactToggle("日期", isOn: $hasDate)
                 if hasDate {
                     DatePicker("日期", selection: $date, displayedComponents: .date)
-                    Toggle("时间", isOn: $hasTime)
+                        .labelsHidden()
+                        .accessibilityLabel("提醒日期")
+                    CompactToggle("时间", isOn: $hasTime)
                     if hasTime {
                         DatePicker("时间", selection: $date, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .accessibilityLabel("提醒时间")
                     }
                 }
             }

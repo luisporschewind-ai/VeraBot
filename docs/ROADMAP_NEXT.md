@@ -22,7 +22,7 @@
 ### 2. 提醒通知
 
 - **R1 已完成**：提醒 + 本地通知 + 站内通知中心已实现并合入 main（schema v11），Boss 于 2026-10-04 验收通过（模拟器；真机未测）。设计与分期见 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) §14，用例见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)「提醒与推送 R1」。
-- R1 验收时记下的三条遗留 (编辑页「日期」「时间」重复两行、相对时间偶尔被解析成过去时间、点按通知先进只读详情页) 见 [STATUS.md](STATUS.md)「已知遗留」。
+- R1 验收时记下的两条遗留 (相对时间偶尔被解析成过去时间、点按通知先进只读详情页) 见 [STATUS.md](STATUS.md)「已知遗留」。
 - 剩余后续 (按设计 §14)：
   - **R2 确认卡片 + 对话联动 + APNs 客户端预备**：`pending_actions` 确认卡片 (与 MCP M3 共用)；Bot `cancel` 与批量；提醒卡片 + 撤销；提醒回流对话；自定义重复；提前提醒；操作历史页；`xcrun simctl push` 模拟器验证 (PUSH-SIM-01)。
   - **R3 APNs 真推送**：需 Boss 付费开发者账号并同意改 `project.pbxproj` (D17)；跨设备静默同步、锁屏推送其他分类。

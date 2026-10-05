@@ -1,7 +1,7 @@
 # 提醒与推送模块设计 (Reminder & Push/Notification Design) — v1.0 定稿
 
 > 状态：**v1.0 定稿**（Boss 于 2026-10-03 批准，§15 D1–D18 全部按推荐执行）。按 §14 R1 实施。
-> 实施与验收：**R1 已实现并合入 main（schema v11）**；Boss 于 2026-10-04 验收通过（模拟器）。点按提醒通知按 §9.5 执行（打开该提醒，不直接进对话），已按设计接受。真机与 APNs (R2) 未测。
+> 实施与验收：**R1 已实现并合入 main（schema v11）**；Boss 于 2026-10-04 验收通过（模拟器）。点按提醒通知按 §9.5 执行（打开该提醒，不直接进对话），已按设计接受。真机与 APNs (R2) 未测。**2026-10-05 编辑页改版（PR #27，§10.2 括注）：REM-UI-02 需重验。**
 > 依据代码：`luisporschewind-ai/VeraBot` `main`（含缓存修复 `2a0dc0f` 之后的 main；`SCHEMA_VERSION = 9`），并参考未合并的 PR #6（头像）、**PR #7（插件 P1，schema v10，`builtin_reminder` 插件）**、PR #8（邮箱认领修复，schema 仍 v9）。
 > schema 版本取合并时下一个可用号：PR #7 占 v10，本方案预计 **v11**（若届时 v10 未合并，则顺延到合并时的下一个号）。
 > 目标路径：`docs/design/REMINDER_PUSH_DESIGN.md`。与实现代码在同一个 PR 里提交。
@@ -521,7 +521,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_push_token ON push_devices(apns_token) WHE
 
 ### 10.2 新建 / 编辑 sheet
 
-系统 `Form`：标题（必填）· 备注（多行）· 「日期」开关 + `DatePicker`（日期）· 「时间」开关 + `DatePicker`（时间，关闭 = 全天）· 重复 `Picker`（永不 / 每天 / 工作日 / 每周 / 每月 / 每年；R2 加「自定义…」）· 提前提醒（R2）· 优先级 `Picker`（无 / 低 / 中 / 高）· 归属 Bot `Picker`（无 / 各 Bot，说明「归属的 Bot 可以查看和管理这条提醒」）· 来源分组（只读）：「由『研究助手』在对话中创建」+「查看对话」（深链接到消息）· 编辑页底部「删除提醒」。工具栏圆形 X 取消、「保存」。保存时 409 冲突 → 提示「这条提醒已在别处修改」并载入最新内容。
+系统 `Form`：标题（必填）· 备注（多行）· 「日期」开关 + `DatePicker`（日期）· 「时间」开关 + `DatePicker`（时间，关闭 = 全天）· 重复 `Picker`（永不 / 每天 / 工作日 / 每周 / 每月 / 每年；R2 加「自定义…」）· 提前提醒（R2）· 优先级 `Picker`（无 / 低 / 中 / 高）· 归属 Bot `Picker`（无 / 各 Bot，说明「归属的 Bot 可以查看和管理这条提醒」）· 来源分组（只读）：「由『研究助手』在对话中创建」+「查看对话」（深链接到消息）· 编辑页底部「删除提醒」。工具栏圆形 X 取消、「保存」。保存时 409 冲突 → 提示「这条提醒已在别处修改」并载入最新内容。开关用全 App 统一的 `CompactToggle`；两个 `DatePicker` 用 `.labelsHidden()` 只显示所选值（含义由上方开关行提供，不再重复「日期」「时间」标签），并设区分开的 `accessibilityLabel`「提醒日期」「提醒时间」（Boss 2026-10-04 验收发现的重复行已修，PR #27）。
 
 ### 10.3 通知收件箱（「通知」分段）
 
@@ -742,6 +742,7 @@ R1 是一个 PR；前后端同一提交更新 CHANGELOG / FEATURES / TEST_CASES 
 |---|---|---|
 | v0.1 | 2026-10-03 | 草案：提醒模块与通用通知 / 推送层合并设计 |
 | v1.0 | 2026-10-03 | 定稿：Boss 批准 D1–D18 全部按推荐；R1 范围不变（schema v11，接在 PR #7 的 v10 之后） |
+| v1.0+ | 2026-10-05 | 仅编辑页注记（PR #27）：§10.2 括注开关用 `CompactToggle`、两个 `DatePicker` 用 `.labelsHidden()` + 区分开的 `accessibilityLabel`（Boss 2026-10-04 发现的重复标签行已修，待重验）。不改变已批准规则，其余章节未动。 |
 
 ## 19. R1 实现注记 (Implementation notes，2026-10-03)
 
