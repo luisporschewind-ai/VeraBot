@@ -77,6 +77,7 @@ struct MemoryProposalCard: View {
     }
 
     private var title: String {
+        if proposal.type == .style { return "以后都这样回答吗？" }
         switch proposal.action {
         case .update: return "要更新这条记忆吗？"
         case .delete: return "要忘掉这条吗？"

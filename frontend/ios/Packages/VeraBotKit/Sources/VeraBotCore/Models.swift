@@ -400,6 +400,34 @@ public struct ToolTrace: Codable, Sendable, Hashable, Identifiable {
     public let result: JSONValue?
 }
 
+/// 对一条 assistant 消息的 👍 / 👎。reason 只在 👎 时有值（too_long / too_short / inaccurate / tone / other）。
+public struct MessageFeedback: Codable, Sendable, Hashable {
+    public let rating: Int
+    public let reason: String?
+}
+
+public struct MessageFeedbackWrite: Encodable, Sendable {
+    public var rating: Int
+    public var reason: String?
+
+    public init(rating: Int, reason: String? = nil) {
+        self.rating = rating
+        self.reason = reason
+    }
+}
+
+/// POST /api/messages/{id}/feedback。styleTrace 非空时是一条待确认的风格记忆（与 remember 工具结果同形）。
+public struct MessageFeedbackResponse: Decodable, Sendable {
+    public let ok: Bool
+    public let feedback: MessageFeedback?
+    public let styleTrace: ToolTrace?
+
+    enum CodingKeys: String, CodingKey {
+        case ok, feedback
+        case styleTrace = "style_trace"
+    }
+}
+
 public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
     public let id: Int
     public let role: String
@@ -408,9 +436,11 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
     public let createdAt: String?
     /// 图片附件（v12；旧后端无此键时为 []，见 Attachment.swift）
     public let attachments: [Attachment]
+    /// 本人对这条 assistant 消息的反馈；旧后端或用户消息为 nil
+    public let feedback: MessageFeedback?
 
     enum CodingKeys: String, CodingKey {
-        case id, role, content, traces
+        case id, role, content, traces, feedback
         case createdAt = "created_at"
         case attachments
     }

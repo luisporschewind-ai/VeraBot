@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 新增 (Added) — 记忆 M2：滚动摘要 + 风格校准（schema v14）
+
+- **后端**：按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §11.1。新表 `memory_jobs`、`message_feedback`（`SCHEMA_VERSION=14`，幂等）。对话落库后入队摘要；进程内单 worker（启动恢复 `running`→`pending`，关闭时取消）。窗口外未覆盖消息满 20 条才压缩成每个 Bot 一条滚动摘要（≤ 400 字，不经确认）；用量 `kind=memory`；预算 ≥ 90% 或积压不够则 `skipped`；失败最多再试 2 次。清空对话删除摘要、保留已确认记忆。用户消息命中「再短一点」等短语，或 14 天内 3 次 👎 `too_long`，只生成 style 提议。`POST / DELETE /api/messages/{id}/feedback`；消息列表回显 `feedback`。审计和日志不写正文。
+- **iOS**：Bot 回复气泡在朗读旁增加 👍 / 👎（👎 选原因，选中为填充图标，再点撤销）；风格提议用既有确认卡片，标题「以后都这样回答吗？」。
+- **Web 冻结**：没有反馈和摘要界面。
+- **测试**：`memory_m2_test.py`（MEM-40~49）。iOS 未在云端编译。
+
 ### 变更 (Changed)
 
 - **iOS · 设置面板改为悬浮卡片**（Boss 2026-10-05，取代同日的 60% 屏高）：四角圆角 36、距左右下边 8pt，顶端停在首页导航栏下方（约 88% 屏高，导航栏一行仍露出并变暗）；左上角圆形 xmark 关闭按钮，无标题；仍为自定义 BottomPanel（`topInset` 取代 `heightFraction`），不用系统 sheet。

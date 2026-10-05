@@ -8,6 +8,7 @@ from ... import db
 from ...db import message_store
 from ...agents.runtime import run_chat
 from ...services import memory
+from ...services.memory import jobs as memory_jobs
 from ...services.attachments import repo as attachments
 from ..deps import current_user, require_bot
 from ..schemas import ChatIn
@@ -24,22 +25,27 @@ def messages_list(bot_id: int, limit: int = 100, user=Depends(current_user)):
     for r in rs:
         r["traces"] = json.loads(r["traces"]) if r["traces"] else []
         r["attachments"] = [attachments.public(a) for a in att_map.get(r["id"], [])]
+        rating = r.pop("feedback_rating", None)
+        reason = r.pop("feedback_reason", None)
+        r["feedback"] = {"rating": rating, "reason": reason} if r["role"] == "assistant" and rating is not None else None
     return {"messages": list(reversed(rs))}
 
 
 @router.delete("/api/bots/{bot_id}/messages")
 def messages_clear(bot_id: int, include_memories: bool = False, user=Depends(current_user)):
-    """清空对话。默认**保留**记忆（Boss 决策 Q3）；include_memories=true 时同时删除该 Bot 的
-    「本 Bot 记忆」与对话摘要（全局资料保留）。记忆的 source_message_id 随外键置 NULL。"""
+    """清空对话。总是删除该 Bot 的滚动摘要，已确认的记忆默认保留（Boss 决策 Q3）；
+    include_memories=true 时再删除该 Bot 的「本 Bot 记忆」（全局资料保留）。
+    记忆的 source_message_id 随外键置 NULL。尚未开始的摘要任务标为 skipped。"""
     require_bot(user, bot_id)
     keys = attachments.keys_for_bot(user["id"], bot_id)
     with db.tx() as c:
         message_store.clear_conversation(c, user["id"], bot_id)
     attachments.delete_files(keys)   # 先删库行（已提交），再删文件
-    out = {"ok": True, "deleted_memories": 0}
+    memory_jobs.skip_pending_summaries(user["id"], bot_id)
+    deleted = memory.clear_summaries(user["id"], bot_id)
     if include_memories:
-        out["deleted_memories"] = memory.clear_for_bot(user["id"], bot_id)
-    return out
+        deleted += memory.clear_for_bot(user["id"], bot_id)
+    return {"ok": True, "deleted_memories": deleted}
 
 
 @router.delete("/api/bots/{bot_id}/messages/{message_id}")

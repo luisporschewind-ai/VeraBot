@@ -77,3 +77,19 @@ async def complete(messages: list, tools: list | None) -> tuple[dict, dict]:
     msg = dict(choice["message"])
     msg["_finish_reason"] = choice.get("finish_reason")  # 供日志 / 空回复诊断（BUG-09）
     return msg, d.get("usage") or {}
+
+
+async def complete_json(messages: list, *, max_tokens: int = 1024) -> tuple[str, dict]:
+    """JSON Output（response_format=json_object）。返回 (content, usage)。记忆后台任务用，不走工具。"""
+    body = _body(messages, None, False)
+    body["temperature"] = 0
+    body["max_tokens"] = max_tokens
+    body["response_format"] = {"type": "json_object"}
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
+        r = await client.post(f"{DEEPSEEK_BASE_URL}/chat/completions", headers=_headers(), json=body)
+    if r.status_code != 200:
+        raise LLMError(f"DeepSeek HTTP {r.status_code}: {r.text[:300]}")
+    d = r.json()
+    choice = (d.get("choices") or [{}])[0]
+    msg = choice.get("message") or {}
+    return msg.get("content") or "", d.get("usage") or {}

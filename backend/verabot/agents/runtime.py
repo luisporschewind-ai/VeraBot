@@ -6,6 +6,8 @@ import logging
 from .. import db
 from ..core.config import EMPTY_REPLY_RETRIES, HISTORY_WINDOW, MAX_TOOL_ROUNDS
 from ..services import llm, memory
+from ..services.memory import jobs as memory_jobs
+from ..services.memory import style as memory_style
 from ..services.attachments import repo as attachments
 from ..services.attachments import vision
 from ..tools.registry import ToolContext, TurnState
@@ -152,6 +154,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
     traces: list = []
     answer = ""
     errored = False
+    style_trace = None
     try:
         messages.append({"role": "user", "content": vision.user_content(user_text, images)})
         for _round in range(MAX_TOOL_ROUNDS + 1):
@@ -219,9 +222,20 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
     finally:
         # ask_bot 子调用用量已由工具单独记账；这里只记本 Bot 的主调用
         db.log_usage(user_id, bot["id"], "chat", usage_total)
+        if memory_tools:
+            cue = memory_style.match_style(user_text)
+            if cue:
+                proposal = memory.propose_style(user_id, bot, cue, user_message_id=user_mid)
+                if proposal and proposal.get("status") == "proposed":
+                    style_trace = memory_style.trace_for(proposal)
+                    traces.append(style_trace)
         stored = answer if answer.strip() else ("⚠️ " + EMPTY_REPLY_MSG if errored else "（无回复）")
         mid = db.add_message(user_id, bot["id"], "assistant", stored, traces or None, memory_ids=rec.ids or None)
         memory.mark_used(user_id, rec.ids)
+        if memory_tools:
+            memory_jobs.enqueue(user_id, bot["id"], kind="summarize", after_message_id=mid)
+    if style_trace:
+        yield {"event": "tool_result", "data": style_trace}
     # user_message_id：本轮用户消息的 id（新增字段，旧客户端忽略），客户端据此可立即删除刚发出的消息
     yield {"event": "done", "data": {"message_id": mid, "user_message_id": user_mid, "usage": usage_total, "memory_ids": rec.ids}}
     if new_images and not errored:   # 首次看图后生成描述（按需召回用），放在 done 之后不拖慢回复

@@ -10,6 +10,7 @@ TMP = tempfile.mkdtemp(prefix="vb_mem_")
 DB = str(Path(TMP) / "t.db")
 os.environ["VERABOT_DB"] = DB
 os.environ["VERABOT_DATA_DIR"] = TMP
+os.environ["VERABOT_MEMORY_JOBS"] = "0"   # M2 worker 不在本套件里跑，避免和用例抢库
 os.environ.pop("VERABOT_MEMORY_ENC_KEY", None)
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-not-used")
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # backend/

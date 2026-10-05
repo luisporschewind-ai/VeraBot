@@ -32,7 +32,7 @@ struct MemorySettingsSection: View {
             if let errorText {
                 Text(errorText).foregroundStyle(.red)
             } else {
-                Text("Bot 只会在你确认后记住信息。健康、财务信息加密保存；密码、验证码、证件号、卡号不会被记住。清空对话默认不会删除这里的内容。")
+                Text("Bot 只会在你确认后记住信息。健康、财务信息加密保存；密码、验证码、证件号、卡号不会被记住。清空对话会删除对话摘要，已确认的记忆默认保留。")
             }
         }
         .task { await load() }

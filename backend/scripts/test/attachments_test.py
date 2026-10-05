@@ -4,6 +4,7 @@
 只用临时 SQLite + 临时附件目录，LLM 全部用假实现（不联网）。用例编号见 docs/TEST_CASES_v0.1.md「图片附件」。
 """
 import asyncio, base64, io, json, os, re, shutil, sqlite3, sys, tempfile, time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 TMP = tempfile.mkdtemp(prefix="vb_att_")
@@ -331,7 +332,8 @@ check("ATT-11", "委派：被委派 Bot 的 user 消息带同一图片 base64；
 
 # ---------------------------------------------------------------- ATT-16 带图轮次写操作需确认
 w_att = upload(webp(), bot_id=bot["id"]).json()["id"]
-SCRIPT[:] = [{"name": "create_reminder", "args": {"content": "按图片开会", "due_at": "2026-10-04 09:00"}},
+due = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d 09:00")
+SCRIPT[:] = [{"name": "create_reminder", "args": {"content": "按图片开会", "due_at": due}},
              {"name": "get_weather", "args": {"city": "北京"}}, "好的"]
 _, evs = sse(bot["id"], "按图片建个提醒", [w_att])
 res = {d["name"]: d["result"] for e, d in evs if e == "tool_result"}
@@ -340,7 +342,7 @@ from verabot.agents.tool_router import dispatch  # noqa: E402
 tainted = TurnState(); tainted.image_tainted = True; tainted.image_ids = [w_att]
 deleg_ctx = ToolContext(user_id=UID, bot=db.get_bot(UID, helper["id"]), depth=1, turn=tainted)
 deleg_res = asyncio.run(dispatch(deleg_ctx, "create_reminder", json.dumps({"content": "x"})))
-SCRIPT[:] = [{"name": "create_reminder", "args": {"content": "确认后的提醒", "due_at": "2026-10-04 09:00"}}, "已创建"]
+SCRIPT[:] = [{"name": "create_reminder", "args": {"content": "确认后的提醒", "due_at": due}}, "已创建"]
 _, evs_ok = sse(bot["id"], "确认")
 res_ok = [d["result"] for e, d in evs_ok if e == "tool_result"]
 n_rem2 = sqlite3.connect(os.environ["VERABOT_DB"]).execute("SELECT COUNT(*) FROM reminders WHERE user_id=?", (UID,)).fetchone()[0]
@@ -491,7 +493,7 @@ cols = {r[1] for r in c.execute("PRAGMA table_info(attachments)")}
 idx = {r[1] for r in c.execute("PRAGMA index_list(attachments)")}
 c.close()
 check("ATT-MIG", "schema v12：attachments 表字段齐全（storage_backend / storage_key / thumb_key / caption），idx_att_user",
-      ver == "13" == str(db.SCHEMA_VERSION) and {"id", "user_id", "bot_id", "message_id", "kind", "mime", "bytes", "width",
+      ver == "14" == str(db.SCHEMA_VERSION) and {"id", "user_id", "bot_id", "message_id", "kind", "mime", "bytes", "width",
       "height", "sha256", "storage_backend", "storage_key", "thumb_key", "caption", "caption_status", "status",
       "created_at", "expires_at"} == cols and "idx_att_user" in idx, f"{ver} {cols}")
 
@@ -508,7 +510,7 @@ has_tbl = c.execute("SELECT 1 FROM sqlite_master WHERE name='attachments'").fetc
 n_rem_after = c.execute("SELECT COUNT(*) FROM reminders").fetchone()[0]
 c.close()
 check("ATT-MIG-11", "v11 → v12：补建 attachments 表、版本 12，提醒数据不变",
-      ver2 == "13" and has_tbl and n_rem_before == n_rem_after, f"{ver2} {has_tbl}")
+      ver2 == "14" and has_tbl and n_rem_before == n_rem_after, f"{ver2} {has_tbl}")
 
 # ---------------------------------------------------------------- ATT-CONTRACT
 swift = (IOS / "Packages/VeraBotKit/Sources/VeraBotCore/Attachment.swift").read_text(encoding="utf-8")

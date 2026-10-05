@@ -8,6 +8,7 @@ struct MessageRow: View {
     let vm: ChatViewModel
     @AppStorage(SettingsKeys.ttsEnabled) private var ttsEnabled = true
     @State private var confirmDelete = false
+    @State private var feedbackReason = false
 
     /// 只有已落库（有 messageID）且不在流式输出中的消息可删除；欢迎语、正在生成的回复不显示「删除」
     private var canDelete: Bool { item.messageID != nil && !item.streaming }
@@ -85,8 +86,15 @@ struct MessageRow: View {
                             }
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            if ttsEnabled && !item.streaming && !item.text.isEmpty {
-                                SpeakButton(key: item.id.uuidString, text: item.text)
+                            if !item.streaming && (item.messageID != nil || (ttsEnabled && !item.text.isEmpty)) {
+                                HStack(spacing: 0) {
+                                    if ttsEnabled && !item.text.isEmpty {
+                                        SpeakButton(key: item.id.uuidString, text: item.text)
+                                    }
+                                    if item.messageID != nil {
+                                        feedbackButtons
+                                    }
+                                }
                             }
                         }
                     }
@@ -97,6 +105,57 @@ struct MessageRow: View {
                 .contextMenu { messageMenu }
                 Spacer(minLength: 24)
             }
+            .confirmationDialog("哪里不满意？", isPresented: $feedbackReason, titleVisibility: .visible) {
+                Button("太长") { Task { await vm.setFeedback(messageID: item.messageID ?? 0, rating: -1, reason: "too_long") } }
+                Button("太短") { Task { await vm.setFeedback(messageID: item.messageID ?? 0, rating: -1, reason: "too_short") } }
+                Button("不准确") { Task { await vm.setFeedback(messageID: item.messageID ?? 0, rating: -1, reason: "inaccurate") } }
+                Button("语气") { Task { await vm.setFeedback(messageID: item.messageID ?? 0, rating: -1, reason: "tone") } }
+                Button("其他") { Task { await vm.setFeedback(messageID: item.messageID ?? 0, rating: -1, reason: "other") } }
+                Button("取消", role: .cancel) {}
+            }
+        }
+    }
+
+    /// 气泡下方、朗读按钮旁的 👍 / 👎。选中用填充图标；再点一次撤销。👎 先选原因。
+    private var feedbackButtons: some View {
+        let selected = item.feedback?.rating
+        let busy = item.messageID.map { vm.feedbackBusy.contains($0) } ?? false
+        return HStack(spacing: 0) {
+        Button {
+            guard let id = item.messageID, !busy else { return }
+            if selected == 1 {
+                Task { await vm.clearFeedback(messageID: id) }
+            } else {
+                Task { await vm.setFeedback(messageID: id, rating: 1, reason: nil) }
+            }
+        } label: {
+            Image(systemName: selected == 1 ? "hand.thumbsup.fill" : "hand.thumbsup")
+                .font(.footnote)
+                .foregroundStyle(selected == 1 ? Color.brand : Color.secondary)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .accessibilityLabel("有用")
+        .accessibilityAddTraits(selected == 1 ? .isSelected : [])
+
+        Button {
+            guard let id = item.messageID, !busy else { return }
+            if selected == -1 {
+                Task { await vm.clearFeedback(messageID: id) }
+            } else {
+                feedbackReason = true
+            }
+        } label: {
+            Image(systemName: selected == -1 ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                .font(.footnote)
+                .foregroundStyle(selected == -1 ? Color.brand : Color.secondary)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .accessibilityLabel("没用")
+        .accessibilityAddTraits(selected == -1 ? .isSelected : [])
         }
     }
 }

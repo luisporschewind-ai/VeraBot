@@ -1,6 +1,6 @@
 # 以记忆为核心的 Bot 成长体系 (Memory-centred Bot Growth System) — 实施方案 v1.0
 
-> 状态：**v1.0 已批准 (Approved)；M1 已实现 (Implemented)**，M2~M5 未开始。日期：2026-10-01 (UTC+8)。Boss 对 §17 开放问题的决定见 §17 (优先于正文中的「建议」)；M1 的实现说明与偏差见 §19。
+> 状态：**v1.0 已批准 (Approved)；M1、M2 已实现 (Implemented)**，M3~M5 未开始。日期：2026-10-01 (UTC+8)；M2 实现说明见 §20。Boss 对 §17 开放问题的决定见 §17 (优先于正文中的「建议」)；M1 的实现说明与偏差见 §19。
 > 基于代码：commit `2cfb018` (功能代码同 `4f4cd49`)，数据库 **schema v3**。涉及文件：`backend/verabot/agents/{runtime,prompts,permissions,context,delegation}.py`、`tools/registry.py`、`services/llm.py`、`db/{schema,repository,database}.py`、`api/routers/*`、`core/config.py`；iOS `Features/{Chat,BotInfo,Settings}`、`Core/UI/Theme.swift`、`Packages/VeraBotKit`。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md) (权限 / 上下文隔离 / 护栏)、[MCP_CAPABILITY.md](MCP_CAPABILITY.md) (HITL 确认卡片、不可信内容处理的思路与本文一致)。
 > 本文以 **M1 为完整实施规格**，M2~M5 为较粗的规格，实施前各自再细化。
@@ -793,3 +793,14 @@ FEATURES (记忆 / API 表)、ARCHITECTURE (§2.1 模块、§2.2 插件注册例
 - **Web 前端未改动** (`frontend/web`)，记忆工具结果在 Web 中显示为普通工具卡片；API 全部向后兼容。
 - **Token 估算**：30 条记忆时注入块约 374 字 (≈ 224 Token，按 0.6 Token/字估算)，未用 DeepSeek 实测 `prompt_tokens`。
 - **测试**：`backend/scripts/test/memory_test.py` MEM-01~36 (mock LLM + 临时 DB)；`swift test` 含 14 个 Memory 用例。真实 DeepSeek 下「是否会主动提议、话术是否得当」需 Boss 按 MEM-UI 用例验收。
+
+## 20. M2 实现说明（Implementation notes，2026-10-05）
+
+- **Schema v14**：`memory_jobs`、`message_feedback`（§3.2）。迁移幂等，不写记忆。
+- **滚动摘要**：对话落库后入队 `kind=summarize`（同一 Bot 只有一条 pending）。进程内单 worker 在 FastAPI startup 启动、shutdown 取消；启动时把 `running` 退回 `pending`。窗口外且未被 `meta.covers_until_message_id` 覆盖的消息 ≥ 20 才调用模型，否则 `skipped`。每个 Bot 一条 `scope=summary` 滚动摘要（≤ 400 字），不经确认。用量 `usage_log.kind=memory`。当日用量 ≥ 预算 90% 时 `skipped`。失败最多再试 2 次（共 3 次领取）。
+- **清空对话**：总是删除该 Bot 的摘要，已确认的记忆保留；`include_memories=true` 再删该 Bot 的 bot 记忆。
+- **风格**：用户消息命中「再短一点 / 简洁点 / 说重点 / 详细一点 / 别用列表 / 用英文」时，本轮回复后追加 `type=style` 的待确认卡片（标题「以后都这样回答吗？」）。14 天内同一 Bot 3 次 👎 `too_long` 同样只提议、不自动生效。style 在记忆块最前；摘要块 `【较早对话摘要】` 在记忆块之后，只注入本 Bot。
+- **API**：`POST / DELETE /api/messages/{id}/feedback`；消息列表的 assistant 消息带 `feedback: {rating, reason}`。只能评本人的 assistant 消息。
+- **iOS**：Bot 回复气泡在朗读按钮旁有 👍 / 👎；👎 用系统确认框选原因；选中为填充图标；再点撤销。风格提议走既有确认卡片。
+- **Web**：冻结，没有这套界面。
+- **测试**：`backend/scripts/test/memory_m2_test.py`（MEM-40~49，mock LLM）。iOS 未在本环境 `xcodebuild`。

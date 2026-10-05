@@ -421,3 +421,48 @@ def clear_for_bot(user_id: int, bot_id: int) -> int:
         n = repo.delete_for_bot(c, user_id, bot_id)
     _audit(None, user_id, bot_id, "memory_cleared", scope="bot+summary", bot_id=bot_id, deleted=n, source="clear_chat")
     return n
+
+
+def clear_summaries(user_id: int, bot_id: int) -> int:
+    """清空对话时总是删除该 Bot 的滚动摘要，已确认的 bot / global 记忆保留。"""
+    with db.tx() as c:
+        n = repo.delete_summaries(c, user_id, bot_id)
+    if n:
+        _audit(None, user_id, bot_id, "memory_cleared", scope="summary", bot_id=bot_id, deleted=n, source="clear_chat")
+    return n
+
+
+def propose_style(user_id: int, bot: dict, content: str, *, user_message_id: int | None = None) -> dict | None:
+    """风格校准提议：type=style、scope=bot、source=feedback、status=proposed。不自动生效。
+    已有相同生效记忆、冷却期内被拒绝、或无法保存时返回 None（不弹卡片）。已有相同待确认提议时返回那一条。"""
+    if not enabled_for(user_id):
+        return None
+    access = bot.get("memory_access") or "none"
+    if access == "none":
+        return None
+    text = policy.clean(content)
+    code, sensitivity = policy.check(text)
+    if code or sensitivity != "normal":
+        log.info("style proposal blocked: user=%s bot=%s code=%s", user_id, bot.get("id"), code or sensitivity)
+        return None
+    with db.tx() as c:
+        repo.expire_stale(c, user_id)
+        h = policy.content_hash(text, "normal")
+        if repo.find_by_hash(c, user_id, "bot", bot["id"], h, ("active",)):
+            return None
+        cutoff = repo.iso_in(-config.MEMORY_REJECT_COOLDOWN_DAYS)
+        if repo.recently_declined(c, user_id, "bot", bot["id"], h, cutoff):
+            return None
+        if repo.active_count(c, user_id) >= config.MEMORY_MAX_ACTIVE:
+            return None
+        dup = repo.find_by_hash(c, user_id, "bot", bot["id"], h, PENDING, "create")
+        if dup:
+            return _proposal_result(c, user_id, dup["id"])
+        mid = repo.insert(c, user_id=user_id, scope="bot", bot_id=bot["id"], type="style", content=text,
+                          content_hash=h, source="feedback", source_bot_id=bot["id"],
+                          source_message_id=user_message_id, status="proposed", action="create",
+                          sensitivity="normal", expires_at=repo.iso_in(config.MEMORY_PROPOSAL_TTL_DAYS))
+        _audit(c, user_id, bot["id"], "memory_proposed", memory_id=mid, action="create", type="style",
+               scope="bot", bot_id=bot["id"], source="feedback")
+        log.info("style proposed: user=%s bot=%s id=%s", user_id, bot["id"], mid)
+        return _proposal_result(c, user_id, mid)

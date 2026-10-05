@@ -11,7 +11,6 @@ from .policy import render_safe
 
 TYPE_LABEL = {"profile": "资料", "preference": "偏好", "fact": "事实", "style": "风格", "summary": "摘要", "routine": "习惯"}
 SCOPE_LABEL = {"global": "全局", "bot": "本Bot", "summary": "摘要"}
-PINNED_TYPES = ("profile", "style")
 PINNED_MAX = 5
 _STOP = {"我的", "一下", "可以", "什么", "怎么", "这个", "那个", "就是", "还是", "一个", "用户", "我们", "你们", "他们",
          "以后", "记住", "喜欢", "不是", "没有", "觉得", "现在", "今天", "因为", "所以", "如果", "但是"}
@@ -67,17 +66,19 @@ def _days_since(*stamps) -> float:
 
 
 def rank(mems: list[dict], query_text: str) -> list[dict]:
-    """固定优先 profile / style（最多 5 条）；其余按 2.0×重叠 + 0.5×新近 + 0.3×使用 + 0.2×置信度 排序。
+    """style 最多 3 条排在记忆块最前，其次 profile（最多 5 条）；其余按
+    2.0×重叠 + 0.5×新近 + 0.3×使用 + 0.2×置信度 排序。
     可见集合 ≤ INJECT_MAX 时全部保留；否则只用与查询有关键词重叠的条目补满。"""
-    if len(mems) <= config.MEMORY_INJECT_MAX:
-        pinned = [m for m in mems if m["type"] in PINNED_TYPES]
-        rest = [m for m in mems if m["type"] not in PINNED_TYPES]
-        q = tokens(query_text)
-        rest.sort(key=lambda m: -_score(m, q))
-        return pinned + rest
-    pinned = [m for m in mems if m["type"] in PINNED_TYPES][:PINNED_MAX]
-    pinned_ids = {m["id"] for m in pinned}
+    styles = [m for m in mems if m["type"] == "style"][:config.MEMORY_STYLE_INJECT_MAX]
+    style_ids = {m["id"] for m in styles}
+    profiles = [m for m in mems if m["type"] == "profile" and m["id"] not in style_ids]
     q = tokens(query_text)
+    if len(mems) <= config.MEMORY_INJECT_MAX:
+        rest = [m for m in mems if m["id"] not in style_ids and m["type"] != "profile"]
+        rest.sort(key=lambda m: -_score(m, q))
+        return styles + profiles + rest
+    profiles = profiles[:PINNED_MAX]
+    pinned_ids = style_ids | {m["id"] for m in profiles}
     scored = []
     for m in mems:
         if m["id"] in pinned_ids:
@@ -87,7 +88,7 @@ def rank(mems: list[dict], query_text: str) -> list[dict]:
         if overlap > 0:
             scored.append((_score(m, q), m))
     scored.sort(key=lambda x: -x[0])
-    return pinned + [m for _, m in scored]
+    return styles + profiles + [m for _, m in scored]
 
 
 def _score(m: dict, q: set[str]) -> float:
@@ -122,9 +123,25 @@ def render(selected: list[dict]) -> Recall:
     return Recall(block=HEADER + "\n<user_memory>\n" + "\n".join(lines) + "\n</user_memory>", ids=ids)
 
 
+def _summary_line(summary: dict) -> str:
+    text = render_safe(repo.plaintext(summary), limit=config.MEMORY_SUMMARY_MAX_CHARS)
+    if not text:
+        return ""
+    return f"【较早对话摘要】{text}"
+
+
 def recall(user_id: int, bot: dict, query_text: str) -> Recall:
+    access = bot.get("memory_access") or "none"
     with db.tx() as c:
         mems = visible(c, user_id, bot)
+        summary = repo.active_summary(c, user_id, bot["id"]) if access != "none" else None
     for m in mems:
         m["_text"] = repo.plaintext(m)
-    return render(rank(mems, query_text))
+    rec = render(rank(mems, query_text))
+    if not summary:
+        return rec
+    line = _summary_line(summary)
+    if not line:
+        return rec
+    block = f"{rec.block}\n{line}" if rec.block else line
+    return Recall(block=block, ids=[*rec.ids, summary["id"]])

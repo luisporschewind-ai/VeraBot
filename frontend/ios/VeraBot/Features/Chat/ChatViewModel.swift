@@ -13,6 +13,7 @@ final class ChatViewModel {
         var streaming = false
         var messageID: Int?
         var attachments: [Attachment] = []   // 用户消息里的图片（v12）
+        var feedback: MessageFeedback?       // assistant 消息的 👍 / 👎（M2）
     }
 
     var bot: Bot
@@ -76,7 +77,7 @@ final class ChatViewModel {
             let r = try await api.messages(botID: bot.id)
             items = r.messages.map {
                 Item(isUser: $0.role == "user", text: $0.content, traces: $0.traces ?? [], messageID: $0.id,
-                     attachments: $0.attachments)
+                     attachments: $0.attachments, feedback: $0.feedback)
             }
             if items.isEmpty {
                 items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
@@ -157,7 +158,41 @@ final class ChatViewModel {
         items[idx].text = t.isEmpty ? "⚠️ \(msg)" : items[idx].text + "\n\n⚠️ \(msg)"
     }
 
-    /// 清空对话；includeMemories = true 时同时删除该 Bot 的「本 Bot 记忆」与对话摘要（共享资料保留）。
+    var feedbackBusy: Set<Int> = []
+
+    /// 👍 / 👎。rating = 1 不带原因；rating = -1 必须带 reason。服务端若提议风格记忆，把确认卡片接到这条回复上。
+    func setFeedback(messageID: Int, rating: Int, reason: String?) async {
+        feedbackBusy.insert(messageID)
+        defer { feedbackBusy.remove(messageID) }
+        do {
+            let r = try await api.setMessageFeedback(messageID: messageID, rating: rating, reason: reason)
+            guard let idx = items.firstIndex(where: { $0.messageID == messageID }) else { return }
+            items[idx].feedback = r.feedback
+            if let trace = r.styleTrace, !items[idx].traces.contains(where: { $0.id == trace.id }) {
+                items[idx].traces.append(trace)
+            }
+            if items[idx].traces.contains(where: { $0.memoryProposal?.isCard == true }) {
+                await refreshMemoryStates()
+            }
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    func clearFeedback(messageID: Int) async {
+        feedbackBusy.insert(messageID)
+        defer { feedbackBusy.remove(messageID) }
+        do {
+            _ = try await api.deleteMessageFeedback(messageID: messageID)
+            if let idx = items.firstIndex(where: { $0.messageID == messageID }) {
+                items[idx].feedback = nil
+            }
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    /// 清空对话；includeMemories = true 时同时删除该 Bot 的「本 Bot 记忆」。对话摘要总会删掉，已确认的记忆默认保留。
     func clear(includeMemories: Bool = false) async {
         _ = try? await api.clearMessages(botID: bot.id, includeMemories: includeMemories)
         memoryStates = [:]

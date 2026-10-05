@@ -195,3 +195,17 @@ class MemoryConfirmIn(BaseModel):
 
 class MemorySettingsIn(BaseModel):
     enabled: bool
+
+
+class FeedbackIn(BaseModel):
+    """POST /api/messages/{id}/feedback。👎 必须带原因；👍 不带原因。"""
+    rating: Literal[1, -1]
+    reason: Literal["too_long", "too_short", "inaccurate", "tone", "other"] | None = None
+
+    @model_validator(mode="after")
+    def _reason_matches_rating(self):
+        if self.rating == -1 and self.reason is None:
+            raise ValueError("请选择不满意的原因")
+        if self.rating == 1 and self.reason is not None:
+            raise ValueError("点赞不需要原因")
+        return self

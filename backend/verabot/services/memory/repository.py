@@ -4,10 +4,11 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from ...core import crypto
-from ...db.memory_store import (COLS, FROM, active_count, bot_active_counts, counts, delete,  # noqa: F401
-                                delete_all, delete_for_bot, delete_global, delete_scope, expire_stale,
-                                find_by_hash, get, get_raw, insert, list_filtered, mark_used, owner_of, query,
-                                recently_declined, set_user_enabled, update, user_enabled, visible_active)
+from ...db.memory_store import (COLS, FROM, active_count, active_summary, bot_active_counts, counts, delete,  # noqa: F401
+                                delete_all, delete_for_bot, delete_global, delete_scope, delete_summaries,
+                                expire_stale, find_by_hash, get, get_raw, insert, list_filtered, mark_used,
+                                owner_of, query, recently_declined, set_user_enabled, summary_ids, update,
+                                user_enabled, visible_active)
 from .policy import SENSITIVE_PLACEHOLDER
 
 

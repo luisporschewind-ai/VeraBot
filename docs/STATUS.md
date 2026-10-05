@@ -10,6 +10,10 @@
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-flash` (思考模式关闭；2026-10-03 前为 `deepseek-chat`) |
 
+## 🔁 交接 (Handoff for the next agent) — 2026-10-05 UTC+8
+
+- **记忆 M2（schema v14）**：滚动摘要 + 风格校准已实现（见 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §11.1 / §20）。`memory_m2_test.py` 覆盖 MEM-40~49。清空对话会删摘要、保留已确认记忆。**Web 落后**：没有 👍 / 👎 和摘要界面（冻结）。iOS 未在云端 `xcodebuild`。
+
 ## 🔁 交接 (Handoff for the next agent) — 2026-10-03 UTC+8
 
 - **HEAD**：功能与文档均已提交并推送 (置顶 `c5529ce`、首页头像正圆 `3504fef`、App 图标亮 / 暗色 `832cdb0`，及本次文档对齐)，分支 `main`，仓库 `/Users/admin/Desktop/VeraBot-v0.1` (Mac)，origin `github.com/luisporschewind-ai/VeraBot`。

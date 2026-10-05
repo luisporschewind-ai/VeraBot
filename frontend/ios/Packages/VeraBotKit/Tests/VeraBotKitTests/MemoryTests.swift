@@ -97,6 +97,19 @@ private let memoryJSON = ##"""
     #expect(items["scope"] == nil)
 }
 
+@Test func decodesMessageFeedbackOnChatMessage() throws {
+    let json = #"{"id":3,"role":"assistant","content":"好","traces":[],"created_at":"2026-10-05","feedback":{"rating":-1,"reason":"too_long"}}"#
+    let m = try JSONDecoder().decode(ChatMessage.self, from: Data(json.utf8))
+    #expect(m.feedback?.rating == -1)
+    #expect(m.feedback?.reason == "too_long")
+    let old = #"{"id":1,"role":"user","content":"hi","traces":[]}"#
+    let legacy = try JSONDecoder().decode(ChatMessage.self, from: Data(old.utf8))
+    #expect(legacy.feedback == nil)
+    let body = try JSONDecoder().decode(MessageFeedbackResponse.self, from: Data(
+        #"{"ok":true,"feedback":{"rating":-1,"reason":"too_long"},"style_trace":null}"#.utf8))
+    #expect(body.ok && body.feedback?.reason == "too_long" && body.styleTrace == nil)
+}
+
 @Test func parsesMemoryProposalFromTrace() throws {
     let json = ##"{"id":"c1","name":"remember","args":{"content":"用户不吃香菜","type":"preference","scope":"global"},"result":{"memory_id":41,"status":"proposed","action":"create","content":"用户不吃香菜","type":"preference","scope":"global","sensitive":false,"expires_at":"2026-10-08T00:00:00+00:00","note":"…"}}"##
     let t = try JSONDecoder().decode(ToolTrace.self, from: Data(json.utf8))

@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
-from .api.routers import attachments, auth, avatars, bots, chat, devices, mcp, memories, meta, notifications, plugins, reminders, voice
+from .api.routers import attachments, auth, avatars, bots, chat, devices, feedback, mcp, memories, meta, notifications, plugins, reminders, voice
 from .services.reminders import scheduler as reminder_scheduler
 from .core.config import WEB_DIR
 from .core import log_redact
@@ -44,9 +44,18 @@ async def _startup():
     app.state.reminder_scheduler = asyncio.create_task(reminder_scheduler.loop())
 
 
+@app.on_event("startup")
+async def _memory_jobs():
+    """滚动摘要：进程内单 worker。启动时把中断的 running 退回 pending。VERABOT_MEMORY_JOBS=0 时不启动。"""
+    from .services.memory.jobs import enabled, loop
+    if not enabled():
+        return
+    app.state.memory_jobs = asyncio.create_task(loop())
+
+
 @app.on_event("shutdown")
 async def _shutdown():
-    for name in ("reminder_scheduler", "attachments_reconcile"):
+    for name in ("reminder_scheduler", "attachments_reconcile", "memory_jobs"):
         task = getattr(app.state, name, None)
         if task is not None:
             task.cancel()
@@ -59,8 +68,8 @@ async def _attachments_reconcile():
     app.state.attachments_reconcile = asyncio.create_task(reconcile_loop())
 
 
-for r in (attachments.router, auth.router, avatars.router, bots.router, chat.router, memories.router, voice.router, reminders.router,
-          notifications.router, devices.router, meta.router, mcp.router, plugins.router):
+for r in (attachments.router, auth.router, avatars.router, bots.router, chat.router, memories.router, feedback.router,
+          voice.router, reminders.router, notifications.router, devices.router, meta.router, mcp.router, plugins.router):
     app.include_router(r)
 
 

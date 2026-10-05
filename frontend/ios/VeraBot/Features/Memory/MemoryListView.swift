@@ -67,7 +67,18 @@ struct MemoryListView: View {
             }
             ForEach(perBot) { group in
                 Section {
-                    ForEach(group.items) { m in editableRow(m) }
+                    ForEach(group.items) { m in
+                        if m.scope == .summary || m.type == .summary {
+                            row(m)
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) { Task { await delete(m) } } label: {
+                                        Label("删除", systemImage: "trash")
+                                    }
+                                }
+                        } else {
+                            editableRow(m)
+                        }
+                    }
                 } header: {
                     HStack(spacing: 6) {
                         if let b = group.bot {

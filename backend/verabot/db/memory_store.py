@@ -61,6 +61,25 @@ def list_filtered(c, user_id: int, *, statuses, scope: str | None, bot_id: int |
     return query(c, user_id, " AND ".join(where), tuple(params), limit=limit)
 
 
+def active_summary(c, user_id: int, bot_id: int) -> dict | None:
+    """该 Bot 当前的滚动摘要（每个 Bot 一条 scope=summary）。"""
+    return row(c.execute(
+        "SELECT * FROM memories WHERE user_id=? AND bot_id=? AND scope='summary' AND status='active' "
+        "ORDER BY id LIMIT 1", (user_id, bot_id)).fetchone())
+
+
+def summary_ids(c, user_id: int, bot_id: int) -> list[int]:
+    return [r[0] for r in c.execute(
+        "SELECT id FROM memories WHERE user_id=? AND bot_id=? AND scope='summary' AND status='active' ORDER BY id",
+        (user_id, bot_id)).fetchall()]
+
+
+def delete_summaries(c, user_id: int, bot_id: int) -> int:
+    """清空对话时删除该 Bot 的对话摘要，不删已确认的 bot / global 记忆。"""
+    return c.execute("DELETE FROM memories WHERE user_id=? AND bot_id=? AND scope='summary'",
+                     (user_id, bot_id)).rowcount
+
+
 def visible_active(c, user_id: int, bot_id: int, include_global: bool, limit: int) -> list[dict]:
     """召回用：本 Bot 的生效 bot 记忆 +（include_global 时）全局资料，按更新时间倒序。"""
     where = "m.status='active' AND ((m.scope='bot' AND m.bot_id=?)"

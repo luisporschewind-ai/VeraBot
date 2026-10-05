@@ -84,5 +84,6 @@ extension ChatMessage {
         traces = try c.decodeIfPresent([ToolTrace].self, forKey: .traces)
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
         attachments = try c.decodeIfPresent([Attachment].self, forKey: .attachments) ?? []
+        feedback = try c.decodeIfPresent(MessageFeedback.self, forKey: .feedback)
     }
 }
