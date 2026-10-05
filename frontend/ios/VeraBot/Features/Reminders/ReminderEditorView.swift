@@ -32,9 +32,11 @@ struct ReminderEditorView: View {
                 Toggle("日期", isOn: $hasDate)
                 if hasDate {
                     DatePicker("日期", selection: $date, displayedComponents: .date)
+                        .labelsHidden()
                     Toggle("时间", isOn: $hasTime)
                     if hasTime {
                         DatePicker("时间", selection: $date, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
                     }
                 }
             }
