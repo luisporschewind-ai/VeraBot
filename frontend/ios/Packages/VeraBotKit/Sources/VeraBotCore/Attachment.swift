@@ -75,7 +75,7 @@ public struct ChatRequest: Encodable, Sendable {
 }
 
 extension ChatMessage {
-    /// 旧后端没有 attachments 键：按空数组处理，不崩。
+    /// 旧后端没有 attachments（v12 起）/ feedback（v14 起）键：按空数组 / nil 处理，不崩。
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(Int.self, forKey: .id)
@@ -84,5 +84,6 @@ extension ChatMessage {
         traces = try c.decodeIfPresent([ToolTrace].self, forKey: .traces)
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
         attachments = try c.decodeIfPresent([Attachment].self, forKey: .attachments) ?? []
+        feedback = try c.decodeIfPresent(MessageFeedback.self, forKey: .feedback)
     }
 }

@@ -11,6 +11,10 @@ struct MessageRow: View {
 
     /// 只有已落库（有 messageID）且不在流式输出中的消息可删除；欢迎语、正在生成的回复不显示「删除」
     private var canDelete: Bool { item.messageID != nil && !item.streaming }
+    /// 有正文、已落库、不在生成中的 Bot 回复才能 👍 / 👎（欢迎语与「（无回复）」不显示）
+    private var canFeedback: Bool { item.messageID != nil && !item.streaming && !item.text.isEmpty }
+    /// 🔊 的显示条件（设置开关 + 有正文）；Bot 回复另需不在生成中
+    private var canSpeak: Bool { ttsEnabled && !item.streaming && !item.text.isEmpty }
 
     var body: some View {
         content
@@ -85,8 +89,12 @@ struct MessageRow: View {
                             }
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            if ttsEnabled && !item.streaming && !item.text.isEmpty {
-                                SpeakButton(key: item.id.uuidString, text: item.text)
+                            // 🔊 与 👍 / 👎 同一行靠右对齐（记忆 M2：反馈只对已落库的回复显示）
+                            if canSpeak || canFeedback {
+                                HStack(spacing: 0) {
+                                    if canSpeak { SpeakButton(key: item.id.uuidString, text: item.text) }
+                                    if canFeedback { FeedbackButtons(item: item, vm: vm) }
+                                }
                             }
                         }
                     }

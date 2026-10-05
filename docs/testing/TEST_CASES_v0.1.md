@@ -786,3 +786,28 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | CONN-K-01 | Kit | `PluginTests`：新字段解码、旧后端缺键、`needs_auth` / 错误文案、Trace 文案 | 通过 | 见 PR |
 | CONN-UI-01~10 | iOS 模拟器 | 方案 §9.5 验收清单 | — | ⏳ 待 Boss |
 | CONN-LIVE-01~06 | Mac | 真实 GitHub / Linear 冒烟 | — | ⏳ 待 Boss 令牌 |
+
+## 记忆 M2：对话摘要 + 风格校准 (schema v14) — 2026-10-05
+
+`backend/scripts/test/memory_m2_test.py`（mock LLM + 临时 DB，确定性，不消耗 Token）与 Kit `FeedbackTests`。设计 [MEMORY_GROWTH.md](../design/MEMORY_GROWTH.md) §11.1。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| MEM-40 | 迁移 | v13 库 → v14，启动两次 | `memory_jobs` / `message_feedback` 表与索引出现且幂等；`memory_jobs` 的部分唯一索引只约束 pending / running | ✅ |
+| MEM-41 | 摘要 | 一轮对话结束后（窗口外消息不足 20 条） | 入队一条 `summarize` job；worker 取走后置 `skipped/insufficient`，**不调用 LLM** | ✅ |
+| MEM-42 | 摘要 | 窗口外累计 ≥ 20 条（含另一个 Bot 的消息） | 只读本 Bot 的消息，生成 1 条 `scope=summary, type=summary, source=summary_job, status=active` 的 ≤ 400 字摘要，`meta.covers_until_message_id` 记边界 | ✅ |
+| MEM-42b | 摘要 | 同上 | 请求走 JSON Output（`response_format=json_object`），不带工具；另一个 Bot 的正文不出现在请求里 | ✅ |
+| MEM-43 | 注入 | 生成摘要后开始新一轮 | system prompt 的记忆块**之后**出现「【较早对话摘要】」，只注入给本条对话的 Bot；摘要正文不进 `messages.traces` | ✅ |
+| MEM-44 | 清空对话 | `DELETE /api/bots/{id}/messages?include_memories=true` | 该 Bot 的摘要在同一次清空里删除，返回值计入 `deleted_memories` | ✅ |
+| MEM-45 | 摘要 | 模型输出不是 JSON | 重试到上限（`VERABOT_MEMORY_JOBS_MAX_ATTEMPTS`，默认 3）后 `failed` / `error=bad_json`；期间不产生半条摘要 | ✅ |
+| MEM-46 | 摘要 | 当日用量 ≥ 90% 预算 | `skipped/budget`，不调用 LLM | ✅ |
+| MEM-47 | 摘要 | 进程重启（库里有遗留 `running`） | 启动时退回 `pending`，重启后可再次被取走 | ✅ |
+| MEM-48 | 反馈 API | 👍 / 👎 写入 `message_feedback` | 同一条可改评（`UNIQUE(user_id, message_id)`，改评不新增行）；👍 存 reason=NULL；消息列表按条回显 `feedback: {rating, reason}`；他人请求 → 404；`DELETE` 撤销 | ✅ |
+| MEM-49 | 风格校准 | 用户说「以后请用英文回答」 | 服务器在本轮追加一条合成 `remember` trace（`status=proposed`、`scope=bot`、`type=style`、`source=feedback`），落进 `messages.traces` 并推给客户端；同一风格重复要求 → 去重不再提议 | ✅ |
+| MEM-49b | 风格校准 | 卡片数据与记忆行 | 卡片用的 `memory_id` / `status` / `source` / `expires_at` 与 `memories` 行一致（客户端按既有卡片协议渲染，标题「以后都这样回答吗？」） | ✅ |
+| MEM-50 | 风格校准 | 14 天内同一 Bot 3 次 👎「太长」 | 前两次响应 `proposal=null`，第 3 次返回 style 提议（`scope=bot`、`source=feedback`、有 `expires_at`）；确认后 style 记忆在记忆块里排在 profile 之前 | ✅ |
+| MEM-UI-13 | iOS Kit | `FeedbackTests` | `setFeedback` 的路径 / 请求体（👍 不带 reason）、`clearFeedback` 的 DELETE、响应里的 `proposal` 转成确认卡片、`ChatMessage.feedback` 缺键 → nil | ✅ (`swift test` 156/156) |
+| MEM-UI-14 | iOS 模拟器 | 对话里点 👍 / 👎，再点一次撤销；👎 选理由 | 选中态填充、图标变品牌色；👎 弹系统「哪里不满意？」五项；改评后重进对话状态保持 | ⏳ 待 Boss |
+| MEM-UI-15 | iOS 模拟器 | 连续 3 次 👎「太长」 | 第 3 次回复下方就地出现「以后都这样回答吗？」卡片；确认后设置 › 记忆里出现「风格 · 来自你的反馈」 | ⏳ 待 Boss |
+
+汇总：MEM-40~50 **13/13 通过**（`memory_m2_test.py`，2026-10-05）；Kit `swift test` 156/156、iOS `xcodebuild` 成功。同一提交把 `attachments_test` / `auth_test` / `connector_test` / `plugin_test` / `reminder_test` 的 schema 版本断言改为 14。

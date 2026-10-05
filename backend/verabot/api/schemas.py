@@ -195,3 +195,16 @@ class MemoryConfirmIn(BaseModel):
 
 class MemorySettingsIn(BaseModel):
     enabled: bool
+
+
+class FeedbackIn(BaseModel):
+    """POST /api/messages/{id}/feedback（M2 风格校准）：👍 rating=1；👎 rating=-1 可带理由。
+    理由只允许设计稿的 5 种；👍 一律不带理由（多余字段忽略）。"""
+    rating: Literal[-1, 1]
+    reason: Literal["too_long", "too_short", "inaccurate", "tone", "other"] | None = None
+
+    @model_validator(mode="after")
+    def _positive_without_reason(self):
+        if self.rating > 0:
+            self.reason = None
+        return self

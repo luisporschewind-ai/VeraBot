@@ -13,6 +13,7 @@ final class ChatViewModel {
         var streaming = false
         var messageID: Int?
         var attachments: [Attachment] = []   // 用户消息里的图片（v12）
+        var feedback: MessageFeedback?       // 本条上的 👍 / 👎（v14；没评过 = nil）
     }
 
     var bot: Bot
@@ -27,6 +28,8 @@ final class ChatViewModel {
     var memoryOutcomes: [Int: String] = [:]
     var memoryBusy: Set<Int> = []
     var memoryConfirmTick = 0   // 触感反馈触发器：确认记住 +1
+    /// 正在提交 / 撤销反馈的消息（按 Item.id）：行内 👍 / 👎 在请求期间禁用
+    var feedbackBusy: Set<UUID> = []
     /// 执行状态机与头像计时（对话页导航栏读取 `executionState`）。
     private var playback = ExecutionAvatarController()
     var executionState: ExecutionState { playback.state }
@@ -76,7 +79,7 @@ final class ChatViewModel {
             let r = try await api.messages(botID: bot.id)
             items = r.messages.map {
                 Item(isUser: $0.role == "user", text: $0.content, traces: $0.traces ?? [], messageID: $0.id,
-                     attachments: $0.attachments)
+                     attachments: $0.attachments, feedback: $0.feedback)
             }
             if items.isEmpty {
                 items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
@@ -177,6 +180,52 @@ final class ChatViewModel {
         } catch {
             errorText = error.localizedDescription
         }
+    }
+
+    // MARK: - 消息反馈（👍 / 👎，记忆 M2 风格校准）
+
+    /// 评价一条 Bot 回复：同一条可改评（服务端 upsert）。响应里带回 style 提议（同类 👎 刚好聚合到阈值）
+    /// 时，就地在这条回复下补一张确认卡片——与服务器在本轮回复后追加的合成 trace 同一形状。
+    func setFeedback(_ item: Item, rating: Int, reason: FeedbackReason?) async {
+        guard let mid = item.messageID, !item.streaming else { return }
+        feedbackBusy.insert(item.id)
+        defer { feedbackBusy.remove(item.id) }
+        do {
+            let r = try await api.setFeedback(messageID: mid, rating: rating, reason: reason)
+            setFeedbackState(MessageFeedback(rating: r.rating, reason: r.reason), on: mid)
+            if let trace = r.proposalTrace { await attachProposalTrace(trace, on: mid) }
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    /// 撤销评价（再点一次已选中的 👍 / 👎）
+    func clearFeedback(_ item: Item) async {
+        guard let mid = item.messageID, !item.streaming else { return }
+        feedbackBusy.insert(item.id)
+        defer { feedbackBusy.remove(item.id) }
+        do {
+            _ = try await api.clearFeedback(messageID: mid)
+            setFeedbackState(nil, on: mid)
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    private func setFeedbackState(_ feedback: MessageFeedback?, on messageID: Int) {
+        guard let i = items.firstIndex(where: { $0.messageID == messageID }) else { return }
+        items[i].feedback = feedback
+    }
+
+    /// 卡片按 memory_id 去重：同一提议可能已经作为本轮的合成 trace 出现过。
+    private func attachProposalTrace(_ trace: ToolTrace, on messageID: Int) async {
+        guard let i = items.firstIndex(where: { $0.messageID == messageID }) else { return }
+        let pid = trace.memoryProposal?.memoryID
+        let dup = items[i].traces.contains { $0.id == trace.id || (pid != nil && $0.memoryProposal?.memoryID == pid) }
+        guard !dup else { return }
+        items[i].traces.append(trace)
+        scrollTick += 1
+        await refreshMemoryStates()
     }
 
     func send(_ text: String, attachment: Attachment? = nil) async {

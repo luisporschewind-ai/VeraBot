@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ... import db
-from ...db import message_store
+from ...db import feedback_store, message_store
 from ...agents.runtime import run_chat
 from ...services import memory
 from ...services.attachments import repo as attachments
@@ -20,10 +20,12 @@ def messages_list(bot_id: int, limit: int = 100, user=Depends(current_user)):
     require_bot(user, bot_id)
     with db.tx() as c:
         rs = message_store.list_recent(c, user["id"], bot_id, min(limit, 500))
+        fb = feedback_store.for_messages(c, user["id"], [r["id"] for r in rs])
     att_map = attachments.for_messages(user["id"], [r["id"] for r in rs])
     for r in rs:
         r["traces"] = json.loads(r["traces"]) if r["traces"] else []
         r["attachments"] = [attachments.public(a) for a in att_map.get(r["id"], [])]
+        r["feedback"] = fb.get(r["id"])   # {"rating", "reason"} 或 null（M2：👍 / 👎 回显选中态）
     return {"messages": list(reversed(rs))}
 
 

@@ -12,7 +12,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
-from .api.routers import attachments, auth, avatars, bots, chat, devices, mcp, memories, meta, notifications, plugins, reminders, voice
+from .api.routers import (attachments, auth, avatars, bots, chat, devices, feedback, mcp, memories, meta,
+                          notifications, plugins, reminders, voice)
 from .services.reminders import scheduler as reminder_scheduler
 from .core.config import WEB_DIR
 from .core import log_redact
@@ -42,11 +43,14 @@ async def _validation_error(request, exc: RequestValidationError):
 async def _startup():
     db.init_db()
     app.state.reminder_scheduler = asyncio.create_task(reminder_scheduler.loop())
+    # 记忆 M2：摘要任务 worker（单进程；重启时把遗留的 running 退回 pending）
+    from .services.memory import jobs as memory_jobs
+    app.state.memory_jobs = asyncio.create_task(memory_jobs.worker_loop())
 
 
 @app.on_event("shutdown")
 async def _shutdown():
-    for name in ("reminder_scheduler", "attachments_reconcile"):
+    for name in ("reminder_scheduler", "attachments_reconcile", "memory_jobs"):
         task = getattr(app.state, name, None)
         if task is not None:
             task.cancel()
@@ -60,7 +64,7 @@ async def _attachments_reconcile():
 
 
 for r in (attachments.router, auth.router, avatars.router, bots.router, chat.router, memories.router, voice.router, reminders.router,
-          notifications.router, devices.router, meta.router, mcp.router, plugins.router):
+          notifications.router, devices.router, meta.router, mcp.router, plugins.router, feedback.router):
     app.include_router(r)
 
 

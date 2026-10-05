@@ -306,7 +306,7 @@ def is_permitted(bot, name, depth):
 **召回 v1 (规则 + 关键词)**：
 
 1. 可见集合：`status='active'` 且 (`scope='bot' AND bot_id=当前 Bot`) 或 (`scope='global'` 且 Bot 为 `bot_and_global`)。`memory_access='none'` 或用户关闭 → 空。
-2. 固定优先：`type IN ('profile','style')`，按 `updated_at` 倒序，最多 5 条。
+2. 固定优先：`type IN ('profile','style')`，最多 5 条；组内先 `style` 再 `profile` (M2 风格校准要求风格最前，见 §11.1)，同类型按 `updated_at` 倒序。
 3. 其余打分：`score = 2.0 × overlap + 0.5 × recency + 0.3 × min(use_count,10)/10 + 0.2 × confidence`
    - `overlap`：查询文本 (本轮用户消息 + 最近 2 条用户消息) 与记忆正文的**中文二元组 (character bigram) + 英文小写词** 交集 / 记忆的 bigram 数；去掉停用二元组 (「我的」「一下」「可以」…)。
    - `recency`：`exp(-天数/30)`，基于 `max(last_used_at, confirmed_at)`。
@@ -597,8 +597,8 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 
 | ID | 用例 |
 |---|---|
-| MEM-40~44 | 摘要：累计 20 条未摘要消息触发 job；摘要 ≤ 400 字且只注入本 Bot；清空对话删除摘要；job 失败重试 ≤ 2 次；预算 ≥ 90% 时 skipped |
-| MEM-45~49 | 风格校准：👍 / 👎 写入 `message_feedback` (同一消息可改)；14 天内 3 次「太长」→ 提议 style 记忆；「再短一点」规则命中 → 提议「以后都这样吗？」；style 注入在记忆块最前 |
+| MEM-40~44 ✅ | 摘要：累计 20 条未摘要消息触发 job；摘要 ≤ 400 字且只注入本 Bot；清空对话删除摘要；job 失败重试到上限；预算 ≥ 90% 时 skipped。已实现，见 `backend/scripts/test/memory_m2_test.py` (MEM-40、41、42 / 42b、43、44、45、46、47) |
+| MEM-45~49 ✅ | 风格校准：👍 / 👎 写入 `message_feedback` (同一消息可改)；14 天内 3 次「太长」→ 提议 style 记忆；「再短一点」规则命中 → 提议「以后都这样回答吗？」；style 注入在记忆块最前。已实现，见同文件 MEM-48、49 / 49b、50 与 iOS `FeedbackTests` (MEM-UI-13) |
 | MEM-50~56 | 隐式候选：只从 user 消息抽取；JSON 解析失败 / 空内容 → 无候选；置信度 < 0.6、敏感、注入特征、与已有记忆相似 (bigram Jaccard ≥ 0.8) 的候选被丢弃；每次 ≤ 3 条；候选 14 天过期；候选不注入 |
 | MEM-57~60 | 主动建议：同一提醒内容 3 周在相近时间出现 → 建议卡片；接受才创建提醒；拒绝后 30 天不再建议；快捷提问只来自本人本 Bot 历史，点按只填入输入框不发送 |
 | MEM-61~64 | 成长界面与月度回顾：统计数字与 DB 一致；无等级 / 积分文案；回顾每月只生成一次 (缓存)；回顾中不出现敏感类别 |
@@ -606,7 +606,9 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 
 ## 11. M2~M5 规格 (较粗)
 
-### 11.1 M2 对话摘要 + 风格校准 (Summaries & style calibration)
+### 11.1 M2 对话摘要 + 风格校准 (Summaries & style calibration) — ✅ 已实现 (schema v14，2026-10-05)
+
+> 实现见分支 `feat/memory-m2`：`db/migrations/v014_memory_m2.py`（`memory_jobs` / `message_feedback`）、`db/memory_job_store.py`、`db/feedback_store.py`、`services/memory/{jobs,summarize,style}.py`、`api/routers/feedback.py`；iOS `MessageRow` / `FeedbackButtons` / `ChatViewModel` / `MemoryProposalCard` 与 Kit `Feedback.swift`。测试 `backend/scripts/test/memory_m2_test.py` (MEM-40~50，13/13) 与 Kit `FeedbackTests`。与下文规格的差异：默认模型 `deepseek-flash` 关思考，摘要 `max_tokens=900`、`temperature=0.3`；worker 失败重试上限由环境变量控制（默认 3，含首次）；记忆页里摘要行沿用既有编辑入口。
 
 **对话摘要**
 - 触发：`run_chat` 结束后 `memory.jobs.enqueue(user, bot, kind='summarize', after_message_id=mid)`；worker 检查「窗口外 (早于最近 20 条) 且未被摘要覆盖的消息」≥ 20 条才执行，否则 `skipped`。
@@ -633,7 +635,7 @@ user: <previous_summary>…</previous_summary>
 - 规则检测 (不调 LLM)：用户消息命中「再短一点 / 简洁点 / 说重点 / 详细一点 / 别用列表 / 用英文」等短语表 → 在本轮回复后由服务器追加 `remember` 风格提议 (`type='style', scope='bot', source='feedback'`)，卡片标题「以后都这样回答吗？」；聚合：14 天内同一 Bot 3 次 `too_long` → 同样提议。
 - 注入：style 记忆在记忆块中最先出现，标签 `[M·本Bot·风格]`。
 
-**M2 改动面**：`memory_jobs` / `message_feedback` 表 (下一个 schema 版本)；`services/memory/{jobs,summarize}.py`；`api/routers/memories.py` 增加 feedback 路由 (或新 `routers/feedback.py`)；iOS `MessageRow` 👍 / 👎、`ChatViewModel` 回填 message id。**估算 6~8 人日**。
+**M2 改动面** (实际落地)：`memory_jobs` / `message_feedback` 表 (v14)；`services/memory/{jobs,summarize,style}.py` + `db/{memory_job_store,feedback_store}.py`；新 `api/routers/feedback.py` (`POST` / `DELETE /api/messages/{id}/feedback`)，消息列表回显 `feedback`；`agents/runtime` 落库前追加合成 remember trace、`done` 后入队摘要，`main.py` 启动 / 关闭 worker；iOS `MessageRow` 👍 / 👎 (`FeedbackButtons`)、`ChatViewModel` 回填 message id 与就地插入卡片、`MemoryProposalCard` 的「以后都这样回答吗？」标题；Kit `Feedback.swift` + `VeraBotAPI.setFeedback` / `clearFeedback`、`ChatMessage.feedback`。**估算 6~8 人日**。
 
 ### 11.2 M3 隐式候选 + 主动建议 + 快捷提问 (Implicit candidates, proactive suggestions, quick prompts)
 
@@ -698,7 +700,7 @@ system: 你帮助私人助理「{bot_name}」发现值得长期记住的用户�
 | 阶段 | 内容 | 后端 | iOS | 测试 / 文档 | 合计 (人日) | 验收 |
 |---|---|---|---|---|---|---|
 | **M1** 显式记忆 + 记忆页 | schema v4、`services/memory` (repository / policy / recall)、记忆工具、权限、prompt 注入、`/api/memories*`、设置开关；iOS Kit 模型与 API、确认卡片、记忆页、编辑页、Bot 详情记忆分组 | 4 | 4 | 1~1.5 | **约 9~9.5** | §5.8；MEM-01~32、MEM-UI-01~10 |
-| **M2** 摘要 + 风格校准 | `memory_jobs` worker、滚动摘要、👍 / 👎、风格规则与提议 | 3.5 | 2 | 1 | 6~8 | MEM-40~49 |
+| **M2** 摘要 + 风格校准 ✅ (schema v14，2026-10-05) | `memory_jobs` worker、滚动摘要、👍 / 👎、风格规则与提议 | 3.5 | 2 | 1 | 6~8 | MEM-40~50、MEM-UI-13 (模拟器验收待 Boss) |
 | **M3** 隐式候选 + 主动建议 + 快捷提问 | 抽取 job + JSON 校验、候选审核、规律提醒建议 (含重复提醒)、快捷提问 | 5 | 3 | 1.5 | 8~10 | MEM-50~60 |
 | **M4** 成长界面 + 月度回顾 | growth 统计、回顾生成与缓存、导出、记忆页搜索 / 筛选、「参考了哪些记忆」 | 2.5 | 3 | 1 | 5~7 | MEM-61~64 |
 | **M5** 向量检索 + 协作优化 | Embedding 接入、混合召回、`ask_bot.memory_ids`、协作提示 | 6 | 1.5 | 1.5 | 8~12 | MEM-65~68 |

@@ -83,6 +83,15 @@ MEMORY_PROPOSALS_PER_TURN = int(os.getenv("VERABOT_MEMORY_PROPOSALS_PER_TURN", "
 MEMORY_PROPOSAL_TTL_DAYS = int(os.getenv("VERABOT_MEMORY_PROPOSAL_TTL_DAYS", "7"))
 MEMORY_REJECT_COOLDOWN_DAYS = int(os.getenv("VERABOT_MEMORY_REJECT_COOLDOWN_DAYS", "30"))
 # 敏感记忆（健康 / 财务）加密密钥：VERABOT_MEMORY_ENC_KEY，留空则自动生成 data/.memory_key（见 core/crypto.py）
+# ---- 记忆 M2：滚动摘要 + 风格校准（schema v14，MEMORY_GROWTH §11.1）----
+MEMORY_SUMMARY_MIN_MESSAGES = int(os.getenv("VERABOT_MEMORY_SUMMARY_MIN", "20"))   # 窗口外累计这么多条才摘要
+MEMORY_SUMMARY_MAX_CHARS = int(os.getenv("VERABOT_MEMORY_SUMMARY_MAX_CHARS", "400"))
+MEMORY_SUMMARY_MAX_INPUT = int(os.getenv("VERABOT_MEMORY_SUMMARY_MAX_INPUT", "200"))  # 单次摘要最多读入的消息条数
+MEMORY_JOBS_POLL_SECONDS = float(os.getenv("VERABOT_MEMORY_JOBS_POLL", "5"))       # worker 空闲轮询间隔
+MEMORY_JOBS_MAX_ATTEMPTS = int(os.getenv("VERABOT_MEMORY_JOBS_MAX_ATTEMPTS", "3"))  # 失败重试上限（含首次）
+MEMORY_STYLE_TOO_LONG_WINDOW_DAYS = int(os.getenv("VERABOT_MEMORY_STYLE_WINDOW_DAYS", "14"))
+MEMORY_STYLE_TOO_LONG_MIN = int(os.getenv("VERABOT_MEMORY_STYLE_TOO_LONG_MIN", "3"))
+MEMORY_SUMMARY_BUDGET_SKIP = float(os.getenv("VERABOT_MEMORY_SUMMARY_BUDGET_SKIP", "0.9"))  # 预算用到这里就跳过
 
 # ---- MCP（schema v8，见 docs/design/MCP_CAPABILITY.md）----
 # 地址、超时、重试与熔断都在调用时读取环境变量，测试可以在导入之后再改。

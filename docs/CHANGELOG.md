@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### 新增 (Added) — 记忆 M2：对话摘要 + 风格校准（schema v14）
+
+- **后端**：按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §11.1 实现 M2（`feat/memory-m2`）。迁移 v14 新增两张表：`memory_jobs`（`kind` / `status` / `after_message_id` / `attempts`，部分唯一索引保证同一用户同一 Bot 同一类型只有一条未完成任务）与 `message_feedback`（`rating` ±1、`reason` 五选一、`UNIQUE(user_id, message_id)`）。新模块 `services/memory/{jobs,summarize,style}.py` 与 `db/{memory_job_store,feedback_store}.py`（SQL 仍只在 `db/`）。
+  - **滚动摘要**：每轮对话结束后入队 `summarize`；进程内单 worker（`asyncio.create_task`，启动时把遗留 `running` 退回 `pending`，重启安全）检查「早于最近 20 条且未被摘要覆盖」的消息 ≥ 20 条才执行，否则 `skipped/insufficient`。摘要走 JSON Output（`response_format=json_object`，prompt 含 `json`）、复用 §9 的敏感检查与 ≤400 字上限，每个 Bot 一条 `scope='summary', type='summary', source='summary_job'` 的 active 记忆，`meta` 记 `covers_until_message_id`；新摘要 = 旧摘要 + 新消息，重新压缩。失败重试到上限（默认 3）记 `failed`；当日用量 ≥ 90% 预算时不调用 LLM 直接 `skipped/budget`。摘要在 system prompt 里以 `【较早对话摘要】` 接在记忆块之后（独立一行预算），只注入本 Bot；清空对话（`include_memories=true`）一并删除；记忆页「仅 {Bot}」组中可见、可删除。
+  - **风格校准**：`POST /api/messages/{id}/feedback`（👍 / 👎，同一条可改评；只能评本人的 assistant 消息，他人 / 不存在 / 用户自己的消息统一 404）与 `DELETE`（撤销）；消息列表回显 `feedback: {rating, reason}`。两条来路生成同一张确认卡片（`type='style', scope='bot', source='feedback'`）：① 规则命中（「再短一点」「说重点」「别用列表」「用英文」等短语表，不调 LLM）→ 本轮回复后由服务器追加一条合成 `remember` trace；② 14 天内同一 Bot 3 次 👎「太长 / 太短 / 不准确」→ 评价接口的响应里带回 `proposal`。两者都只提议、不自动生效，确认后 style 记忆在记忆块中最先注入。
+  - 新环境变量只写进 `.env.example`：`VERABOT_MEMORY_SUMMARY_MIN/_MAX_CHARS/_MAX_INPUT`、`VERABOT_MEMORY_JOBS_POLL/_MAX_ATTEMPTS`、`VERABOT_MEMORY_STYLE_WINDOW_DAYS/_TOO_LONG_MIN`、`VERABOT_MEMORY_SUMMARY_BUDGET_SKIP`。
+- **iOS**：Bot 回复下在 🔊 旁新增 👍 / 👎（`hand.thumbsup` / `hand.thumbsdown`，系统 `Button` + `.plain`，选中填充）；👎 弹系统 `confirmationDialog`「哪里不满意？太长 / 太短 / 不准确 / 语气 / 其他」，再点一次已选中的按钮即撤销。历史消息的反馈随 `GET /messages` 回显，新消息用 `done.message_id` 回填。评价接口返回 style 提议时就地补一张确认卡片，标题为「以后都这样回答吗？」。Kit 新增 `FeedbackReason` / `MessageFeedback` / `FeedbackResponse`、`VeraBotAPI.setFeedback` / `clearFeedback`、`ChatMessage.feedback`（旧后端缺键 → nil）。
+- **测试**：后端 `scripts/test/memory_m2_test.py` MEM-40~50（13/13，mock LLM + 临时 DB）；Kit `FeedbackTests` MEM-UI-13（反馈契约、提议转卡片、旧 JSON 兼容）。其余套件的 schema 版本断言改为 14。
+- **Web 落后**：`frontend/web` 冻结，没有 👍 / 👎 与摘要界面（`GET /messages` 多出的 `feedback` 字段可忽略）。
+
 ### 变更 (Changed)
 
 - **iOS · 设置面板改为悬浮卡片**（Boss 2026-10-05，取代同日的 60% 屏高）：四角圆角 36、距左右下边 8pt，顶端停在首页导航栏下方（约 88% 屏高，导航栏一行仍露出并变暗）；左上角圆形 xmark 关闭按钮，无标题；仍为自定义 BottomPanel（`topInset` 取代 `heightFraction`），不用系统 sheet。

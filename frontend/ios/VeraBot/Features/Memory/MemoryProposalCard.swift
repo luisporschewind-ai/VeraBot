@@ -77,6 +77,8 @@ struct MemoryProposalCard: View {
     }
 
     private var title: String {
+        // 风格校准（M2）：来源是「再短一点」这类要求或 👎 聚合，标题问的是「以后」而不是「记住吗」
+        if proposal.action == .create, proposal.type == .style { return "以后都这样回答吗？" }
         switch proposal.action {
         case .update: return "要更新这条记忆吗？"
         case .delete: return "要忘掉这条吗？"

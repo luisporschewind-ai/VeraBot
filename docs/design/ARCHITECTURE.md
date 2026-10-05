@@ -26,12 +26,12 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v12：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件)、查询。**全部 SQL 都在这里**：`*_store.py` 的函数第一个参数是调用方的连接 (事务由调用方决定)；迁移一个版本一个模块 | `database.py`、`schema.py` (入口 / 门面：`init_db`、`SCHEMA`、`SCHEMA_VERSION`、`ALL_TOOLS_V2`)、`migrations/` (`v001_base` … `v011_reminders`、`tags_coerce`、`v012_attachments`)、`repository.py` (Bot 读取 / 消息写入 / 用量 / 审计)、`auth_store.py`、`user_store.py`、`bot_store.py`、`message_store.py`、`usage_store.py`、`avatar_store.py`、`memory_store.py`、`attachment_store.py`、`delegation_store.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v14：v1 → v2 → v3 → v4 长期记忆 → v5 标签 → v6 置顶 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件 → v13 连接器凭据 → v14 记忆 M2 任务队列与消息反馈)、查询。**全部 SQL 都在这里**：`*_store.py` 的函数第一个参数是调用方的连接 (事务由调用方决定)；迁移一个版本一个模块 | `database.py`、`schema.py` (入口 / 门面：`init_db`、`SCHEMA`、`SCHEMA_VERSION`、`ALL_TOOLS_V2`)、`migrations/` (`v001_base` … `v012_attachments`、`tags_coerce`、`v013_mcp_auth`、`v014_memory_m2`)、`repository.py` (Bot 读取 / 消息写入 / 用量 / 审计)、`auth_store.py`、`user_store.py`、`bot_store.py`、`message_store.py`、`usage_store.py`、`avatar_store.py`、`memory_store.py`、`memory_job_store.py`、`feedback_store.py`、`attachment_store.py`、`delegation_store.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
-| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。这里不写 SQL，只调用 `db/*_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/`、`attachments/{store,images,repo,vision}.py` |
+| `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆 (M1) 与对话摘要 / 风格校准 (M2，含进程内任务 worker)；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。这里不写 SQL，只调用 `db/*_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/` (`recall` / `policy` / `repository` / `service` / `jobs` / `summarize` / `style`)、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/`、`attachments/{store,images,repo,vision}.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
-| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由。路由里没有 SQL | `deps.py`、`schemas.py`、`routers/{attachments,auth,avatars,bots,chat,voice,reminders,notifications,devices,meta,memories,mcp,plugins}.py` |
-| `main.py` | 组装 FastAPI app：CORS、422 处理、启动 `init_db`、挂载路由、托管 Web | — |
+| `api` | HTTP 层：鉴权依赖、pydantic 模型、路由。路由里没有 SQL | `deps.py`、`schemas.py`、`routers/{attachments,auth,avatars,bots,chat,voice,reminders,notifications,devices,meta,memories,feedback,mcp,plugins}.py` |
+| `main.py` | 组装 FastAPI app：CORS、422 处理、启动 `init_db`、挂载路由、托管 Web，并在启动时拉起记忆任务 worker (`app.state.memory_jobs`，关闭时取消) | — |
 
 ### 2.2 依赖规则 (Dependency rules)
 
@@ -76,6 +76,9 @@ sequenceDiagram
     A->>L: 追加 tool 结果，继续流式
     A-->>U: event: delta … / done (usage)
     A->>S: 保存回复 + traces；usage_log 记账
+    Note over A,S: 记忆 M2：本轮用户消息命中风格短语时，落库前追加一条合成 remember trace（M2 卡片同协议）
+    A->>S: memory.jobs.enqueue(user, bot, kind='summarize', after_message_id)
+    S->>S: 进程内 worker 取 pending（窗口外 ≥ 20 条才调 LLM，重启时 running 退回 pending）
 ```
 
 ### 2.4 数据模型
@@ -92,12 +95,18 @@ erDiagram
     users ||--o{ avatars : "owns bytes"
     users ||--o{ memories : "long-term memory"
     bots ||--o{ memories : "bot / summary scope"
+    users ||--o{ memory_jobs : "summary / extract queue"
+    bots ||--o{ memory_jobs : "per-bot summary"
+    users ||--o{ message_feedback : "thumbs up / down"
+    messages ||--o| message_feedback : "rated message"
     bots ||--o| avatars : "optional photo"
     users { int id string username string password_hash string nickname string avatar_updated_at int token_budget int memory_enabled }
     bots { int id int user_id string name string avatar string color string persona string instructions json allowed_tools json delegate_to int accept_delegation string image_updated_at string memory_access json tags }
     avatars { int user_id int bot_id string content_type blob data string updated_at }
     messages { int id int user_id int bot_id string role string content json traces json memory_ids }
     memories { int id int user_id string scope int bot_id string type string content string content_enc string content_hash string status string sensitivity string action int target_id int use_count }
+    memory_jobs { int id int user_id int bot_id string kind string status int after_message_id int attempts string error }
+    message_feedback { int id int user_id int bot_id int message_id int rating string reason }
     reminders { int id int user_id int bot_id string title string content string due_at string due_utc string timezone string status int version }
     delegations { int id int user_id int from_bot_id int to_bot_id string status string reason int depth json payload int total_tokens }
     usage_log { int id int user_id int bot_id string kind int prompt_tokens int completion_tokens int total_tokens }
@@ -105,6 +114,8 @@ erDiagram
 ```
 
 另有 `transcriptions` (Web 语音转写计数，用于用量看板) 和 `avatars` (用户 / Bot 的 512 JPEG)。`schema_meta` 记录 schema 版本；`init_db()` 建表并做幂等迁移 (v1 → v2 → v3 → v4 → v5)。v3 只加列和头像表，不改 v2 的权限回填。v4 新增 `memories` 表和 `bots.memory_access` (默认 `bot_and_global`)、`users.memory_enabled` (默认 1)、`messages.memory_ids` 三列，不写入任何记忆。v5 只给 `bots` 加 `tags` (JSON 数组，默认 `[]`)，不改权限、记忆或头像。详见下文「资料与头像」「Bot 标签」与 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §3。
+
+v14 新增 `memory_jobs` (每个用户 / Bot / 类型只有一条未完成任务：`status IN ('pending','running')` 的部分唯一索引 + `INSERT OR IGNORE`) 与 `message_feedback` (`UNIQUE(user_id, message_id)`，👍 / 👎 与理由)；worker 与反馈逻辑在 `services/memory/{jobs,summarize,style}.py`，见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §11.1。
 
 v11 新增 `reminder_events`、`notifications`、`notification_deliveries`、`notification_prefs`、`push_devices`、`idempotency_keys`，并给 `reminders` 补状态、时区、重复和版本列。这些表的运行时 SQL 只在 `db/reminder_store.py`。公开 JSON 与 iOS `CodingKeys` 的对照表在 [REMINDER_PUSH_DESIGN.md](REMINDER_PUSH_DESIGN.md) §8（`source_bot_id` 与 `bot_id` 同值；`content` 等于 `title`；`done` 仍为 0/1）。契约测试 `reminder_test.py` REM-CONTRACT、`notify_test.py` NTF-CONTRACT。
 
@@ -123,6 +134,7 @@ VeraBot (App target, SwiftUI)                    Packages/VeraBotKit (本地 Swi
 ├── Features/   Auth · BotList · BotInfo · Chat    └── VeraBotTTS         TTSEngine 协议 + SpeechPlayer  → Core
 │               Settings (含 DebugView) · Reminders · Quota (由 设置 › 用量 push)
 │               Memory (确认卡片、「Vera 了解的你」、编辑页、设置分组)
+│               Chat/FeedbackButtons (👍 / 👎，M2)
 └── Services/   Keyboard、Speech (语音输入)、Avatar (AvatarStore)
 ```
 
@@ -253,7 +265,7 @@ iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（�
 |---|---|---|
 | 模型接入 | 服务端统一持有 `DEEPSEEK_API_KEY`，OpenAI 兼容协议 | 用户零配置；可切换其他 OpenAI 兼容模型 |
 | 租户隔离 | 每条 SQL 带 `user_id`；他人资源返回 404 | 简单可审计，防枚举 |
-| 记忆隔离 | 历史按 `(user_id, bot_id)` 存取；当前只有滑动窗口 (最近 `VERABOT_HISTORY_WINDOW`=20 条)，另有经用户确认的长期记忆 (M1 已实现：`memories` 表，按 `memory_access` 注入 depth 0 的 prompt，被委派方不读写；摘要等见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) M2+) | Bot 之间人格与上下文互不串扰 |
+| 记忆隔离 | 历史按 `(user_id, bot_id)` 存取；滑动窗口 (最近 `VERABOT_HISTORY_WINDOW`=20 条) 之外由经用户确认的长期记忆 (M1：`memories` 表) 与滚动摘要 (M2：每 Bot 一条 `scope='summary'`) 补齐；都按 `memory_access` 注入 depth 0 的 prompt，被委派方不读写；摘要与风格提议只服务本 Bot，见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md) §11.1 | Bot 之间人格与上下文互不串扰 |
 | 多 Agent | Agent-as-a-Tool (`ask_bot`)，最小权限 + 服务端强制 + 上下文隔离 + 护栏 + 审计 | 可控、可观测；详见 MULTI_AGENT_DESIGN |
 | 工具轮次 | 每轮最多 4 轮工具调用 (`VERABOT_MAX_TOOL_ROUNDS`) | 防止工具循环 |
 | 流式协议 | SSE (`event:` + `data:` JSON) | 浏览器 `fetch` 与 iOS `URLSession.bytes` 都能直接解析 |

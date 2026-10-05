@@ -150,6 +150,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
     tools = schemas_for(bot, 0, memory_on, user_id) + vision.schema_for_history(latest_image is not None)
     usage_total: dict = {}
     traces: list = []
+    style_trace: dict | None = None      # M2：风格规则命中的合成 remember trace（会话内即时下发）
     answer = ""
     errored = False
     try:
@@ -220,8 +221,25 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
         # ask_bot 子调用用量已由工具单独记账；这里只记本 Bot 的主调用
         db.log_usage(user_id, bot["id"], "chat", usage_total)
         stored = answer if answer.strip() else ("⚠️ " + EMPTY_REPLY_MSG if errored else "（无回复）")
+        if memory_tools and not errored:
+            # 风格校准（M2）：用户这轮明确提了「再短一点」这类要求 → 追加一条合成 remember trace，
+            # 客户端按既有确认卡片渲染；失败不影响对话。事件在 finally 之后补发（不能在 finally 里 yield：
+            # 客户端断开时生成器被关闭，yield 会抛 GeneratorExit 相关的 RuntimeError）。
+            try:
+                prop = memory.style.propose_from_text(user_id, bot, turn, user_text, user_mid)
+            except Exception as e:  # noqa: BLE001
+                prop = None
+                log.warning("style propose failed: user=%s bot=%s %s", user_id, bot["id"], e)
+            if prop:
+                style_trace = memory.style.synthetic_trace(f"style_{user_mid}", prop)
+                traces.append(style_trace)
         mid = db.add_message(user_id, bot["id"], "assistant", stored, traces or None, memory_ids=rec.ids or None)
         memory.mark_used(user_id, rec.ids)
+        if memory_tools:
+            # 滚动摘要（M2）：入队即返回；窗口外积压够 MEMORY_SUMMARY_MIN_MESSAGES 条时 worker 才真正执行
+            memory.jobs.enqueue_summarize(user_id, bot["id"], mid)
+    if style_trace:   # M2：风格提议卡片与回复同帧到达（trace 已随消息落库，重载后仍在）
+        yield {"event": "tool_result", "data": style_trace}
     # user_message_id：本轮用户消息的 id（新增字段，旧客户端忽略），客户端据此可立即删除刚发出的消息
     yield {"event": "done", "data": {"message_id": mid, "user_message_id": user_mid, "usage": usage_total, "memory_ids": rec.ids}}
     if new_images and not errored:   # 首次看图后生成描述（按需召回用），放在 done 之后不拖慢回复

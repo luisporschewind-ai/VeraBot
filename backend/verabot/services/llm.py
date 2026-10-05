@@ -17,13 +17,17 @@ def _headers():
     return {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
 
 
-def _body(messages, tools, stream):
-    body = {"model": DEEPSEEK_MODEL, "messages": messages, "stream": stream, "temperature": 0.7}
+def _body(messages, tools, stream, *, json_object=False, temperature=0.7, max_tokens=None):
+    body = {"model": DEEPSEEK_MODEL, "messages": messages, "stream": stream, "temperature": temperature}
     if not DEEPSEEK_THINKING:
         # 关闭思考模式：否则带 tools 的多轮请求缺 reasoning_content 会 400（见 core/config.py）
         body["thinking"] = {"type": "disabled"}
     if tools:
         body["tools"] = tools
+    if json_object:
+        body["response_format"] = {"type": "json_object"}   # 记忆 M2/M3 的结构化输出；提示词里必须出现 "json"
+    if max_tokens:
+        body["max_tokens"] = max_tokens
     if stream:
         body["stream_options"] = {"include_usage": True}
     return body
@@ -65,11 +69,11 @@ async def stream_chat(messages: list, tools: list | None) -> AsyncIterator[tuple
     yield "finish", finish
 
 
-async def complete(messages: list, tools: list | None) -> tuple[dict, dict]:
-    """非流式调用，返回 (message, usage)。用于被委派的 Bot。"""
+async def complete(messages: list, tools: list | None, **kw) -> tuple[dict, dict]:
+    """非流式调用，返回 (message, usage)。用于被委派的 Bot 与后台任务（json_object=True 走 JSON Output）。"""
     async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
         r = await client.post(f"{DEEPSEEK_BASE_URL}/chat/completions", headers=_headers(),
-                              json=_body(messages, tools, False))
+                              json=_body(messages, tools, False, **kw))
     if r.status_code != 200:
         raise LLMError(f"DeepSeek HTTP {r.status_code}: {r.text[:300]}")
     d = r.json()

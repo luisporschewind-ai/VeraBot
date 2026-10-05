@@ -71,6 +71,12 @@ def visible_active(c, user_id: int, bot_id: int, include_global: bool, limit: in
     return query(c, user_id, where, tuple(params), order="m.updated_at DESC", limit=limit)
 
 
+def active_summary(c, user_id: int, bot_id: int) -> dict | None:
+    """该 Bot 的滚动摘要（scope='summary'，每个 Bot 至多一条 active）。召回不走 visible_active，单独取。"""
+    return row(c.execute(f"SELECT {COLS} {FROM} WHERE m.user_id=? AND m.scope='summary' AND m.bot_id=? "
+                         f"AND m.status='active' ORDER BY m.id DESC LIMIT 1", (user_id, bot_id)).fetchone())
+
+
 def find_by_hash(c, user_id: int, scope: str, bot_id, h: str, statuses: tuple, action: str | None = None,
                  exclude_id: int | None = None) -> dict | None:
     sql = (f"SELECT * FROM memories WHERE user_id=? AND scope=? AND COALESCE(bot_id,0)=? AND content_hash=? "

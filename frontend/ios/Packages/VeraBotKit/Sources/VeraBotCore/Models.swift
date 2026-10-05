@@ -408,9 +408,11 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
     public let createdAt: String?
     /// 图片附件（v12；旧后端无此键时为 []，见 Attachment.swift）
     public let attachments: [Attachment]
+    /// 本条消息上的 👍 / 👎（记忆 M2，v14；没评过 / 旧后端 → nil，见 Attachment.swift 的 decoder）
+    public let feedback: MessageFeedback?
 
     enum CodingKeys: String, CodingKey {
-        case id, role, content, traces
+        case id, role, content, traces, feedback
         case createdAt = "created_at"
         case attachments
     }

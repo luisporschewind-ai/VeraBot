@@ -57,6 +57,10 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 | `VERABOT_MCP_BREAKER_THRESHOLD` / `VERABOT_MCP_BREAKER_COOLDOWN` | `5` / `60` | 连续传输失败多少次打开熔断 / 冷却秒数 |
 | `VERABOT_MCP_CALLS_PER_TURN` / `VERABOT_MCP_MAX_RESULT_CHARS` / `VERABOT_MCP_MAX_TOOLS_PER_SERVER` | `8` / `8000` / `50` | 单轮调用上限 / 结果截断 / 每服务工具上限 |
 | `VERABOT_MEMORY_MAX_ACTIVE` / `_MAX_CHARS` / `_INJECT_MAX` / `_INJECT_CHARS` | `200` / `200` / `12` / `1000` | 每用户生效记忆上限 / 单条字数 / 每轮注入条数 / 每轮注入字数 |
+| `VERABOT_MEMORY_SUMMARY_MIN` / `_MAX_CHARS` / `_MAX_INPUT` | `20` / `400` / `200` | 记忆 M2 摘要：窗口外累计多少条才摘要 / 摘要字数上限 (也是注入上限) / 单次最多读入多少条消息 |
+| `VERABOT_MEMORY_JOBS_POLL` / `_MAX_ATTEMPTS` | `5` / `3` | 摘要 worker 空闲轮询间隔 (秒) / 失败重试上限 (含首次) |
+| `VERABOT_MEMORY_STYLE_WINDOW_DAYS` / `_TOO_LONG_MIN` | `14` / `3` | 风格校准：👎 聚合窗口 (天) / 同一理由多少次后提议风格记忆 |
+| `VERABOT_MEMORY_SUMMARY_BUDGET_SKIP` | `0.9` | 当日用量达到预算的这个比例就跳过摘要 (不调用 LLM) |
 
 ## 3. 依赖管理 (uv)
 
@@ -73,8 +77,8 @@ verabot/
 ├── main.py          # FastAPI app：CORS、422 处理、启动时 init_db、挂载路由、托管 Web
 ├── core/            # config (环境变量)、security (bcrypt + JWT)
 ├── db/              # database (连接 / 事务)、schema (迁移入口) + migrations/ (每版本一个模块)、repository 与 *_store (全部 SQL)
-├── api/             # deps (鉴权依赖)、schemas (pydantic)、routers/ (auth, avatars, bots, chat, voice, reminders, meta, mcp, plugins)
-├── services/        # llm、transcribe、bots (权限校验)、quota、users (昵称)、avatars (裁切与存储)、mcp (目录与 HTTP 客户端)、plugins (安装层)
+├── api/             # deps (鉴权依赖)、schemas (pydantic)、routers/ (auth, avatars, bots, chat, voice, reminders, meta, mcp, plugins, memories, feedback)
+├── services/        # llm、transcribe、bots (权限校验)、quota、users (昵称)、avatars (裁切与存储)、mcp (目录与 HTTP 客户端)、plugins (安装层)、memory (长期记忆 / 摘要 / 风格校准)
 ├── agents/          # runtime (Agent Loop)、prompts、permissions、guardrails、context、delegation (ask_bot)
 └── tools/           # registry (@tool 注册表)、weather、reminder
 ```
@@ -88,6 +92,7 @@ verabot/
 uv run python scripts/test/multi_agent_test.py   # mock LLM + 临时 DB，确定性，MA-01~25 (25/25，MA-25 为 /api/quota 前后端契约)
 uv run python scripts/test/avatar_profile_test.py # 头像 / 昵称 / 迁移 / 隔离，AV-* + NK-* (21/21)，不调用 LLM
 uv run python scripts/test/memory_test.py        # 长期记忆 MEM-01~36 (36/36)，mock LLM + 临时 DB
+uv run python scripts/test/memory_m2_test.py     # 记忆 M2 摘要 + 风格校准 MEM-40~50 (13/13)，mock LLM + 临时 DB
 uv run python scripts/test/mcp_test.py           # MCP：本地假服务器。公网用例默认跳过，VERABOT_MCP_LIVE_TESTS=1 才跑
 uv run python scripts/test/plugin_test.py        # 插件 P1：迁移、安装 / 卸载、派生状态、契约。进程内假 MCP，不访问外网
 uv run python scripts/test/mcp_disable_race_test.py # MCP-RACE-01~08：后台同步与「停用」竞态，假 MCP 服务器阻塞 tools/list，确定性

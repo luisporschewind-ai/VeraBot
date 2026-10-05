@@ -281,6 +281,20 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/bots/\(botID)/messages/\(messageID)", method: "DELETE")
     }
 
+    // MARK: - 消息反馈（记忆 M2 风格校准，见 docs/design/MEMORY_GROWTH.md §11.1）
+    public func setFeedback(messageID: Int, rating: Int, reason: FeedbackReason?) async throws -> FeedbackResponse {
+        struct Body: Encodable {
+            let rating: Int
+            let reason: String?
+        }
+        let body = Body(rating: rating, reason: rating < 0 ? reason?.rawValue : nil)
+        return try await call("/api/messages/\(messageID)/feedback", method: "POST", body: try encode(body))
+    }
+
+    public func clearFeedback(messageID: Int) async throws -> OKResponse {
+        try await call("/api/messages/\(messageID)/feedback", method: "DELETE")
+    }
+
     // MARK: - Memories（长期记忆，见 docs/design/MEMORY_GROWTH.md §5.5）
     public func memories(_ query: MemoryQuery) async throws -> MemoriesResponse {
         try await call("/api/memories", query: query.queryItems)

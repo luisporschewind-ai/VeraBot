@@ -114,13 +114,14 @@ def _looks_like_secret(text: str) -> bool:
     return False
 
 
-def check(text: str) -> tuple[str | None, str]:
+def check(text: str, max_chars: int | None = None) -> tuple[str | None, str]:
     """返回 (错误码 | None, sensitivity)。错误码：invalid / too_long / sensitive_credential / blocked_content / sensitive_category。
-    sensitivity：normal / health / finance（health、finance 允许保存，但需加密）。"""
+    sensitivity：normal / health / finance（health、finance 允许保存，但需加密）。
+    max_chars 默认 MEMORY_MAX_CHARS；滚动摘要正文更长，传 MEMORY_SUMMARY_MAX_CHARS。"""
     t = clean(text)
     if not t:
         return "invalid", "normal"
-    if len(t) > config.MEMORY_MAX_CHARS:
+    if len(t) > (max_chars or config.MEMORY_MAX_CHARS):
         return "too_long", "normal"
     if _CRED_WORDS.search(t) or _looks_like_secret(t):
         return "sensitive_credential", "normal"

@@ -365,13 +365,22 @@ extension ToolTrace {
 
     /// 记忆工具的结果（工具执行中 result 为 nil → nil）。
     public var memoryProposal: MemoryProposal? {
-        guard isMemoryTool, let r = result else { return nil }
+        guard isMemoryTool else { return nil }
+        return MemoryProposal(result: result, args: args, toolName: name)
+    }
+}
+
+extension MemoryProposal {
+    /// 从 `remember` 工具结果 / feedback 响应的 `proposal` 字典构造（两者同构，见后端 `service._proposal_result`）。
+    /// `args` 只在结果里缺 content 时兜底（`remember` 的工具入参）。
+    public init?(result: JSONValue?, args: JSONValue? = nil, toolName: String = "remember") {
+        guard let r = result else { return nil }
         let id: Int? = {
             if case .number(let n)? = r["memory_id"] { return Int(n) }
             return nil
         }()
-        let action = MemoryAction(rawValue: r["action"]?.text ?? "") ?? (name == "forget_memory" ? .delete : .create)
-        return MemoryProposal(
+        let action = MemoryAction(rawValue: r["action"]?.text ?? "") ?? (toolName == "forget_memory" ? .delete : .create)
+        self.init(
             memoryID: id,
             status: r["status"]?.text,
             action: action,

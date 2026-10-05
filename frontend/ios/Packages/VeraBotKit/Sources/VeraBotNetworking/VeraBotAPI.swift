@@ -54,6 +54,11 @@ public protocol VeraBotAPI: Sendable {
     func clearMessages(botID: Int, includeMemories: Bool) async throws -> ClearMessagesResponse
     /// 删除单条消息（物理删除，只删这一条；已提取的记忆保留）。他人 / 不存在的消息 → 404
     func deleteMessage(botID: Int, messageID: Int) async throws -> OKResponse
+    /// 消息反馈（记忆 M2）：rating 1 = 👍、-1 = 👎；同一条可改评。reason 只在 👎 时有。
+    /// 响应里的 proposal 非空 = 刚好聚合出 style 提议，就地渲染确认卡片。
+    func setFeedback(messageID: Int, rating: Int, reason: FeedbackReason?) async throws -> FeedbackResponse
+    /// 撤销这条消息的评价
+    func clearFeedback(messageID: Int) async throws -> OKResponse
     // 长期记忆（Memory，后端 schema v4）
     func memories(_ query: MemoryQuery) async throws -> MemoriesResponse
     func memory(id: Int) async throws -> Memory
