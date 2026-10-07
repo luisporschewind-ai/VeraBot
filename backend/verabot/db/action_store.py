@@ -91,6 +91,41 @@ def decide(
         ).fetchone())
 
 
+def claim_for_execution(user_id: int, action_id: int) -> tuple[str, dict | None]:
+    """原子认领未过期操作；过期或被其他请求处理则绝不进入执行。"""
+    with tx() as c:
+        # Acquire SQLite's writer lock before reading the clock, so lock waits
+        # cannot make the expiry timestamp stale before the conditional update.
+        c.execute("BEGIN IMMEDIATE")
+        stamp = now_iso()
+        claimed = c.execute(
+            """UPDATE pending_actions
+               SET status='done', result='执行中…', decided_at=?
+               WHERE id=? AND user_id=? AND status='pending' AND expires_at>?""",
+            (stamp, action_id, user_id, stamp),
+        )
+        if claimed.rowcount == 1:
+            row = c.execute(
+                "SELECT * FROM pending_actions WHERE id=? AND user_id=?",
+                (action_id, user_id),
+            ).fetchone()
+            return "claimed", _row(row)
+
+        expired = c.execute(
+            """UPDATE pending_actions
+               SET status='expired', result='已过期', decided_at=?
+               WHERE id=? AND user_id=? AND status='pending' AND expires_at<=?""",
+            (stamp, action_id, user_id, stamp),
+        )
+        row = c.execute(
+            "SELECT * FROM pending_actions WHERE id=? AND user_id=?",
+            (action_id, user_id),
+        ).fetchone()
+        if expired.rowcount == 1 or (row is not None and row["status"] == "expired"):
+            return "expired", _row(row)
+        return ("already_decided" if row is not None else "missing"), _row(row)
+
+
 def mark_expired(user_id: int, action_id: int, decided_at: str | None = None) -> dict | None:
     return decide(user_id, action_id, from_status="pending", to_status="expired",
                   result="已过期", decided_at=decided_at)

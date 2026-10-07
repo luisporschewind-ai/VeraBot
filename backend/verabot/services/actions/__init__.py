@@ -278,12 +278,20 @@ def confirm(user_id: int, action_id: int) -> dict:
     if _hash_payload(arguments) != row["payload_hash"]:
         raise ActionError(500, "参数校验失败", "payload_hash_mismatch")
 
-    # 先占位为执行中语义：用 decide 原子抢占 pending → 避免重复执行
-    claimed = action_store.decide(
-        user_id, action_id, from_status="pending", to_status="done", result="执行中…",
-    )
-    if claimed is None:
+    # 最终授权点：pending → 执行中与 TTL 检查处于同一 SQLite 写事务。
+    claim_status, claimed = action_store.claim_for_execution(user_id, action_id)
+    if claim_status == "expired":
+        db.audit(user_id, row.get("bot_id"), "mcp_action_expired", {
+            "action_id": action_id,
+            "server_id": row.get("server_id"),
+            "tool": row.get("tool_full_name"),
+        })
+        raise ActionError(410, "确认已过期", "expired")
+    if claim_status == "missing":
+        raise ActionError(404, "待确认操作不存在")
+    if claim_status != "claimed":
         raise ActionError(409, "该操作已经处理过", "already_decided")
+    row = claimed
 
     try:
         result = mcp.invoke(
