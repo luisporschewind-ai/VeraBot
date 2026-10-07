@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from dataclasses import dataclass, field
 
@@ -67,8 +68,9 @@ class MCPAuthError(MCPClientError):
 class MCPScopeError(MCPAuthError):
     """HTTP 403 + insufficient_scope。"""
 
-    def __init__(self):
+    def __init__(self, required_scopes: tuple[str, ...] = ()):
         super().__init__("MCP 服务认为权限不足", "insufficient_scope")
+        self.required_scopes = required_scopes
 
 
 class MCPProtocolError(MCPClientError):
@@ -376,7 +378,10 @@ class MCPSession:
         if response.status_code == 401:
             raise MCPAuthError()
         if response.status_code == 403 and "insufficient_scope" in response.headers.get("WWW-Authenticate", ""):
-            raise MCPScopeError()
+            challenge = response.headers.get("WWW-Authenticate", "")
+            match = re.search(r'\bscope="([^"\r\n]*)"', challenge, re.IGNORECASE)
+            required = tuple(dict.fromkeys((match.group(1).split() if match else [])))
+            raise MCPScopeError(required)
         if response.status_code >= 400:
             raise MCPProtocolError(f"MCP 服务返回 HTTP {response.status_code}")
         message = parse_message(response.headers.get("content-type", ""), response.text)

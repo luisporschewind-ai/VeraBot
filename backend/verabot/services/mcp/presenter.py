@@ -52,6 +52,11 @@ def circuit_state(row: dict, now: datetime | None = None) -> str:
 
 
 def public_server(row: dict) -> dict:
+    try:
+        import json
+        discovery = json.loads(row.get("discover_json") or "{}")
+    except (TypeError, ValueError):
+        discovery = {}
     return {
         "id": row["id"],
         "slug": row["slug"],
@@ -64,6 +69,7 @@ def public_server(row: dict) -> dict:
         "status": row["status"],
         "enabled": row["status"] != "disabled",
         "account_label": row.get("account_label"),
+        "granted_scopes": row.get("granted_scopes"),
         "tools_count": mcp_store.tool_count(row["user_id"], row["id"]),
         "last_error": row.get("last_error"),
         "last_synced_at": row.get("last_synced_at"),
@@ -72,6 +78,7 @@ def public_server(row: dict) -> dict:
         "circuit_state": circuit_state(row),
         "circuit_open_until": row.get("circuit_open_until"),
         "consecutive_failures": int(row.get("circuit_failures") or 0),
+        "required_scopes": discovery.get("required_scopes", []),
     }
 
 

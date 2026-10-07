@@ -1,6 +1,6 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-> 与代码同步至 2026-10-05（含 MCP M3 HITL）：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1–M3、插件 P1、记忆 M2、图片附件等。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)。`frontend/web` 冻结，没有 MCP / 确认卡片界面。
+> 与代码同步至 2026-10-07（含 MCP M4 OAuth 功能分支）：包含 Bot 标签 (schema v5)、Bot 置顶 (schema v6)、MCP M1–M4、插件 P1、记忆 M2、图片附件等。M4 尚未合并，真实 Google 授权待手工验收。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)。`frontend/web` 冻结，没有 MCP / 确认卡片界面。
 
 ## 功能 (Features)
 
@@ -13,7 +13,7 @@
 | 消息富文本 (Rich messages) | iOS Bot 气泡支持 Markdown（标题 / 粗体 / 斜体 / 行内代码 / 代码块 / 引用 / 列表 / 表格 / 分隔线），自动识别网址 / 电话 / 邮箱；网页链接在 App 内 SFSafariViewController 打开，电话 / 邮件交给系统；长按气泡可复制全文或复制链接，用户 / Bot 气泡长按均有「删除」(系统确认框二次确认，只删这一条；欢迎语与正在生成的回复不显示)；`~` 按原文显示 (BUG-01) |
 | 对话历史 (History) | 每个 Bot 独立保存历史，最近 20 条 (`VERABOT_HISTORY_WINDOW`) 注入上下文；清空对话 (二次确认：「仅清空对话」删除对话摘要、保留已确认记忆 /「清空对话和「X」的记忆」再删该 Bot 的记忆) |
 | 长期记忆 (Memory, M1 + M2) | **先确认、后保存**：Bot 用 `remember` / `forget_memory` 只生成提议，对话里出现「要我记住吗？」卡片 (记住 / 不用 / 编辑后记住)，确认后生效。作用域：所有 Bot 共享的「关于你」(global) 或仅某个 Bot；每个 Bot 的 `memory_access` (不使用 / 仅本 Bot / 本 Bot + 共享资料，默认后者)；每轮最多注入 12 条 / 1000 字，风格最多 3 条排在最前，被委派的 Bot 不读写记忆。密码 / 验证码 / 密钥 / 证件号 / 卡号永不保存；健康、财务信息加密保存并标为敏感。**M2**：每个 Bot 一条滚动摘要（窗口外积压满 20 条才压缩，≤ 400 字，不经确认，清空对话时删除）；回复气泡可 👍 / 👎，「再短一点」或 14 天内 3 次「太长」只提议风格（「以后都这样回答吗？」），确认前不生效。设置 › 记忆：「Vera 了解的你」(查看 / 编辑 / 删除 / 手动添加 / 清空，首次打开说明会发送给 DeepSeek) + 「允许 Bot 记住」总开关。Bot 详情 › 记忆。方案与契约见 [MEMORY_GROWTH.md](../design/MEMORY_GROWTH.md)。Web 无记忆 UI |
-| 工具 (Tool calling) | 可插拔注册表：`get_weather`、提醒三件套、`ask_bot`；记忆工具由 `memory_access` 控制。MCP 工具默认关闭；**写 / 发送 / 破坏性**调用会弹出确认卡片（M3，`pending_actions`），确认后才执行冻结参数；只读可直接执行。委派深度 ≥ 1 不能用 MCP |
+| 工具 (Tool calling) | 可插拔注册表：`get_weather`、提醒三件套、`ask_bot`；记忆工具由 `memory_access` 控制。MCP 工具默认关闭；OAuth 远程连接（M4）使用 PKCE，Token 加密保存在后端。Gmail 目前只有连接入口，邮件工具尚未开放。**写 / 发送 / 破坏性**调用会弹出确认卡片（M3，`pending_actions`），确认后才执行冻结参数；只读可直接执行。委派深度 ≥ 1 不能用 MCP |
 | 多 Agent 协作 | 工具 / 委派白名单、接受委派开关、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 → [MULTI_AGENT_DESIGN.md](../design/MULTI_AGENT_DESIGN.md) |
 | 每日 Token 预算 | 超额返回 429，委派也被拒 |
 | 提醒 / 用量 (Reminders / Quota) | 提醒为 Tab 页，顶部分段「提醒 / 通知」。提醒按逾期、今天、即将、无日期分组，可新建、编辑、完成、稍后、跳过；到时由服务端调度，iOS 用本地通知（「完成」「稍后 10 分钟」），R1 不发 APNs。点按提醒通知 → 「提醒」Tab → 该提醒页，「来源」里「查看对话」进入对话；只有 Bot 消息通知直接打开对话。设置 › 通知管理分类、免打扰和显示内容。用量看板从「设置 › 用量」进入：请求数、Token、7 日趋势、按 Bot 分布 (不含账号信息，账号信息在设置页)。Web 没有新的提醒界面。**R1 Boss 于 2026-10-04 验收通过**（模拟器；真机未测） |
@@ -72,6 +72,8 @@
 | PATCH | `/api/plugins/{plugin_id}` | `{enabled}`。停用后工具不进模型 schema，调用返回 `not_connected`。内置插件 422 |
 | POST | `/api/plugins/{plugin_id}/consent` | `{granted}`。写入其下服务的同意时间。内置插件 422。未安装 404 |
 | GET | `/api/plugins/{plugin_id}/tools` | 该插件的工具，字段同 MCP 工具并带 `plugin_id`。内置插件 404（开关在 Bot 的工具权限） |
+| POST | `/api/mcp/servers/{id}/auth/start`、`/auth/callback`、`/auth/cancel` | M4 OAuth：发起授权、提交授权回调、取消授权；响应不返回 Token |
+| DELETE | `/api/mcp/servers/{id}/auth` | M4 OAuth：尝试撤销并清除本地 OAuth 凭据。Google 邮件工具尚未开放 |
 | POST | `/api/plugins/{plugin_id}/sync` | `{added, changed, removed, plugin}`。已停用 → 409 |
 | PUT | `/api/plugins/{plugin_id}/credential` | 需令牌插件（GitHub / Linear，`auth_mode=bearer`）：`{token}`。只接受本机回环或 HTTPS（否则 403 `insecure_transport`，`VERABOT_ALLOW_LAN_CREDENTIALS=1` 可放开）；格式错 422 `credential_format`；服务 401 → 422 `credential_invalid`（不保存）；网络不通 502 `network_unreachable`。成功：Fernet 加密保存、同步工具，返回 Plugin（不含令牌）。Plugin 新增可选字段 `auth_connected`、`account_label`、`credential_hint`（末 4 位）、`credential_expires_at`、`auth_error`、`credential_help`、`credential_help_url`、`tools_changed`；`state` 新值 `needs_auth`。对照表见 [MCP_AUTH_CONNECTORS_PLAN.md](../design/MCP_AUTH_CONNECTORS_PLAN.md) §13.1 |
 | DELETE | `/api/plugins/{plugin_id}/credential` | 断开：删令牌、回到 `needs_auth`，保留同意与 Bot 工具开关。未连接 404 |

@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 新增 (Added) — MCP M4 OAuth 2.1 + Gmail 授权入口（不升 schema）
+
+- **后端**：用 MCP SDK OAuth provider 执行 PRM / 授权服务器发现、PKCE S256、`resource` 与 `iss` 校验；OAuth state 按用户 / 服务绑定、加密保存、一次性消费并过期。Token 与客户端信息按 issuer 隔离并 Fernet 加密；支持刷新、scope 不足状态、撤销和本地断开清理。新增授权 start / callback / cancel / disconnect API，响应不包含 Token。
+- **iOS**：Gmail 插件详情增加连接 / 重新授权 / 扩权 / 断开及账号和 scope 状态；用 `ASWebAuthenticationSession` 接收授权回调。连接前说明 Google 登录及 DeepSeek 数据流；未同意数据使用说明时不开放连接。
+- **范围**：当前只提供 Gmail OAuth 连接入口，未开放邮件工具。Web 冻结。真实 Google 登录需测试客户端、测试用户和 Workspace Developer Preview。
+- **验证**：OAuth 假服务器用例、MCP / 插件回归通过；Kit `swift test` 157/157；iPhone 17 模拟器构建 / 启动，实测登录、安装 Gmail、详情说明及默认关闭的 DeepSeek 同意门控。真实 Google 浏览器授权待手工验收。
+
 ### 新增 (Added) — MCP M3：通用 HITL 确认卡片（复用 schema v7 `pending_actions`，不升版本）
 
 - **后端**：按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §7 / §15 M3。非只读 MCP 工具（及 `confirm_policy=always` 的只读工具）不再直接拒绝，而是冻结参数写入 `pending_actions`（Fernet，`VERABOT_ACTION_ENC_KEY` / `data/.action_key`，默认 15 分钟过期）、审计 `mcp_action_requested`，工具结果 `{status:pending_confirmation, action_id, …}`，SSE 另发 `confirmation_required`。`POST /api/pending-actions/{id}/confirm|cancel`、`GET /api/pending-actions`；确认后执行冻结参数、写结果摘要进对话历史、**不**自动再调 LLM。确认前工具变更 / 服务断开 → 409；过期 → 410；他人 → 404；重复 → 409。单轮待确认上限 `VERABOT_MCP_PENDING_PER_TURN`（默认 2）。`PATCH /api/mcp/tools/{id}` 仅接受 `always`/`default`，拒绝 `never`/`auto`（MCP-13）。跨服务读→写时卡片带警告。协作记录新增 `GET /api/bots/{id}/tool-calls`。过期 pending 由调度器标 `expired`（不再直接删）。

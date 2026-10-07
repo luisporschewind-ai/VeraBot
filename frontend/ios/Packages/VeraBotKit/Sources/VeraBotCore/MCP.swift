@@ -42,6 +42,7 @@ public struct MCPServer: Codable, Sendable, Hashable, Identifiable {
     public let status: String
     public let enabled: Bool
     public let accountLabel: String?
+    public let grantedScopes: String?
     public let toolsCount: Int
     public let lastError: String?
     public let lastSyncedAt: String?
@@ -53,6 +54,7 @@ public struct MCPServer: Codable, Sendable, Hashable, Identifiable {
     public let circuitState: String?
     public let circuitOpenUntil: String?
     public let consecutiveFailures: Int?
+    public let requiredScopes: [String]?
 
     public var consented: Bool { !(consentAt ?? "").isEmpty }
 
@@ -106,6 +108,7 @@ public struct MCPServer: Codable, Sendable, Hashable, Identifiable {
         case status
         case enabled
         case accountLabel = "account_label"
+        case grantedScopes = "granted_scopes"
         case toolsCount = "tools_count"
         case lastError = "last_error"
         case lastSyncedAt = "last_synced_at"
@@ -114,11 +117,49 @@ public struct MCPServer: Codable, Sendable, Hashable, Identifiable {
         case circuitState = "circuit_state"
         case circuitOpenUntil = "circuit_open_until"
         case consecutiveFailures = "consecutive_failures"
+        case requiredScopes = "required_scopes"
     }
 }
 
 public struct MCPServersResponse: Codable, Sendable {
     public let servers: [MCPServer]
+}
+
+public struct MCPOAuthStart: Codable, Sendable {
+    public let authURL: URL
+    public let state: String
+    public let callbackScheme: String
+    enum CodingKeys: String, CodingKey {
+        case authURL = "auth_url"
+        case state
+        case callbackScheme = "callback_scheme"
+    }
+}
+
+public struct MCPOAuthCallback: Codable, Sendable {
+    public let code: String
+    public let state: String
+    public let issuer: String?
+    public init(code: String, state: String, issuer: String? = nil) {
+        self.code = code
+        self.state = state
+        self.issuer = issuer
+    }
+    enum CodingKeys: String, CodingKey {
+        case code, state
+        case issuer = "iss"
+    }
+}
+
+public struct MCPOAuthResult: Codable, Sendable {
+    public let status: String
+    public let toolsCount: Int
+    public let syncStatus: String?
+    enum CodingKeys: String, CodingKey {
+        case status
+        case toolsCount = "tools_count"
+        case syncStatus = "sync_status"
+    }
 }
 
 public struct MCPTool: Codable, Sendable, Hashable, Identifiable {

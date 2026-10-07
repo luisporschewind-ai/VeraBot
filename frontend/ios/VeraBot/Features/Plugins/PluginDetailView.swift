@@ -1,4 +1,6 @@
 import SwiftUI
+import AuthenticationServices
+import UIKit
 import VeraBotCore
 
 /// 外部插件详情：状态、同意、按 Bot 开关工具、卸载。
@@ -20,6 +22,7 @@ struct PluginDetailView: View {
     @State private var didPrompt = false
     @State private var showTokenSheet = false
     @State private var confirmDisconnect = false
+    @State private var oauthSession: OAuthSessionPresenter?
 
     var body: some View {
         ThemedForm {
@@ -36,7 +39,7 @@ struct PluginDetailView: View {
                     Text(plugin.description).font(.subheadline).foregroundStyle(.secondary)
                 }
 
-                if plugin.needsToken {
+                if plugin.needsToken || plugin.needsOAuth {
                     accountSection(plugin)
                 }
 
@@ -167,7 +170,37 @@ struct PluginDetailView: View {
     /// 「账号」分组：未连接 → 连接按钮；已连接 → 账号 / 令牌末 4 位 / 到期（7 天内橙色）/ 更换 / 断开。
     @ViewBuilder private func accountSection(_ plugin: Plugin) -> some View {
         Section {
-            if plugin.authConnected == true {
+            if plugin.needsOAuth {
+                if plugin.authConnected == true {
+                    LabeledContent("账号", value: plugin.accountLabel ?? "Google 账号")
+                    if let scopes = plugin.servers.first?.grantedScopes, !scopes.isEmpty {
+                        LabeledContent("已授权范围", value: scopes.replacingOccurrences(of: " ", with: "、"))
+                    }
+                    if let scopes = plugin.servers.first?.requiredScopes, !scopes.isEmpty {
+                        Text("需要追加授权：\(scopes.joined(separator: ", "))")
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
+                    if let text = plugin.authErrorText {
+                        Text(text).font(.footnote).foregroundStyle(.orange)
+                    }
+                    Button(plugin.servers.first?.status == "needs_scope" ? "追加权限" : "重新连接 Google") {
+                        Task { await connectGoogle(plugin) }
+                    }
+                        .disabled(busy || !plugin.consented)
+                    Button("断开账号", role: .destructive) { Task { await disconnectOAuth(plugin) } }
+                        .disabled(busy)
+                } else {
+                    if let text = plugin.authErrorText {
+                        Text(text).font(.footnote).foregroundStyle(.red)
+                    }
+                    Button("连接 Google 账号") { Task { await connectGoogle(plugin) } }
+                        .disabled(busy || !plugin.available || !plugin.consented || plugin.servers.first == nil)
+                    if !plugin.consented {
+                        Text("请先在下方同意数据使用说明，再连接账号。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+            } else if plugin.authConnected == true {
                 LabeledContent("账号", value: plugin.accountLabel ?? "已连接")
                 if let hint = plugin.credentialHint {
                     LabeledContent("令牌", value: hint)
@@ -195,10 +228,50 @@ struct PluginDetailView: View {
         } header: {
             Text("账号")
         } footer: {
-            Text(plugin.authError == "network_unreachable"
+            Text(plugin.needsOAuth
+                 ? "Google 会在系统安全登录页询问邮件权限。授权令牌加密保存在 VeraBot 服务器；M4 暂不开放邮件工具。"
+                 : plugin.authError == "network_unreachable"
                  ? "请确认 Mac 的代理已开启。令牌仍然保存着。"
                  : "令牌只能经本机（127.0.0.1）或 HTTPS 上传，加密保存在 VeraBot 服务器，不会返回给 App，也不会发给 DeepSeek。")
         }
+    }
+
+    private func connectGoogle(_ plugin: Plugin) async {
+        guard let serverID = plugin.servers.first?.id, plugin.consented else { return }
+        busy = true
+        defer { busy = false }
+        var state: String?
+        do {
+            let start = try await app.api.startMCPOAuth(serverID: serverID)
+            state = start.state
+            let callbackURL = try await OAuthSessionPresenter.authenticate(url: start.authURL,
+                                                                             callbackScheme: start.callbackScheme)
+            let query = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            guard let code = query.first(where: { $0.name == "code" })?.value,
+                  let returnedState = query.first(where: { $0.name == "state" })?.value,
+                  returnedState == start.state else {
+                throw OAuthSessionError.invalidCallback
+            }
+            _ = try await app.api.completeMCPOAuth(serverID: serverID, callback: MCPOAuthCallback(
+                code: code, state: returnedState, issuer: query.first(where: { $0.name == "iss" })?.value))
+            state = nil
+            await load()
+            errorText = nil
+        } catch {
+            if let state { try? await app.api.cancelMCPOAuth(serverID: serverID, state: state) }
+            errorText = error.localizedDescription
+        }
+    }
+
+    private func disconnectOAuth(_ plugin: Plugin) async {
+        guard let serverID = plugin.servers.first?.id else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            try await app.api.disconnectMCPOAuth(serverID: serverID)
+            errorText = nil
+            await load()
+        } catch { errorText = app.message(for: error) }
     }
 
     private func disconnect() async {
@@ -355,6 +428,53 @@ struct PluginDetailView: View {
         } catch {
             errorText = app.message(for: error)
         }
+    }
+}
+
+private enum OAuthSessionError: LocalizedError {
+    case cancelled, invalidCallback
+    var errorDescription: String? {
+        switch self {
+        case .cancelled: return "已取消 Google 登录。"
+        case .invalidCallback: return "Google 登录返回的信息无效，请重试。"
+        }
+    }
+}
+
+@MainActor
+private final class OAuthSessionPresenter: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private var session: ASWebAuthenticationSession?
+
+    static func authenticate(url: URL, callbackScheme: String) async throws -> URL {
+        let presenter = OAuthSessionPresenter()
+        return try await presenter.run(url: url, callbackScheme: callbackScheme)
+    }
+
+    private func run(url: URL, callbackScheme: String) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { [weak self] callback, error in
+                self?.session = nil
+                if let callback { continuation.resume(returning: callback) }
+                else if let authError = error as? ASWebAuthenticationSessionError,
+                        authError.code == .canceledLogin { continuation.resume(throwing: OAuthSessionError.cancelled) }
+                else { continuation.resume(throwing: error ?? OAuthSessionError.invalidCallback) }
+            }
+            session.prefersEphemeralWebBrowserSession = false
+            session.presentationContextProvider = self
+            self.session = session
+            guard session.start() else {
+                self.session = nil
+                continuation.resume(throwing: OAuthSessionError.invalidCallback)
+                return
+            }
+        }
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow) ?? ASPresentationAnchor()
     }
 }
 

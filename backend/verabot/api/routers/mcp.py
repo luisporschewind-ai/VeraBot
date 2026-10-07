@@ -25,6 +25,22 @@ class ConsentIn(BaseModel):
     granted: bool
 
 
+class OAuthCallbackIn(BaseModel):
+    code: str = Field(min_length=1, max_length=4096, repr=False)
+    state: str = Field(min_length=20, max_length=256, repr=False)
+    iss: str | None = Field(default=None, max_length=2048, repr=False)
+
+    def __repr__(self):
+        return "OAuthCallbackIn(code=<redacted>, state=<redacted>, iss=<redacted>)"
+
+
+class OAuthCancelIn(BaseModel):
+    state: str = Field(min_length=20, max_length=256, repr=False)
+
+    def __repr__(self):
+        return "OAuthCancelIn(state=<redacted>)"
+
+
 def _require(user_id: int, server_id: int) -> dict:
     row = mcp_store.get_server(user_id, server_id)
     if row is None:
@@ -89,6 +105,64 @@ def sync_server(server_id: int, user=Depends(current_user)):
     if row["status"] == "disabled":
         raise HTTPException(409, "服务已停用，先启用再刷新工具")
     return mcp.sync_server(user["id"], server_id)
+
+
+@router.post("/api/mcp/servers/{server_id}/auth/start")
+async def oauth_start(server_id: int, user=Depends(current_user)):
+    row = _require(user["id"], server_id)
+    from ...services.mcp import catalog as cat
+    from ...services.mcp import oauth
+    spec = cat.by_id(row.get("catalog_id") or "") or cat.by_slug(row["slug"])
+    if not spec or spec.get("auth") != "oauth":
+        raise HTTPException(422, "该服务不支持 OAuth")
+    if row["status"] == "disabled":
+        raise HTTPException(409, "服务已停用，先启用再连接")
+    try:
+        return await oauth.start_authorization(user["id"], row, spec)
+    except oauth.OAuthError as exc:
+        status = 503 if "尚未配置" in str(exc) else 502
+        raise HTTPException(status, str(exc)) from None
+
+
+@router.post("/api/mcp/servers/{server_id}/auth/callback")
+async def oauth_callback(server_id: int, body: OAuthCallbackIn, user=Depends(current_user)):
+    row = _require(user["id"], server_id)
+    from ...services.mcp import oauth
+    try:
+        result = await oauth.complete_authorization(
+            user["id"], server_id, code=body.code, state=body.state, issuer=body.iss,
+        )
+    except oauth.OAuthError as exc:
+        raise HTTPException(400, str(exc)) from None
+    # Sync only after successful OAuth. The public response exposes connection metadata only.
+    sync_result = mcp.sync_server(user["id"], server_id)
+    fresh = mcp_store.get_server(user["id"], server_id) or row
+    return {**result, "status": "connected" if fresh.get("status") == "connected" else fresh.get("status"),
+            "tools_count": mcp_store.tool_count(user["id"], server_id),
+            "sync_status": (sync_result.get("server") or {}).get("sync_status")}
+
+
+@router.post("/api/mcp/servers/{server_id}/auth/cancel")
+async def oauth_cancel(server_id: int, body: OAuthCancelIn, user=Depends(current_user)):
+    _require(user["id"], server_id)
+    from ...services.mcp import oauth
+    if not await oauth.cancel_authorization(user["id"], server_id, body.state):
+        raise HTTPException(404, "授权流程不存在或已结束")
+    return {"ok": True}
+
+
+@router.delete("/api/mcp/servers/{server_id}/auth")
+def oauth_disconnect(server_id: int, user=Depends(current_user)):
+    row = _require(user["id"], server_id)
+    from ...services.mcp import catalog as cat
+    from ...services.mcp import oauth
+    from ...services.mcp.http_client import drop_session
+    spec = cat.by_id(row.get("catalog_id") or "") or cat.by_slug(row["slug"])
+    if not spec or spec.get("auth") != "oauth":
+        raise HTTPException(422, "该服务不支持 OAuth")
+    oauth.disconnect(user["id"], row, spec)
+    drop_session((user["id"], server_id))
+    return {"ok": True}
 
 
 @router.get("/api/mcp/servers/{server_id}/tools")
