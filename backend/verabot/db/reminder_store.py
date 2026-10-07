@@ -177,7 +177,13 @@ def purge_idempotency_keys(conn, cutoff: str) -> None:
 
 
 def purge_expired_pending_actions(conn, now_iso: str) -> None:
-    conn.execute("DELETE FROM pending_actions WHERE expires_at<=? AND status='pending'", (now_iso,))
+    """过期 pending → expired（保留行供 UI / 审计）；更早的清理由对账决定。"""
+    conn.execute(
+        """UPDATE pending_actions
+           SET status='expired', result=COALESCE(result, '已过期'), decided_at=?
+           WHERE expires_at<=? AND status='pending'""",
+        (now_iso, now_iso),
+    )
 
 
 def get_idempotency(user_id: int, key: str):

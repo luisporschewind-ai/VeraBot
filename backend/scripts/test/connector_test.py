@@ -255,7 +255,8 @@ try:
           and turn_d.untrusted_tainted, f"{ok.get('code')} {denied.get('code')} f={failures}")
     write, _ = call("mcp__github__create_pull_request", {})
     check("CONN-SEC-01 injected instruction cannot reach a write tool; tainted turn",
-          write.get("code") not in ("ok", None) and turn_ok.untrusted_tainted, str(write)[:160])
+          (write.get("status") == "pending_confirmation" or write.get("code") not in ("ok", None))
+          and turn_ok.untrusted_tainted, str(write)[:160])
 
     # CONN-05 不泄露
     con = sqlite3.connect(DB)

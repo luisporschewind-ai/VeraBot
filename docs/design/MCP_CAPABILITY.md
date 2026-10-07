@@ -1,7 +1,7 @@
 # MCP 能力设计 (MCP Capability Design) — v1.0
 
 > 状态：**v1.0 已批准 (Approved)**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)。决定与正文冲突时以 §16 为准。
-> **实现进度 (2026-10-03)**：**M1 已实现**（schema v7、免授权目录、Streamable HTTP 客户端、Bot 工具开关、iOS 设置）。**M2 已实现**其中产品确认的五件事：D4 按服务记录同意时间、会话复用、调用审计、列表异步同步、重试与熔断（schema v8，见 §18.3）。**插件 P1 已实现**（schema v10，用户入口改为「插件」，见 [PLUGIN_DESIGN.md](PLUGIN_DESIGN.md) 与 §18.4）。OAuth、HITL 确认卡片、工具定义变更审阅、Gmail、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
+> **实现进度 (2026-10-05)**：**M1 已实现**（schema v7）。**M2 已实现**（schema v8，见 §18.3）。**插件 P1 已实现**（schema v10，见 §18.4）。**M3 已实现**：`pending_actions` HITL 确认卡片（复用 v7 表，不升版本，见 §18.5）。OAuth、工具定义变更审阅、Gmail、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
 > **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，Bot 标签 (commit `1d18e1b`) 占用 **schema v5**，Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md)) 预留 **schema v6**，本文的迁移使用 **schema v7** (§16 D2)。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密复用该依赖，但使用独立密钥 `VERABOT_TOKEN_ENC_KEY` (§16 D2)。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
@@ -745,3 +745,21 @@ M2 按产品确认的范围落地，不是设计稿 §15 里「设置页 + 变�
 | `DELETE /api/plugins/{id}`：`ok`、`removed_tools`、`affected_bots` | `PluginUninstallResult` |
 
 `state` 只在后端计算，顺序（越靠前越优先）：`not_installed`、`disabled`、`circuit_open`、`syncing`、`error`、`needs_consent`、`ready`。内置插件固定 `ready`。iOS 只做文案映射。
+
+### 18.5 MCP M3：通用 HITL（2026-10-05，不升 schema）
+
+复用 v7 已建的 `pending_actions` 表。非只读工具（及 `confirm_policy=always` 的只读工具）创建待确认操作，不再返回「当前版本暂不支持确认」。
+
+| 行为 | 实现 |
+|---|---|
+| 创建 | 冻结参数 Fernet 加密（`VERABOT_ACTION_ENC_KEY` / `data/.action_key`）+ `payload_hash` + `tool_def_hash`；默认 15 分钟过期 |
+| SSE | `confirmation_required`；工具结果同时带 `status=pending_confirmation`（写入 traces，便于重载） |
+| 确认 | `POST /api/pending-actions/{id}/confirm` 执行冻结参数；结果摘要写入对话历史；不自动再调 LLM |
+| 取消 / 过期 / 他人 / 重复 | cancel；410 / 404 / 409 |
+| 确认前变更 | 工具 `changed` / `def_hash` 不一致 / 服务未连接 → 409，不调用远程 |
+| 发送类自动执行 | `PATCH /api/mcp/tools/{id}` 拒绝 `never` / `auto` 等（MCP-13） |
+| 跨服务警告 | 本轮读过服务器 A 后向 B 写 → `warnings[]` |
+| 工具调用记录 | `GET /api/bots/{id}/tool-calls`；协作记录页「工具调用」分段 |
+| Web | 冻结，无确认卡片 |
+
+测试：`backend/scripts/test/mcp_m3_test.py`（MCP-10~13 等）。

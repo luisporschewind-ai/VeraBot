@@ -8,7 +8,9 @@ import os
 from .. import db
 from ..core.config import MCP_CALLS_PER_TURN_DEFAULT
 from ..db import delegation_store, mcp_store, plugin_store
+from ..services.actions import create_mcp_pending
 from ..services.mcp import catalog as mcp_catalog
+from ..services.mcp import policy as mcp_policy
 from ..services.mcp import service as mcp
 from ..services.attachments.vision import guard_write as image_guard
 from ..tools.registry import ToolContext, run_tool
@@ -22,7 +24,7 @@ _DENY = {
     "tool_changed": "MCP 工具定义已变更，需要先接受变更",
     "tool_removed": "MCP 工具已从服务中移除",
     "turn_cap": "本轮 MCP 调用次数已达上限",
-    "needs_confirmation": "该操作需要确认后才能执行，当前版本暂不支持确认",
+    "pending_cap": "本轮待确认操作已达上限，请先处理已有确认卡片",
     "plugin_uninstalled": "插件已卸载，本次调用已取消",
 }
 
@@ -60,7 +62,7 @@ def trace_meta(user_id: int, name: str) -> dict:
 async def dispatch(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
     if name.startswith("mcp__"):
         return await asyncio.to_thread(_call_mcp, ctx, name, raw_args, call_id)
-    denied = image_guard(ctx, name)   # 带图轮次：写工具需要用户确认（MCP 非只读工具本来就被拒绝）
+    denied = image_guard(ctx, name)   # 带图轮次：写工具需要用户确认（MCP 写工具走 pending_actions）
     if denied:
         return denied
     return await run_tool(ctx, name, raw_args)
@@ -86,20 +88,30 @@ def _call_mcp(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = 
         return _deny(ctx, name, "tool_removed")
     if ctx.turn.mcp_calls >= _calls_per_turn():
         return _deny(ctx, name, "turn_cap")
-    if tool["risk"] != "read":
-        return _deny(ctx, name, "needs_confirmation")
     try:
         args = json.loads(raw_args or "{}")
         if not isinstance(args, dict):
             raise ValueError("arguments must be an object")
     except Exception as exc:
         return {"error": f"参数解析失败: {exc}", "code": "mcp_invalid_arguments"}
+
+    # M3：非只读（或用户要求 always）→ 冻结参数进 pending_actions，不调远程
+    if mcp_policy.requires_confirmation(tool):
+        warnings = mcp_policy.cross_server_warnings(
+            getattr(ctx.turn, "mcp_read_servers", set()) or set(),
+            server.get("name") or server.get("slug") or "",
+        )
+        return create_mcp_pending(ctx, server, tool, args, warnings=warnings)
+
     ctx.turn.mcp_calls += 1
     result = mcp.invoke(
         ctx.user_id, server, tool, args, call_id=call_id or name, bot_id=ctx.bot.get("id"),
     )
     if result.get("content") or result.get("code") == "mcp_tool_error":
         ctx.turn.untrusted_tainted = True
+        name_key = server.get("name") or server.get("slug")
+        if name_key:
+            ctx.turn.mcp_read_servers.add(name_key)
     return result
 
 

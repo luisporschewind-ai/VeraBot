@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 
+from . import action_store
 from .database import now_iso, tx
 
 
@@ -113,6 +114,7 @@ def commit_uninstall(user_id: int, plugin_id: str) -> dict | None:
         for server in servers:
             ids.append(server["id"])
             slugs.append(server["slug"])
+            action_store.detach_for_server(c, user_id, server["id"], stamp=now)
             removed += c.execute(
                 "SELECT COUNT(*) FROM mcp_tools WHERE server_id=?", (server["id"],)
             ).fetchone()[0]

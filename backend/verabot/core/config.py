@@ -103,6 +103,7 @@ MEMORY_STYLE_SHORTER = "回答再短一点，说重点"
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_TIMEOUT_DEFAULT = 15  # 秒。建议 10–15；测试可调低。单次 HTTP 超时，连接与读取共用（M1 已如此，M2 不拆开）。
 MCP_CALLS_PER_TURN_DEFAULT = 8
+MCP_PENDING_PER_TURN_DEFAULT = 2     # 单轮最多创建这么多待确认操作（MCP M3）
 MCP_MAX_TOOLS_PER_SERVER_DEFAULT = 50
 MCP_MAX_RESULT_CHARS_DEFAULT = 8000
 MCP_MAX_TOOLS_PER_BOT = 20
@@ -110,6 +111,7 @@ MCP_RETRY_MAX_DEFAULT = 2            # 可重试错误的额外次数（不含�
 MCP_RETRY_BACKOFF_DEFAULT = "0.5,2"  # 秒，按尝试序号取，用完后沿用最后一档；另加最多 25% 抖动
 MCP_BREAKER_THRESHOLD_DEFAULT = 5    # 同一服务器连续传输失败这么多次后打开熔断
 MCP_BREAKER_COOLDOWN_DEFAULT = 60    # 秒。打开期间不发请求；到期后放行一次探测
+ACTION_TTL_MIN_DEFAULT = 15          # 待确认操作默认过期分钟数（pending_actions，M3）
 
 
 def plugin_default_installed() -> set[str]:

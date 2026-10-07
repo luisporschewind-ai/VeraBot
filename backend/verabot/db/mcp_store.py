@@ -115,6 +115,8 @@ def settle_disabled_sync(user_id: int, server_id: int) -> bool:
 
 def delete_server(user_id: int, server_id: int) -> bool:
     with tx() as c:
+        from .action_store import detach_for_server
+        detach_for_server(c, user_id, server_id)
         cur = c.execute(
             "DELETE FROM mcp_servers WHERE id=? AND user_id=?", (server_id, user_id)
         )
@@ -220,6 +222,20 @@ def accept_change(user_id: int, tool_id: int) -> dict | None:
         c.execute(
             "UPDATE mcp_tools SET status='active', accepted_hash=?, last_seen_at=? WHERE id=?",
             (row["def_hash"], now_iso(), tool_id),
+        )
+    return get_tool(user_id, tool_id)
+
+
+def set_confirm_policy(user_id: int, tool_id: int, policy: str) -> dict | None:
+    with tx() as c:
+        row = c.execute(
+            "SELECT id FROM mcp_tools WHERE id=? AND user_id=?", (tool_id, user_id)
+        ).fetchone()
+        if row is None:
+            return None
+        c.execute(
+            "UPDATE mcp_tools SET confirm_policy=? WHERE id=? AND user_id=?",
+            (policy, tool_id, user_id),
         )
     return get_tool(user_id, tool_id)
 

@@ -28,6 +28,9 @@ final class ChatViewModel {
     var memoryOutcomes: [Int: String] = [:]
     var memoryBusy: Set<Int> = []
     var memoryConfirmTick = 0   // 触感反馈触发器：确认记住 +1
+    /// MCP M3 确认卡片：action_id → 最新 PendingAction
+    var actionStates: [Int: PendingAction] = [:]
+    var actionBusy: Set<Int> = []
     /// 执行状态机与头像计时（对话页导航栏读取 `executionState`）。
     private var playback = ExecutionAvatarController()
     var executionState: ExecutionState { playback.state }
@@ -87,6 +90,71 @@ final class ChatViewModel {
             errorText = error.localizedDescription
         }
         await refreshMemoryStates()
+        await refreshPendingActions()
+    }
+
+    // MARK: - MCP M3 确认卡片
+
+    private var pendingActionIDs: [Int] {
+        items.flatMap { $0.traces.compactMap { $0.pendingConfirmation?.actionId } }
+    }
+
+    func refreshPendingActions() async {
+        do {
+            let remote = try await api.pendingActions(status: "pending", botID: bot.id)
+            for a in remote.actions {
+                actionStates[a.id] = a
+            }
+            // 历史里出现过、但不在 pending 列表的：拉一次最新状态
+            for id in Set(pendingActionIDs) where actionStates[id] == nil {
+                if let a = try? await api.pendingAction(id: id) {
+                    actionStates[id] = a
+                }
+            }
+        } catch {
+            // 旧后端无此接口：忽略
+        }
+    }
+
+    func confirmAction(_ id: Int) async {
+        actionBusy.insert(id)
+        defer { actionBusy.remove(id) }
+        do {
+            let a = try await api.confirmPendingAction(id: id)
+            actionStates[id] = a
+            memoryConfirmTick += 1
+        } catch let e as APIError where e.status == 410 {
+            actionStates[id] = actionStates[id].map {
+                PendingAction(id: $0.id, kind: $0.kind, status: "expired", botId: $0.botId,
+                              serverId: $0.serverId, server: $0.server, tool: $0.tool, label: $0.label,
+                              risk: $0.risk, arguments: $0.arguments, warnings: $0.warnings,
+                              result: "已过期", createdAt: $0.createdAt, expiresAt: $0.expiresAt,
+                              decidedAt: $0.decidedAt)
+            } ?? PendingAction(id: id, status: "expired", result: "已过期")
+            errorText = e.message
+        } catch let e as APIError {
+            errorText = e.message
+            if e.status == 409, let a = try? await api.pendingAction(id: id) {
+                actionStates[id] = a
+            }
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    func cancelAction(_ id: Int) async {
+        actionBusy.insert(id)
+        defer { actionBusy.remove(id) }
+        do {
+            actionStates[id] = try await api.cancelPendingAction(id: id)
+        } catch let e as APIError {
+            errorText = e.message
+            if e.status == 409 || e.status == 410, let a = try? await api.pendingAction(id: id) {
+                actionStates[id] = a
+            }
+        } catch {
+            errorText = error.localizedDescription
+        }
     }
 
     // MARK: - 记忆确认卡片（remember / forget_memory 的 trace）
@@ -197,6 +265,7 @@ final class ChatViewModel {
         _ = try? await api.clearMessages(botID: bot.id, includeMemories: includeMemories)
         memoryStates = [:]
         memoryOutcomes = [:]
+        actionStates = [:]
         feed(.reset)
         await load()
     }
@@ -239,9 +308,14 @@ final class ChatViewModel {
                     } else {
                         items[idx].traces.append(trace)
                     }
+                    if let pending = trace.pendingConfirmation {
+                        actionStates[pending.actionId] = pending.asPending()
+                    }
                     if ["create_reminder", "manage_reminder", "list_reminders"].contains(trace.name) {
                         NotificationCenter.default.post(name: .verabotRemindersChanged, object: nil)
                     }
+                case .confirmationRequired(let req):
+                    actionStates[req.actionId] = req.asPending()
                 case .error(let msg):
                     appendError(msg, at: idx)
                 case .done(let d):
@@ -270,6 +344,9 @@ final class ChatViewModel {
         scrollTick += 1
         if items[idx].traces.contains(where: { $0.memoryProposal?.isCard == true }) {
             await refreshMemoryStates()
+        }
+        if items[idx].traces.contains(where: { $0.pendingConfirmation != nil }) {
+            await refreshPendingActions()
         }
     }
 }

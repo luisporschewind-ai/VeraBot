@@ -17,7 +17,9 @@ class TurnState:
     """一次用户请求（一轮对话 turn）内、跨整棵委派树共享的计数器。"""
     delegations: int = 0
     memory_proposals: int = 0     # 本轮记忆提议次数（remember / forget_memory），上限 VERABOT_MEMORY_PROPOSALS_PER_TURN
-    mcp_calls: int = 0            # 本轮已经打到 MCP 服务器的次数
+    mcp_calls: int = 0            # 本轮已经打到 MCP 服务器的次数（含只读；待确认不计入）
+    pending_created: int = 0      # 本轮创建的待确认操作数，上限 VERABOT_MCP_PENDING_PER_TURN
+    mcp_read_servers: set = field(default_factory=set)  # 本轮读过的 MCP 服务显示名（跨服务警告）
     untrusted_tainted: bool = False  # 本轮已经读过 MCP 结果，不能再 ask_bot
     reminder_writes: int = 0      # 本轮提醒写操作次数，上限 5
     reminder_created: dict = field(default_factory=dict)  # (标题, due_utc) → 已创建结果，同一轮去重

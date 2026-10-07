@@ -196,6 +196,9 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
                         yield {"event": "status", "data": val}
                     else:
                         result = val
+                if result.get("status") == "pending_confirmation" and result.get("action_id"):
+                    from ..services.actions import sse_payload
+                    yield {"event": "confirmation_required", "data": sse_payload(result)}
                 trace = {"id": tc["id"], "name": tc["name"], "args": args, "result": result}
                 if tc["name"] in MEMORY_TOOLS:
                     trace = _redact_memory_trace(trace)
