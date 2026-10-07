@@ -218,6 +218,23 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/mcp/servers/\(id)/sync", method: "POST")
     }
 
+    public func startMCPOAuth(serverID: Int) async throws -> MCPOAuthStart {
+        try await call("/api/mcp/servers/\(serverID)/auth/start", method: "POST")
+    }
+
+    public func completeMCPOAuth(serverID: Int, callback: MCPOAuthCallback) async throws -> MCPOAuthResult {
+        try await call("/api/mcp/servers/\(serverID)/auth/callback", method: "POST", body: try encode(callback))
+    }
+
+    public func cancelMCPOAuth(serverID: Int, state: String) async throws {
+        let _: OKResponse = try await call("/api/mcp/servers/\(serverID)/auth/cancel", method: "POST",
+                                           body: try encode(["state": state]))
+    }
+
+    public func disconnectMCPOAuth(serverID: Int) async throws {
+        let _: OKResponse = try await call("/api/mcp/servers/\(serverID)/auth", method: "DELETE")
+    }
+
     public func mcpTools(serverID: Int) async throws -> MCPToolsResponse {
         try await call("/api/mcp/servers/\(serverID)/tools")
     }

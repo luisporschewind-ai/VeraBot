@@ -97,7 +97,8 @@ def invoke(user_id: int, server: dict, tool: dict, arguments: dict, call_id: str
     except MCPAuthError as exc:
         # 运行中 401 / insufficient_scope：needs_auth，不重试、不计熔断，工具随即不进 schema
         from .sync import mark_auth_failed
-        mark_auth_failed(user_id, server["id"], exc.auth_error, _plugin_id_of(fresh))
+        mark_auth_failed(user_id, server["id"], exc.auth_error, _plugin_id_of(fresh),
+                         getattr(exc, "required_scopes", ()))
         return finish({"error": _AUTH_MESSAGE, "code": "mcp_auth_required"}, "error", "mcp_auth_required")
     except MCPTimeoutError as exc:
         if not alive():

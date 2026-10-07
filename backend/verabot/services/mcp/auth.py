@@ -6,7 +6,11 @@
 from __future__ import annotations
 
 import re
+import threading
+from datetime import datetime, timezone
 from dataclasses import dataclass
+
+import httpx
 
 from ...core import crypto
 from ...db import mcp_store
@@ -65,10 +69,119 @@ class StaticBearerProvider(AuthProvider):
         return AuthHeaders(bearer_headers(self.spec, token), f"{cred['id']}:{cred['updated_at']}")
 
 
+_oauth_refresh_locks: dict[tuple[int, int], threading.Lock] = {}
+_oauth_refresh_locks_guard = threading.Lock()
+
+
+class OAuthBearerProvider(AuthProvider):
+    """Issuer-bound OAuth credentials with serialized, fail-closed refresh."""
+    kind = "oauth"
+
+    def _credential(self, user_id: int, row: dict) -> dict | None:
+        issuer = self.spec.get("oauth_issuer")
+        return mcp_store.get_credential_for_issuer(user_id, row["id"], issuer) if issuer else None
+
+    def has_credential(self, user_id: int, row: dict) -> bool:
+        if (row.get("auth_error") or "") in AUTH_ERRORS:
+            return False
+        cred = self._credential(user_id, row)
+        if not cred or not cred.get("access_token_enc"):
+            return False
+        return bool(crypto.decrypt(cred["access_token_enc"], "token"))
+
+    def headers(self, user_id: int, row: dict) -> AuthHeaders | None:
+        if (row.get("auth_error") or "") in AUTH_ERRORS:
+            return None
+        cred = self._credential(user_id, row)
+        if not cred:
+            return None
+        token = crypto.decrypt(cred.get("access_token_enc"), "token")
+        if not token:
+            return None
+        expiry = cred.get("expires_at")
+        if expiry:
+            try:
+                expires = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+                remaining = (expires - datetime.now(timezone.utc)).total_seconds()
+            except (TypeError, ValueError):
+                remaining = -1
+            if remaining < 60:
+                refreshed = self._refresh(user_id, row, cred)
+                if not refreshed:
+                    return None
+                cred = refreshed
+                token = crypto.decrypt(cred.get("access_token_enc"), "token")
+                if not token:
+                    return None
+        return AuthHeaders(bearer_headers(self.spec, token), f"{cred['id']}:{cred['updated_at']}")
+
+    def _refresh(self, user_id: int, row: dict, cred: dict) -> dict | None:
+        key = (user_id, row["id"])
+        with _oauth_refresh_locks_guard:
+            lock = _oauth_refresh_locks.setdefault(key, threading.Lock())
+        with lock:
+            latest = self._credential(user_id, row)
+            if not latest:
+                return None
+            try:
+                if latest.get("expires_at"):
+                    expires = datetime.fromisoformat(latest["expires_at"].replace("Z", "+00:00"))
+                    if (expires - datetime.now(timezone.utc)).total_seconds() >= 60:
+                        return latest
+            except (TypeError, ValueError):
+                pass
+            refresh_token = crypto.decrypt(latest.get("refresh_token_enc"), "token")
+            if not refresh_token:
+                self._mark_expired(user_id, row["id"])
+                return None
+            client_id = self.spec.get("oauth_client_id")
+            client_secret = self.spec.get("oauth_client_secret")
+            if not client_id:
+                self._mark_expired(user_id, row["id"])
+                return None
+            form = {"grant_type": "refresh_token", "refresh_token": refresh_token,
+                    "client_id": client_id, "resource": row["url"]}
+            if client_secret:
+                form["client_secret"] = client_secret
+            try:
+                response = httpx.post(self.spec.get("oauth_token_endpoint", "https://oauth2.googleapis.com/token"),
+                                      data=form, timeout=15.0, follow_redirects=False)
+                if response.status_code != 200:
+                    self._mark_expired(user_id, row["id"])
+                    return None
+                payload = response.json()
+                access = payload.get("access_token")
+                if not isinstance(access, str) or not access:
+                    self._mark_expired(user_id, row["id"])
+                    return None
+                from .oauth import _iso_after
+                mcp_store.save_oauth_storage(
+                    user_id, row["id"], self.spec["oauth_issuer"],
+                    access_token_enc=crypto.encrypt(access, "token"),
+                    refresh_token_enc=crypto.encrypt(payload["refresh_token"], "token")
+                    if payload.get("refresh_token") else None,
+                    expires_at=_iso_after(payload.get("expires_in")),
+                    scopes=payload.get("scope") or latest.get("scopes"),
+                    token_hint="…" + access[-4:],
+                    clear_expiry=True,
+                )
+                return self._credential(user_id, row)
+            except Exception:
+                # Do not surface provider bodies or credentials through logs/errors.
+                return None
+
+    @staticmethod
+    def _mark_expired(user_id: int, server_id: int) -> None:
+        mcp_store.update_server(user_id, server_id, status="needs_auth", auth_error="expired",
+                                last_error="授权已失效")
+
+
 def provider_for(spec: dict | None) -> AuthProvider:
     if requires_auth(spec):
         if spec.get("auth") == "bearer":
             return StaticBearerProvider(spec)
+        if spec.get("auth") == "oauth":
+            return OAuthBearerProvider(spec)
         raise ValueError(f"unsupported auth {spec.get('auth')}")   # oauth：P2
     return AuthProvider(spec)
 

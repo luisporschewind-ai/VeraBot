@@ -289,3 +289,86 @@ def delete_credential(user_id: int, server_id: int) -> bool:
     with tx() as c:
         cur = c.execute("DELETE FROM mcp_credentials WHERE user_id=? AND server_id=?", (user_id, server_id))
         return cur.rowcount > 0
+
+
+def get_credential_for_issuer(user_id: int, server_id: int, issuer: str) -> dict | None:
+    with tx() as c:
+        row = c.execute(
+            "SELECT * FROM mcp_credentials WHERE user_id=? AND server_id=? AND issuer=? ORDER BY id DESC LIMIT 1",
+            (user_id, server_id, issuer),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_credential_for_issuer(user_id: int, server_id: int, issuer: str) -> bool:
+    with tx() as c:
+        cur = c.execute("DELETE FROM mcp_credentials WHERE user_id=? AND server_id=? AND issuer=?",
+                        (user_id, server_id, issuer))
+        return cur.rowcount == 1
+
+
+def save_oauth_storage(user_id: int, server_id: int, issuer: str, *, access_token_enc: str | None = None,
+                       refresh_token_enc: str | None = None, client_info_enc: str | None = None,
+                       expires_at: str | None = None, scopes: str | None = None,
+                       token_hint: str | None = None, clear_expiry: bool = False) -> dict:
+    """Persist one OAuth issuer's encrypted SDK storage without overwriting another issuer."""
+    now = now_iso()
+    with tx() as c:
+        old = c.execute(
+            "SELECT * FROM mcp_credentials WHERE user_id=? AND server_id=? AND issuer=?",
+            (user_id, server_id, issuer),
+        ).fetchone()
+        if old:
+            c.execute(
+                """UPDATE mcp_credentials SET provider='oauth', kind='oauth',
+                   access_token_enc=COALESCE(?,access_token_enc),
+                   refresh_token_enc=COALESCE(?,refresh_token_enc),
+                   client_info_enc=COALESCE(?,client_info_enc),
+                   expires_at=CASE WHEN ? THEN NULL ELSE COALESCE(?,expires_at) END, scopes=COALESCE(?,scopes),
+                   token_hint=COALESCE(?,token_hint), last_verified_at=?, updated_at=?
+                   WHERE id=?""",
+                (access_token_enc, refresh_token_enc, client_info_enc, int(clear_expiry), expires_at, scopes,
+                 token_hint, now, now, old["id"]),
+            )
+        else:
+            c.execute(
+                """INSERT INTO mcp_credentials(user_id,server_id,provider,issuer,access_token_enc,
+                   refresh_token_enc,client_info_enc,expires_at,scopes,kind,token_hint,last_verified_at,
+                   created_at,updated_at) VALUES(?,?, 'oauth', ?,?,?,?,?,?,'oauth',?,?,?,?)""",
+                (user_id, server_id, issuer, access_token_enc, refresh_token_enc, client_info_enc,
+                 expires_at, scopes, token_hint, now, now, now),
+            )
+    return get_credential_for_issuer(user_id, server_id, issuer) or {}
+
+
+def insert_oauth_state(state: str, user_id: int, server_id: int, provider: str, payload_enc: str,
+                       expires_at: str) -> None:
+    with tx() as c:
+        c.execute("DELETE FROM oauth_states WHERE expires_at<=?", (now_iso(),))
+        c.execute(
+            "INSERT INTO oauth_states(state,user_id,server_id,provider,payload_enc,expires_at) VALUES(?,?,?,?,?,?)",
+            (state, user_id, server_id, provider, payload_enc, expires_at),
+        )
+
+
+def consume_oauth_state(state: str, user_id: int, server_id: int) -> str | None:
+    """Atomically consume a live state. Missing, expired, replayed, and foreign are equivalent."""
+    now = now_iso()
+    with tx() as c:
+        row = c.execute(
+            "SELECT expires_at FROM oauth_states WHERE state=? AND user_id=? AND server_id=?",
+            (state, user_id, server_id),
+        ).fetchone()
+        if row is None:
+            return None
+        c.execute("DELETE FROM oauth_states WHERE state=?", (state,))
+        return row["expires_at"] if row["expires_at"] > now else None
+
+
+def delete_oauth_state(state: str, user_id: int, server_id: int) -> bool:
+    with tx() as c:
+        cur = c.execute(
+            "DELETE FROM oauth_states WHERE state=? AND user_id=? AND server_id=?",
+            (state, user_id, server_id),
+        )
+        return cur.rowcount == 1

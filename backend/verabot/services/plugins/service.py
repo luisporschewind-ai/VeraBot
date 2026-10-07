@@ -53,6 +53,8 @@ def _rank(state: str) -> int:
 def _server_state(row: dict) -> str:
     if row["status"] == "disabled":
         return "disabled"
+    if row["status"] == "needs_scope":
+        return "needs_scope"
     spec = mcp_auth.spec_for(row)
     if mcp_auth.requires_auth(spec) and not mcp_auth.provider_for(spec).has_credential(row["user_id"], row):
         return "needs_auth"
@@ -208,7 +210,8 @@ def _account(user_id: int, spec: dict, mcp_spec: dict | None, installed: bool) -
     for row in rows:
         out["auth_error"] = row.get("auth_error")
         out["account_label"] = row.get("account_label")
-        cred = mcp_store.get_credential(user_id, row["id"])
+        cred = (mcp_store.get_credential_for_issuer(user_id, row["id"], mcp_spec.get("oauth_issuer"))
+                if mcp_spec.get("auth") == "oauth" else mcp_store.get_credential(user_id, row["id"]))
         if cred:
             out["credential_hint"] = cred.get("token_hint")
             out["credential_expires_at"] = cred.get("expires_at")
@@ -287,8 +290,8 @@ def install(user_id: int, plugin_id: str) -> dict:
         raise PluginError(404, "未知插件")
     if spec["kind"] == "builtin":
         raise PluginError(422, "内置插件不需要安装")
-    if spec["auth_mode"] not in ("none", "bearer"):
-        raise PluginError(422, "当前版本不支持这种授权方式")   # oauth：P2
+    if spec["auth_mode"] not in ("none", "bearer", "oauth"):
+        raise PluginError(422, "当前版本不支持这种授权方式")
     mcp_spec = mcp_catalog.by_id(spec["catalog_id"] or "")
     if mcp_spec is None or not mcp_spec.get("url"):
         raise PluginError(422, "尚未配置插件服务地址")
@@ -308,6 +311,11 @@ def uninstall(user_id: int, plugin_id: str) -> dict:
         raise PluginError(404, "未知插件")
     if spec["kind"] == "builtin" or not spec["removable"]:
         raise PluginError(422, "内置插件不能卸载")
+    mcp_spec = mcp_catalog.by_id(spec.get("catalog_id") or "")
+    if mcp_spec and mcp_spec.get("auth") == "oauth":
+        from ..mcp.oauth import disconnect as disconnect_oauth
+        for server in _servers(user_id, plugin_id):
+            disconnect_oauth(user_id, server, mcp_spec)
     result = plugin_store.commit_uninstall(user_id, plugin_id)
     if result is None:
         raise PluginError(404, "还没有安装这个插件")

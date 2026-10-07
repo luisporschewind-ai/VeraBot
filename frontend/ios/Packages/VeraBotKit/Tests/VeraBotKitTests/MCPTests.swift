@@ -65,6 +65,19 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
     #expect(r.added == ["mcp__learn__a"] && r.server.syncStatusText == "同步失败" && r.server.lastError == "MCP 服务超时")
 }
 
+@Test func oauthAuthorizationModelsDecodeAndEncodeSafeCallbackShape() throws {
+    let start = try JSONDecoder().decode(MCPOAuthStart.self, from: Data("""
+    {"auth_url":"https://accounts.example/authorize?state=opaque","state":"opaque-state-value-123456","callback_scheme":"com.verabot.app"}
+    """.utf8))
+    #expect(start.authURL.host == "accounts.example")
+    #expect(start.callbackScheme == "com.verabot.app")
+    let callback = MCPOAuthCallback(code: "code-value", state: "opaque-state-value-123456", issuer: "https://issuer.example")
+    let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(callback)) as? [String: String]
+    #expect(json?["code"] == "code-value")
+    #expect(json?["state"] == "opaque-state-value-123456")
+    #expect(json?["iss"] == "https://issuer.example")
+}
+
 @Test func toolInfoOldPayloadIsBuiltin() throws {
     let old = try decode(ToolInfo.self, #"{"name":"get_weather","label":"天气查询","description":"d","delegation":false}"#)
     #expect(!old.isMCP && old.source == nil)

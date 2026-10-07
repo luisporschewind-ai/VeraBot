@@ -572,6 +572,22 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | M3-UI | iOS | 对话出现确认卡片 → 执行 / 取消；重启后恢复 pending；协作记录「工具调用」 | 待 Boss 模拟器验收 | ⏳ |
 | M3-KIT | Kit | `PendingActionTests`：REST / SSE / Trace / tool-calls 解码 | 待 Mac `swift test` | ⏳ |
 
+## MCP M4 OAuth 2.1（不升 schema）— 2026-10-07，功能分支
+
+自动化：`cd backend && .venv/bin/python scripts/test/mcp_oauth_test.py`；假 OAuth / MCP 服务，不访问 Google。iOS 模拟器：iPhone 17，测试账号与数据库均隔离于主环境；后端运行在 `127.0.0.1:8001`。
+
+以上模拟器记录来自功能分支的隔离环境。合入 `main` 后继续验收时，模拟器服务器地址设为 `http://127.0.0.1:8000`，使用主仓库 `backend/data/verabot.db`；演示账号按 `docs/ops/RUN_LOCAL.md` 的说明登录。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| MCP-20 | OAuth | PRM / AS 发现、发起授权、回调、重放 | 授权 URL 使用 PKCE S256 与 resource；Token 请求带 verifier 和 resource；成功回调返回安全状态；重复回调 400 | ✅ 以上子集通过；`iss` 不匹配、错误 / 过期 / 他人 state 尚未专项覆盖 |
+| MCP-21 | 存储 | Token / client info 持久化与回调响应 | SQLite 只含密文；回调 JSON 不含 access / refresh Token | ✅ 存储与回调通过；API / SSE / audit / 全量日志未做统一秘密扫描 |
+| MCP-22 | 刷新 | 过期 access Token 触发 refresh grant | 刷新成功并带 resource | ✅ 常规刷新通过；`invalid_grant` 与并发刷新待测 |
+| MCP-23 | step-up | 工具返回 `insufficient_scope` 后重新授权 | `needs_scope`；请求 scope 为旧 scope 与新 scope 并集；重试有上限 | ⏳ 实现已接入，缺专项自动化验收 |
+| MCP-24 | 断开 | OAuth disconnect 请求 revocation 并清凭据 | 远端撤销被调用；本地 OAuth 凭据删除 | ✅ disconnect 子集通过；删除整项服务器与清理 Bot 白名单 / pending 尚未纳入此用例 |
+| M4-UI-01 | iOS 模拟器 | 隔离账号登录；浏览并安装 Gmail；打开详情 | 登录成功；Gmail 可安装；展示 Google / DeepSeek 数据用途；显示「需要连接」；数据同意默认关闭且未同意时不进入授权 | ✅ iPhone 17 模拟器实测 |
+| M4-UI-02 | iOS 模拟器 / Google | 打开同意后连接；系统浏览器取消及成功授权；重启、扩权、断开 | 状态与账号 / scope 更新；Token 不展示；刷新后保持；撤销并清除本地连接 | ⏳ 留给用户：需要真实 Google 客户端、测试用户、Workspace Developer Preview 和明确的数据同意 |
+
 ## 插件 P1 (schema v10) — 2026-10-03
 
 自动化：`cd backend && uv run python scripts/test/plugin_test.py`。进程内假 MCP 服务器，不访问外网。设计 [PLUGIN_DESIGN.md](../design/PLUGIN_DESIGN.md) v1.0。iOS `PluginTests.swift` 本环境未跑（无 Swift）。
@@ -784,7 +800,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 |---|---|---|---|---|
 | CONN-01 | 后端 | 迁移到 v13，启动两次 | 新列 / 新表存在，幂等 | ✅ |
 | CONN-02 | 后端 | 安装 GitHub；无令牌手动刷新 | `needs_auth`，不发任何请求，不调度同步 | ✅ |
-| CONN-03 | 后端 | 设置令牌 | 带 `Authorization: Bearer` + 三个 `X-MCP-*` 头；connected；白名单外工具被拒并审计；账号名 / 末 4 位 / 到期 | ✅ |
+| CONN-03 | 后端 | 设置令牌 | 带 `Authorization: Bearer` + 三个 `X-MCP-*` 头；凭据已保存；白名单外工具被拒并审计；账号名 / 末 4 位 / 到期 | ⚠️ 旧断言仍要求状态 `connected`；实际需先授权数据同意，因此当前为 `needs_consent`。2026-10-07 在 `main` 与 M4 分支均复现；CONN-03b 同意后为 `ready` 通过 |
 | CONN-04 | 后端 | 格式错；服务 401 | 422 `credential_format` / `credential_invalid`，不保存 | ✅ |
 | CONN-05 | 后端 | 令牌不泄露 | 数据库无明文；API、会话 repr、日志无令牌；`.token_key` 600 | ✅ |
 | CONN-06 | 后端 | 运行中 401 | `mcp_auth_required`、`needs_auth/token_invalid`、不重试、熔断不变、工具不进 schema | ✅ |

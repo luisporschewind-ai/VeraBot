@@ -1,4 +1,14 @@
-# 项目状态 (STATUS) — 2026-10-03
+# 项目状态 (STATUS) — 2026-10-07
+
+## 当前进度 — MCP M4 OAuth，等待 main 验收
+
+回归注意：静态 Bearer `connector_test.py` 的旧用例 CONN-03 要求未同意时为 `connected`，与当前 `needs_consent` 状态不符；在 `main` 与本分支均复现。CONN-03b 同意后为 `ready` 通过，其余连接器用例通过。
+
+- **实现**：M4 OAuth 2.1 / PKCE 后端桥接、issuer 绑定的加密凭据、令牌刷新 / 撤销、授权状态一次性消费、scope step-up 处理，以及 iOS `ASWebAuthenticationSession` 连接页和 Gmail 目录项已准备合入 `main`。未实现 Gmail 邮件工具（后续里程碑）。
+- **自动验收**：`mcp_oauth_test.py`、MCP 回归、插件回归通过；Kit `swift test` 157/157；iPhone 17 模拟器构建并启动成功。OAuth 假服务器覆盖 PKCE、授权与 token 请求的 `resource`、回调防重放、凭据密文、正常刷新与撤销。step-up、`invalid_grant`、并发刷新、跨用户回调仍需专项用例。
+- **模拟器验收**：隔离测试账号登录、Gmail 目录显示、安装 Gmail、详情页数据用途说明、状态「需要连接」、DeepSeek 数据同意开关默认关闭均已实测。未打开同意开关、未调用真实 Google 登录；当前状态正确地要求连接。
+- **待用户手工验收**：真实 Google 登录与取消、授权后重启保持、scope step-up、失效刷新、断开 / 撤销。需要 Google Cloud OAuth 客户端、测试用户和 Workspace Developer Preview；当前环境未配置真实凭据。
+- **main 验收环境**：统一使用主仓库后端 `http://127.0.0.1:8000` 和 `backend/data/verabot.db`；iOS 默认地址也是 `8000`。先前功能分支的模拟器记录曾使用隔离后端 `8001` / `/tmp/verabot-m4-sim`，该实例不再作为验收环境。
 
 ## v0.1.0 · 原型验证完成 (Prototype validated, feasible)
 
@@ -76,6 +86,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | **Bot 置顶** (schema v6；列表排序、名称旁 pin 标识、左滑 / 长按入口、置顶行浅灰底) | `c5529ce` | 后端 `bot_pin_test.py` PIN-01~08 通过；回归 MA 25/25、AV/NK 21/21、MEM 36/36、TAG 10/10；`swift test` 55 项通过；Boss 确认功能无问题 | PIN-01~08、PIN-UI-01~03 |
 | **MCP M1** (schema v7；Learn 默认开、AWS 默认关；Bot / 设置里按服务开关只读工具) | 见 CHANGELOG | 后端 `mcp_test.py` 本地假服务器通过；真实公网用例默认跳过。iOS 未在本环境编译。Web 无界面 | MCP-01、MCP-02、MCP-04~08、MCP-25、MCP-CONTRACT、MCP-HTTP、MCP-LIVE |
 | **MCP M3 HITL** (写工具确认卡片；复用 v7 `pending_actions`) | 见 CHANGELOG | 后端 `mcp_m3_test.py` MCP-10~13 通过；Kit 待 Mac；UI 待 Boss | MCP-10~13、M3-UI |
+| **MCP M4 OAuth 2.1 + Google**（不升 schema） | 已准备合入 `main` | OAuth 假服务器与相关回归、Kit 157/157、iPhone 17 模拟器登录 / Gmail 安装 / 同意门控通过；main 验收地址为 `127.0.0.1:8000` | MCP-20~21、刷新 / 撤销子集；真实 Google OAuth 待手工验收 |
 | **MCP M2** (schema v8；按服务同意、会话复用、审计、后台同步、重试与熔断) | 见 CHANGELOG | 后端 `mcp_test.py` 本地假服务器通过（含 v7→v8）；真实公网用例默认跳过。iOS 未在本环境编译。Web 冻结，无对应界面 | MCP-CONSENT、MCP-SESSION、MCP-AUDIT、MCP-SYNC、MCP-RETRY、MCP-BREAKER、MCP-CONTRACT |
 | **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动；详情/创建 UI 验收延期 | DETAIL-UI-01~09 |
 | **头像实验室** (独立页面；五款角色、八种状态、三种尺寸、按状态机演示；不写入 Bot 资料) | `7ebe99d`、`a29536f` 及之后 | 离屏检查 13/13；模拟器截图 / 录屏通过 (浅色 / 深色、演示、减弱动态效果)；观感待 Boss 验收 | AVLAB-01、AVLAB-02、AVLAB-T01~T14 |
@@ -88,7 +99,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 | 项 | 状态 |
 |---|---|
-| MCP 能力 M4~M7、Gmail 接入 | M1–M3 已实现（含 HITL 确认卡片）。OAuth、变更审阅、Gmail、自定义 URL 仍按设计稿未做 |
+| MCP 后续 M5~M7 | M4 OAuth 已在功能分支实现；Gmail 工具、变更审阅、自定义 URL / stdio 仍未做 |
 | 以记忆为核心的 Bot 成长体系 M2~M5 (摘要、风格校准、隐式候选、成长界面、向量检索) | 📝 方案 v1.0 已批准，M1 已实现；M2 起未开始 |
 | 首页搜索扩展 (完整聊天历史搜索、搜索历史) | ⏸ 延期到后续迭代；当前只过滤已加载列表 |
 
@@ -110,11 +121,12 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | MCP M2（同意时间、会话复用、审计、后台同步、重试与熔断） | 同上 §18.3 | ✅ 已实现（schema v8） | 验收设置页的同意 / 同步 / 熔断。`frontend/web` 冻结，没有对应界面 |
 | MCP M3（pending_actions、写操作确认卡片、工具调用记录） | 同上 §7 / §15 / §18.5 | ✅ 已实现（复用 v7 表，不升版本） | 模拟器验收确认卡片；MCP-10~13 已自动化 |
 | 插件 P1（安装关系、内置 / 外部入口、卸载） | [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0；进度见 MCP §18.4 | ✅ 已实现（schema v10） | 新账号不预装。验收设置 › 插件、内置详情的工具权限导航、卸载确认。`frontend/web` 冻结，插件 P1 没有 Web 对应 |
-| MCP M4~M7（OAuth、变更审阅、Gmail、自定义 URL） | 同上 §15 | 设计已批准，未实现 | M4 之前：创建 Google Cloud 项目并加入 Workspace Developer Preview |
+| MCP M4（OAuth 2.1 + Google 连接） | 同上 §15 / §18.6 | ✅ 功能分支实现；未合并 | 真实授权需 Google Cloud OAuth 客户端、测试用户与 Workspace Developer Preview；由 Boss 手工完成 |
+| MCP M5~M7（Gmail 工具、变更审阅、自定义 URL / stdio） | 同上 §15 | 未实现 | 按设计稿后续推进 |
 | Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准，未实现 | 同上，在 M4 之前 |
 | 以记忆为核心的 Bot 成长体系 | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1 已实现 | 按 MEM-UI-01~12 验收 M1；决定是否开始记忆 M2 |
 
-**MCP M1、M2、M3 已实现**，其上的 **插件 P1 已实现**（schema v10）。**M4~M7 与 Gmail 未写实现代码**。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**，账号占用 **v9**，插件安装表占用 **v10**。`frontend/web` 冻结。
+**MCP M1–M4 已有实现**（M4 OAuth 已准备合入 `main`）；M4 不升 schema。M5~M7 未实现。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**，账号占用 **v9**，插件安装表占用 **v10**。`frontend/web` 冻结。
 
 ## 1. 已完成功能 (Features done)
 
@@ -177,6 +189,6 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 
 1. **执行状态提示**：Core 状态机已完成 ([EXECUTION_STATE.md](design/EXECUTION_STATE.md))；界面显示方式 (文案 / 头像动画) 待 Boss 决定。
 2. **遗留英文**：已修 (2026-10-03)，对话 Trace 行与用量看板的 tokens 改为「用量」，见 UI-EN-01。
-3. **MCP**：M1–M3 已实现（含确认卡片）。下一步按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §15 从 M4（OAuth）往下做；Gmail 在 M4~M6，M4 前 Boss 需完成 Google Cloud 准备。`frontend/web` 继续冻结。
+3. **MCP**：M4 OAuth 已在功能分支实现，待评审与合并；由 Boss 完成 Google Cloud / Workspace 准备并手工验收真实授权，再推进 Gmail 工具。`frontend/web` 继续冻结。
 4. 记忆 M1 UI 验收延期；完成后再决定是否开始 M2。
 5. 其余 UI 验收、过时截图更新及提醒通知、图片附件 / 多模态、云端 TTS、安全与部署、CI、Web 方向暂缓；规划见 [ROADMAP_NEXT.md](ROADMAP_NEXT.md)。

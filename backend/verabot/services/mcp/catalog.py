@@ -15,6 +15,7 @@ AWS_URL = "https://knowledge-mcp.global.api.aws"
 GITHUB_URL = "https://api.githubcopilot.com/mcp/readonly"
 GITHUB_API_URL = "https://api.github.com"
 LINEAR_URL = "https://mcp.linear.app/mcp/readonly"
+GMAIL_URL = "https://gmailmcp.googleapis.com/mcp/v1"
 
 # GitHub P1 只读工具（计划 §7.1，15 个）。名单之外的工具同步时拒绝并审计。
 GITHUB_TOOLS = frozenset({
@@ -152,6 +153,29 @@ def entries() -> list[dict]:
             "tool_allowlist": None,
             "timeout": 30.0,
             "account_probe": None,
+        },
+        {
+            "catalog_id": "gmail_google",
+            "slug": "gmail",
+            "name": "Google Gmail",
+            "description": "通过 Google Workspace MCP 预览服务连接 Gmail。M4 仅开放 OAuth 连接，邮件工具将在后续里程碑开放。",
+            "trust": "verified",
+            "transport": "streamable_http",
+            "auth": "oauth",
+            "url": _url("VERABOT_MCP_GMAIL_URL", GMAIL_URL),
+            "enabled": True,
+            "enabled_by_default": False,
+            "oauth_issuer": _url("VERABOT_MCP_GOOGLE_ISSUER", "https://accounts.google.com"),
+            "oauth_redirect_uri": _url("VERABOT_MCP_GOOGLE_REDIRECT_URI", "com.verabot.app:/oauth/callback"),
+            "oauth_client_id": os.getenv("VERABOT_MCP_GOOGLE_CLIENT_ID", "").strip(),
+            "oauth_client_secret": os.getenv("VERABOT_MCP_GOOGLE_CLIENT_SECRET", "").strip(),
+            "oauth_token_endpoint": _url("VERABOT_MCP_GOOGLE_TOKEN_ENDPOINT", "https://oauth2.googleapis.com/token"),
+            "oauth_revocation_endpoint": _url("VERABOT_MCP_GOOGLE_REVOCATION_ENDPOINT", "https://oauth2.googleapis.com/revoke"),
+            "oauth_scope": "openid email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose",
+            # M5 owns the approved Gmail tool allowlist. M4 can connect and validate OAuth
+            # without exposing unreviewed tools returned by the preview service.
+            "tool_allowlist": frozenset(),
+            "timeout": 30.0,
         },
     ]
 

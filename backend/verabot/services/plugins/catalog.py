@@ -79,6 +79,23 @@ def mcp_plugins() -> list[dict]:
             "consent_required": True,
             "tools": [],
         },
+        {
+            "plugin_id": "gmail_google",
+            "kind": "mcp",
+            "name": "Gmail",
+            "description": "通过 Google 官方 Workspace MCP 预览服务连接 Gmail。",
+            "category": "邮件",
+            "publisher": "Google",
+            "version": "1.0.0",
+            "icon": "envelope",
+            "auth_mode": "oauth",
+            "trust": "verified",
+            "data_notice": "授权范围：读取邮件与创建草稿。连接后，启用的工具返回内容会发送给 DeepSeek 生成回答。M4 暂不开放邮件工具。",
+            "catalog_id": "gmail_google",
+            "removable": True,
+            "consent_required": True,
+            "tools": [],
+        },
     ]
 
 

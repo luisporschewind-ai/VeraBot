@@ -1,7 +1,7 @@
 # MCP 能力设计 (MCP Capability Design) — v1.0
 
 > 状态：**v1.0 已批准 (Approved)**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)。决定与正文冲突时以 §16 为准。
-> **实现进度 (2026-10-05)**：**M1 已实现**（schema v7）。**M2 已实现**（schema v8，见 §18.3）。**插件 P1 已实现**（schema v10，见 §18.4）。**M3 已实现**：`pending_actions` HITL 确认卡片（复用 v7 表，不升版本，见 §18.5）。OAuth、工具定义变更审阅、Gmail、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
+> **实现进度 (2026-10-07)**：**M1 已实现**（schema v7）。**M2 已实现**（schema v8，见 §18.3）。**插件 P1 已实现**（schema v10，见 §18.4）。**M3 已实现**：`pending_actions` HITL 确认卡片（复用 v7 表，不升版本，见 §18.5）。**M4 OAuth 已在功能分支实现，不升 schema**（见 §18.6）；真实 Google 登录待客户端配置与手工验收。Gmail 工具、工具定义变更审阅、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
 > **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，Bot 标签 (commit `1d18e1b`) 占用 **schema v5**，Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md)) 预留 **schema v6**，本文的迁移使用 **schema v7** (§16 D2)。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密复用该依赖，但使用独立密钥 `VERABOT_TOKEN_ENC_KEY` (§16 D2)。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
@@ -22,7 +22,7 @@
 | 防提示注入 | 工具结果 (以及工具描述本身) 一律视为**不可信数据 (untrusted data)**：清洗、截断、`<untrusted_tool_result>` 包裹；读过不可信结果的轮次禁止 `ask_bot` (污染标记 taint) |
 | 安全 | Token 用 Fernet 加密存储在后端，按 (user_id, server_id, issuer) 隔离；**Token 永不下发 App、不进 LLM 上下文、不写日志**；不做 Token 透传 (token passthrough)；远程 URL 做 SSRF 防护 |
 | 审计 | 每次发现 (discovery)、授权、工具调用、拒绝、确认都写 `audit_log`；Trace 卡片标注来源服务器 |
-| 里程碑 | M0 决策 + Google 预览计划 + 技术验证 (spike) → M1 MCP Client 核心 → M2 OAuth 2.1 与设置页 → M3 通用 HITL → M4 Gmail via MCP → M5 加固与扩展 |
+| 里程碑 | M0 决策 + Google 预览计划 + 技术验证 (spike) → M1 MCP Client 核心 → M2 OAuth 2.1 与设置页 → M3 通用 HITL → M4 OAuth + Google 连接 → M5 Gmail via MCP → 后续加固与扩展 |
 
 ## 1. 背景与目标 (Background & Goals)
 
@@ -763,3 +763,19 @@ M2 按产品确认的范围落地，不是设计稿 §15 里「设置页 + 变�
 | Web | 冻结，无确认卡片 |
 
 测试：`backend/scripts/test/mcp_m3_test.py`（MCP-10~13 等）。
+
+### 18.6 MCP M4 OAuth 2.1（2026-10-07，功能分支）
+
+M4 OAuth 实现复用 schema v13 的 OAuth 凭据 / 客户端表与 `discover_json`，不新增迁移。本里程碑只开放 OAuth 连接，不开放 Gmail 工具。合入 `main` 后的模拟器验收统一连接 `127.0.0.1:8000`。
+
+| 能力 | 实现 / 验收边界 |
+|---|---|
+| 授权启动 | MCP SDK provider 发现受保护资源及授权服务器元数据，生成 PKCE S256、state、resource；后端持有 verifier，iOS 只接收授权 URL 与回调 scheme |
+| 回调 | state 按用户、服务和用途绑定，十分钟过期并一次消费；校验 `iss`；SDK 完成 code 换 Token。API 只返回连接状态、账号标签、scope 与工具数 |
+| 存储 | access / refresh Token、客户端 secret 与注册信息使用独立 Token Fernet key 加密；客户端信息按 `(issuer, redirect_uri)` 保存，凭据读取按 issuer 隔离 |
+| 刷新 / 扩权 | 同一授权目标刷新串行化；刷新请求带 resource；MCP 403 `insufficient_scope` 记录所需 scopes、状态 `needs_scope`，重新授权请求已授予与新所需 scope 的并集并限制重复尝试 |
+| 断开 / 卸载 | 可用 revocation endpoint 时请求撤销；无论远端结果如何都清本地凭据。卸载与删除服务会先执行 OAuth 清理 |
+| iOS | Gmail 详情展示账号、已授予与所需 scope、连接 / 重新授权 / 扩权 / 断开状态；授权使用 `ASWebAuthenticationSession`。在连接前展示 Google 权限与工具结果发送到 DeepSeek 的说明；数据同意开关未开时不允许连接 |
+| Google 配置 | Gmail 目录通过环境配置 issuer、redirect URI、client ID / secret、scope、Token 与 revocation endpoint。真实 E2E 需 Google Cloud 测试 OAuth 客户端、测试账号及 Workspace Developer Preview |
+
+验证记录：`backend/scripts/test/mcp_oauth_test.py` 覆盖 PKCE、授权与 Token 请求的 resource、成功回调、回调防重放、密文存储、常规 Token 刷新、revocation 与本地断开。MCP / 插件回归通过，Kit `swift test` 157/157。模拟器验证登录、安装 Gmail、详情文案、`needs connection` 状态和默认关闭的数据同意门控。错误 / 过期 / 他人 state、issuer 不匹配、`invalid_grant`、并发刷新及 scope step-up 尚无专项自动化覆盖；真实 Google 授权待用户操作。

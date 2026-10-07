@@ -34,6 +34,10 @@ public protocol VeraBotAPI: Sendable {
     func setMCPConsent(id: Int, granted: Bool) async throws -> MCPServer
     func deleteMCPServer(id: Int) async throws -> OKResponse
     func syncMCPServer(id: Int) async throws -> MCPSyncResult
+    func startMCPOAuth(serverID: Int) async throws -> MCPOAuthStart
+    func completeMCPOAuth(serverID: Int, callback: MCPOAuthCallback) async throws -> MCPOAuthResult
+    func cancelMCPOAuth(serverID: Int, state: String) async throws
+    func disconnectMCPOAuth(serverID: Int) async throws
     func mcpTools(serverID: Int) async throws -> MCPToolsResponse
     func pluginCatalog() async throws -> PluginCatalogResponse
     func plugins() async throws -> PluginsResponse

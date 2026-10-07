@@ -74,6 +74,11 @@ def remove_server(user_id: int, server_id: int) -> bool:
     row = mcp_store.get_server(user_id, server_id)
     if row is None:
         return False
+    from . import auth as mcp_auth
+    spec = mcp_auth.spec_for(row)
+    if spec and spec.get("auth") == "oauth":
+        from .oauth import disconnect as disconnect_oauth
+        disconnect_oauth(user_id, row, spec)
     drop_session((user_id, server_id))
     mcp_store.strip_slug_from_bots(user_id, row["slug"])
     ok = mcp_store.delete_server(user_id, server_id)

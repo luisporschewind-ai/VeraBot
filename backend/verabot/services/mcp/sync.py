@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import json
 import os
 import sqlite3
 import threading
@@ -203,10 +204,28 @@ def server_timeout(spec: dict | None) -> float:
     return float(value) if value else timeout_seconds()
 
 
-def mark_auth_failed(user_id: int, server_id: int, auth_error: str, plugin_id: str | None) -> None:
+def mark_auth_failed(user_id: int, server_id: int, auth_error: str, plugin_id: str | None,
+                     required_scopes: tuple[str, ...] = ()) -> None:
     """运行中 401 / 403 insufficient_scope：回到 needs_auth，不重试、不计熔断；sync_status=error 防止反复调度。"""
+    row = mcp_store.get_server(user_id, server_id)
+    status = "needs_scope" if auth_error == "insufficient_scope" and row and row.get("auth_type") == "oauth" and required_scopes else "needs_auth"
+    discovery = None
+    if status == "needs_scope":
+        try:
+            previous = json.loads(row.get("discover_json") or "{}")
+        except (TypeError, ValueError):
+            previous = {}
+        old_scopes = set(previous.get("required_scopes") or [])
+        new_scopes = set(required_scopes)
+        attempts = int(previous.get("step_up_attempts") or 0)
+        if old_scopes == new_scopes:
+            attempts += 1
+        discovery = json.dumps({"required_scopes": sorted(new_scopes), "step_up_attempts": attempts})
+        if attempts > 2:
+            status = "needs_auth"
     mcp_store.update_server_unless_disabled(
-        user_id, server_id, status="needs_auth", auth_error=auth_error, sync_status="error",
+        user_id, server_id, status=status, auth_error=auth_error, sync_status="error",
+        discover_json=discovery,
         last_error="令牌无效或已撤销" if auth_error == "token_invalid" else "授权已失效",
     )
     db.audit(user_id, None, "mcp_auth_failed", {"plugin_id": plugin_id, "reason": auth_error})
@@ -334,7 +353,8 @@ def _sync_body(user_id: int, server_id: int) -> dict:
     except MCPAuthError as exc:
         if not _server_alive(user_id, server_id):
             return _empty_summary()
-        mark_auth_failed(user_id, server_id, exc.auth_error, row.get("plugin_id") or row.get("catalog_id"))
+        mark_auth_failed(user_id, server_id, exc.auth_error, row.get("plugin_id") or row.get("catalog_id"),
+                         getattr(exc, "required_scopes", ()))
         return {**_empty_summary(), "server": public_server(mcp_store.get_server(user_id, server_id) or row)}
     except MCPClientError as exc:
         if not _server_alive(user_id, server_id):

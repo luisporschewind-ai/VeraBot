@@ -41,6 +41,7 @@ public struct Plugin: Decodable, Sendable, Hashable, Identifiable {
     public var id: String { pluginId }
     /// 需要用户提供令牌（auth_mode = bearer）
     public var needsToken: Bool { authMode == "bearer" }
+    public var needsOAuth: Bool { authMode == "oauth" }
 
     /// 授权错误的一行说明（详情页「账号」分组）。
     public var authErrorText: String? {
@@ -62,6 +63,7 @@ public struct Plugin: Decodable, Sendable, Hashable, Identifiable {
         switch state {
         case "ready": return "可用"
         case "needs_auth": return "需要连接"
+        case "needs_scope": return "需要追加权限"
         case "needs_consent": return "待同意"
         case "syncing": return "正在同步"
         case "disabled": return "已停用"
