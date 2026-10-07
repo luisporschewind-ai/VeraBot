@@ -96,14 +96,18 @@ def mark_expired(user_id: int, action_id: int, decided_at: str | None = None) ->
                   result="已过期", decided_at=decided_at)
 
 
-def cancel_for_server(user_id: int, server_id: int) -> int:
-    """删除服务器前：把相关 pending 标为 cancelled（若已 CASCADE 删除则返回 0）。"""
-    stamp = now_iso()
-    with tx() as c:
-        cur = c.execute(
-            """UPDATE pending_actions
-               SET status='cancelled', result=?, decided_at=?
-               WHERE user_id=? AND server_id=? AND status='pending'""",
-            ("服务已删除", stamp, user_id, server_id),
-        )
-        return int(cur.rowcount)
+def detach_for_server(conn, user_id: int, server_id: int, *, stamp: str | None = None) -> int:
+    """在删除服务器的同一事务里保留确认历史，取消仍待处理的操作。"""
+    stamp = stamp or now_iso()
+    cur = conn.execute(
+        """UPDATE pending_actions
+           SET status='cancelled', result='服务已删除', decided_at=?, server_id=NULL
+           WHERE user_id=? AND server_id=? AND status='pending'""",
+        (stamp, user_id, server_id),
+    )
+    cancelled = int(cur.rowcount)
+    conn.execute(
+        "UPDATE pending_actions SET server_id=NULL WHERE user_id=? AND server_id=?",
+        (user_id, server_id),
+    )
+    return cancelled

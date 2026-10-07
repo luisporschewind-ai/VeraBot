@@ -41,7 +41,11 @@ import Foundation
     let t = try JSONDecoder().decode(ToolTrace.self, from: Data(json.utf8))
     let p = try #require(t.pendingConfirmation)
     #expect(p.actionId == 7)
-    #expect(JSONDecoder().decode(ToolTrace.self, from: Data(#"{"id":"w","name":"get_weather","args":{},"result":{"ok":true}}"#.utf8)).pendingConfirmation == nil)
+    let ordinary = try JSONDecoder().decode(
+        ToolTrace.self,
+        from: Data(#"{"id":"w","name":"get_weather","args":{},"result":{"ok":true}}"#.utf8)
+    )
+    #expect(ordinary.pendingConfirmation == nil)
 }
 
 @Test func chatEventParsesConfirmationRequired() {
@@ -55,7 +59,11 @@ import Foundation
         return
     }
     #expect(c.actionId == 3)
-    #expect(APIClient.parse(event: "confirmation_required", data: Data("{}".utf8)) == nil as ChatEvent?)
+    if case nil = APIClient.parse(event: "confirmation_required", data: Data("{}".utf8)) {
+        // Malformed confirmation events are ignored.
+    } else {
+        Issue.record("malformed confirmation event should be ignored")
+    }
 }
 
 @Test func toolCallsResponseDecodes() throws {

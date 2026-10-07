@@ -115,6 +115,8 @@ def settle_disabled_sync(user_id: int, server_id: int) -> bool:
 
 def delete_server(user_id: int, server_id: int) -> bool:
     with tx() as c:
+        from .action_store import detach_for_server
+        detach_for_server(c, user_id, server_id)
         cur = c.execute(
             "DELETE FROM mcp_servers WHERE id=? AND user_id=?", (server_id, user_id)
         )
