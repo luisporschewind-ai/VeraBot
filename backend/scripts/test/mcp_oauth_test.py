@@ -59,6 +59,7 @@ class OAuthMock(ThreadingHTTPServer):
     def __init__(self):
         self.token_form = None
         self.revoked = False
+        self.fail_code_exchange = False
         super().__init__(("127.0.0.1", 0), OAuthHandler)
         self.base = f"http://127.0.0.1:{self.server_address[1]}"
         threading.Thread(target=self.serve_forever, daemon=True).start()
@@ -102,6 +103,8 @@ class OAuthHandler(BaseHTTPRequestHandler):
                 return self.reply(200, {"access_token": "oauth-refreshed-access", "token_type": "bearer",
                                         "expires_in": 3600, "scope": "email.read"})
             if form.get("code") != ["good-code"] or not form.get("code_verifier"):
+                return self.reply(400, {"error": "invalid_grant"})
+            if self.server.fail_code_exchange:
                 return self.reply(400, {"error": "invalid_grant"})
             return self.reply(200, {"access_token": "oauth-access-secret", "refresh_token": "oauth-refresh-secret",
                                     "token_type": "bearer", "expires_in": 3600, "scope": "email.read"})
@@ -179,10 +182,35 @@ def oauth_api_contract():
         assert oauth_headers and oauth_headers.headers["Authorization"] == "Bearer oauth-refreshed-access"
         assert mock.token_form["grant_type"] == ["refresh_token"]
         assert mock.token_form["resource"] == [mock.base + "/mcp"]
+
+        # A failed scope step-up must not reuse the old access token and claim success.
+        mcp_store.update_server(owner_id, server_id, status="needs_scope",
+                                discover_json=json.dumps({"required_scopes": ["email.send"]}))
+        reauth_started = client.post(f"/api/mcp/servers/{server_id}/auth/start", headers=headers)
+        assert reauth_started.status_code == 200, reauth_started.text
+        reauth_params = urllib.parse.parse_qs(urllib.parse.urlparse(reauth_started.json()["auth_url"]).query)
+        mock.fail_code_exchange = True
+        failed_reauth = client.post(f"/api/mcp/servers/{server_id}/auth/callback", headers=headers, json={
+            "code": "good-code", "state": reauth_params["state"][0], "iss": mock.base,
+        })
+        mock.fail_code_exchange = False
+        assert failed_reauth.status_code == 400, failed_reauth.text
+        assert mcp_store.get_server(owner_id, server_id)["status"] == "needs_scope"
+
+        # Disconnect must invalidate outstanding callbacks so they cannot reconnect later.
+        pending_started = client.post(f"/api/mcp/servers/{server_id}/auth/start", headers=headers)
+        assert pending_started.status_code == 200, pending_started.text
+        pending_params = urllib.parse.parse_qs(urllib.parse.urlparse(pending_started.json()["auth_url"]).query)
         disconnected = client.delete(f"/api/mcp/servers/{server_id}/auth", headers=headers)
         assert disconnected.status_code == 200, disconnected.text
         assert mock.revoked
         assert mcp_store.get_credential_for_issuer(owner_id, server_id, mock.base) is None
+        late_callback = client.post(f"/api/mcp/servers/{server_id}/auth/callback", headers=headers, json={
+            "code": "good-code", "state": pending_params["state"][0], "iss": mock.base,
+        })
+        assert late_callback.status_code == 400, late_callback.text
+        assert mcp_store.get_credential_for_issuer(owner_id, server_id, mock.base) is None
+        assert mcp_store.get_server(owner_id, server_id)["status"] == "needs_auth"
     mock.shutdown()
 
 

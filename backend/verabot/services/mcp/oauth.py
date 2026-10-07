@@ -136,6 +136,8 @@ class _Attempt:
     task: asyncio.Task
     storage: DatabaseTokenStorage
     issuer: str | None = None
+    error: OAuthError | None = None
+    cancelled: bool = False
 
 
 _ATTEMPTS: dict[str, _Attempt] = {}
@@ -215,8 +217,11 @@ async def start_authorization(user_id: int, server: dict, spec: dict) -> dict:
                 auth_url_future.set_exception(OAuthError("无法启动 OAuth 授权"))
             if not callback_future.done():
                 callback_future.set_exception(OAuthError("OAuth 授权未完成"))
+            if attempt is not None:
+                attempt.error = OAuthError("Google 授权失败，请重试")
             log.warning("MCP OAuth flow ended (%s)", type(exc).__name__)
 
+    attempt: _Attempt | None = None
     task = asyncio.create_task(probe())
     attempt = _Attempt(user_id, server["id"], auth_url_future, callback_future, task, storage)
     try:
@@ -234,7 +239,7 @@ async def complete_authorization(user_id: int, server_id: int, *, code: str, sta
     if not consumed:
         raise OAuthError("授权状态无效、已过期或已使用")
     async with _ATTEMPTS_LOCK:
-        attempt = _ATTEMPTS.pop(state, None)
+        attempt = _ATTEMPTS.get(state)
     if attempt is None or attempt.user_id != user_id or attempt.server_id != server_id:
         raise OAuthError("授权流程已失效，请重新连接")
     if attempt.callback.done():
@@ -242,12 +247,28 @@ async def complete_authorization(user_id: int, server_id: int, *, code: str, sta
     attempt.callback.set_result(AuthorizationCodeResult(code=code, state=state, iss=issuer))
     try:
         await asyncio.wait_for(attempt.task, timeout=30)
+    except asyncio.CancelledError:
+        raise OAuthError("授权流程已断开，请重新连接") from None
     except Exception:
+        async with _ATTEMPTS_LOCK:
+            if _ATTEMPTS.get(state) is attempt:
+                _ATTEMPTS.pop(state, None)
         raise OAuthError("Google 授权失败，请重试") from None
+    if attempt.error:
+        async with _ATTEMPTS_LOCK:
+            if _ATTEMPTS.get(state) is attempt:
+                _ATTEMPTS.pop(state, None)
+        raise attempt.error
     if issuer and attempt.issuer and issuer != attempt.issuer:
+        async with _ATTEMPTS_LOCK:
+            if _ATTEMPTS.get(state) is attempt:
+                _ATTEMPTS.pop(state, None)
         raise OAuthError("授权服务器不匹配")
     tokens = await attempt.storage.get_tokens()
     if not tokens:
+        async with _ATTEMPTS_LOCK:
+            if _ATTEMPTS.get(state) is attempt:
+                _ATTEMPTS.pop(state, None)
         raise OAuthError("授权未返回可用凭据")
     scopes = sorted(set((tokens.scope or "").split()))
     prior_server = mcp_store.get_server(user_id, server_id) or {}
@@ -257,9 +278,13 @@ async def complete_authorization(user_id: int, server_id: int, *, code: str, sta
         prior_discovery = {}
     next_discovery = json.dumps({"step_up_attempts": int(prior_discovery.get("step_up_attempts") or 0)}) \
         if prior_server.get("status") == "needs_scope" else None
-    mcp_store.update_server(user_id, server_id, status="connected", auth_error=None, last_error=None,
-                            granted_scopes=" ".join(scopes), account_label="Google 账号",
-                            discover_json=next_discovery)
+    async with _ATTEMPTS_LOCK:
+        if attempt.cancelled or _ATTEMPTS.get(state) is not attempt:
+            raise OAuthError("授权流程已断开，请重新连接")
+        _ATTEMPTS.pop(state, None)
+        mcp_store.update_server(user_id, server_id, status="connected", auth_error=None, last_error=None,
+                                granted_scopes=" ".join(scopes), account_label="Google 账号",
+                                discover_json=next_discovery)
     return {"status": "connected", "account": "Google 账号", "scopes": scopes,
             "tools_count": mcp_store.tool_count(user_id, server_id)}
 
@@ -276,11 +301,27 @@ async def cancel_authorization(user_id: int, server_id: int, state: str) -> bool
     return True
 
 
-def disconnect(user_id: int, server: dict, spec: dict) -> None:
+async def disconnect(user_id: int, server: dict, spec: dict) -> None:
     """Remove locally stored OAuth material. Google revocation is best effort and never blocks disconnect."""
     issuer = spec.get("oauth_issuer")
     if not issuer:
         return
+    server_id = server["id"]
+    async with _ATTEMPTS_LOCK:
+        mcp_store.delete_oauth_states_for_server(user_id, server_id)
+        attempts = [
+            (state, attempt) for state, attempt in _ATTEMPTS.items()
+            if attempt.user_id == user_id and attempt.server_id == server_id
+        ]
+        for state, attempt in attempts:
+            attempt.cancelled = True
+            _ATTEMPTS.pop(state, None)
+            if not attempt.callback.done():
+                attempt.callback.cancel()
+            if not attempt.task.done():
+                attempt.task.cancel()
+    if attempts:
+        await asyncio.gather(*(attempt.task for _, attempt in attempts), return_exceptions=True)
     cred = mcp_store.get_credential_for_issuer(user_id, server["id"], issuer)
     if cred:
         refresh = crypto.decrypt(cred.get("refresh_token_enc"), "token")
@@ -290,7 +331,8 @@ def disconnect(user_id: int, server: dict, spec: dict) -> None:
             endpoint = spec.get("oauth_revocation_endpoint")
             if endpoint:
                 try:
-                    httpx2.post(endpoint, data={"token": token}, timeout=8.0)
+                    async with httpx2.AsyncClient(timeout=8.0) as client:
+                        await client.post(endpoint, data={"token": token})
                 except Exception:
                     pass
     mcp_store.delete_credential_for_issuer(user_id, server["id"], issuer)

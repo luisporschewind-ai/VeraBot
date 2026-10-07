@@ -372,3 +372,13 @@ def delete_oauth_state(state: str, user_id: int, server_id: int) -> bool:
             (state, user_id, server_id),
         )
         return cur.rowcount == 1
+
+
+def delete_oauth_states_for_server(user_id: int, server_id: int) -> int:
+    """Invalidate all pending OAuth flows owned by this user and server."""
+    with tx() as c:
+        cur = c.execute(
+            "DELETE FROM oauth_states WHERE user_id=? AND server_id=?",
+            (user_id, server_id),
+        )
+        return cur.rowcount

@@ -152,7 +152,7 @@ async def oauth_cancel(server_id: int, body: OAuthCancelIn, user=Depends(current
 
 
 @router.delete("/api/mcp/servers/{server_id}/auth")
-def oauth_disconnect(server_id: int, user=Depends(current_user)):
+async def oauth_disconnect(server_id: int, user=Depends(current_user)):
     row = _require(user["id"], server_id)
     from ...services.mcp import catalog as cat
     from ...services.mcp import oauth
@@ -160,7 +160,7 @@ def oauth_disconnect(server_id: int, user=Depends(current_user)):
     spec = cat.by_id(row.get("catalog_id") or "") or cat.by_slug(row["slug"])
     if not spec or spec.get("auth") != "oauth":
         raise HTTPException(422, "该服务不支持 OAuth")
-    oauth.disconnect(user["id"], row, spec)
+    await oauth.disconnect(user["id"], row, spec)
     drop_session((user["id"], server_id))
     return {"ok": True}
 
