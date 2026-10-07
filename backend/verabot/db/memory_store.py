@@ -15,7 +15,7 @@ FROM = "FROM memories m LEFT JOIN bots b ON b.id=m.bot_id LEFT JOIN bots sb ON s
 
 def expire_stale(c, user_id: int):
     """惰性过期：proposed / candidate 超过有效期 → expired，清空正文。"""
-    c.execute("UPDATE memories SET status='expired', content='', content_enc=NULL, updated_at=? "
+    c.execute("UPDATE memories SET status='expired', content='', content_enc=NULL, meta=NULL, updated_at=? "
               "WHERE user_id=? AND status IN ('proposed','candidate') AND expires_at IS NOT NULL AND expires_at<?",
               (now_iso(), user_id, now_iso()))
 

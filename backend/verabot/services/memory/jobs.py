@@ -11,12 +11,12 @@ import logging
 from ... import db
 from ...core import config
 from ...db import memory_job_store as store
-from . import summarize
+from . import extract, summarize
 
 log = logging.getLogger("verabot.memory.jobs")
 POLL_SECONDS = 1.0
 # 这些失败可以重试；策略拦截 / 预算跳过不重试
-_RETRYABLE = {"llm_error", "invalid_json", "empty_summary"}
+_RETRYABLE = {"llm_error", "invalid_json", "empty_summary", "empty_extract"}
 
 
 def enabled() -> bool:
@@ -61,8 +61,10 @@ async def process_one() -> bool:
     try:
         if kind == "summarize":
             status, error = await summarize.run(job)
+        elif kind == "extract":
+            status, error = await extract.run(job)
         else:
-            # extract / review 属于 M3+，M2 不执行
+            # review 由 M4 接入
             status, error = "skipped", "unsupported"
     except Exception:
         log.info("memory job crashed: id=%s kind=%s", job["id"], kind)
