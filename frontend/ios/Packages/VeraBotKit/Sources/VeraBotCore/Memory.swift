@@ -45,6 +45,15 @@ public enum MemoryAction: String, Codable, Sendable, Hashable {
     }
 }
 
+public struct MemoryEvidence: Codable, Sendable, Hashable, Identifiable {
+    public let messageID: Int
+    public let date: String
+    public let role: String
+    public var id: Int { messageID }
+
+    enum CodingKeys: String, CodingKey { case messageID = "message_id", date, role }
+}
+
 /// 敏感类别：health / finance 的正文在服务器加密保存，界面标注「敏感」。
 public enum MemorySensitivity: String, Codable, Sendable, Hashable {
     case normal, health, finance, unknown
@@ -100,6 +109,8 @@ public struct Memory: Codable, Sendable, Hashable, Identifiable {
     public let expiresAt: String?
     public let createdAt: String?
     public let updatedAt: String?
+    public let evidence: [MemoryEvidence]
+    public let reason: String?
 
     enum CodingKeys: String, CodingKey {
         case id, scope, type, content, sensitivity, sensitive, source, status, action
@@ -108,6 +119,7 @@ public struct Memory: Codable, Sendable, Hashable, Identifiable {
         case targetId = "target_id", targetContent = "target_content"
         case useCount = "use_count", lastUsedAt = "last_used_at", confirmedAt = "confirmed_at"
         case expiresAt = "expires_at", createdAt = "created_at", updatedAt = "updated_at"
+        case evidence, reason
     }
 
     public init(from decoder: Decoder) throws {
@@ -133,6 +145,8 @@ public struct Memory: Codable, Sendable, Hashable, Identifiable {
         expiresAt = try c.decodeIfPresent(String.self, forKey: .expiresAt)
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
+        evidence = try c.decodeIfPresent([MemoryEvidence].self, forKey: .evidence) ?? []
+        reason = try c.decodeIfPresent(String.self, forKey: .reason)
     }
 
     /// 来源文案：「来自与 Vera 的对话」「你手动添加」
@@ -159,6 +173,78 @@ public struct Memory: Codable, Sendable, Hashable, Identifiable {
         }
         return parts.joined(separator: " · ")
     }
+}
+
+public enum MemorySuggestionKind: String, Codable, Sendable, Hashable {
+    case routineReminder = "routine_reminder"
+    case delegation
+    case unknown
+    public init(from decoder: Decoder) throws {
+        self = Self(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .unknown
+    }
+}
+
+public struct MemorySuggestion: Codable, Sendable, Hashable, Identifiable {
+    public let id: Int
+    public let kind: MemorySuggestionKind
+    public let title: String
+    public let createdAt: String?
+    public let expiresAt: String?
+    enum CodingKeys: String, CodingKey {
+        case id, kind, title
+        case createdAt = "created_at"
+        case expiresAt = "expires_at"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        kind = try c.decodeIfPresent(MemorySuggestionKind.self, forKey: .kind) ?? .unknown
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        expiresAt = try c.decodeIfPresent(String.self, forKey: .expiresAt)
+    }
+}
+
+public struct MemorySuggestionsResponse: Decodable, Sendable {
+    public let suggestions: [MemorySuggestion]
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        suggestions = try c.decodeIfPresent([MemorySuggestion].self, forKey: .suggestions) ?? []
+    }
+    enum CodingKeys: String, CodingKey { case suggestions }
+}
+
+public struct SuggestionDecisionResponse: Decodable, Sendable, Hashable {
+    public let id: Int?
+    public let status: String
+    public let kind: MemorySuggestionKind?
+    public let reminderID: Int?
+    public let settingsBotID: Int?
+    public let targetBotID: Int?
+    enum CodingKeys: String, CodingKey {
+        case id, status, kind
+        case reminderID = "reminder_id"
+        case settingsBotID = "settings_bot_id"
+        case targetBotID = "target_bot_id"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(Int.self, forKey: .id)
+        status = try c.decodeIfPresent(String.self, forKey: .status) ?? "unknown"
+        kind = try c.decodeIfPresent(MemorySuggestionKind.self, forKey: .kind)
+        reminderID = try c.decodeIfPresent(Int.self, forKey: .reminderID)
+        settingsBotID = try c.decodeIfPresent(Int.self, forKey: .settingsBotID)
+        targetBotID = try c.decodeIfPresent(Int.self, forKey: .targetBotID)
+    }
+}
+
+public struct QuickPromptsResponse: Decodable, Sendable, Hashable {
+    public let prompts: [String]
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        prompts = Array((try c.decodeIfPresent([String].self, forKey: .prompts) ?? []).prefix(6))
+    }
+    enum CodingKeys: String, CodingKey { case prompts }
 }
 
 public struct MemoryCounts: Codable, Sendable, Hashable {
@@ -224,6 +310,75 @@ public struct MemoryQuery: Sendable, Hashable {
         return items
     }
 }
+
+public enum MemoryFilter {
+    public static func matches(_ memory: Memory, query: String, type: MemoryType?) -> Bool {
+        if let type, memory.type != type { return false }
+        let term=query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return term.isEmpty || memory.content.localizedCaseInsensitiveContains(term)
+    }
+}
+
+public struct BotGrowth: Codable, Sendable, Hashable {
+    public let botId: Int
+    public let memoryCounts: [String:Int]
+    public let assistedCount: Int
+    public let firstConversationAt: String?
+    public let recentMemories: [Memory]
+    enum CodingKeys:String,CodingKey { case botId="bot_id",memoryCounts="memory_counts",assistedCount="assisted_count",firstConversationAt="first_conversation_at",recentMemories="recent_memories" }
+}
+
+public struct MonthlyMemoryReview: Codable, Sendable, Hashable {
+    public let month:String
+    public let reviewStatus:String
+    public let assistedCount:Int
+    public let assistantMessages:Int?
+    public let successfulDelegations:Int?
+    public let firstConversationAt:String?
+    public let capabilities:[String:Int]
+    public let newMemories:[Memory]
+    public let candidateCount:Int
+    public let suggestion:String?
+    enum CodingKeys:String,CodingKey { case month,reviewStatus="review_status",assistedCount="assisted_count",assistantMessages="assistant_messages",successfulDelegations="successful_delegations",firstConversationAt="first_conversation_at",capabilities,newMemories="new_memories",candidateCount="candidate_count",suggestion }
+    public init(from decoder:Decoder)throws {
+        let c=try decoder.container(keyedBy:CodingKeys.self)
+        month=try c.decodeIfPresent(String.self,forKey:.month) ?? ""
+        reviewStatus=try c.decodeIfPresent(String.self,forKey:.reviewStatus) ?? "unavailable"
+        assistedCount=try c.decodeIfPresent(Int.self,forKey:.assistedCount) ?? 0
+        assistantMessages=try c.decodeIfPresent(Int.self,forKey:.assistantMessages)
+        successfulDelegations=try c.decodeIfPresent(Int.self,forKey:.successfulDelegations)
+        firstConversationAt=try c.decodeIfPresent(String.self,forKey:.firstConversationAt)
+        capabilities=try c.decodeIfPresent([String:Int].self,forKey:.capabilities) ?? [:]
+        newMemories=try c.decodeIfPresent([Memory].self,forKey:.newMemories) ?? []
+        candidateCount=try c.decodeIfPresent(Int.self,forKey:.candidateCount) ?? 0
+        suggestion=try c.decodeIfPresent(String.self,forKey:.suggestion)
+    }
+}
+
+public struct MemoryReferencesResponse:Codable,Sendable,Hashable { public let messageId:Int; public let memories:[Memory]; enum CodingKeys:String,CodingKey {case messageId="message_id",memories} }
+public struct MemoryExportItem:Codable,Sendable,Hashable,Identifiable {
+    public let id:Int
+    public let scope:String
+    public let botId:Int?
+    public let type:String
+    public let source:String
+    public let sourceBotId:Int?
+    public let sourceMessageId:Int?
+    public let status:String
+    public let action:String?
+    public let targetId:Int?
+    public let sensitivity:String
+    public let confidence:Double
+    public let useCount:Int
+    public let lastUsedAt:String?
+    public let confirmedAt:String?
+    public let expiresAt:String?
+    public let createdAt:String?
+    public let updatedAt:String?
+    public let content:String
+    enum CodingKeys:String,CodingKey {case id,scope,type,source,status,sensitivity,confidence,content,botId="bot_id",sourceBotId="source_bot_id",sourceMessageId="source_message_id",action,targetId="target_id",useCount="use_count",lastUsedAt="last_used_at",confirmedAt="confirmed_at",expiresAt="expires_at",createdAt="created_at",updatedAt="updated_at"}
+}
+public struct MemoryExportResponse:Codable,Sendable { public let format:String; public let memories:[MemoryExportItem] }
 
 /// POST /api/memories（记忆页手动添加，直接生效）
 public struct MemoryCreate: Codable, Sendable {

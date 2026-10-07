@@ -5,6 +5,7 @@
 clear_for_bot / list_memories / get_memory / mark_used / bot_counts。错误一律抛 MemoryServiceError（api 层映射 HTTP）。
 审计（audit_log）只记 {memory_id, type, scope, bot_id, source, code, ...}，**从不记正文**；日志同样不写正文。
 """
+import json
 import logging
 
 from ... import db
@@ -78,6 +79,45 @@ def public(r: dict, c=None) -> dict:
         else:
             with db.tx() as cc:
                 out["target_content"] = _target(cc)
+    if r.get("status") == "candidate" and r.get("source") == "implicit_extraction":
+        def _evidence(cc):
+            try:
+                meta = json.loads(r.get("meta") or "{}")
+            except (TypeError, json.JSONDecodeError):
+                return [], None
+            owner = r_user(r, cc)
+            source_bot_id = r.get("source_bot_id")
+            evidence = []
+            seen_ids = set()
+            raw_evidence = meta.get("evidence") if isinstance(meta, dict) else None
+            for item in raw_evidence[:12] if isinstance(raw_evidence, list) else []:
+                if not isinstance(item, dict):
+                    continue
+                mid = item.get("message_id")
+                if isinstance(mid, bool) or not isinstance(mid, int) or mid <= 0:
+                    continue
+                if mid in seen_ids:
+                    continue
+                if not source_bot_id or (r.get("scope") == "bot" and r.get("bot_id") != source_bot_id):
+                    continue
+                row = cc.execute("SELECT created_at FROM messages WHERE id=? AND user_id=? AND bot_id=? AND role='user'",
+                                 (mid, owner, source_bot_id)).fetchone()
+                if row and row["created_at"]:
+                    evidence.append({"message_id": mid, "date": str(row["created_at"])[:10], "role": "user"})
+                    seen_ids.add(mid)
+            reason = policy.clean(str(meta.get("reason") or ""))[:120] if isinstance(meta, dict) else ""
+            code, sensitivity = policy.check(reason, max_chars=120) if reason else (None, "normal")
+            if code or sensitivity != "normal":
+                reason = ""
+            return evidence, reason or None
+
+        if c is not None:
+            evidence, reason = _evidence(c)
+        else:
+            with db.tx() as cc:
+                evidence, reason = _evidence(cc)
+        out["evidence"] = evidence
+        out["reason"] = reason
     return out
 
 

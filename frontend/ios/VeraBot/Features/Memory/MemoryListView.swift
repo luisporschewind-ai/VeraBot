@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import VeraBotCore
 
 /// 「Vera 了解的你」：查看 / 编辑 / 删除 / 手动添加 / 清空记忆。
@@ -16,9 +17,15 @@ struct MemoryListView: View {
     @State private var confirmClear = false
     @State private var showIntro = false
     @State private var busy: Set<Int> = []
+    @State private var searchText=""
+    @State private var selectedType:MemoryType?
+    @State private var review:MonthlyMemoryReview?
+    @State private var shareURL:URL?
 
-    private var pending: [Memory] { memories.filter { $0.status.isPending } }
-    private var global: [Memory] { memories.filter { $0.status == .active && $0.scope == .global } }
+    private func matches(_ memory:Memory)->Bool { MemoryFilter.matches(memory,query:searchText,type:selectedType) }
+    private var pending: [Memory] { memories.filter { $0.status == .proposed }.filter(matches) }
+    private var candidates:[Memory] { memories.filter{$0.status == .candidate}.filter(matches) }
+    private var global: [Memory] { memories.filter { $0.status == .active && $0.scope == .global }.filter(matches) }
     private struct BotGroup: Identifiable {
         let id: Int
         let bot: Bot?
@@ -26,7 +33,7 @@ struct MemoryListView: View {
     }
 
     private var perBot: [BotGroup] {
-        let scoped = memories.filter { $0.status == .active && $0.scope != .global && $0.botId != nil }
+        let scoped = memories.filter { $0.status == .active && $0.scope != .global && $0.botId != nil }.filter(matches)
         let ids = Array(Set(scoped.compactMap(\.botId))).sorted()
         return ids.map { id in BotGroup(id: id, bot: bots.first { $0.id == id }, items: scoped.filter { $0.botId == id }) }
     }
@@ -35,6 +42,14 @@ struct MemoryListView: View {
         ThemedList {
             if let errorText {
                 Text(errorText).font(.footnote).foregroundStyle(.red)
+            }
+            if botFilter == nil {
+                Section { NavigationLink { MemoryMonthlyReviewView().environment(app) } label: {
+                    HStack { Label("本月记忆回顾",systemImage:"calendar"); Spacer(); if review?.reviewStatus == "pending" { ProgressView() } else { Image(systemName:"chevron.right").font(.caption).foregroundStyle(.tertiary) } }
+                } } footer: { if review?.reviewStatus == "pending" { Text("正在整理本月回顾，可稍后打开查看。") } }
+            }
+            if !candidates.isEmpty {
+                Section("从对话中发现 · 待确认") { ForEach(candidates) { m in VStack(alignment:.leading,spacing:6){row(m); HStack { Button("记住"){Task{await confirm(m)}}.prominentButtonStyle(); Button("不用"){Task{await reject(m)}}.glassButtonStyle() }.controlSize(.small).disabled(busy.contains(m.id)) } } }
             }
             if !pending.isEmpty {
                 Section("待确认") {
@@ -46,7 +61,7 @@ struct MemoryListView: View {
                                     .prominentButtonStyle()
                                 Button("不用") { Task { await reject(m) } }
                                     .glassButtonStyle()
-                                if busy.contains(m.id) { ProgressView() }
+                if busy.contains(m.id) { ProgressView() }
                             }
                             .controlSize(.small)
                             .disabled(busy.contains(m.id))
@@ -101,6 +116,7 @@ struct MemoryListView: View {
         }
         .navigationTitle(botFilter.map { "\($0.name) 记住的内容" } ?? "Vera 了解的你")
         .navigationBarTitleDisplayMode(.inline)
+        .searchable(text:$searchText,prompt:"搜索记忆内容")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { editing = .create(defaultBot: botFilter) } label: { Image(systemName: "plus") }
@@ -108,6 +124,11 @@ struct MemoryListView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Menu("筛选类型") {
+                        Button("全部类型") { selectedType=nil }
+                        ForEach(MemoryType.allCases.filter{$0 != .unknown}) { type in Button(type.title) { selectedType=type } }
+                    }
+                    if botFilter == nil { Button { Task { await prepareExport() } } label: { Label("导出记忆 JSON",systemImage:"square.and.arrow.up") } }
                     Button(role: .destructive) { confirmClear = true } label: {
                         Label(botFilter == nil ? "清空全部记忆" : "清空 \(botFilter?.name ?? "") 的记忆", systemImage: "trash")
                     }
@@ -135,9 +156,13 @@ struct MemoryListView: View {
             MemoryEditView(mode: mode, bots: bots) { await load() }
                 .environment(app)
         }
+        .sheet(isPresented:Binding(get:{shareURL != nil},set:{ if !$0 { if let url=shareURL {try? FileManager.default.removeItem(at:url)}; shareURL=nil }})) {
+            if let shareURL { MemoryShareSheet(activityItems:[shareURL]).ignoresSafeArea() }
+        }
         .refreshable { await load() }
         .task {
             await load()
+            if botFilter == nil { await loadReview() }
             if !introShown { showIntro = true }
         }
     }
@@ -157,6 +182,19 @@ struct MemoryListView: View {
                 Text(m.detailLine())
             }
             .font(.footnote).foregroundStyle(.secondary)
+            if m.status == .active {
+                HStack(spacing:4) {
+                    Text("使用 \(m.useCount) 次")
+                    if let date=ListTimestamp.parse(m.lastUsedAt) { Text("· 最近 \(date.formatted(date:.abbreviated,time:.omitted))") }
+                }.font(.caption).foregroundStyle(.tertiary)
+            }
+            if m.status == .candidate && !m.evidence.isEmpty {
+                Text("证据：" + Array(Set(m.evidence.map(\.date))).sorted().joined(separator: "、"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if m.status == .candidate, let reason = m.reason, !reason.isEmpty {
+                Text(reason).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            }
         }
         .accessibilityElement(children: .combine)
     }
@@ -181,6 +219,16 @@ struct MemoryListView: View {
             errorText = app.message(for: error)
         }
         loaded = true
+    }
+
+    private func loadReview() async { review=try? await app.api.monthlyMemoryReview(month:String(Calendar.current.component(.year,from:Date()))+"-"+String(format:"%02d",Calendar.current.component(.month,from:Date()))) }
+    private func prepareExport() async {
+        do {
+            let value=try await app.api.memoryExport(); let encoder=JSONEncoder(); encoder.outputFormatting=[.prettyPrinted,.sortedKeys,.withoutEscapingSlashes]
+            let url=FileManager.default.temporaryDirectory.appendingPathComponent("VeraBot-Memory-Export.json")
+            try encoder.encode(value).write(to:url,options:.atomic); shareURL=url
+        }
+        catch { errorText=app.message(for:error) }
     }
 
     private func confirm(_ m: Memory) async {

@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### 新增 — 记忆成长 M4（schema v16，隔离分支）
+
+- **后端**：新增 Bot 成长统计、异步月度回顾及用户 / 月缓存、记忆 JSON 导出、助手回答记忆引用 API。回顾只输入安全聚合和非敏感新记忆；引用按用户与 Bot 权限过滤。迁移保留现有后台任务。
+- **iOS**：Bot 详情显示成长统计；记忆页支持搜索、类型筛选、月度回顾和主动导出 JSON；记忆详情显示使用次数；助手回答长按可查看实际引用记忆。
+- **Web 冻结**：未增加 Web 界面。
+- **验证**：M4 后端 8 项、M3 21 项、M2 18/18、Kit 163 项通过；iPhone 17 Simulator 构建成功。UI 待手工验收。
+
+### 新增 — 记忆成长 M3（schema v15，隔离分支）
+
+- **后端**：新增隐式记忆候选、重复提醒 / Bot 委派建议、快捷提问 API。候选需用户确认、不注入对话；提醒接受幂等；委派建议不自动改变权限。Web 冻结。
+- **iOS**：对话展示建议卡片、候选提示和快捷提问；记忆页展示候选证据；设置可关闭快捷提问。
+- **验证**：M3 后端 21 项、M2 回归 18/18、Kit 161 项通过；iPhone 17 Simulator 构建成功。UI 待手工验收。
+
 ### 新增 (Added) — MCP M4 OAuth 2.1 + Gmail 授权入口（不升 schema）
 
 - **后端**：用 MCP SDK OAuth provider 执行 PRM / 授权服务器发现、PKCE S256、`resource` 与 `iss` 校验；OAuth state 按用户 / 服务绑定、加密保存、一次性消费并过期。Token 与客户端信息按 issuer 隔离并 Fernet 加密；支持刷新、scope 不足状态、撤销和本地断开清理。新增授权 start / callback / cancel / disconnect API，响应不包含 Token。

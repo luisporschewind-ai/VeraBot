@@ -28,6 +28,12 @@ final class ChatViewModel {
     var memoryOutcomes: [Int: String] = [:]
     var memoryBusy: Set<Int> = []
     var memoryConfirmTick = 0   // 触感反馈触发器：确认记住 +1
+    var candidateMemoryCount = 0
+    var memorySuggestions: [MemorySuggestion] = []
+    var suggestionBusy: Set<Int> = []
+    var suggestionErrors: [Int: String] = [:]
+    var openBotSettingsTick = 0
+    var quickPrompts: [String] = []
     /// MCP M3 确认卡片：action_id → 最新 PendingAction
     var actionStates: [Int: PendingAction] = [:]
     var actionBusy: Set<Int> = []
@@ -91,6 +97,63 @@ final class ChatViewModel {
         }
         await refreshMemoryStates()
         await refreshPendingActions()
+        await refreshCandidateMemories()
+        await refreshMemorySuggestions()
+    }
+
+    func refreshCandidateMemories() async {
+        guard bot.memoryAccess != .none else { candidateMemoryCount = 0; return }
+        do {
+            let response = try await api.memories(MemoryQuery(statuses: [.candidate], visibleTo: bot.id))
+            candidateMemoryCount = response.memories.count
+        } catch {
+            candidateMemoryCount = 0
+        }
+    }
+
+    func refreshMemorySuggestions() async {
+        do {
+            memorySuggestions = try await api.memorySuggestions(botID: bot.id).suggestions
+        } catch {
+            memorySuggestions = []
+        }
+    }
+
+    func refreshQuickPrompts() async {
+        do {
+            quickPrompts = try await api.quickPrompts(botID: bot.id).prompts
+        } catch {
+            quickPrompts = []
+        }
+    }
+
+    func acceptMemorySuggestion(_ id: Int) async {
+        suggestionBusy.insert(id)
+        suggestionErrors[id] = nil
+        defer { suggestionBusy.remove(id) }
+        do {
+            let result = try await api.decideMemorySuggestion(id: id, accept: true)
+            if result.status == "accepted", result.settingsBotID != nil { openBotSettingsTick += 1 }
+            await refreshMemorySuggestions()
+        } catch let error as APIError {
+            suggestionErrors[id] = error.message
+        } catch {
+            suggestionErrors[id] = "操作失败，请稍后重试。"
+        }
+    }
+
+    func dismissMemorySuggestion(_ id: Int) async {
+        suggestionBusy.insert(id)
+        suggestionErrors[id] = nil
+        defer { suggestionBusy.remove(id) }
+        do {
+            _ = try await api.decideMemorySuggestion(id: id, accept: false)
+            await refreshMemorySuggestions()
+        } catch let error as APIError {
+            suggestionErrors[id] = error.message
+        } catch {
+            suggestionErrors[id] = "操作失败，请稍后重试。"
+        }
     }
 
     // MARK: - MCP M3 确认卡片
@@ -348,5 +411,7 @@ final class ChatViewModel {
         if items[idx].traces.contains(where: { $0.pendingConfirmation != nil }) {
             await refreshPendingActions()
         }
+        await refreshCandidateMemories()
+        await refreshMemorySuggestions()
     }
 }

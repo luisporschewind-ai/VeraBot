@@ -44,6 +44,7 @@ def init_db():
              新表 mcp_oauth_clients（P2 用）。只加列 / 建表，不改已有行。
     v13 → v14：记忆 M2。新表 memory_jobs（滚动摘要任务）、message_feedback（👍 / 👎）。只建表，不写记忆。
     v14 → v15：记忆 M3。新增用户 / Bot 范围的有界主动建议存储。
+    v15 → v16：记忆 M4。新增按用户 / 月唯一回顾缓存；review job 可为空 bot_id，其他 job 仍需 Bot。
     """
     _backup_before_v11()
     with tx() as c:

@@ -74,6 +74,13 @@ public protocol VeraBotAPI: Sendable {
     func rejectMemory(id: Int) async throws -> OKResponse
     func memorySettings() async throws -> MemorySettings
     func updateMemorySettings(enabled: Bool) async throws -> MemorySettings
+    func botGrowth(botID: Int) async throws -> BotGrowth
+    func monthlyMemoryReview(month: String) async throws -> MonthlyMemoryReview
+    func memoryReferences(messageID: Int) async throws -> MemoryReferencesResponse
+    func memoryExport() async throws -> MemoryExportResponse
+    func memorySuggestions(botID: Int) async throws -> MemorySuggestionsResponse
+    func decideMemorySuggestion(id: Int, accept: Bool) async throws -> SuggestionDecisionResponse
+    func quickPrompts(botID: Int) async throws -> QuickPromptsResponse
     func reminders() async throws -> RemindersResponse
     func reminder(id: Int) async throws -> Reminder
     func createReminder(_ body: ReminderWrite) async throws -> Reminder

@@ -10,14 +10,14 @@
 """
 from . import (tags_coerce, v001_base, v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned,
                v007_mcp, v008_mcp_sync, v009_auth, v010_plugins, v011_reminders, v012_attachments,
-               v013_mcp_auth, v014_memory_jobs, v015_memory_suggestions)
+               v013_mcp_auth, v014_memory_jobs, v015_memory_suggestions, v016_memory_reviews)
 
-SCHEMA_VERSION = 15  # v15 = 记忆 M3 主动建议
+SCHEMA_VERSION = 16  # v16 = 记忆 M4 月度回顾
 
 STEPS = (
     v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned, v007_mcp, v008_mcp_sync,
     v009_auth, v010_plugins, v011_reminders, tags_coerce, v012_attachments, v013_mcp_auth,
-    v014_memory_jobs, v015_memory_suggestions,
+    v014_memory_jobs, v015_memory_suggestions, v016_memory_reviews,
 )
 
 

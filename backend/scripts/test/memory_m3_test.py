@@ -61,7 +61,7 @@ class SuggestionStoreTests(unittest.TestCase):
             version = c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
             names = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             indexes = {r[1] for r in c.execute("PRAGMA index_list(suggestions)")}
-        self.assertEqual(version, "15")
+        self.assertEqual(version, "16")
         self.assertIn("suggestions", names)
         self.assertTrue(any("dedupe" in name for name in indexes))
 
@@ -158,6 +158,23 @@ class SuggestionStoreTests(unittest.TestCase):
             memory_store.expire_stale(c, self.uid)
             row = c.execute("SELECT status,content,meta FROM memories WHERE user_id=? AND content_hash='expired-hash'", (self.uid,)).fetchone()
         self.assertEqual(tuple(row), ("expired", "", None))
+
+    def test_candidate_public_response_exposes_only_owned_evidence_metadata(self):
+        from verabot.services import memory
+        evidence_id = db.add_message(self.uid, self.bot, "user", "我的原始消息正文不应随候选返回")
+        meta = json.dumps({"evidence": [{"message_id": evidence_id, "role": "assistant"},
+                                         {"message_id": 999999, "role": "user"},
+                                         {"message_id": evidence_id, "role": "user"}],
+                           "reason": "多次提到"}, ensure_ascii=False)
+        with db.tx() as c:
+            c.execute("INSERT INTO memories(user_id,scope,bot_id,type,content,content_hash,source,source_bot_id,status,meta,created_at,updated_at) "
+                      "VALUES (?, 'bot', ?, 'routine', '每周徒步', 'candidate-evidence', 'implicit_extraction', ?, 'candidate', ?, ?, ?)",
+                      (self.uid, self.bot, self.bot, meta, "2026-10-07", "2026-10-07"))
+        result = memory.list_memories(self.uid, statuses=("candidate",), bot_id=self.bot)
+        found = next(m for m in result["memories"] if m["content"] == "每周徒步")
+        self.assertEqual(found["evidence"], [{"message_id": evidence_id, "date": db.now_iso()[:10], "role": "user"}])
+        self.assertEqual(found["reason"], "多次提到")
+        self.assertNotIn("我的原始消息正文", json.dumps(found, ensure_ascii=False))
 
     def test_repeated_reminder_detection_requires_three_distinct_weeks_and_keeps_local_schedule(self):
         rows = [

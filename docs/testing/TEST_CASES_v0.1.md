@@ -816,3 +816,28 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | CONN-K-01 | Kit | `PluginTests`：新字段解码、旧后端缺键、`needs_auth` / 错误文案、Trace 文案 | 通过 | 见 PR |
 | CONN-UI-01~10 | iOS 模拟器 | 方案 §9.5 验收清单 | — | ⏳ 待 Boss |
 | CONN-LIVE-01~06 | Mac | 真实 GitHub / Linear 冒烟 | — | ⏳ 待 Boss 令牌 |
+
+## 记忆成长 M3（schema v15）— 2026-10-07，隔离分支
+
+自动化：`cd backend && uv run python scripts/test/memory_m3_test.py`；M2 回归 `memory_m2_test.py`；Kit `swift test`。Web 冻结。
+
+| ID | 模块 | 验收点 | 结果 |
+|---|---|---|---|
+| MEM-50~56 | 后端抽取 | 6 条消息 / 空闲触发；仅用本人用户消息；候选结构、敏感与注入过滤、相似去重、证据归属校验；候选不注入且过期清理 | 自动化通过（21 项覆盖） |
+| MEM-57~59 | 后端建议 | 跨周提醒模式和显式规律时间；拒绝冷却；委派建议阈值、接受不改变权限；提醒接受副作用幂等 | 自动化通过 |
+| MEM-60 | 后端 / iOS | 快捷提问按本人、本 Bot 历史过滤；开关默认开启；点按只填入不发送 | 后端与 Kit 测试通过；界面待手工验收 |
+| MEM-M3-REG | 回归 | M2、VeraBotKit 与 iOS Simulator 构建 | M2 18/18、Kit 161 项通过；`xcodebuild` 成功（scheme 平台配置警告） |
+| MEM-M3-UI | iOS 手工 | 建议卡片操作、候选提示 / 证据、快捷提问开关与填入行为 | ⏳ 待负责人手工验收；未做 UI 自动化 |
+
+## 记忆成长 M4（schema v16）— 2026-10-07，隔离分支
+
+自动化：`cd backend && uv run python scripts/test/memory_m4_test.py`；Kit `swift test`；iPhone 17 Simulator 执行 `xcodebuild`。不访问真实 DeepSeek，月度回顾使用桩模型。
+
+| ID | 模块 | 验收点 | 结果 |
+|---|---|---|---|
+| MEM-61 | 后端迁移 / 统计 | v15→v16 幂等；保留已有任务；只有 review 可无 Bot；成长统计按用户、Bot 和成功状态计数 | 自动化通过 |
+| MEM-62 | 后端月度回顾 | 用户 / 月唯一缓存与并发请求；模型输入不含对话、敏感记忆或候选正文；模型失败可重试，预算限制返回聚合结果 | 自动化通过；真实模型输出待实际环境观察 |
+| MEM-63 | 后端导出 | 仅导出当前用户记忆；不含消息、审计、令牌；敏感记忆按密钥解密或回安全占位 | 自动化通过 |
+| MEM-64 | 后端引用 / Kit | 只返回该助手消息中当前用户可见且仍生效的记忆；跨用户、权限关闭、空引用安全处理；增长 / 回顾 / 导出 / 引用模型解码 | 自动化通过 |
+| MEM-M4-UI | iOS 手工 | Bot 成长统计；记忆页搜索 / 类型过滤；月度回顾与删除入口；主动导出 JSON；助手回答长按查看引用 | ⏳ 待负责人手工验收；未做 UI 自动化 |
+| MEM-M4-REG | 回归 | M4 / M3 / M2 后端与 Kit；iOS Simulator 编译 | M4 8 项、M3 21 项、M2 18/18、Kit 163 项通过；iOS 构建成功（scheme 平台配置警告） |
