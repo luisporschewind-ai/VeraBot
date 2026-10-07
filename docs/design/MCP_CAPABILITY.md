@@ -1,7 +1,7 @@
 # MCP 能力设计 (MCP Capability Design) — v1.0
 
 > 状态：**v1.0 已批准 (Approved)**。日期：2026-10-01 (UTC+8)。Boss 已批准 §16 全部决定 (2026-10-01)。决定与正文冲突时以 §16 为准。
-> **实现进度 (2026-10-07)**：**M1 已实现**（schema v7）。**M2 已实现**（schema v8，见 §18.3）。**插件 P1 已实现**（schema v10，见 §18.4）。**M3 已实现**：`pending_actions` HITL 确认卡片（复用 v7 表，不升版本，见 §18.5）。**M4 OAuth 已在功能分支实现，不升 schema**（见 §18.6）；真实 Google 登录待客户端配置与手工验收。Gmail 工具、工具定义变更审阅、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
+> **实现进度 (2026-10-07)**：**M1 已实现**（schema v7）。**M2 已实现**（schema v8，见 §18.3）。**插件 P1 已实现**（schema v10，见 §18.4）。**M3 已实现**：`pending_actions` HITL 确认卡片（复用 v7 表，不升版本，见 §18.5）。**M4 OAuth 已合入 main，不升 schema**（见 §18.6）；真实 Google 登录待客户端配置与手工验收。Gmail 工具、工具定义变更审阅、自定义 URL、stdio 仍未做。实现与正文的差异只记在 §18，不改已批准的决定。
 > 基于 v0.1.0 代码：`backend/verabot/tools/registry.py` (Tool / ToolContext / TurnState / run_tool)、`agents/permissions.py` (`is_permitted` / `get_schemas`)、`agents/guardrails.py` (`check_delegation`)、`db/schema.py` (幂等迁移，撰写时为 schema v2)。
 > **更新 (2026-10-01)**：记忆 M1 已落地并占用 **schema v4** ([MEMORY_GROWTH.md](MEMORY_GROWTH.md) §17.1 Q12)，Bot 标签 (commit `1d18e1b`) 占用 **schema v5**，Bot 置顶 (规格 [BOT_PIN.md](BOT_PIN.md)) 预留 **schema v6**，本文的迁移使用 **schema v7** (§16 D2)。注意 `cryptography` 已作为记忆加密的依赖引入 (`core/crypto.py`)，MCP 凭据加密复用该依赖，但使用独立密钥 `VERABOT_TOKEN_ENC_KEY` (§16 D2)。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md)、[GMAIL_CAPABILITY.md](GMAIL_CAPABILITY.md) (Gmail 是本设计的第一个落地场景)。
@@ -764,9 +764,9 @@ M2 按产品确认的范围落地，不是设计稿 §15 里「设置页 + 变�
 
 测试：`backend/scripts/test/mcp_m3_test.py`（MCP-10~13 等）。
 
-### 18.6 MCP M4 OAuth 2.1（2026-10-07，功能分支）
+### 18.6 MCP M4 OAuth 2.1（2026-10-07，已合入 main）
 
-M4 OAuth 实现复用 schema v13 的 OAuth 凭据 / 客户端表与 `discover_json`，不新增迁移。本里程碑只开放 OAuth 连接，不开放 Gmail 工具。合入 `main` 后的模拟器验收统一连接 `127.0.0.1:8000`。
+M4 OAuth 实现复用 schema v13 的 OAuth 凭据 / 客户端表与 `discover_json`，不新增迁移。本里程碑只开放 OAuth 连接，不开放 Gmail 工具。main 模拟器验收统一连接 `127.0.0.1:8000`。
 
 | 能力 | 实现 / 验收边界 |
 |---|---|
