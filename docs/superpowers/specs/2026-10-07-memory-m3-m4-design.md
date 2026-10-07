@@ -1,100 +1,101 @@
-# VeraBot Memory M3 and M4 design
+# VeraBot 记忆成长 M3、M4 设计
 
-**Status:** Draft for owner review  
-**Source:** `docs/design/MEMORY_GROWTH.md` §§8, 11.2–11.3, 17.1, 20  
-**Scope:** Implement Memory M3 and M4 in sequence. Memory M5 is explicitly out of scope until the owner chooses an embedding/retrieval plan.
+**状态：**待负责人审阅
 
-## Goal and constraints
+**依据：**`docs/design/MEMORY_GROWTH.md` §8、§11.2–11.3、§17.1、§20
+**范围：**依次实现记忆成长 M3 和 M4。M5 暂不纳入，等待负责人选择向量嵌入与检索方案。
 
-M3 should let Vera notice durable user preferences and routines without silently activating them, offer a small number of actionable suggestions, and make repeated prompts easier to enter. M4 should make memory and usage understandable, reviewable, searchable, and exportable. All inferred memories remain inactive until the user confirms them.
+## 目标与约束
 
-Keep the current DeepSeek chat provider, SQLite database, single-process memory worker, iOS client, and frozen Web client. Keep each migration additive and idempotent. Use per-user ownership checks on every API and query. Do not send raw conversation history to the M4 review model. Do not add cloud embeddings, vector storage, RAG, automatic permission changes, notifications, or gamification in these milestones.
+M3 让 Vera 能发现值得长期保留的用户偏好和习惯，但不会在用户确认前启用这些信息；同时提供少量可执行建议，并让常用提问更容易输入。M4 让记忆和使用情况更易理解、检查、搜索和导出。所有推断出的记忆都必须由用户确认后才会生效。
 
-## Delivery sequence
+沿用现有 DeepSeek 对话服务、SQLite 数据库、单进程记忆 worker、iOS 客户端和冻结的 Web 客户端。数据库迁移保持增量和幂等。所有 API 和查询都必须校验用户归属。M4 月度回顾不得读取原始对话。M3、M4 不加入云端嵌入、向量存储、RAG、自动修改权限、通知或游戏化设计。
 
-1. M3 ships as schema v15. It adds extraction, candidate review, suggestions, and quick prompts.
-2. M4 ships as schema v16. It adds growth statistics, monthly reviews, export, memory search/filtering, usage counts, and the memory references view.
-3. M5 remains parked. The existing M5 proposal for local `bge-small-zh` is not authorization to install or download a model; the owner will choose that approach separately.
+## 交付顺序
 
-Each milestone must work independently, preserve API compatibility, update its implementation notes and acceptance records, and be committed separately. Do not include current root-workspace changes in either milestone.
+1. M3 使用 schema v15，加入隐式抽取、候选记忆审核、主动建议和快捷提问。
+2. M4 使用 schema v16，加入成长统计、月度回顾、导出、记忆搜索与筛选、使用次数和记忆引用查看。
+3. M5 暂停。已有的本地 `bge-small-zh` 方案只是提议，不代表授权安装或下载模型；等待负责人另行选定方案。
 
-## M3: implicit candidates, suggestions, quick prompts
+每个里程碑都应独立可用，保持 API 向后兼容，更新实现说明和验收记录，并分别提交。不得把当前根工作区的其他改动带入这两个里程碑。
 
-### Extraction trigger and inputs
+## M3：隐式候选、主动建议和快捷提问
 
-- Queue one `extract` job per Bot after each six new user messages since the previous extraction. Also enqueue when a conversation has been idle for at least ten minutes, checked on the next request. Coalesce duplicate pending work using the existing `memory_jobs` behavior.
-- Use the last 12 user messages for that Bot, identified by message IDs. Assistant text may be included only as up to 200 characters of local context per message. Never include tool results, MCP results, attachment contents, or delegated-agent output.
-- Include only the Bot's currently visible active memories for deduplication and update proposals. Honor `memory_access`; if it is `none`, do not extract or expose memories.
-- Use JSON output at temperature 0 and a 600-token output cap. Count all model usage as `kind=memory`; skip when memory is disabled or daily usage has reached 90% of its budget.
+### 抽取触发与输入
 
-### Candidate validation and persistence
+- 每个 Bot 新增 6 条用户消息后入队一个 `extract` 任务。同一对话空闲至少 10 分钟时，也在下一次请求到来时检查并入队。复用现有 `memory_jobs` 行为合并重复的待处理任务。
+- 输入为该 Bot 最近 12 条用户消息及其消息 ID。每条消息可附带最多 200 字的助手回复作为局部上下文。不得包含工具结果、MCP 结果、附件正文或委派 Agent 的输出。
+- 只提供该 Bot 当前按权限可见的生效记忆，用于去重和生成更新提议。遵守 `memory_access`；若其值为 `none`，不执行抽取，也不暴露记忆。
+- 模型使用 JSON 输出、`temperature=0` 和最多 600 个输出 Token。用量计入 `kind=memory`；记忆功能关闭或当日记忆用量达到预算的 90% 时跳过任务。
 
-- Accept only `profile`, `preference`, `fact`, `routine`, and `style`; scope is `global` or `bot`, with `memory_access=bot` forcing `bot` scope.
-- Require content of 1–200 characters, confidence in [0.6, 1.0], and at least one evidence ID from the input's user-message IDs. At most three creates and updates combined may be emitted per job. Discard malformed JSON, invalid records, prompt-injection indicators, sensitive/credential content, content rejected by the existing memory policy, and candidates whose bigram Jaccard similarity with an active/pending memory is at least 0.8.
-- Persist creates and updates as `status=candidate`, `source=implicit_extraction`, with a 14-day expiry. Updates use `action=update` and `target_id`; they do not replace active memory before confirmation. Store evidence IDs and the model's short reason in the existing JSON `meta` field; use the latest valid evidence ID as `source_message_id`.
-- Candidate content is never injected into prompts. Confirmation reuses the existing memory confirm flow; rejection reuses the existing reject flow. Expiry clears candidate content and metadata that contains user text.
-- Show a “待确认” group in the memory page. Add a once-per-day, non-blocking conversation label when new candidates exist; tapping opens that Bot's memory page. Do not show candidate text in push/local notifications.
+### 候选校验与保存
 
-### Suggestions
+- 只接受 `profile`、`preference`、`fact`、`routine`、`style` 类型；作用域为 `global` 或 `bot`。当 `memory_access=bot` 时强制使用 `bot` 作用域。
+- 内容长度须为 1–200 字，置信度在 [0.6, 1.0] 之间，并至少引用一个本次输入中的用户消息 ID。每个任务最多接受 3 条新增和更新合计的候选。丢弃格式错误的 JSON、无效记录、提示注入特征、敏感或凭据内容、被现有记忆策略拒绝的内容，以及与生效或待处理记忆的 bigram Jaccard 相似度不低于 0.8 的候选。
+- 新增和更新都以 `status=candidate`、`source=implicit_extraction` 保存，14 天后过期。更新使用 `action=update` 和 `target_id`；确认之前不得替换现有生效记忆。证据 ID 和模型给出的简短理由保存在现有 JSON `meta` 字段中；`source_message_id` 保存最新一条有效证据 ID。
+- 候选内容绝不注入对话 prompt。确认和拒绝分别复用现有记忆确认、拒绝流程。过期时清空候选正文，以及包含用户原文的元数据。
+- 记忆页增加「待确认」分组。发现新候选时，每天最多在对话中显示一次非阻断提示；点按后进入对应 Bot 的记忆页。本地或推送通知不得显示候选正文。
 
-- Store suggestions in a new `suggestions` table (v15), scoped to the owning user and Bot, with kind, bounded JSON payload, status, created/expiry/decision times. Never store secrets or arbitrary prompt text in payloads.
-- Create a routine-reminder suggestion only from an active `routine` memory or at least three matching reminders on distinct weeks with sufficiently similar title and local weekday/time. A suggestion is shown in that Bot's next conversation. Accept creates one recurring reminder through the existing reminder service; the operation and suggestion status must be idempotent. Dismiss suppresses the same normalized suggestion for 30 days.
-- Create a delegation suggestion only when the same user has asked the same source Bot to delegate to the same existing Bot at least three times in 14 days and that target is not already permitted. Accept navigates to the source Bot's permissions; it never changes `delegate_to` automatically. Dismiss suppresses it for 30 days.
-- Add authenticated list/accept/dismiss APIs with tenant checks and replay-safe transitions. Suggestions expire after 30 days. The conversation card is non-blocking and has explicit accept / dismiss actions.
+### 主动建议
 
-### Quick prompts
+- 在 v15 新增 `suggestions` 表。建议按用户和 Bot 归属，包含类别、有字段上限的 JSON payload、状态、创建 / 过期 / 决定时间。payload 不保存密钥或任意 prompt 文本。
+- 规律提醒建议只能来源于一条生效的 `routine` 记忆，或至少三周出现过、标题足够相似且本地星期和时间相近的提醒。建议在该 Bot 下一次对话中显示。用户接受后通过现有提醒服务创建一条重复提醒；创建和建议状态更新必须幂等。用户拒绝后，同一规范化建议 30 天内不再出现。
+- 委派建议仅在 14 天内，同一用户至少三次要求同一来源 Bot 委派给同一个现有 Bot，且该目标尚未获准时创建。用户接受后跳转到来源 Bot 的权限设置；不得自动修改 `delegate_to`。用户拒绝后，同一建议 30 天内不再出现。
+- 增加经过身份验证的建议列表、接受和拒绝 API；校验用户归属，并确保状态转换可抵御重复请求。建议 30 天后过期。对话建议卡片不得阻断对话，且必须提供明确的接受 / 拒绝操作。
 
-- Add `GET /api/bots/{id}/quick-prompts`; require the caller to own the Bot. Return at most six prompts and no message IDs.
-- Rank the Bot's own normalized user-message texts from the last 30 days by frequency (at least three occurrences), taking at most four. Fill remaining slots from templates for enabled tools (weather and reminders). Exclude prompts blocked by the existing sensitive-content policy, prompts over 80 characters, and duplicates after normalization.
-- Add an iOS setting enabled by default. Show one horizontal row of system glass buttons only when the composer is empty and not focused. Tapping fills the composer without sending. Fetch lazily when the conversation opens and refresh after a new completed user turn; failures hide the row without affecting chat.
+### 快捷提问
 
-## M4: growth, monthly review, export, memory usage
+- 增加 `GET /api/bots/{id}/quick-prompts`，调用者必须拥有对应 Bot。最多返回 6 条提问，不返回消息 ID。
+- 按频次统计该 Bot 最近 30 天内规范化后的用户消息；至少出现 3 次的内容最多取前 4 条。其余位置由已启用工具的模板补足（天气、提醒）。排除被现有敏感内容策略拦截、超过 80 字和规范化后重复的提问。
+- iOS 设置中新增快捷提问开关，默认开启。仅当输入框为空且未聚焦时，才在输入区上方显示一行系统玻璃样式按钮。点按只填入输入框，不自动发送。打开对话时按需获取；每轮用户消息完成后刷新。获取失败时隐藏按钮，不影响对话。
 
-### Growth summary
+## M4：成长统计、月度回顾、导出与记忆使用情况
 
-- Add authenticated `GET /api/bots/{id}/growth`. Return counts by active memory type, assistant-message count, successful delegation-answer count, first conversation date, and up to three recently confirmed memories. Compute counts from user-owned rows and existing conversation/delegation records; do not infer growth from job logs.
-- Display plain text rows in the Bot detail memory section. No levels, scores, ranks, badges, progress bars, or streaks.
+### 成长统计
 
-### Monthly review
+- 增加经过身份验证的 `GET /api/bots/{id}/growth`。返回生效记忆的分类数量、助手消息数、成功完成的委派回答数、首次对话日期，以及最多 3 条最近确认的记忆。数据只从该用户自己的记录和现有对话 / 委派记录计算，不根据后台任务日志推断。
+- Bot 详情的记忆分组显示普通文字统计。不得出现等级、分数、排名、徽章、进度条或连续使用天数。
 
-- Add a `reviews` table (schema v16), unique by user and month, and reuse `memory_jobs.kind=review` for generation. Generate on the first memory-page visit in a month, with a single cached result per user/month; concurrent requests must not create duplicate reviews.
-- The review model receives only aggregate counts, enabled-tool usage aggregates, newly confirmed memories, and a count of pending candidates. It receives no raw messages, message summaries, tool arguments/results, or candidate text. Sensitive memories are excluded from model input and review output.
-- Count only completed assistant turns and successful delegations. The response contains assists, common capability categories, new confirmed memories (IDs and safe text for display), pending-candidate count, and at most one short suggestion. Validate every referenced memory ID against the user before returning it.
-- The memory page shows a monthly row that opens a plain List. New confirmed memories link to their memory detail and can be deleted there. Do not notify users proactively. If generation fails, return safe aggregate fields with review status `unavailable`; allow a later retry without creating duplicate completed reviews.
-- Charge model usage as `kind=memory`; skip generation at 90% of the daily budget and return the aggregate-only view.
+### 月度回顾
 
-### Search, filtering, references, and export
+- schema v16 新增 `reviews` 表，以用户和月份唯一标识；复用 `memory_jobs.kind=review` 生成回顾。用户当月首次打开记忆页时生成，每名用户每月只缓存一份；并发请求不得创建重复回顾。
+- 回顾模型只接收聚合数量、已启用能力的使用汇总、本月新确认的记忆，以及待确认候选数量。不得接收原始消息、对话摘要、工具参数 / 结果或候选正文。敏感记忆不得进入模型输入或回顾结果。
+- 只统计已完成的助手轮次和成功完成的委派。结果包含协助次数、常用能力类别、新确认记忆（用于展示的 ID 和安全正文）、待确认候选数量，以及最多一条简短建议。返回前逐一校验记忆 ID 属于当前用户。
+- 记忆页显示当月回顾入口，进入普通列表页。新确认的记忆可跳转到详情并从详情中删除。不主动发送通知。生成失败时返回安全的聚合数据和 `unavailable` 状态；之后可重试，不得产生重复的已完成回顾。
+- 模型用量计入 `kind=memory`；当日记忆用量达到预算的 90% 时跳过生成，并只返回聚合数据。
 
-- Add in-memory search and type filtering to the existing memory list; search only records already returned by the user's own memory query. Keep pending candidates grouped separately.
-- Include `use_count` and `last_used_at` in memory detail. For an assistant response with recorded `memory_ids`, add a “参考了哪些记忆” action that fetches/resolves only those IDs under the same user and Bot visibility rules. A missing, deleted, or no-longer-visible memory is omitted.
-- Add authenticated `GET /api/memories/export` returning the owner's memories and metadata as JSON. Include decrypted sensitive content only when the existing key can decrypt it; otherwise export the existing safe placeholder. Never include tokens, audit records, conversation text, or other users' rows. The iOS export action uses the system share sheet; exporting is user initiated.
+### 搜索、筛选、引用和导出
 
-## API and storage versioning
+- 在现有记忆列表中增加本地搜索和类型筛选；搜索范围仅限当前用户自己查询到的记录。待确认候选继续单独分组显示。
+- 记忆详情显示 `use_count` 和 `last_used_at`。对有 `memory_ids` 记录的助手回复，增加「这条回答参考了哪些记忆」入口；只解析当前用户且符合该 Bot 可见范围的 ID。缺失、已删除或当前不可见的记忆不返回。
+- 增加需身份验证的 `GET /api/memories/export`，以 JSON 返回当前用户的记忆和元数据。只有现有密钥能够解密时才导出敏感记忆明文；否则导出已有安全占位内容。不得包含令牌、审计记录、对话正文或其他用户的数据。iOS 导出操作使用系统分享面板，且只能由用户主动触发。
 
-- v15 adds only `suggestions`; existing `memories.meta` stores candidate evidence/reason without a new evidence table. Index user/Bot/status/expiry for pending suggestions and deduplication.
-- v16 adds `reviews` with `UNIQUE(user_id, month)` plus indexes for lookup and job status as needed.
-- Keep migrations idempotent and backup/restore behavior consistent with existing migrations.
-- All new API failures use the current safe error format. Logs and audit events contain IDs, kind, status, and short error codes only—never memory text, evidence text, review text, or suggestion payload text.
+## API 与存储版本
 
-## Acceptance gates
+- v15 只新增 `suggestions` 表；候选证据和理由使用 `memories.meta` 保存，不新增证据表。为待处理建议查询和去重添加用户 / Bot / 状态 / 过期时间索引。
+- v16 新增 `reviews` 表，包含 `UNIQUE(user_id, month)` 约束；按需添加查询和任务状态索引。
+- 数据库迁移保持幂等，备份和恢复行为沿用现有迁移方式。
+- 新 API 错误沿用现有安全错误格式。日志和审计事件只记录 ID、类别、状态和短错误代码，不记录记忆正文、证据正文、回顾内容或建议 payload 正文。
+
+## 验收条件
 
 ### M3
 
-- Extraction triggers at six user messages and at idle after ten minutes on the next request; duplicate pending work coalesces.
-- Only user-role evidence is accepted; malformed output, invalid evidence, low confidence, sensitive/injection content, duplicates, and empty output yield no candidate.
-- Candidate creates and updates remain inactive and uninjectable until confirmation; reject/expiry clear text; valid evidence metadata is retained while pending.
-- Each suggestion type obeys its threshold, acceptance/dismissal behavior, 30-day cooldown, tenant isolation, and duplicate-request idempotency.
-- Quick prompts use only the owner's current Bot history, return at most six safe prompts, and tapping never sends a message.
+- 每 6 条用户消息触发抽取；空闲 10 分钟后在下一次请求时触发；重复待处理任务合并。
+- 只接受用户角色消息作为证据；格式错误、证据无效、置信度不足、敏感 / 注入内容、重复和空结果都不会产生候选。
+- 新增和更新候选在确认前不生效且不会注入；拒绝 / 过期会清除正文；待处理候选保留有效证据元数据。
+- 两种建议都遵守触发条件、接受 / 拒绝行为、30 天冷却、用户隔离和重复请求幂等要求。
+- 快捷提问只使用当前用户该 Bot 的历史，最多返回 6 条安全提问；点按不会发送消息。
 
 ### M4
 
-- Growth counts match database rows and exclude other users; deleted or inaccessible memories are not disclosed in response references.
-- At most one cached monthly review exists per user/month. Model input contains only allowed aggregates and newly confirmed non-sensitive memories; failures/budget skips degrade to safe aggregate-only output.
-- Export contains all and only the requesting user's memory records, with sensitive content decrypted only through the existing crypto service and no chat history.
-- Search/filter and referenced-memory flows preserve scope, status, and Bot access rules.
+- 成长统计与数据库记录一致，排除其他用户数据；引用接口不泄露已删除或不可见的记忆。
+- 每名用户每月最多一份缓存回顾。模型输入只包含允许的聚合数据和新确认的非敏感记忆；失败或预算跳过时降级为安全聚合结果。
+- 导出只包含当前用户的记忆；敏感正文仅通过现有加密服务解密；不含对话历史。
+- 搜索 / 筛选和引用查看都遵守用户、记忆状态和 Bot 可见范围。
 
-## Explicit deferrals
+## 明确暂缓
 
-- M5 embeddings, vector index, hybrid retrieval, historical-chat RAG, and delegation memory sharing/optimization.
-- Web UI, push notifications, automatic Bot permission changes, and automatic application of candidate updates.
-- New sensitive-data categories or new encryption behavior beyond the existing memory policy.
+- M5 的嵌入模型、向量索引、混合检索、历史对话 RAG，以及委派记忆共享 / 优化。
+- Web 界面、推送通知、自动修改 Bot 权限，以及自动应用候选记忆更新。
+- 新增敏感信息类别，或改变现有加密策略。
