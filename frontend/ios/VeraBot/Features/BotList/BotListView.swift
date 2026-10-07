@@ -8,11 +8,9 @@ struct BotListView: View {
     @State private var editing: Bot?
     @State private var pendingDelete: Bot?   // 左滑「删除」只弹确认框，确认后才调用 API
     @State private var showCreate = false
-    @State private var showSettings = false   // 点头像：设置页以自定义底部面板弹出（不占全屏）
+    @State private var showSettings = false   // 点头像：设置页以大尺寸原生 sheet 弹出
+    @State private var showSearch = false
     @State private var errorText: String?
-    @State private var query = ""
-    @State private var searchActive = false     // 点击右上角放大镜后才挂载搜索栏；未激活时页面上不存在搜索框
-    @State private var searchPresented = false  // 系统搜索栏的焦点 / 展开状态；取消后收起并清空关键词
     @State private var pinning: Set<Int> = []    // 正在与服务端同步置顶状态的 Bot，避免连点重复提交
     @State private var linkedChat: LinkedChat?
     @State private var linkedPlugin: String?
@@ -21,7 +19,7 @@ struct BotListView: View {
         NavigationStack {
             // 沉浸式平铺列表：白底、无圆角分组、无分隔线（plainListRow 见 Theme）
             List {
-                ForEach(filteredBots) { bot in
+                ForEach(bots) { bot in
                     NavigationLink(value: bot) { BotRow(bot: bot) }
                         .contextMenu {
                             pinButton(for: bot)
@@ -54,9 +52,7 @@ struct BotListView: View {
             }
             .themedPageBackground()
             .overlay {
-                if !trimmedQuery.isEmpty && filteredBots.isEmpty {
-                    ContentUnavailableView.search(text: trimmedQuery)
-                } else if bots.isEmpty && errorText == nil {
+                if bots.isEmpty && errorText == nil {
                     ContentUnavailableView {
                         Label("还没有 Bot", systemImage: "person.crop.circle.badge.plus")
                     } description: {
@@ -69,12 +65,6 @@ struct BotListView: View {
             // 首页不显示导航标题；inline 保留紧凑导航栏，避免大标题占位。
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .onDemandSearchable(active: searchActive, text: $query, isPresented: $searchPresented,
-                                prompt: "搜索 Bot 或消息")
-            .onChange(of: searchPresented) { wasPresented, presented in
-                // 取消 / 收起搜索：卸载搜索栏并清空关键词，下拉也不会再露出搜索框
-                if wasPresented && !presented { endSearch() }
-            }
             .navigationDestination(for: Bot.self) { bot in
                 ChatView(bot: bot, api: app.api)
                     .toolbar(.hidden, for: .tabBar)   // 二级页面隐藏底部 Tab 栏，返回根页面时自动恢复
@@ -107,7 +97,7 @@ struct BotListView: View {
                     ToolbarItem(placement: .topBarLeading) { settingsLink(avatarSize: 30) }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { beginSearch() } label: { Image(systemName: "magnifyingglass") }
+                    Button { showSearch = true } label: { Image(systemName: "magnifyingglass") }
                         .accessibilityLabel("搜索")
                 }
                 // iOS 26：固定间隔把搜索与＋拆成两个独立的 Liquid Glass 圆形按钮（不合并成一个胶囊）
@@ -125,15 +115,22 @@ struct BotListView: View {
                     .toolbar(.hidden, for: .tabBar)
                     .presentationDetents([.large])
             }
+            .sheet(isPresented: $showSearch) {
+                BotSearchSheet(bots: bots)
+                    .environment(app)
+                    .toolbar(.hidden, for: .tabBar)
+                    .presentationDetents([.large])
+            }
             .sheet(item: $editing, onDismiss: { Task { await load() } }) { bot in
                 NavigationStack { BotEditView(bot: bot) { _ in }.toolbar(.hidden, for: .tabBar) }
             }
-            .bottomPanel(isPresented: $showSettings) {   // 悬浮卡片，顶端在导航栏下方
-                // 设置内部仍要 push 二级页（用量、插件、调试等），面板内自带 NavigationStack
+            .sheet(isPresented: $showSettings) {
+                // 设置内部仍要 push 二级页（用量、插件、调试等），sheet 内自带 NavigationStack
                 NavigationStack { SettingsView() }
                     .environment(app)
+                    .presentationDetents([.large])
             }
-            // 在面板里退出登录：根视图换成登录页之前先收起承载层，避免残留的 fullScreenCover
+            // 在设置页退出登录：根视图换成登录页之前先关闭 sheet，避免残留设置页。
             .onChange(of: app.token) { _, token in
                 if token == nil { showSettings = false }
             }
@@ -142,40 +139,12 @@ struct BotListView: View {
         }
     }
 
-    /// 首页左上角：正圆头像（照片或首字圆底），点按弹出设置底部面板（见 Core/UI/BottomPanel）。
+    /// 首页左上角：正圆头像（照片或首字圆底），点按弹出设置页。
     private func settingsLink(avatarSize: CGFloat) -> some View {
         Button { showSettings = true } label: {
             HomeAvatarLabel(name: app.displayName, image: app.avatars.userImage, size: avatarSize)
         }
         .accessibilityLabel("设置")
-    }
-
-    private func beginSearch() {
-        guard !searchActive else { searchPresented = true; return }
-        searchActive = true
-        // 先挂载搜索栏，下一帧再展开并聚焦，确保系统搜索栏能拿到焦点
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(60))
-            searchPresented = true
-        }
-    }
-
-    private func endSearch() {
-        searchPresented = false
-        searchActive = false
-        query = ""
-    }
-
-    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-    /// 按 Bot 名称与最后一条消息预览过滤（系统本地化不区分大小写匹配）
-    private var filteredBots: [Bot] {
-        let q = trimmedQuery
-        guard !q.isEmpty else { return bots }
-        return bots.filter { bot in
-            bot.name.localizedStandardContains(q)
-                || (bot.lastMessage?.content.localizedStandardContains(q) ?? false)
-        }
     }
 
     private func load() async {
@@ -260,24 +229,96 @@ struct BotListView: View {
 
 }
 
+private struct BotSearchSheet: View {
+    @Environment(AppState.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    let bots: [Bot]
+
+    @State private var query = ""
+    @FocusState private var searchFocused: Bool
+
+    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var results: [Bot] {
+        guard !trimmedQuery.isEmpty else { return bots }
+        return bots.filter { bot in
+            bot.name.localizedStandardContains(trimmedQuery)
+                || (bot.lastMessage?.content.localizedStandardContains(trimmedQuery) ?? false)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("搜索 Bot 或消息", text: $query)
+                        .focused($searchFocused)
+                        .submitLabel(.search)
+                        .accessibilityLabel("搜索 Bot 或消息")
+                    if !query.isEmpty {
+                        Button {
+                            query = ""
+                            searchFocused = true
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("清除搜索")
+                    }
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 46)
+                .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+                List {
+                    if bots.isEmpty {
+                        ContentUnavailableView("还没有 Bot", systemImage: "person.crop.circle")
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    } else if results.isEmpty {
+                        ContentUnavailableView.search(text: trimmedQuery)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(results) { bot in
+                            NavigationLink(value: bot) { BotRow(bot: bot) }
+                                .plainListRow()
+                                .listRowBackground(bot.isPinned ? Color.sectionFill : Color.appBackground)
+                        }
+                    }
+                }
+                .listStyle(.plain)
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .themedPageBackground()
+            .navigationTitle("搜索")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    DismissToolbarButton(kind: .close) { dismiss() }
+                }
+            }
+            .navigationDestination(for: Bot.self) { bot in
+                ChatView(bot: bot, api: app.api)
+                    .toolbar(.hidden, for: .tabBar)
+            }
+            .task {
+                await Task.yield()
+                searchFocused = true
+            }
+        }
+    }
+}
+
 private struct LinkedChat: Identifiable, Hashable {
     let bot: Bot
     let messageID: Int?
     var id: Int { bot.id }
-}
-
-private extension View {
-    /// 按需搜索：仅在 active 时挂载 .searchable（始终展开的导航栏抽屉），未激活时不挂载，避免常驻 / 下拉露出搜索框
-    @ViewBuilder
-    func onDemandSearchable(active: Bool, text: Binding<String>, isPresented: Binding<Bool>,
-                            prompt: LocalizedStringKey) -> some View {
-        if active {
-            searchable(text: text, isPresented: isPresented,
-                       placement: .navigationBarDrawer(displayMode: .always), prompt: prompt)
-        } else {
-            self
-        }
-    }
 }
 
 struct BotRow: View {

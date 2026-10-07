@@ -46,6 +46,7 @@ def system_prompt(user_id: int, bot: dict, delegated_by: dict | None = None, dep
             rules.append("需要实时天气时必须调用 get_weather（不要凭历史猜测）")
         if can("create_reminder") or can("list_reminders") or can("manage_reminder"):
             rules.append("用户要求提醒或待办时：先确认时间；时间明确再用 ISO8601 调用 create_reminder；"
+                         "相对时间（如‘两分钟后’）须以系统提供的当前时间精确计算，不得猜成过去或忽略‘后’；"
                          "没有明确时间可以省略 due_at，建成无日期待办；不要重复创建。"
                          "list_reminders 只能看到你创建的和用户指派给你的。"
                          "修改、完成、稍后、撤销完成、跳过这一次用 manage_reminder。"

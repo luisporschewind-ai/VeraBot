@@ -43,6 +43,7 @@ class ToolContext:
     turn: TurnState = field(default_factory=TurnState)
     usage: list = field(default_factory=list)      # 子调用产生的 token 用量
     user_message_id: int | None = None             # 本轮用户消息 id（记忆提议的来源 source_message_id）
+    user_text: str = ""                             # 本轮原始用户文本；供明确相对时间等规则校验使用
 
 
 @dataclass

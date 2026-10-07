@@ -148,7 +148,8 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
     if images or latest_image:
         system += vision.PROMPT_RULES
     messages = [{"role": "system", "content": system}, *history]
-    ctx = ToolContext(user_id=user_id, bot=bot, depth=0, chain=[], turn=turn, user_message_id=user_mid)
+    ctx = ToolContext(user_id=user_id, bot=bot, depth=0, chain=[], turn=turn, user_message_id=user_mid,
+                      user_text=user_text)
     tools = schemas_for(bot, 0, memory_on, user_id) + vision.schema_for_history(latest_image is not None)
     usage_total: dict = {}
     traces: list = []

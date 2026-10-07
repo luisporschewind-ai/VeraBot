@@ -13,10 +13,10 @@
 
 ### 新增 (Added) — MCP M3：通用 HITL 确认卡片（复用 schema v7 `pending_actions`，不升版本）
 
-- **后端**：按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §7 / §15 M3。非只读 MCP 工具（及 `confirm_policy=always` 的只读工具）不再直接拒绝，而是冻结参数写入 `pending_actions`（Fernet，`VERABOT_ACTION_ENC_KEY` / `data/.action_key`，默认 15 分钟过期）、审计 `mcp_action_requested`，工具结果 `{status:pending_confirmation, action_id, …}`，SSE 另发 `confirmation_required`。`POST /api/pending-actions/{id}/confirm|cancel`、`GET /api/pending-actions`；确认后执行冻结参数、写结果摘要进对话历史、**不**自动再调 LLM。确认前工具变更 / 服务断开 → 409；过期 → 410；他人 → 404；重复 → 409。单轮待确认上限 `VERABOT_MCP_PENDING_PER_TURN`（默认 2）。`PATCH /api/mcp/tools/{id}` 仅接受 `always`/`default`，拒绝 `never`/`auto`（MCP-13）。跨服务读→写时卡片带警告。协作记录新增 `GET /api/bots/{id}/tool-calls`。过期 pending 由调度器标 `expired`（不再直接删）。
+- **后端**：按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §7 / §15 M3。非只读 MCP 工具（及 `confirm_policy=always` 的只读工具）不再直接拒绝，而是冻结参数写入 `pending_actions`（Fernet，`VERABOT_ACTION_ENC_KEY` / `data/.action_key`，默认 15 分钟过期）、审计 `mcp_action_requested`，工具结果 `{status:pending_confirmation, action_id, …}`，SSE 另发 `confirmation_required`。`POST /api/pending-actions/{id}/confirm|cancel`、`GET /api/pending-actions`；确认后执行冻结参数、写结果摘要进对话历史、**不**自动再调 LLM。确认前工具变更 / 服务断开 → 409；过期 → 410；他人 → 404；重复 → 409。确认接口在事务内原子检查 TTL 并条件更新状态，避免过期时间边界竞态。单轮待确认上限 `VERABOT_MCP_PENDING_PER_TURN`（默认 2）。`PATCH /api/mcp/tools/{id}` 仅接受 `always`/`default`，拒绝 `never`/`auto`（MCP-13）。跨服务读→写时卡片带警告。协作记录新增 `GET /api/bots/{id}/tool-calls`。过期 pending 由调度器标 `expired`（不再直接删）。
 - **iOS**：`ToolConfirmationCard`（服务 / 工具 / 风险 / 参数表 / 警告 / 执行·取消）；`ChatEvent.confirmationRequired`；Kit `PendingAction` / `ConfirmationRequired`；打开对话恢复 pending；协作记录页增加「工具调用」分段。
 - **Web 冻结**：无确认卡片界面。
-- **测试**：`mcp_m3_test.py`（MCP-10~13、pending 上限、跨服务警告、契约键）；Kit `PendingActionTests`。iOS 未在云端编译。
+- **测试**：`mcp_m3_test.py` 23/23（MCP-10~13、过期、pending 上限、跨服务警告、契约键）；MCP / 插件 / 并发回归通过；Kit `swift test` 156/156；iPhone 12 Pro Max 目标 `xcodebuild` 编译与签名通过。真机安装 / 启动及确认卡片手工验收仍待完成。
 
 ### 新增 (Added) — 记忆 M2：滚动摘要 + 风格校准（schema v14）
 

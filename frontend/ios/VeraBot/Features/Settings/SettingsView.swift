@@ -10,6 +10,8 @@ import VeraBotTTS
 // 每个 Section 自包含自己的状态与文案，互不影响。
 
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         ThemedForm {
             AccountSettingsSection()   // 账号置顶
@@ -21,10 +23,12 @@ struct SettingsView: View {
             AboutSettingsSection()
             SignOutSettingsSection()   // 退出登录固定在最底部
         }
-        .navigationTitle("")   // 底部面板里不显示标题（Boss 参考样式）
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) { BottomPanelCloseButton() }
+            ToolbarItem(placement: .topBarLeading) {
+                DismissToolbarButton(kind: .close) { dismiss() }
+            }
             // 开发 / 调试信息（服务器地址、健康检查、构建信息）统一放在调试页，不出现在普通设置里
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {

@@ -1,5 +1,6 @@
 """提醒工具。Bot 只能看到、管理自己创建的和用户指派给它的提醒。"""
 from datetime import datetime, timedelta
+import re
 from zoneinfo import ZoneInfo
 
 from .. import db
@@ -10,6 +11,35 @@ from ..services.reminders.service import ReminderError
 from .registry import ToolContext, tool
 
 WRITES_PER_TURN = 5
+
+
+def _explicit_relative_due(user_text: str) -> str | None:
+    """Resolve an explicit Chinese relative duration against the server clock."""
+    match = re.search(r"([0-9零〇一二两三四五六七八九十]+)\s*(秒钟|秒|分钟|分|小时|钟头|天|日)\s*后", user_text)
+    if not match:
+        return None
+    raw, unit = match.groups()
+    if raw.isdigit():
+        amount = int(raw)
+    elif "十" in raw:
+        tens, _, ones = raw.partition("十")
+        digits = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3,
+                  "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+        amount = (digits[tens] if tens else 1) * 10 + (digits[ones] if ones else 0)
+    else:
+        digits = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3,
+                  "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+        amount = int("".join(str(digits[ch]) for ch in raw))
+    if amount <= 0:
+        return None
+    seconds_per_unit = {"秒钟": 1, "秒": 1, "分钟": 60, "分": 60,
+                        "小时": 3600, "钟头": 3600, "天": 86400, "日": 86400}
+    target = clock.now().astimezone(ZoneInfo(TIMEZONE)) + timedelta(seconds=amount * seconds_per_unit[unit])
+    # The reminder API has minute precision. Round up so a short duration never
+    # becomes a timestamp in the past after dropping seconds.
+    if target.second or target.microsecond:
+        target = target.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    return target.isoformat(timespec="minutes")
 
 
 def _human_when(rem: dict) -> str:
@@ -65,6 +95,7 @@ async def create_reminder(ctx: ToolContext, title: str | None = None, content: s
         return {"error": "请说明要提醒的内容"}
     key = None
     try:
+        due_at = _explicit_relative_due(ctx.user_text) or due_at
         preview_due = None
         if due_at:
             try:

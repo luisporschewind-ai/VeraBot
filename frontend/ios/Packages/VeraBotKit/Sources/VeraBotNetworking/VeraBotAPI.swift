@@ -116,6 +116,7 @@ public protocol VeraBotAPI: Sendable {
 public struct ReminderWrite: Encodable, Sendable {
     public var title: String?
     public var note: String?
+    public var clearNote: Bool
     public var dueAt: String?
     public var clearDue: Bool
     public var timeZone: String?
@@ -140,9 +141,10 @@ public struct ReminderWrite: Encodable, Sendable {
     public init(title: String? = nil, note: String? = nil, dueAt: String? = nil, clearDue: Bool = false,
                 timeZone: String? = nil, allDay: Bool? = nil, rrule: String? = nil, clearRrule: Bool = false,
                 priority: Int? = nil, assigneeBotId: Int? = nil, clearAssignee: Bool = false, notify: Bool? = nil,
-                expectedVersion: Int? = nil) {
+                expectedVersion: Int? = nil, clearNote: Bool = false) {
         self.title = title
         self.note = note
+        self.clearNote = clearNote
         self.dueAt = dueAt
         self.clearDue = clearDue
         self.timeZone = timeZone
@@ -159,7 +161,7 @@ public struct ReminderWrite: Encodable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encodeIfPresent(title, forKey: .title)
-        try c.encodeIfPresent(note, forKey: .note)
+        if clearNote { try c.encodeNil(forKey: .note) } else { try c.encodeIfPresent(note, forKey: .note) }
         if clearDue { try c.encodeNil(forKey: .dueAt) } else { try c.encodeIfPresent(dueAt, forKey: .dueAt) }
         try c.encodeIfPresent(timeZone, forKey: .timeZone)
         try c.encodeIfPresent(allDay, forKey: .allDay)

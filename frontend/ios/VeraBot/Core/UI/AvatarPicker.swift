@@ -16,8 +16,13 @@ struct AvatarPhotoPicker<Label: View>: View {
 
     var body: some View {
         PhotosPicker(selection: $selection, matching: .images) {
-            label()
+            // PhotosUI 的 SDK 将这个闭包标记为 @Sendable；保持内容静态，避免跨隔离捕获自定义 ViewBuilder。
+            Color.clear
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
+        // 头像只负责显示，picker 的透明区域承接点击并保留 PhotosPicker 的按钮无障碍语义。
+        .overlay { label().frame(width: 44, height: 44).allowsHitTesting(false) }
         .disabled(!isEnabled || busy)
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }

@@ -274,7 +274,7 @@ public struct RemindersResponse: Codable, Sendable {
 }
 
 public enum ReminderRepeatPreset: String, CaseIterable, Sendable, Identifiable {
-    case never, daily, weekdays, weekly, monthly, yearly
+    case never, daily, weekdays, weekly, monthly, yearly, custom
     public var id: String { rawValue }
     public var title: String {
         switch self {
@@ -284,6 +284,7 @@ public enum ReminderRepeatPreset: String, CaseIterable, Sendable, Identifiable {
         case .weekly: "每周"
         case .monthly: "每月"
         case .yearly: "每年"
+        case .custom: "自定义（保留当前规则）"
         }
     }
 
@@ -299,6 +300,7 @@ public enum ReminderRepeatPreset: String, CaseIterable, Sendable, Identifiable {
             let day = calendar.component(.day, from: date ?? Date())
             return "FREQ=MONTHLY;BYMONTHDAY=\(day)"
         case .yearly: return "FREQ=YEARLY"
+        case .custom: return nil
         }
     }
 
@@ -306,10 +308,15 @@ public enum ReminderRepeatPreset: String, CaseIterable, Sendable, Identifiable {
         guard let rule, !rule.isEmpty else { return .never }
         if rule == "FREQ=DAILY" { return .daily }
         if rule == "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" { return .weekdays }
-        if rule.hasPrefix("FREQ=WEEKLY") { return .weekly }
-        if rule.hasPrefix("FREQ=MONTHLY") { return .monthly }
-        if rule.hasPrefix("FREQ=YEARLY") { return .yearly }
-        return .never
+        if let day = rule.split(separator: ";").first(where: { $0.hasPrefix("BYDAY=") })?.dropFirst(6),
+           rule.hasPrefix("FREQ=WEEKLY;"), day.count == 2,
+           ["SU", "MO", "TU", "WE", "TH", "FR", "SA"].contains(String(day)),
+           rule.split(separator: ";").count == 2 { return .weekly }
+        if let day = rule.split(separator: ";").first(where: { $0.hasPrefix("BYMONTHDAY=") })?.dropFirst(11),
+           rule.hasPrefix("FREQ=MONTHLY;"), Int(String(day)) != nil,
+           rule.split(separator: ";").count == 2 { return .monthly }
+        if rule == "FREQ=YEARLY" { return .yearly }
+        return .custom
     }
 }
 
@@ -453,8 +460,8 @@ public enum SnoozeChoice: String, CaseIterable, Sendable, Identifiable {
     }
 }
 
-enum VeraBotDate {
-    static func parse(_ text: String?) -> Date? {
+public enum VeraBotDate {
+    public static func parse(_ text: String?) -> Date? {
         guard let text, !text.isEmpty else { return nil }
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -467,7 +474,7 @@ enum VeraBotDate {
         return fallback.date(from: text)
     }
 
-    static func format(_ date: Date) -> String {
+    public static func format(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         formatter.timeZone = TimeZone(secondsFromGMT: 0)

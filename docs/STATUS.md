@@ -2,11 +2,10 @@
 
 ## 当前进度 — MCP M4 OAuth，等待 main 验收
 
-回归注意：静态 Bearer `connector_test.py` 的旧用例 CONN-03 要求未同意时为 `connected`，与当前 `needs_consent` 状态不符；在 `main` 与本分支均复现。CONN-03b 同意后为 `ready` 通过，其余连接器用例通过。
-
 - **实现**：M4 OAuth 2.1 / PKCE 后端桥接、issuer 绑定的加密凭据、令牌刷新 / 撤销、授权状态一次性消费、scope step-up 处理，以及 iOS `ASWebAuthenticationSession` 连接页和 Gmail 目录项已合入 `main`。未实现 Gmail 邮件工具（后续里程碑）。
-- **自动验收**：`mcp_oauth_test.py`、MCP 回归、插件回归通过；Kit `swift test` 157/157；iPhone 17 模拟器构建并启动成功。OAuth 假服务器覆盖 PKCE、授权与 token 请求的 `resource`、回调防重放、凭据密文、正常刷新与撤销。step-up、`invalid_grant`、并发刷新、跨用户回调仍需专项用例。
-- **模拟器验收**：隔离测试账号登录、Gmail 目录显示、安装 Gmail、详情页数据用途说明、状态「需要连接」、DeepSeek 数据同意开关默认关闭均已实测。未打开同意开关、未调用真实 Google 登录；当前状态正确地要求连接。
+- **自动验收**：OAuth 假服务器、MCP / 插件回归通过；失败的重新授权不会复用旧 Token，断开后迟到回调会被拒绝；Kit `swift test` 157/157；main 上 iPhone 17 模拟器构建 / 安装 / 启动成功。scope step-up、`invalid_grant` 刷新、并发刷新、跨用户回调仍需专项用例。
+- **已有回归注意**：静态 Bearer `connector_test.py` 的旧用例 CONN-03 仍要求未同意时状态为 `connected`，与当前 `needs_consent` 不符；同意后 CONN-03b 为 `ready`。这项断言更新不属于 M4。
+- **此前模拟器记录**：隔离测试账号登录、Gmail 目录显示 / 安装、详情页数据用途说明、DeepSeek 数据同意开关默认关闭已实测；真实 Google 登录未启动。
 - **待用户手工验收**：真实 Google 登录与取消、授权后重启保持、scope step-up、失效刷新、断开 / 撤销。需要 Google Cloud OAuth 客户端、测试用户和 Workspace Developer Preview；当前环境未配置真实凭据。
 - **main 验收环境**：统一使用主仓库后端 `http://127.0.0.1:8000` 和 `backend/data/verabot.db`；iOS 默认地址也是 `8000`。先前功能分支的模拟器记录曾使用隔离后端 `8001` / `/tmp/verabot-m4-sim`，该实例不再作为验收环境。
 
@@ -15,17 +14,30 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v11**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表；v8 MCP 同意 / 同步状态 / 熔断；v9 邮箱 / 手机号账号 + 刷新令牌；v10 插件安装表 `user_plugins` + `mcp_servers.plugin_id`；v11 提醒、通知、设备与幂等键）。iOS `0.1.0 (1)` |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前主线启动时迁移至 **schema v14**（v3 头像 / 昵称；v4 记忆；v5 标签；v6 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号；v10 插件；v11 提醒与通知；v12 图片附件；v13 授权连接器；v14 记忆 M2）。iOS `0.1.0 (1)` |
 | 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-flash` (思考模式关闭；2026-10-03 前为 `deepseek-chat`) |
 
-## 🔁 交接 (Handoff for the next agent) — 2026-10-05 UTC+8
+## 🔁 当前交接 (Handoff) — 2026-10-07 UTC+8
 
-- **MCP M3（HITL，不升 schema）**：写工具走 `pending_actions` + 确认卡片（见 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §7 / §18.5）。`mcp_m3_test.py` 覆盖 MCP-10~13。OAuth、变更审阅、Gmail 仍未做。**Web 冻结**。**待 Boss**：iOS 模拟器验收确认卡片；用带写工具的假 MCP / 连接器验收「执行 / 取消 / 过期」。
+- **主线快照**：`main` 比 `origin/main` 超前 4 个本地提交，HEAD `17a71ee`（M4 OAuth 功能提交、合并提交、文档更新及 OAuth 流程失效修复）；远端仍在 PR #30 的 `61b9b4f`。未发布版本；数据库 schema **v14**（v12 图片附件、v13 授权连接器、v14 记忆 M2），iOS 版本仍为 `0.1.0 (1)`。
+- **开放 PR**：当前没有开放 PR。MCP M3 已由 PR #30 合入主线；图片附件 P1 的 PR #14、授权连接器 PR #24、记忆 M2 PR #28 和提醒编辑页修复 PR #27 也已合入。
+- **本地分支**：`feat/attachments-p1`、`cursor/camera-capture`、`cursor/mcp-auth-p1`、`feat/memory-m2`、`fix/notif-main-actor-speech-cleanup` 仍有本地引用，但对应改动已合入主线；这些引用不是开放 PR。其他本地工作区 / worktree 的状态以 `git worktree list` 为准，清理前需确认其中没有待保留工作。
+- **图片 / 拍照验收**：Boss 于 2026-10-07 确认图片附件与拍照验收通过；同日 ATT-LIVE-01 在临时隔离库用真实 `deepseek-flash` 请求通过，200 返回、识别测试图中的蓝色与红色图形，caption 已持久化。详见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md) ATT-UI、ATT-CAM 与 ATT-LIVE-01。
+- **其他手工验收**：Boss 于 2026-10-07 确认提醒编辑页视觉修复、头像实验室观感、回复加载状态均通过。对应记录见 REM-UI-02、AVLAB-01/02、MSG-05。
+- **首页搜索与弹层统一**：Boss 于 2026-10-07 确认搜索 sheet，以及新建页 / 设置页弹层统一验收通过。对应记录见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md) UI-14、UI-24。
+- **记忆 M2（schema v14）**：滚动摘要 + 风格校准已合入主线（PR #28；见 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §11.1 / §20）。`memory_m2_test.py` 覆盖 MEM-40~49。Web 无 👍 / 👎 与摘要界面（冻结）。
+- **MCP M3（PR #30）**：通用 HITL 确认卡片已合入；M3 后端用例 23/23、MCP / 插件 / 并发回归通过，Kit `swift test` 156/156。连接的 iPhone 12 Pro Max 目标构建通过；尚未安装 / 启动，确认卡片的真机手工验收待 Boss 在 Xcode 运行后完成。过期确认已修为原子检查并拒绝。
+- **提醒编辑页本地改动**：保留了未提交的提醒编辑逻辑修复；修复 `VeraBotCore` 日期工具可见性及 Swift 6.2 的 `Binding` setter 编译崩溃后，iPhone 目标构建通过。提醒保存 / 删除 / 时区等交互尚待 Boss 在 Xcode 运行并手工验收。原提醒编辑页视觉修复已于 2026-10-07 验收通过。
+- **本地改动须保留**：个人签名与本地化配置均保持在工作区，不覆盖或提交。
+
+## 🔁 历史交接记录 — 2026-10-05 UTC+8
+
+- **MCP M3（HITL，不升 schema；10-05 设计快照）**：写工具走 `pending_actions` + 确认卡片（见 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §7 / §18.5）。原计划的自动化与交互验收状态已在当前交接更新；PR #30 于 2026-10-07 合入。OAuth、变更审阅、Gmail 仍未做。**Web 冻结**。
 - **记忆 M2（schema v14）**：滚动摘要 + 风格校准已实现（见 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) §11.1 / §20）。`memory_m2_test.py` 覆盖 MEM-40~49。清空对话会删摘要、保留已确认记忆。**Web 落后**：没有 👍 / 👎 和摘要界面（冻结）。iOS 未在云端 `xcodebuild`。
 
-## 🔁 交接 (Handoff for the next agent) — 2026-10-03 UTC+8
+## 🔁 更早的交接记录 — 2026-10-03 UTC+8
 
 - **HEAD**：功能与文档均已提交并推送 (置顶 `c5529ce`、首页头像正圆 `3504fef`、App 图标亮 / 暗色 `832cdb0`，及本次文档对齐)，分支 `main`，仓库 `/Users/admin/Desktop/VeraBot-v0.1` (Mac)，origin `github.com/luisporschewind-ai/VeraBot`。
 - **不要提交的本地改动**：`frontend/ios/VeraBot.xcodeproj/project.pbxproj` (`DEVELOPMENT_TEAM = 4M4EACBGAJ`，Boss 签名) 与 `frontend/ios/VeraBot/InfoPlist.xcstrings`。只 `git add` 自己的文件。不动 tag `v0.1.0`。
@@ -39,34 +51,34 @@
 - **2026-10-03**：iOS 界面残留英文 tokens 已改为「用量」(委派 Trace 行、用量看板、额度用完提示)；待 Boss 验收 (UI-EN-01)。
 - **2026-10-03**：VeraBotCore 新增执行状态机 `ExecutionStateMachine` (8 种状态，由现有 SSE 事件推导，`ChatViewModel` 只读暴露，界面未改，后端未改)；`swift test` 74/74 (EXEC-01~19)。
 - **2026-10-03**：执行状态机 v1.1：后端新增 SSE `status` 事件 (`recalling` / 委派内部 `thinking` / `tool`，`{phase, depth, bot_name, tool, parent_id}`)，`status_event_test.py` 8/8 (含契约)；Core 新增 `recalling`、`delegating.progress`、短暂受阻 `blocked` (1.2 s 自动回到原流程)；头像实验室新增「回复中」「委派中」、持续状态可见时循环、按状态机演示。`swift test` 88/88；回归 MA 25/25、MEM 36/36、AV/NK 21/21、TAG 10/10、PIN 8/8。**Web 落后**：不处理 `status` 事件 (冻结，忽略即可，无报错)。
-- **2026-10-03**：头像实验室测试与修复：iPhone 17 模拟器截图 / 录屏 (浅色 + 深色、演示一轮、减弱动态效果、退到后台再回来) + 新离屏检查 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，约 2.5 分钟，AVLAB-T01~T13 13/13，输出浅色 / 深色 × 68 / 104 / 148 的对照图到 `/tmp/avatarlab_harness`)。修复：深色模式状态角标几乎看不清；角标挡住 V豆 顶部圆点、星点星光 (移到右下角)；演示「停止 → 再开始」可能两轮叠加 (运行令牌)；角色色改为 Theme 语义色 (支持深色)；文档里演示顺序漏了中间的「思考中」。持续状态循环、离开 / 回来、减弱动态效果静止：模拟器复测正常。待 Boss 看观感。
+- **2026-10-03**：头像实验室测试与修复：iPhone 17 模拟器截图 / 录屏 (浅色 + 深色、演示一轮、减弱动态效果、退到后台再回来) + 新离屏检查 `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，约 2.5 分钟，AVLAB-T01~T13 13/13，输出浅色 / 深色 × 68 / 104 / 148 的对照图到 `/tmp/avatarlab_harness`)。修复：深色模式状态角标几乎看不清；角标挡住 V豆 顶部圆点、星点星光 (移到右下角)；演示「停止 → 再开始」可能两轮叠加 (运行令牌)；角色色改为 Theme 语义色 (支持深色)；文档里演示顺序漏了中间的「思考中」。持续状态循环、离开 / 回来、减弱动态效果静止：模拟器复测正常。Boss 于 2026-10-07 确认头像实验室观感通过。
 - **2026-10-03**：头像实验室的五款形象成为默认 Bot 头像（无相册照片时）：首页列表静态，对话页导航栏按执行状态机动画，Bot 详情 / 创建页可选择并写入已有 `avatar` 字段。照片优先。`completed` 1.5 s 后回空闲。修了三处遗留：68pt 角标符号过小；预览滚出屏幕后循环不停；`reset` 不取消受阻计时。后端无新字段。**Web 落后**：不画这五款形象，形象 id 会当文字显示（冻结）。iOS 模拟器未在本环境编译。
 - **MCP M1（schema v7）**：已实现。默认服务 Microsoft Learn（开启），备用 AWS Knowledge（默认关闭）。Web 冻结，没有 MCP 界面。
 - **2026-10-03**：MCP M1 (PR #4) 合并评审：合并 main 的 status 事件、修复 MCP 长结果被截断导致结束标记丢失、设置页加 DeepSeek 数据说明、补 Kit 测试；Mac 实测 Learn / AWS 可用 (约 2.4–2.9 s / 次)。
 - **MCP M2（schema v8）**：已实现产品确认的五项：按服务记录 D4 同意时间（可撤回，未同意不调用）、复用 `Mcp-Session-Id`（404 重新握手并再试一次）、每次调用写审计且不存外部原文、`GET /api/mcp/servers` 改为后台同步并返回 `sync_status`、可重试错误的退避重试和按服务熔断。设置页显示同意时间、同步状态和熔断。OAuth、变更审阅仍未做；**确认卡片已由 M3 落地**。`frontend/web` 冻结。iOS 工程在 Linux 上未编译。
 - **2026-10-03**：PR #4 已合并到 main (`7d93a00`)；本机数据库已迁移到 v7 (迁移前备份 `backend/data/verabot.db.bak-before-v7-20261003-132234`)；「研究助手」已开启 Learn 3 个只读工具用于验收。合并后修复：对话里 MCP Trace 不再铺出外部原文、工具名显示中文。待 Boss 验收：设置 › MCP 服务、Bot 详情「MCP 服务」、对话里查微软文档 (MCP-UI-01)。
 - **2026-10-05**：修复 MCP 内嵌资源（`type: resource`）正文没进模型输入的问题（GitHub 读 README 只剩 SHA）；文本 blob 解码，二进制只注明大小。
-- **2026-10-05**：修复提醒编辑页「日期」「时间」重复两行（PR #27）：两个 `DatePicker` 改用 `.labelsHidden()`（显式 `accessibilityLabel` 保留字段名），开关改用 `CompactToggle`（此前本页未遵守 THEME-03 / UI-23）。**待 Boss 模拟器验收**（纯视觉，无 UI 自动化）。同轮代码审查另发现本页若干旧缺陷（见「已知遗留」）：逾期 / 已错过的提醒改标题保存会 422（回传过去时间）；snoozed 提醒保存会把 due 改成稍后时间；409 冲突后重试无法成功（version 未刷新）；「删除提醒」不弹确认且吞掉失败错误。
+- **2026-10-05**：修复提醒编辑页「日期」「时间」重复两行（PR #27）：两个 `DatePicker` 改用 `.labelsHidden()`（显式 `accessibilityLabel` 保留字段名），开关改用 `CompactToggle`。Boss 于 2026-10-07 确认视觉修复通过。同轮代码审查发现的保存语义、版本冲突、删除确认等旧缺陷仍见「已知遗留」。
 - **账号 v9 (AUTH-M1，2026-10-03)**：邮箱 + 密码、邮箱 + 验证码、手机号 + 密码登录；刷新令牌 (访问 7 天 / 刷新 60 天，iOS 透明刷新，Keychain)；登录限流与锁定；发信 console / SMTP 可插拔 (Gmail 应用专用密码未配置，验证码目前在 `backend/data/server.log`)。本机库已迁到 v9，迁移前备份 `backend/data/verabot.db.bak-before-v9-20261003-154936`。`auth_test.py` 现为 18/18 (含邮箱认领)。**Web 落后**：Web 登录页仍是用户名 + 密码，没有刷新令牌 (7 天后要重新登录)、没有邮箱 / 手机号 / 验证码登录和邮箱验证 (冻结；旧接口兼容，不报错)。见 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md)。
 - **邮箱认领 (2026-10-03)**：验证码登录认领未验证邮箱时，同一事务清空密码 (`password_hash=''`)、`token_version + 1`、吊销全部刷新令牌并写审计 `account_claimed_by_email_code`，再发新令牌。已验证邮箱的验证码登录不变。API 字段未改，iOS 未改，schema 仍是 v9。**仍在**：手机号抢注 (没有短信验证，见 [AUTH_REFACTOR.md](design/AUTH_REFACTOR.md) §5.2)。
 - **账号隔离 · HTTP 缓存 (2026-10-03)**：审计结论服务端隔离完好 (136 次跨账号请求全部 404 / 422)；修复设备侧两处：后端所有 `/api/*` 带 `Cache-Control: no-store` (头像 `private, no-store`)，iOS API 改走无缓存的 `APITransport.session`，退出 / 登录 / 升级后首次启动清 `Cache.db`；异步资料 / 头像结果按登录会话代号丢弃。`cache_headers_test.py` 8/8、Kit `swift test` 112/112；模拟器验证换账号后 Cache.db 无 API 响应。**Boss 于 2026-10-04 验收通过。**邮箱抢注已另修 (见上一条)。**Web 落后**：Web 端自己不缓存 API，后端头对它同样生效，无需改。
 - **主题色 (2026-10-03)**：iOS 改为「薰衣草 × 青绿」(Boss 选定试色方案 C，替换上午的纯青绿主题 `502e11e`)：品牌主色浅色 `#6461D1` / 深色 `#D7D7FF`，用户气泡 `#D7D7FF` / `#3F3D9E`，主按钮 `#6461D1` / `#4B48B8`，开关与置顶用青绿 `#3D7A8C` / `#4E9AAE`、`#5FA3B6`。只改 Theme 语义色、AccentColor 和用户气泡，见 [ARCHITECTURE.md](design/ARCHITECTURE.md) 色板。**Web 落后**：仍是旧的 `#0F766E` (冻结)。
 - **插件 P1（schema v10，2026-10-03）**：设置「MCP 服务」改为「插件」。页内两组「内置」（天气、提醒，不可卸载、无需同意）和「外部」（已安装的 Microsoft Learn / AWS Knowledge）。新账号不预装外部插件。用过的老数据迁成已安装（演示账号已同意的 Learn 仍在）；没用过的不写卸载墓碑。卸载会清同意并从所有 Bot 去掉工具，iOS 先确认。设计 [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0。本机升级前备份 `backend/data/verabot.db.bak-before-v10-<时间戳>`。`plugin_test.py` 通过。iOS 未在本环境编译。**Web 落后：插件 P1 没有 Web 对应**（`frontend/web` 冻结；`/api/mcp/*` 仍可用，`/api/tools` 多了可忽略的 `plugin_id`）。
 - **提醒与推送 R1（schema v11，2026-10-03）**：设计 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) v1.0。提醒状态机、30 秒调度与睡眠补跑、CRUD、三个 Bot 工具、收件箱、通知偏好、iOS 本地通知。SQL 在 `db/reminder_store.py`。APNs 不做。升级前备份 `backend/data/verabot.db.bak-before-v11-<时间戳>`。`reminder_test.py`、`notify_test.py` 用假时钟、不访问外网。合并复核（Boss 的 Mac）修了 Swift 6 并发编译错误和两处 Kit 测试，`swift test` 140 通过、`xcodebuild` 成功；模拟器验证了提醒 / 通知分段、设置 › 通知、本地通知按时弹出及「完成」「稍后 10 分钟」、免打扰不影响提醒。之后发现复核时的并发修复让通知代理在非主线程回调 completionHandler，点通知后切后台会崩溃，已改为在主线程回调（修复 PR 见 CHANGELOG）。APNs 和真机未验证。**Web 冻结**：没有新的提醒界面；`POST /api/reminders/{id}/done` 和列表里的 `content` / `done` / `bot_name` / `due_at` 仍可用。
-- **模型 P0 (2026-10-03)**：后端默认模型 `deepseek-chat` (官方已停用的旧名) → `deepseek-flash`，请求体固定 `thinking: {"type":"disabled"}` (`VERABOT_DEEPSEEK_THINKING=0`)。`.env` 未覆盖模型、未改；`/api/health` 现为 `deepseek-flash`。`llm_body_test.py` 5/5；模拟器普通对话与工具调用 (天气 + Learn) 正常。图片附件 P1 仍未实现 (设计见 [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md))。
-- **图片附件设计 v1.0 (2026-10-03，未实现)**：[ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md) Q1–Q12 全部由 Boss 决定：`deepseek-flash` + 关闭思考 (P0 已完成)；看图失败直接提示不降级；每条 1 张；相机 P2；存储采纳 [ATTACHMENT_STORAGE_RESEARCH.md](design/ATTACHMENT_STORAGE_RESEARCH.md) (本地磁盘 + SQLite 元数据 + 薄存储接口，鉴权代理 `no-store`，不用签名 URL，原子写入，孤儿对账，FileVault + 0700)；界面始终显示原图，发给模型按需召回 (首轮存描述、之后只发描述、回指时重发原图)；不弹首次说明；委派必须转发图片 (P1)；GIF 完整播放；记忆提议需确认、图片不进记忆；带图轮次写操作需确认；图片随消息删除。预计 schema v12，约 4.5 人日。**下一步**：等 Boss 排期 P1。
-- **需授权 MCP 连接器 P1 (2026-10-04，schema v13，分支 `cursor/mcp-auth-p1`，PR 待 Boss 验收，未合并)**：[MCP_AUTH_CONNECTORS_PLAN.md](design/MCP_AUTH_CONNECTORS_PLAN.md) 升 v1.0（D1–D11 全部按建议）。GitHub / Linear 只读连接器、令牌加密存储、`needs_auth`、错误分类、日志脱敏、「接受工具更新」。**升级前备份** `backend/data/verabot.db.bak-before-v13-<时间戳>`；**新增 `backend/data/.token_key`（或 `VERABOT_TOKEN_ENC_KEY`）必须和数据库一起备份**，丢失后只会回到「需要连接」。Mac 出网经代理：`start.sh` 需继承 `HTTPS_PROXY=http://127.0.0.1:7892`。令牌只能经 `127.0.0.1` 上传（模拟器调试页改服务器地址）。真实冒烟 CONN-LIVE-01~06 未跑（等 Boss 的令牌与测试仓库）。**Web 落后：没有连接器界面**（冻结）。
-- **修复回复开头黑色竖条 (2026-10-04，分支 `cursor/fix-reply-bar`，待 Boss 验收)**：去掉生成中追加的「▍」光标字符，等待首个 token 时显示系统 `ProgressView`。
-- **图片附件 P2 拍照 (2026-10-04)**：＋ 菜单「拍照」用系统 `UIImagePickerController`，与相册选图同一压缩 / 上传路径；新增 `NSCameraUsageDescription`；拒绝权限提示「前往设置」。后端未改。ATT-CAM-01~03 待 Boss 真机验收。
-- **图片附件 P1（schema v12，分支 `feat/attachments-p1`，Draft PR）**：后端 + iOS 已实现（见 CHANGELOG）。已 rebase 到含提醒 R1（v11，`f9e39c6`）的 main，迁移为 v11 → v12。本机库升级前先备份 `backend/data/verabot.db.bak-before-v12-<时间戳>`，附件目录 `backend/data/attachments/` 需一起备份（FileVault 需在 Mac 上确认已开启）。`attachments_test.py` 28/28，后端回归通过。**未验证**：Xcode 编译、PhotosPicker / GIF 播放 / Quick Look 实机或模拟器、ATT-LIVE-01 真实 `deepseek-flash` 带图请求。**限制**：带图轮次的写操作用文字「确认」代替确认卡片；没有删除单条消息 / 删除账号接口（级联 + 对账清文件）。**Web 落后**：Web 不能发送或查看图片附件（冻结；带图消息在 Web 里只显示文字，空文字消息显示为空气泡）。
+- **模型 P0 (2026-10-03)**：后端默认模型 `deepseek-chat` (官方已停用的旧名) → `deepseek-flash`，请求体固定 `thinking: {"type":"disabled"}` (`VERABOT_DEEPSEEK_THINKING=0`)。`.env` 未覆盖模型、未改；`/api/health` 现为 `deepseek-flash`。`llm_body_test.py` 5/5；模拟器普通对话与工具调用 (天气 + Learn) 正常。
+- **图片附件 P1（schema v12）**：按已批准的 [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md) 与 [ATTACHMENT_STORAGE_RESEARCH.md](design/ATTACHMENT_STORAGE_RESEARCH.md) 完成并合入主线（PR #14）；图片与拍照验收于 2026-10-07 通过。实现边界与 ATT-LIVE-01 实测记录见下方功能表与测试记录。
+- **需授权 MCP 连接器 P1（schema v13）**：GitHub / Linear 只读连接器已通过 PR #24 合入主线。真实冒烟 CONN-LIVE-01~06 仍待令牌与测试仓库；Web 无连接器界面（冻结）。
+- **修复回复开头黑色竖条**：已通过 PR #23 合入主线；生成中等待首个 token 时显示系统 `ProgressView`。Boss 于 2026-10-07 确认回复加载状态通过。
+- **图片附件 P2 拍照**：系统相机 `UIImagePickerController` 已在主线（commit `601ca39`）；图片与拍照验收于 2026-10-07 通过，详情见 ATT-CAM-01~03。
+- **图片附件 P1（schema v12）**：已通过 PR #14 合入主线，数据库迁移为 v11 → v12；附件目录 `backend/data/attachments/` 与数据库需一起备份（FileVault 需在 Mac 上确认已开启）。`attachments_test.py` 28/28。Boss 于 2026-10-07 确认图片附件和拍照验收通过；ATT-LIVE-01 同日真实 `deepseek-flash` 带图请求通过（临时隔离库，caption 持久化）。限制：带图轮次写操作用文字「确认」代替确认卡片；Web 冻结，不能发送或查看图片。
 - **待办**：
   1. **执行状态机**：v1.1 已接到对话页导航栏头像（见 [EXECUTION_STATE.md](design/EXECUTION_STATE.md)）。首页列表只显示静态形象。`completed` 后 1.5 s 回空闲。先前三处遗留已修：68pt 角标符号、滚出屏幕后循环不停、`reset` 取消受阻计时。
   2. **头像动画**：采用头像实验室的五款形象和系统 `phaseAnimator`，不采用另一套自定义卡通动画。有相册照片时仍显示照片。
   3. **仓库清理记录**：`frontend/ios/VeraBot/File.txt` (QA 遗留，内容「QA回归」) 已在 `c5529ce` 删除，工作区无残留 (见 TEST_CASES NEW-03)。
 
-## 📍 当前进度 (Current progress) — main 工作区 (2026-10-01)
+## 📍 当前进度 (Current progress) — main 工作区 (2026-10-07)
 
-v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。数据库已到 **schema v11** (v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号邮箱 / 手机号 / 刷新令牌；v10 插件安装表；v11 提醒与通知。置顶迁移前备份 `backend/data/verabot.db.bak-before-v6`；插件迁移前建议 `backend/data/verabot.db.bak-before-v10-<时间戳>`；提醒迁移前备份 `backend/data/verabot.db.bak-before-v11-<时间戳>`)；iOS 版本号仍为 `0.1.0 (1)`.
+v0.1.0 之后的已合并改动都在 `main`，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。`main` 与 `origin/main` 当前同为 `61b9b4f`；数据库迁移已到 **schema v14**：v3 头像 / 昵称、v4 记忆 M1、v5 标签、v6 置顶、v7 MCP、v8 MCP 同意 / 同步 / 熔断、v9 账号、v10 插件、v11 提醒与通知、v12 图片附件、v13 授权连接器、v14 记忆 M2。iOS 版本仍为 `0.1.0 (1)`。当前没有开放 PR；PR #30 的 MCP M3 已合入。M3 后端 23/23、MCP / 插件 / 并发回归通过、Kit `swift test` 156/156，iPhone 12 Pro Max 目标构建通过；设备启动和确认卡片手工验收待 Boss 在 Xcode 完成。提醒编辑逻辑修复与 Xcode 编译修复保留在本地未提交；其他未提交改动也保持原样。
 
 ### 功能实现与验收状态 (Implementation and acceptance status)
 
@@ -85,13 +97,13 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | **Bot 标签** (schema v5；同日重新设计：3 个 / 4 字，首页一个浅灰圆角矩形、详情卡片一行、对话标题不显示、「基本信息」内单输入框) | 见 CHANGELOG | 后端 `bot_tags_test.py` 10/10 (含存量收敛与前后端契约)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；Kit 已测；iOS 标签 UI 验收延期 | TAG-01~10、TAG-UI-01~04 |
 | **Bot 置顶** (schema v6；列表排序、名称旁 pin 标识、左滑 / 长按入口、置顶行浅灰底) | `c5529ce` | 后端 `bot_pin_test.py` PIN-01~08 通过；回归 MA 25/25、AV/NK 21/21、MEM 36/36、TAG 10/10；`swift test` 55 项通过；Boss 确认功能无问题 | PIN-01~08、PIN-UI-01~03 |
 | **MCP M1** (schema v7；Learn 默认开、AWS 默认关；Bot / 设置里按服务开关只读工具) | 见 CHANGELOG | 后端 `mcp_test.py` 本地假服务器通过；真实公网用例默认跳过。iOS 未在本环境编译。Web 无界面 | MCP-01、MCP-02、MCP-04~08、MCP-25、MCP-CONTRACT、MCP-HTTP、MCP-LIVE |
-| **MCP M3 HITL** (写工具确认卡片；复用 v7 `pending_actions`) | 见 CHANGELOG | 后端 `mcp_m3_test.py` MCP-10~13 通过；Kit 待 Mac；UI 待 Boss | MCP-10~13、M3-UI |
-| **MCP M4 OAuth 2.1 + Google**（不升 schema） | 已合入 `main` | OAuth 假服务器与相关回归、Kit 157/157、iPhone 17 模拟器登录 / Gmail 安装 / 同意门控通过；main 验收地址为 `127.0.0.1:8000` | MCP-20~21、刷新 / 撤销子集；真实 Google OAuth 待手工验收 |
+| **MCP M3 HITL** (写工具确认卡片；复用 v7 `pending_actions`) | PR #30，合并提交 `61b9b4f` | `mcp_m3_test.py` 23/23；MCP / 插件 / 并发回归通过；Kit `swift test` 156/156；iPhone 12 Pro Max 目标构建通过；真机交互验收待 Boss | MCP-10~13、M3-UI |
+| **MCP M4 OAuth 2.1 + Google**（不升 schema） | 合并提交 `ed52159` | OAuth 假服务器与 MCP / 插件回归通过；Kit `swift test` 157/157；main 验收地址为 `127.0.0.1:8000` | MCP-20~21、刷新 / 撤销子集；真实 Google OAuth 待手工验收 |
 | **MCP M2** (schema v8；按服务同意、会话复用、审计、后台同步、重试与熔断) | 见 CHANGELOG | 后端 `mcp_test.py` 本地假服务器通过（含 v7→v8）；真实公网用例默认跳过。iOS 未在本环境编译。Web 冻结，无对应界面 | MCP-CONSENT、MCP-SESSION、MCP-AUDIT、MCP-SYNC、MCP-RETRY、MCP-BREAKER、MCP-CONTRACT |
 | **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动；详情/创建 UI 验收延期 | DETAIL-UI-01~09 |
-| **头像实验室** (独立页面；五款角色、八种状态、三种尺寸、按状态机演示；不写入 Bot 资料) | `7ebe99d`、`a29536f` 及之后 | 离屏检查 13/13；模拟器截图 / 录屏通过 (浅色 / 深色、演示、减弱动态效果)；观感待 Boss 验收 | AVLAB-01、AVLAB-02、AVLAB-T01~T14 |
+| **头像实验室** (独立页面；五款角色、八种状态、三种尺寸、按状态机演示；不写入 Bot 资料) | `7ebe99d`、`a29536f` 及之后 | 离屏检查 13/13；模拟器截图 / 录屏通过 (浅色 / 深色、演示、减弱动态效果)；Boss 于 2026-10-07 确认观感通过 | AVLAB-01、AVLAB-02、AVLAB-T01~T14 |
 | **默认 Bot 形象** (实验室五款；照片优先；对话导航栏按 10 个执行状态动画，完成后 1.5 s 回空闲；首页 / 详情静态) | 见 CHANGELOG | 后端 AV-18。Kit 用例 EXEC-34~40 已加。iOS 模拟器未在本环境编译 | AV-18、EXEC-34~40、AVFIG-UI |
-| **图片附件 P1** (schema v12，v11 → v12；PhotosPicker 1 张、磁盘存储 + SQLite 元数据、鉴权下载 no-store、去 EXIF、GIF 播放、按需召回、委派带图、带图写操作需确认) | `feat/attachments-p1` (Draft PR) | 后端 `attachments_test.py` 28/28 + 回归；Kit 附件用例在 Linux 通过；iOS App 未编译、未上模拟器 | ATT-01~18、ISO-ATT-01、ATT-CONTRACT、ATT-UI-01~04、ATT-LIVE-01 |
+| **图片附件 P1 + 拍照 P2** (schema v12；PhotosPicker / 系统相机、磁盘存储 + SQLite 元数据、GIF、按需召回、委派带图、带图写操作需确认) | 主线已合入（附件 PR #14；拍照 commit `601ca39`） | Boss 于 2026-10-07 确认图片附件及拍照验收通过；后端附件用例 28/28，ATT-LIVE-01 真实 `deepseek-flash` 带图请求与 caption 持久化均通过 | ATT-01~18、ISO-ATT-01、ATT-CONTRACT、ATT-UI-01~04、ATT-CAM-01~03、ATT-LIVE-01 |
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
 | 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 对应 UI 验收延期 | UI-01~03、UI-10 |
 
@@ -99,14 +111,14 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 
 | 项 | 状态 |
 |---|---|
-| MCP 后续 M5~M7 | M4 OAuth 已在功能分支实现；Gmail 工具、变更审阅、自定义 URL / stdio 仍未做 |
+| MCP M5~M7、Gmail 邮件工具 | OAuth 连接已实现；邮件工具、变更审阅、自定义 URL / stdio 仍按设计稿待做 |
 | 以记忆为核心的 Bot 成长体系 M2~M5 (摘要、风格校准、隐式候选、成长界面、向量检索) | 📝 方案 v1.0 已批准，M1 已实现；M2 起未开始 |
 | 首页搜索扩展 (完整聊天历史搜索、搜索历史) | ⏸ 延期到后续迭代；当前只过滤已加载列表 |
 
-### 已知遗留 (Known leftovers，仅列出，未处理)
+### 已知遗留 (Known leftovers)
 
-- **提醒编辑页旧缺陷**（2026-10-05 代码审查发现，未修）：① 逾期 / 已错过的提醒只改标题保存会 422「不能把提醒设在过去」（编辑页回传 fill() 载入的过去时间，已用 TestClient 复现）；② snoozed 提醒编辑保存会把 `due_at` 改成稍后时间（`scheduleDate` 返回 snooze 时间）；③ 409 冲突后重试永远失败（`reload()` 不刷新 `expectedVersion`，只重取标题 / 备注）；④ 编辑页「删除提醒」直接删整个系列、无确认框（列表页有），且 `try?` 吞掉删除失败；⑤ 编辑页 `iso(_:)` 与 Kit `VeraBotDate.format` 时区不一致（`.current` vs GMT），存在第三条 ISO 路径；⑥ 日期 / 时间两个 `DatePicker` 绑定同一个 `date` 状态，组件间可能互相覆盖（午夜 / DST 风险，PLAUSIBLE 未实测）；⑦ 编辑器忽略 `reminder.timeZone`，跨时区打开保存会重锚定时区；⑧ 关闭「日期」开关时 `all_day` 未清（PATCH 缺键回退旧行值，后续 Bot 改时间会变成 9 点全天）；⑨ `onAppear` 的 `fill()` 每次出现都无脑覆盖全部编辑状态（`MemoryEditView` 同款模式）；⑩ 新建提醒打开「日期」开关后停留超过 1 分钟再保存会 422（`date` 初值取自 sheet 创建时刻，不碰选择器就发旧时间）；⑪ 备注永远清不掉（`note.isEmpty ? nil : note` 省略键，后端保留旧行值，无 `clearNote` 通道）；⑫ 已有「无日期」提醒打开「日期」开关会静默变成全天 09:00（`hasTime` 初值 false，与新建立路径语义不同）；⑬ 非预设重复规则被静默改写或删除：`ReminderRepeatPreset.matching` 把六个预设之外的 RRULE 降级为「永不」，save() 再显式发 `rrule: null` 或改写 BYDAY——后端与 Bot 工具支持 INTERVAL / 多值 BYDAY / COUNT / UNTIL（如「每两天」`FREQ=DAILY;INTERVAL=2`、「每周一、三」），编辑标题保存即丢失重复；⑭ 本分支改用 `CompactToggle` / `.labelsHidden()` 后，开关与选择器只有右侧本体可点（行内文字不再触发，命中区约 43×26pt 小于 44pt 最小点击区）——与全 App CompactToggle 统一交互一致，PLAUSIBLE，未真机测命中率。
-- **相对时间偶尔被解析成过去时间**：对话里「两分钟后提醒我…」有一次被 Bot 算成过去的时间，工具返回「不能把提醒设在过去的时间」；同一会话里写明时间 (如「今天13:25」) 正常创建。未复现定位 (R1 验收时发现，2026-10-04)。
+- **提醒编辑页旧缺陷**（2026-10-05 代码审查发现；本地实现已更新，iPhone 目标构建通过，尚未安装运行 / 手工验收）：修正了仅改标题仍回传旧排程、使用 snooze 时间、冲突重载不刷新版本、删除缺确认 / 吞错误、时间格式和原时区、日期 / 时间状态混用、关闭日期未清全天字段、重复出现时覆盖编辑态、打开日期后时间过期、备注清空、无日期开启日期默认全天，以及自定义 RRULE 丢失等路径；行内标签改为按钮。逐项验收仍待进行，尤其 DST、跨时区与点击命中区域。
+- **相对时间解析**（实现已更新，尚未验证）：创建提醒时，对用户原话中可解析的中文秒 / 分 / 小时 / 天相对时间按服务器时钟重算并向上取整到分钟；范围仅覆盖明确数字或中文数词加「后」的表达。
 - **改进建议：点按提醒通知先进只读详情页**：现在点按提醒通知直接进「编辑提醒」。建议改为先看详情 (标题、时间、来源、「查看对话」)，再从详情进编辑。路由规则不变 (仍不直接进对话，见 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) §9.5)。
 - **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**默认 Bot 形象没有 Web 对应** (Web 冻结)：iOS 无照片时画五款实验室形象，`bots.avatar` 可能是 `veraBean` 等 id；Web 仍把该字段当文字 / 表情显示，不播状态动画。`/api` 未新增字段。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签与置顶没有 Web UI** (Web 冻结；后端字段向后兼容)。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。**MCP M1 / M2 没有 Web UI**（`frontend/web` 冻结，落后于这项功能）：没有服务列表、同意开关、同步状态、熔断状态或工具开关。`/api/mcp/servers` 多了 `consent_at` / `sync_status` / `circuit_state` 等字段，`/api/tools` 的可选字段仍可忽略。对话若模型调用了 MCP 工具，Web 仍只显示普通工具卡片。**插件 P1 没有 Web 对应**（`frontend/web` 冻结）：没有插件页。`/api/plugins/*` 是新接口；`/api/tools` 增加可忽略的 `plugin_id`；`GET /api/mcp/servers` 不再自动补未安装的目录行。
 - **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶**、MCP 表是 **v7**，M2 的同意 / 同步 / 熔断列是 **v8**，账号邮箱 / 手机号是 **v9**，插件安装表是 **v10**。Gmail 设计稿仍写与 MCP 共用 v7 表。
@@ -119,14 +131,14 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 |---|---|---|---|
 | MCP M1（Client、目录、只读工具开关、防注入） | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §18 | ✅ 已实现（schema v7） | 验收设置页与 Bot 详情的 MCP 开关。真实公网用例需 `VERABOT_MCP_LIVE_TESTS=1` |
 | MCP M2（同意时间、会话复用、审计、后台同步、重试与熔断） | 同上 §18.3 | ✅ 已实现（schema v8） | 验收设置页的同意 / 同步 / 熔断。`frontend/web` 冻结，没有对应界面 |
-| MCP M3（pending_actions、写操作确认卡片、工具调用记录） | 同上 §7 / §15 / §18.5 | ✅ 已实现（复用 v7 表，不升版本） | 模拟器验收确认卡片；MCP-10~13 已自动化 |
+| MCP M3（pending_actions、写操作确认卡片、工具调用记录） | 同上 §7 / §15 / §18.5 | ✅ 已实现并由 PR #30 合入 `main`（复用 v7 表，不升版本） | `mcp_m3_test.py` 23/23；Kit 156 项；iPhone 目标构建通过；真机卡片交互待 Boss 验收 |
 | 插件 P1（安装关系、内置 / 外部入口、卸载） | [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0；进度见 MCP §18.4 | ✅ 已实现（schema v10） | 新账号不预装。验收设置 › 插件、内置详情的工具权限导航、卸载确认。`frontend/web` 冻结，插件 P1 没有 Web 对应 |
-| MCP M4（OAuth 2.1 + Google 连接） | 同上 §15 / §18.6 | ✅ 功能分支实现；未合并 | 真实授权需 Google Cloud OAuth 客户端、测试用户与 Workspace Developer Preview；由 Boss 手工完成 |
+| MCP M4（OAuth 2.1 + Google 连接） | 同上 §15 / §18.6 | ✅ 已合入 `main`，不升 schema | 真实授权需 Google Cloud OAuth 客户端、测试用户与 Workspace Developer Preview；由 Boss 手工完成 |
 | MCP M5~M7（Gmail 工具、变更审阅、自定义 URL / stdio） | 同上 §15 | 未实现 | 按设计稿后续推进 |
 | Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准，未实现 | 同上，在 M4 之前 |
 | 以记忆为核心的 Bot 成长体系 | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1 已实现 | 按 MEM-UI-01~12 验收 M1；决定是否开始记忆 M2 |
 
-**MCP M1–M4 已有实现**（M4 OAuth 已合入 `main`）；M4 不升 schema。M5~M7 未实现。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**，账号占用 **v9**，插件安装表占用 **v10**。`frontend/web` 冻结。
+**MCP M1–M4 已实现**，其上的 **插件 P1 已实现**（schema v10）。M4 仅提供 OAuth 连接，不提供 Gmail 邮件工具；M5~M7 未实现。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**，账号占用 **v9**，插件安装表占用 **v10**。`frontend/web` 冻结。
 
 ## 1. 已完成功能 (Features done)
 
@@ -175,8 +187,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 项目 | 状态 |
 |---|---|
 | TC-07 Token 失效处理 | 通过：无效 token 时 `/api/me` 返回 401，App 自动跳转登录页 (iPhone 17 模拟器，2026-10-01) |
-| 真机 (Real device) | 设备型号 / 环境未记录；不要据此推断 iPhone 17 模拟器之外的平台都已覆盖 |
-| 真机 (Real device) | 未测，只在 iPhone 17 模拟器 (iOS 26) 上测试 |
+| 真机 (Real device) | iPhone 12 Pro Max 目标构建已通过；尚未安装 / 启动。M3 确认卡片及提醒编辑交互仍待 Boss 在 Xcode 手工验收 |
 | 昵称 / 照片头像的 iOS 界面 | Boss 手工验收通过 (2026-10-01) |
 | 首页正圆头像、圆形 X 取消 / 关闭、行时间、首页搜索 (UI-11~14) | Boss 手工验收通过 |
 | iOS 17 / 18 旧系统 | 未测 (`defaultScrollAnchor` 等 iOS 18+ API 已做版本判断) |
@@ -187,8 +198,9 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 
 ## 4. 下一步 (Next steps)
 
-1. **执行状态提示**：Core 状态机已完成 ([EXECUTION_STATE.md](design/EXECUTION_STATE.md))；界面显示方式 (文案 / 头像动画) 待 Boss 决定。
-2. **遗留英文**：已修 (2026-10-03)，对话 Trace 行与用量看板的 tokens 改为「用量」，见 UI-EN-01。
-3. **MCP**：M4 OAuth 已在功能分支实现，待评审与合并；由 Boss 完成 Google Cloud / Workspace 准备并手工验收真实授权，再推进 Gmail 工具。`frontend/web` 继续冻结。
-4. 记忆 M1 UI 验收延期；完成后再决定是否开始 M2。
-5. 其余 UI 验收、过时截图更新及提醒通知、图片附件 / 多模态、云端 TTS、安全与部署、CI、Web 方向暂缓；规划见 [ROADMAP_NEXT.md](ROADMAP_NEXT.md)。
+1. **真机手工验收**：Boss 在 Xcode 将当前 `main` 运行到 iPhone 后，验收 MCP 确认卡片和提醒编辑保存 / 删除 / 时区行为，并记录结果；提醒页视觉修复已通过。
+2. **M4 真实 OAuth 手工验收**：需配置 Google Cloud OAuth 客户端、测试用户和 Workspace Developer Preview；完成授权、取消、重启保持、scope step-up、失效刷新及断开 / 撤销验收后，再推进 Gmail 工具。
+3. **完成剩余手工验收**：记忆 M1、用量、Bot 标签、详情 / 创建页、单条消息删除、MCP / 插件页面，以及尚未覆盖的视觉页面；按 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md) 的待验收项逐项记录。
+4. **连接器真实冒烟**：CONN-LIVE-01~06 需要 GitHub / Linear 测试令牌与测试仓库；连接器 UI 验收也仍待完成。
+5. **记忆成长 M2~M5**：M1 已实现；摘要、风格校准、隐式候选、成长界面和向量检索尚未开始，按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) 继续排期。
+6. **平台覆盖**：APNs 尚未实现；iOS 17 / 18、Dynamic Type、iPad 等覆盖仍未验证。路线图见 [ROADMAP_NEXT.md](ROADMAP_NEXT.md)。

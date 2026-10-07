@@ -90,7 +90,7 @@ Boss 在 iPhone 17 模拟器确认以下项目通过；TC-07 的无效 token 由
 |---|---|---|
 | Token 失效、附件菜单、断网提示、语音输入 | TC-07、TC-29、TC-30、TC-31 | 通过 |
 | 设置、首页与导航、主要列表 | UI-04~09、UI-11~14、UI-17 | 通过（UI-01~03、UI-10 另列延期） |
-| 标题、浮动输入栏与消息 | UI-15、UI-20、MSG-01~04 | 通过 |
+| 标题、浮动输入栏与消息 | UI-15、UI-20、MSG-01~05 | 通过 |
 | 头像与昵称 | UI-AV-01、UI-AV-03、UI-NK-01 | 通过 |
 | 触感、语音与键盘 | UI-08、TC-31、KB-04、KB-08、KB-09 | 通过 |
 | Bot 置顶 | PIN-UI-01~03 | 通过 |
@@ -169,7 +169,8 @@ Boss 在 iPhone 17 模拟器确认以下项目通过；TC-07 的无效 token 由
 | UI-11 | 头像正圆 | 首页左上角 (有照片 / 无照片两种)；设置账号区；Bot 列表、对话标题、气泡、Bot 详情、头像预览 | 所有头像都是正圆，不被压扁成椭圆；无照片时用户为品牌色圆底首字，Bot 为颜色圆底表情 (2026-10-01) | Boss 手工验收通过（2026-10-01） |
 | UI-12 | 圆形 X 取消 / 关闭 | 首页 ＋ 新建 Bot；长按 Bot「编辑与权限」；对话标题 → Bot 详情；选照片后的头像预览 | 左上角都是系统圆形 X 按钮 (Liquid Glass)，VoiceOver 读「取消」/「关闭」，点按关闭 sheet；清空对话 / 退出登录 / 通知权限弹窗里的「取消」仍是文字 (2026-10-01) | Boss 手工验收通过（2026-10-01） |
 | UI-13 | 列表行时间 | 「我的 Bot」列表 | 每行右上角为最后消息时间 (footnote / 次要色)：今天 HH:mm、昨天「昨天」、本周「星期X」、更早 M/d、往年 yyyy/M/d；没有消息的 Bot 显示创建时间。格式另有 `swift test` 单元测试 `listTimestamp*` (2026-10-01) | Boss 手工验收通过（2026-10-01） |
-| UI-14 | 首页搜索 (按需，当前范围) | 首页（无大导航标题、未搜索）观察右上角与列表；下拉列表；点 🔍 → 输入 Bot 名称 / 最后一条消息预览里的词 → 点圆形 X 取消 | 🔍 与 ＋ 是两个独立的 Liquid Glass 圆形按钮 (🔍 在左)，不合并成一个胶囊；首页不显示大标题或常驻搜索框，下拉也不出现；点 🔍 后才出现系统搜索栏并聚焦；当前只按名称和最后一条消息预览过滤屏幕上已加载的列表；无结果显示系统「无结果」；取消后搜索栏消失、关键词清空、恢复完整列表 (2026-10-01，iPhone 17 / iOS 26 模拟器截图验证)。完整聊天历史搜索、搜索历史等属于后续迭代 | Boss 手工验收通过（2026-10-01） |
+| UI-14 | 首页搜索 (按需，当前范围) | 首页点 🔍 打开搜索 sheet；输入 Bot 名称 / 最后一条消息预览里的词；检查无结果、清空与关闭 | 搜索入口仍按需显示；搜索内容在弹出的 sheet 中布局与操作，搜索后只过滤已加载列表中的 Bot 名称与最后消息预览；取消 / 关闭后返回首页。完整聊天历史搜索、搜索历史等属于后续迭代 | Boss 手工验收通过（2026-10-07；搜索 sheet） |
+| UI-24 | 新建页与设置页弹层统一 | 首页点 ＋ 打开创建页；关闭后点头像打开设置页；比较两处 sheet 的呈现方式、尺寸与关闭操作 | 创建页与设置页弹层呈现统一，操作符合各自页面预期 | Boss 手工验收通过（2026-10-07） |
 | UI-15 | 对话标题胶囊按钮 | 打开任一 Bot 对话页观察导航栏中心标题，并点按标题 | iOS 26 显示原生 Liquid Glass 胶囊按钮（头像 + 名称，无下箭头），iOS 17–18 使用 bordered 胶囊回退；按钮不与返回按钮视觉合并，点按仍打开 Bot 详情且 VoiceOver 标签仍为「查看 Bot 详情」 | Boss 手工验收通过（2026-10-01） |
 | UI-16 | 白底 + 灰分组 | 浅色模式依次打开 设置、调试、用量、提醒、协作记录、新建 Bot、Bot 详情、登录页 | 页面背景纯白；分组 Section / 卡片为浅灰 `#EFEFEE` (RGB 239, 239, 238；2026-10-01 由 `#F2F2F7` 改，见 UI-22)；Bot 详情顶部头像卡片无底色 (2026-10-01) | 首页、设置、对话和主要列表已验收；其余页面延期 |
 | UI-17 | 助理列表沉浸式 | 首页「助理」列表 | 白底全宽平铺，无圆角分组、无分隔线；每行头像 + 名称 + 时间 + 预览 + chevron，间距舒适；长按「编辑与权限」、左滑删除仍可用 | Boss 手工验收通过（2026-10-01） |
@@ -180,6 +181,7 @@ Boss 在 iPhone 17 模拟器确认以下项目通过；TC-07 的无效 token 由
 | MSG-02 | ~ 不删除线 (BUG-01 回归) | 问天气，看「15~21°C」 | 原样显示 ~，无删除线 | Boss 手工验收通过（2026-10-01） |
 | MSG-03 | 自动链接 + App 内网页 | 回复中含 https 网址、`[文字](https://…)`、电话、邮箱；依次点按 | 网址 / Markdown 链接全屏打开 App 内 Safari (SFSafariViewController)，「完成」返回对话页且布局正常；电话交给系统拨号、邮箱交给系统邮件；行内代码里的网址不可点 | Boss 手工验收通过（2026-10-01） |
 | MSG-04 | 长按复制 | 长按含链接的 Bot 气泡 | 菜单有「复制」与每个链接「复制链接 …」，电话 / 邮箱复制时不带 tel: / mailto: | Boss 手工验收通过（2026-10-01） |
+| MSG-05 | 回复加载状态 | 发送消息后，在回复第一个 token 到达前观察对话页 | 等待期间显示系统 `ProgressView`，不显示黑色竖条；回复开始后正常显示内容 | Boss 手工验收通过（2026-10-07） |
 | KB-01 | 对话：输入栏随键盘上移 | 关闭硬件键盘 → 点输入框 | 软键盘弹出；输入栏贴在键盘上方 (iOS 26 safeAreaBar / 旧系统 safeAreaInset，无手动偏移)；最后一条消息与 🔊 可见 | R32_chat_keyboard_up |
 | KB-02 | 对话：点空白处收起 | 键盘弹出时点消息区域 | 键盘收起，输入栏回到底部安全区 | R33_chat_keyboard_down |
 | KB-03 | 对话：发送后键盘保持 + 自动滚动 | 用软键盘输入 hi → 按键盘 return「发送」(2026-10-01 起无发送按钮，见 UI-20) | 键盘不收起；新消息和回复出现后自动滚到最后一条 (测试消息已删除) | R32b_chat_after_send |
@@ -254,9 +256,9 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | UI-AV-02 | iOS | ~~设置页「恢复默认头像」~~ | 已作废：2026-10-01 移除该入口，见 UI-10 | 作废 |
 | UI-AV-03 | iOS | Bot 详情点头像 →「从相册选择」→ 保存 | 保存前只在卡片预览；保存后列表、对话标题、气泡换成圆形照片 (2026-10-01 改版：入口由按钮改为头像弹窗，见 DETAIL-UI-02) | Boss 手工验收通过（2026-10-01） |
 | UI-NK-01 | iOS | 设置页改昵称并保存，回到首页再打开对话 | 首页首字（无照片时）立刻是新昵称，不用下拉刷新；用户消息气泡上方不再显示昵称 | Boss 手工验收通过（2026-10-01） |
-| AVLAB-01 | iOS 头像实验室 | 设置 › 调试 › 头像实验室；切换 V豆、芽芽、星点、云朵、方糖，状态与尺寸，并重播动作 | 独立页能预览五款角色、六种状态、三种尺寸；切换不会修改 Bot 头像或资料；云朵使用参考图轮廓，不显示原图背景 | iPhone 17 模拟器构建、安装、启动通过；视觉手工验收待进行 |
+| AVLAB-01 | iOS 头像实验室 | 设置 › 调试 › 头像实验室；切换 V豆、芽芽、星点、云朵、方糖，状态与尺寸，并重播动作 | 独立页能预览五款角色、六种状态、三种尺寸；切换不会修改 Bot 头像或资料；云朵使用参考图轮廓，不显示原图背景 | Boss 手工验收观感通过（2026-10-07） |
 
-汇总：API **21/21 通过**（2026-10-01，Linux）；UI-AV-01/03、UI-NK-01 后续手工验收通过，UI-AV-02 已作废。AVLAB-01 属于独立试验页，构建与启动已确认，视觉手工验收尚未完成。
+汇总：API **21/21 通过**（2026-10-01，Linux）；UI-AV-01/03、UI-NK-01 后续手工验收通过，UI-AV-02 已作废。AVLAB-01/02 的观感于 2026-10-07 经 Boss 手工验收通过。
 
 ## 长期记忆 M1 (Memory) — 2026-10-01
 
@@ -483,7 +485,7 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | EXEC-31 | iOS Kit | 旧计时器 (serial 过期) 忽略；非 blocked 时忽略 | 通过 (`swift test` 88/88，Mac) |
 | EXEC-32 | iOS Kit | 受阻结束回到仍在进行的委派，期间进度保留 | 通过 (`swift test` 88/88，Mac) |
 | EXEC-33 | iOS Kit | 记忆工具错误 (proposal_cap) 受阻且不产生待确认 | 通过 (`swift test` 88/88，Mac) |
-| AVLAB-02 | iOS 头像实验室 | 设置 › 调试 › 头像实验室：选「委派中」「回复中」；切到持续状态后离开页面再回来；开启「减弱动态效果」；点「按状态机演示一轮对话」 | 8 种状态可选；持续状态循环、离开页面停止；减弱动态效果时静止；演示依次显示 思考中 → 委派中 (进度文字变化) → 思考中 → 执行中 → 遇到阻塞 (约 1.2 s) → 思考中 → 回复中 → 已完成 → 空闲 | 2026-10-03 模拟器截图 / 录屏：顺序正确；持续状态循环、减弱动态效果时静止 (见 AVLAB-T14)；深色角标看不清、角标挡住 V豆 圆点 / 星点星光 (已修复)；最终观感待 Boss 手工验收 |
+| AVLAB-02 | iOS 头像实验室 | 设置 › 调试 › 头像实验室：选「委派中」「回复中」；切到持续状态后离开页面再回来；开启「减弱动态效果」；点「按状态机演示一轮对话」 | 8 种状态可选；持续状态循环、离开页面停止；减弱动态效果时静止；演示依次显示 思考中 → 委派中 (进度文字变化) → 思考中 → 执行中 → 遇到阻塞 (约 1.2 s) → 思考中 → 回复中 → 已完成 → 空闲 | 2026-10-03 模拟器截图 / 录屏：顺序正确；持续状态循环、减弱动态效果时静止 (见 AVLAB-T14)；深色角标与遮挡问题已修复；Boss 于 2026-10-07 确认观感通过 |
 | AVLAB-T01 | 头像实验室离屏检查 | `frontend/ios/Tools/AvatarLabHarness/run.sh` (Mac，Mac Catalyst 离屏渲染) | 11 种 `ExecutionState` 输入映射正确 | 通过 |
 | AVLAB-T02 | 同上 | 同上 | 8 种头像状态都能由状态机到达 | 通过 |
 | AVLAB-T03 | 同上 | 同上 | 持续状态集合 = 思考 / 执行 / 委派 / 回复 | 通过 |
@@ -569,8 +571,9 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MCP-12 | 确认 | confirm 前工具 `changed`；服务停用 | 409，不调用远程 | ✅ |
 | MCP-13 | 策略 | `PATCH` 发送类工具 `confirm_policy=never` / `auto` | 422；`always` 可接受且仍需确认 | ✅ |
 | MCP-29 | 上限 | `VERABOT_MCP_PENDING_PER_TURN=2` 时连续三次写 | 前两次 pending，第三次 `pending_cap` | ✅ |
-| M3-UI | iOS | 对话出现确认卡片 → 执行 / 取消；重启后恢复 pending；协作记录「工具调用」 | 待 Boss 模拟器验收 | ⏳ |
-| M3-KIT | Kit | `PendingActionTests`：REST / SSE / Trace / tool-calls 解码 | 待 Mac `swift test` | ⏳ |
+| M3-UI | iOS 真机 | 对话出现确认卡片 → 执行 / 取消；重启后恢复 pending；协作记录「工具调用」 | 待 Boss 在 Xcode 运行后手工验收 | ⏳ |
+| M3-KIT | Kit | `PendingActionTests`：REST / SSE / Trace / tool-calls 解码 | 全量 `swift test` 156 项通过（2026-10-07） | ✅ |
+| M3-BUILD | iPhone 12 Pro Max 目标 | Xcode `VeraBot` Debug 真机构建 | 编译与签名成功；未安装 / 启动 | ✅ Build（2026-10-07） |
 
 ## MCP M4 OAuth 2.1（不升 schema）— 2026-10-07，功能分支
 
@@ -580,11 +583,11 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
-| MCP-20 | OAuth | PRM / AS 发现、发起授权、回调、重放 | 授权 URL 使用 PKCE S256 与 resource；Token 请求带 verifier 和 resource；成功回调返回安全状态；重复回调 400 | ✅ 以上子集通过；`iss` 不匹配、错误 / 过期 / 他人 state 尚未专项覆盖 |
+| MCP-20 | OAuth | PRM / AS 发现、发起授权、回调、重放与失败的 scope step-up | 授权 URL 使用 PKCE S256 与 resource；Token 请求带 verifier 和 resource；失败的 code exchange 不复用旧 Token、不转成成功状态；重复回调 400 | ✅ PKCE / resource、成功与重放、失败重新授权均通过；`iss` 不匹配、错误 / 过期 / 他人 state 尚未专项覆盖 |
 | MCP-21 | 存储 | Token / client info 持久化与回调响应 | SQLite 只含密文；回调 JSON 不含 access / refresh Token | ✅ 存储与回调通过；API / SSE / audit / 全量日志未做统一秘密扫描 |
 | MCP-22 | 刷新 | 过期 access Token 触发 refresh grant | 刷新成功并带 resource | ✅ 常规刷新通过；`invalid_grant` 与并发刷新待测 |
 | MCP-23 | step-up | 工具返回 `insufficient_scope` 后重新授权 | `needs_scope`；请求 scope 为旧 scope 与新 scope 并集；重试有上限 | ⏳ 实现已接入，缺专项自动化验收 |
-| MCP-24 | 断开 | OAuth disconnect 请求 revocation 并清凭据 | 远端撤销被调用；本地 OAuth 凭据删除 | ✅ disconnect 子集通过；删除整项服务器与清理 Bot 白名单 / pending 尚未纳入此用例 |
+| MCP-24 | 断开 | OAuth disconnect 请求 revocation、清凭据并使未完成的回调失效 | 远端撤销被调用；本地 OAuth 凭据 / 授权 state 删除；迟到回调 400 且不能重新连接 | ✅ 远端撤销、凭据清理和迟到回调拒绝通过；删除整项服务器与清理 Bot 白名单 / pending 尚未纳入此用例 |
 | M4-UI-01 | iOS 模拟器 | 隔离账号登录；浏览并安装 Gmail；打开详情 | 登录成功；Gmail 可安装；展示 Google / DeepSeek 数据用途；显示「需要连接」；数据同意默认关闭且未同意时不进入授权 | ✅ iPhone 17 模拟器实测 |
 | M4-UI-02 | iOS 模拟器 / Google | 打开同意后连接；系统浏览器取消及成功授权；重启、扩权、断开 | 状态与账号 / scope 更新；Token 不展示；刷新后保持；撤销并清除本地连接 | ⏳ 留给用户：需要真实 Google 客户端、测试用户、Workspace Developer Preview 和明确的数据同意 |
 
@@ -686,15 +689,15 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | ATT-CONTRACT | 后端 ↔ iOS | Swift `Attachment` CodingKeys、`ChatMessage.attachments`、`ChatRequest.attachment_ids`、上传路径 / 字段 | 与后端一致 | ✅ |
 | ATT-K-01 | Kit | `AttachmentTests.swift`：解码、旧后端缺 `attachments`、`attachment_ids` 编码、GIF 识别 | 通过 | ✅ Linux (只编 Core + Networking)；Mac `swift test` 待跑 |
 | ATT-K-02 | Kit | `AttachmentTests.swift` `previewFileExtension`：Quick Look 预览文件扩展名按文件头取 (GIF87a / GIF89a → gif，PNG → png，其他 → jpg) | 通过 | ✅ Linux (只编 Core)；Mac `swift test` 待跑 |
-| ATT-UI-GIF | iOS | 选一张 GIF，发送前看输入栏上方的缩略图；发送后点开 Quick Look 全屏；打开「减弱动态效果」再看缩略图 | 缩略图播放动画；Quick Look 全屏播放动画；减弱动态效果时缩略图只显示第一帧 (Boss 2026-10-03 反馈「预览时不动」后补) | ⏳ 待模拟器 |
-| ATT-UI-01 | iOS | PhotosPicker 选 1 张 (再选替换)、移除、上传中不能发送、失败重试、只发图片 | 正常 | ⏳ 待模拟器 |
-| ATT-UI-02 | iOS | 气泡显示、GIF 播放 (减弱动态效果时静止)、Quick Look 全屏 / 分享、加载失败重试；多轮后旧图仍显示原图；深色模式 | 正常 | ⏳ 待模拟器 |
-| ATT-UI-03 | iOS | 首次发图 | 不弹说明 | ⏳ |
-| ATT-UI-04 | iOS | 退出 / 换账号 | 新账号看不到旧账号图片缓存和预览临时文件 | ⏳ |
-| ATT-LIVE-01 | Mac | 真实 `deepseek-flash` 一条带图消息 | 200，回复描述图片；之后 caption 已存 | ⏳ |
-| ATT-CAM-01 | iOS 真机 | ＋ →「拍照」→ 首次允许相机 → 拍照 →「使用照片」→ 发送；再拍一张替换 | 系统相机全屏；输入栏出现缩略图，上传中不能发送；发送后气泡显示图片、方向正确；服务器上的图不带 EXIF / GPS；再拍替换上一张 | ⏳ 待 Boss 真机 |
-| ATT-CAM-02 | iOS 真机 | 「设置」里关闭 VeraBot 相机权限 → ＋ →「拍照」 | 不打开相机，弹出「无法使用相机」alert，「前往设置」跳到 VeraBot 设置页，「取消」关闭 | ⏳ 待 Boss 真机 |
-| ATT-CAM-03 | iOS 模拟器 | 无相机设备点 ＋ | 菜单里没有「拍照」，「图片」照常可用 | ⏳ |
+| ATT-UI-GIF | iOS | 选一张 GIF，发送前看输入栏上方的缩略图；发送后点开 Quick Look 全屏；打开「减弱动态效果」再看缩略图 | 缩略图播放动画；Quick Look 全屏播放动画；减弱动态效果时缩略图只显示第一帧 (Boss 2026-10-03 反馈「预览时不动」后补) | ✅ Boss 手工验收 (2026-10-07) |
+| ATT-UI-01 | iOS | PhotosPicker 选 1 张 (再选替换)、移除、上传中不能发送、失败重试、只发图片 | 正常 | ✅ Boss 手工验收 (2026-10-07) |
+| ATT-UI-02 | iOS | 气泡显示、GIF 播放 (减弱动态效果时静止)、Quick Look 全屏 / 分享、加载失败重试；多轮后旧图仍显示原图；深色模式 | 正常 | ✅ Boss 手工验收 (2026-10-07) |
+| ATT-UI-03 | iOS | 首次发图 | 不弹说明 | ✅ Boss 手工验收 (2026-10-07) |
+| ATT-UI-04 | iOS | 退出 / 换账号 | 新账号看不到旧账号图片缓存和预览临时文件 | ✅ Boss 手工验收 (2026-10-07) |
+| ATT-LIVE-01 | Mac | 真实 `deepseek-flash` 一条带图消息（临时隔离库；蓝色方形 + 红色圆形测试图） | 200，回复识别两种颜色；之后 caption 已存 | ✅ 2026-10-07：200；回复识别 blue / red；caption_status=ok 且已持久化 |
+| ATT-CAM-01 | iOS 真机 | ＋ →「拍照」→ 首次允许相机 → 拍照 →「使用照片」→ 发送；再拍一张替换 | 系统相机全屏；输入栏出现缩略图，上传中不能发送；发送后气泡显示图片、方向正确；服务器上的图不带 EXIF / GPS；再拍替换上一张 | ✅ Boss 手工验收 (2026-10-07) |
+| ATT-CAM-02 | iOS 真机 | 「设置」里关闭 VeraBot 相机权限 → ＋ →「拍照」 | 不打开相机，弹出「无法使用相机」alert，「前往设置」跳到 VeraBot 设置页，「取消」关闭 | ✅ Boss 手工验收 (2026-10-07) |
+| ATT-CAM-03 | iOS 模拟器 | 无相机设备点 ＋ | 菜单里没有「拍照」，「图片」照常可用 | ✅ Boss 手工验收 (2026-10-07) |
 
 ## 模型 P0：deepseek-flash + 关闭思考 (Model switch) — 2026-10-03
 
@@ -753,7 +756,8 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | NTF-01 … 08、10、11 | 通知 | 设备、收件箱、偏好、免打扰、SQLite 限流、预览、投递等级、退出禁用、token 迁移、无 APNs | 提醒不受免打扰和限流；R1 没有 `channel=apns` | 通过 |
 | NTF-CONTRACT | 契约 | 通知 / 偏好 / 设备 JSON 与 `Notifications.swift` | 键名一致 | 通过 |
 | REM-UI-01、REM-UI-06、NTF-UI-03 | iOS Kit | 分组、排程上限 60、深链接 | 纯逻辑在 Kit 测试里 | 通过（Kit `swift test` 于 main 6800822 上运行，148/148）；Boss 2026-10-04 验收 |
-| REM-UI-02 … 05、07、08、NTF-UI-01、02、04 | iOS 模拟器 | 界面、本地通知、退出清理 | 见设计 §16 | 模拟器通过；Boss 2026-10-04 验收。**2026-10-05 编辑页改版（PR #27：重复标签修复、开关换 `CompactToggle`）后 REM-UI-02 需重验** |
+| REM-UI-02 … 05、07、08、NTF-UI-01、02、04 | iOS 模拟器 | 界面、本地通知、退出清理 | 见设计 §16 | 模拟器通过；Boss 2026-10-04 验收。PR #27 提醒编辑页视觉修复于 2026-10-07 经 Boss 验收通过 |
+| REM-EDIT-BUILD | iPhone 12 Pro Max 目标 | 编译当前提醒编辑改动 | Xcode 真机构建通过；尚未安装、启动或手工验收提醒保存 / 删除 / 时区行为 | ✅ Build（2026-10-07）；交互待验收 |
 | NTF-UI-05 | iOS 模拟器 | 点按通知本体：提醒通知、Bot 消息通知 | 提醒通知 → 打开「提醒」Tab → 该提醒页；在「来源」里点「查看对话」跳到对话。只有 Bot 消息通知 (`bot/{id}/chat?message=`) 直接打开对话 | 模拟器通过；Boss 2026-10-04 验收 |
 
 ## 删除单条消息 (Delete message) — 2026-10-03
