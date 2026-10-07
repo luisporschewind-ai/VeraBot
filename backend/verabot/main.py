@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
-from .api.routers import actions, attachments, auth, avatars, bots, chat, devices, feedback, mcp, memories, meta, notifications, plugins, reminders, voice
+from .api.routers import actions, attachments, auth, avatars, bots, chat, devices, feedback, mcp, memories, meta, notifications, plugins, reminders, suggestions, voice
 from .services.reminders import scheduler as reminder_scheduler
 from .core.config import WEB_DIR
 from .core import log_redact
@@ -70,7 +70,7 @@ async def _attachments_reconcile():
 
 for r in (attachments.router, auth.router, avatars.router, bots.router, chat.router, memories.router, feedback.router,
           voice.router, reminders.router, notifications.router, devices.router, meta.router, mcp.router, plugins.router,
-          actions.router):
+          actions.router, suggestions.router):
     app.include_router(r)
 
 

@@ -32,6 +32,7 @@ def create_or_get_active(*, user_id: int, bot_id: int, kind: str, dedupe_key: st
     body = _payload_json(payload)
     now = now_iso()
     with tx() as c:
+        c.execute("BEGIN IMMEDIATE")
         active = row(c.execute(
             "SELECT * FROM suggestions WHERE user_id=? AND bot_id=? AND kind=? AND dedupe_key=? "
             "AND status='pending' AND expires_at>? ORDER BY id DESC LIMIT 1",
@@ -47,6 +48,13 @@ def create_or_get_active(*, user_id: int, bot_id: int, kind: str, dedupe_key: st
         ).fetchone())
         if dismissed:
             return dismissed
+        accepted = row(c.execute(
+            "SELECT * FROM suggestions WHERE user_id=? AND bot_id=? AND kind=? AND dedupe_key=? "
+            "AND status='accepted' ORDER BY id DESC LIMIT 1",
+            (user_id, bot_id, kind, dedupe_key),
+        ).fetchone())
+        if accepted:
+            return accepted
         c.execute(
             "UPDATE suggestions SET status='expired' WHERE user_id=? AND bot_id=? AND kind=? "
             "AND dedupe_key=? AND status='pending' AND expires_at<=?",
@@ -76,6 +84,7 @@ def decide(user_id: int, suggestion_id: int, decision: str) -> dict | None:
     if decision not in VALID_DECISIONS:
         raise ValueError("invalid_decision")
     with tx() as c:
+        c.execute("BEGIN IMMEDIATE")
         current = row(c.execute("SELECT * FROM suggestions WHERE id=? AND user_id=?",
                                 (suggestion_id, user_id)).fetchone())
         if current is None:

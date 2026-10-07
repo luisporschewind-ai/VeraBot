@@ -3,6 +3,7 @@
 import os
 import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 import sys
 import tempfile
@@ -19,6 +20,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from verabot import db  # noqa: E402
 from verabot.db import suggestion_store  # noqa: E402
 from verabot.services.memory import extract  # noqa: E402
+from verabot.services.memory import suggestions, quick_prompts  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from verabot.main import app  # noqa: E402
 
 
 class SuggestionStoreTests(unittest.TestCase):
@@ -32,6 +36,13 @@ class SuggestionStoreTests(unittest.TestCase):
             cls.uid2 = c.execute("SELECT id FROM users WHERE username='m3b'").fetchone()[0]
             c.execute("INSERT INTO bots(user_id,name,created_at) VALUES (?, 'A', '2026-10-07')", (cls.uid,))
             cls.bot = c.execute("SELECT id FROM bots WHERE user_id=?", (cls.uid,)).fetchone()[0]
+        cls.cli = TestClient(app)
+        registered = cls.cli.post("/api/auth/register", json={"username": "m3http", "password": "pw123456"}).json()
+        other = cls.cli.post("/api/auth/register", json={"username": "m3other", "password": "pw123456"}).json()
+        cls.http_headers = {"Authorization": "Bearer " + registered["token"]}
+        cls.http_uid = registered["user"]["id"]
+        cls.other_headers = {"Authorization": "Bearer " + other["token"]}
+        cls.http_bot = cls.cli.post("/api/bots", json={"name": "HTTP"}, headers=cls.http_headers).json()
 
     def setUp(self):
         with db.tx() as c:
@@ -60,6 +71,14 @@ class SuggestionStoreTests(unittest.TestCase):
         second = suggestion_store.decide(self.uid, suggestion["id"], "accepted")
         self.assertEqual(first["status"], "accepted")
         self.assertEqual(second["status"], "accepted")
+
+    def test_concurrent_suggestion_creation_returns_one_pending_record(self):
+        def create():
+            return self.create(dedupe="concurrent:one")
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda _: create(), range(2)))
+        self.assertEqual(results[0]["id"], results[1]["id"])
+        self.assertEqual(len(suggestion_store.list_pending(self.uid, self.bot)), 1)
 
     def test_suggestion_queries_are_user_scoped(self):
         suggestion = self.create()
@@ -139,6 +158,114 @@ class SuggestionStoreTests(unittest.TestCase):
             memory_store.expire_stale(c, self.uid)
             row = c.execute("SELECT status,content,meta FROM memories WHERE user_id=? AND content_hash='expired-hash'", (self.uid,)).fetchone()
         self.assertEqual(tuple(row), ("expired", "", None))
+
+    def test_repeated_reminder_detection_requires_three_distinct_weeks_and_keeps_local_schedule(self):
+        rows = [
+            {"id": 1, "title": "周末整理书桌", "due_at": "2026-09-12T09:00:00", "timezone": "Asia/Shanghai", "created_at": "2026-09-12"},
+            {"id": 2, "title": "周末整理书桌", "due_at": "2026-09-19T09:00:00", "timezone": "Asia/Shanghai", "created_at": "2026-09-19"},
+            {"id": 3, "title": "周末整理书桌", "due_at": "2026-09-26T09:00:00", "timezone": "Asia/Shanghai", "created_at": "2026-09-26"},
+            {"id": 4, "title": "买咖啡豆", "due_at": "2026-09-20T09:00:00", "timezone": "Asia/Shanghai", "created_at": "2026-09-20"},
+        ]
+        patterns = suggestions.detect_weekly_patterns(rows, now=datetime(2026, 10, 1, tzinfo=timezone.utc))
+        self.assertEqual(len(patterns), 1)
+        self.assertEqual(patterns[0]["timezone"], "Asia/Shanghai")
+        self.assertIn("BYDAY=SA", patterns[0]["rrule"])
+        self.assertEqual(patterns[0]["due_at"][11:16], "09:00")
+
+    def test_routine_memory_requires_explicit_weekday_and_local_time(self):
+        self.assertIsNotNone(suggestions.routine_schedule_from_text("每周六 9 点整理书桌", "Asia/Shanghai"))
+        self.assertIsNone(suggestions.routine_schedule_from_text("我习惯周末整理书桌", "Asia/Shanghai"))
+
+    def test_quick_prompts_use_frequent_safe_user_text_and_only_enabled_tool_templates(self):
+        messages = [
+            {"content": "帮我安排周末徒步", "role": "user", "count": 4},
+            {"content": "我的密码是secret", "role": "user", "count": 9},
+            {"content": "x" * 81, "role": "user", "count": 5},
+            {"content": "帮我设置提醒", "role": "user", "count": 2},
+        ]
+        prompts = quick_prompts.build(messages, allowed_tools=["get_weather"], limit=6)
+        self.assertEqual(prompts, ["帮我安排周末徒步", "今天天气怎么样？"])
+        self.assertTrue(all("message_id" not in p for p in prompts))
+
+    def test_accepting_reminder_suggestion_is_atomic_and_idempotent(self):
+        item = suggestion_store.create_or_get_active(
+            user_id=self.uid, bot_id=self.bot, kind="routine_reminder", dedupe_key="accept:reminder",
+            payload={"title": "周末整理书桌", "due_at": "2026-10-10T09:00:00", "timezone": "Asia/Shanghai",
+                     "rrule": "FREQ=WEEKLY;BYDAY=SA"},
+            expires_at=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        )
+        first = suggestions.accept(self.uid, item["id"])
+        second = suggestions.accept(self.uid, item["id"])
+        with db.tx() as c:
+            rows = c.execute("SELECT id,rrule FROM reminders WHERE user_id=? AND title='周末整理书桌'", (self.uid,)).fetchall()
+        self.assertEqual(first["status"], "accepted")
+        self.assertEqual(first["reminder_id"], second["reminder_id"])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["rrule"], "FREQ=WEEKLY;BYDAY=SA")
+
+    def test_accepting_delegation_suggestion_returns_settings_target_without_changing_permissions(self):
+        with db.tx() as c:
+            c.execute("INSERT INTO bots(user_id,name,created_at) VALUES (?, 'Target', '2026-10-07')", (self.uid,))
+            target = c.execute("SELECT id FROM bots WHERE user_id=? AND name='Target'", (self.uid,)).fetchone()[0]
+        item = suggestion_store.create_or_get_active(
+            user_id=self.uid, bot_id=self.bot, kind="delegation", dedupe_key="accept:delegate",
+            payload={"source_bot_id": self.bot, "target_bot_id": target, "target_name": "Target"},
+            expires_at=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        )
+        result = suggestions.accept(self.uid, item["id"])
+        with db.tx() as c:
+            bot = c.execute("SELECT delegate_to FROM bots WHERE id=? AND user_id=?", (self.bot, self.uid)).fetchone()
+        self.assertEqual(result["settings_bot_id"], self.bot)
+        self.assertEqual(result["target_bot_id"], target)
+        self.assertEqual(json.loads(bot["delegate_to"] or "[]"), [])
+
+    def test_delegation_suggestion_requires_three_requests_and_target_not_yet_allowed(self):
+        from verabot.db import delegation_store
+        with db.tx() as c:
+            c.execute("INSERT INTO bots(user_id,name,created_at) VALUES (?, 'RepeatedTarget', '2026-10-07')", (self.uid,))
+            target = c.execute("SELECT id FROM bots WHERE user_id=? AND name='RepeatedTarget'", (self.uid,)).fetchone()[0]
+        for _ in range(3):
+            delegation_store.insert(user_id=self.uid, from_bot_id=self.bot, to_bot_id=target,
+                                     question="请帮我检查代码", shared_context="", answer="完成",
+                                     status="ok", reason="", depth=1)
+        source = db.get_bot(self.uid, self.bot)
+        suggestions.refresh_for_bot(self.uid, source)
+        found = [s for s in suggestion_store.list_pending(self.uid, self.bot) if s["kind"] == "delegation"]
+        self.assertEqual(len(found), 1)
+        payload = json.loads(found[0]["payload"])
+        self.assertEqual(payload["target_bot_id"], target)
+        with db.tx() as c:
+            c.execute("UPDATE bots SET delegate_to=? WHERE user_id=? AND id=?", (json.dumps([target]), self.uid, self.bot))
+        suggestions.refresh_for_bot(self.uid, db.get_bot(self.uid, self.bot))
+        self.assertEqual(len([s for s in suggestion_store.list_pending(self.uid, self.bot) if s["kind"] == "delegation"]), 1)
+
+    def test_routine_memory_creates_repeating_reminder_suggestion(self):
+        with db.tx() as c:
+            c.execute("INSERT INTO memories(user_id,scope,bot_id,type,content,content_hash,source,source_bot_id,status,created_at,updated_at) "
+                      "VALUES (?, 'bot', ?, 'routine', '每周六 9点整理书桌', 'routine-hash', 'implicit_extraction', ?, 'active', ?, ?)",
+                      (self.uid, self.bot, self.bot, "2026-10-07", "2026-10-07"))
+            memory_id = c.execute("SELECT id FROM memories WHERE content_hash='routine-hash'").fetchone()[0]
+        suggestions.refresh_for_bot(self.uid, db.get_bot(self.uid, self.bot))
+        found = [s for s in suggestion_store.list_pending(self.uid, self.bot) if s["kind"] == "routine_reminder"]
+        self.assertTrue(found)
+        payload = json.loads(found[-1]["payload"])
+        self.assertIn("BYDAY=SA", payload["rrule"])
+        self.assertEqual(payload["source_memory_id"], memory_id)
+
+    def test_suggestion_and_quick_prompt_endpoints_are_authenticated_and_user_scoped(self):
+        item = suggestion_store.create_or_get_active(
+            user_id=self.http_uid, bot_id=self.http_bot["id"], kind="delegation", dedupe_key="api:scope",
+            payload={"source_bot_id": self.http_bot["id"], "target_bot_id": self.http_bot["id"], "target_name": "Target"},
+            expires_at=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        )
+        own = self.cli.get(f"/api/bots/{self.http_bot['id']}/suggestions", headers=self.http_headers)
+        other = self.cli.post(f"/api/suggestions/{item['id']}/accept", headers=self.other_headers)
+        prompts = self.cli.get(f"/api/bots/{self.http_bot['id']}/quick-prompts", headers=self.http_headers)
+        self.assertEqual(own.status_code, 200)
+        self.assertTrue(any(s["id"] == item["id"] for s in own.json()["suggestions"]))
+        self.assertEqual(other.status_code, 404)
+        self.assertEqual(prompts.status_code, 200)
+        self.assertLessEqual(len(prompts.json()["prompts"]), 6)
 
     def test_extract_job_saves_only_validated_user_evidence_and_logs_memory_usage(self):
         from verabot.services import llm

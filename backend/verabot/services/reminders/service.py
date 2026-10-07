@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -323,7 +324,7 @@ def create_reminder(user_id: int, *, title: str, note: str | None = None, due_at
                     priority: int = 0, assignee_bot_id: int | None = None, source_message_id: int | None = None,
                     notify: bool | None = None, alert_offsets=None, created_by: str = "user",
                     bot_id: int | None = None, client: str = "ios", actor: str = "user",
-                    actor_bot_id: int | None = None) -> dict:
+                    actor_bot_id: int | None = None, _connection=None) -> dict:
     title, note = _check_text(title, note)
     priority = _check_priority(priority)
     tz_name = timezone_name or TIMEZONE
@@ -344,7 +345,7 @@ def create_reminder(user_id: int, *, title: str, note: str | None = None, due_at
         notify = False
     offsets = _check_offsets(alert_offsets)
     now = clock.iso_utc(clock.now())
-    with db.tx() as c:
+    with (nullcontext(_connection) if _connection is not None else db.tx()) as c:
         _require_bot(c, user_id, assignee_bot_id)
         _require_bot(c, user_id, bot_id)
         _require_message(c, user_id, source_message_id)
