@@ -207,6 +207,24 @@ class MemoryM5Tests(unittest.TestCase):
             self.collab_sample(bot,target,topic)
         self.assertLessEqual(len(prompt_hints(self.uid,bot)),3)
 
+    def test_feedback_for_multiple_delegations_is_not_misattributed(self):
+        bot = db.get_bot(self.uid,self.bid)
+        targets = [self.target_bot() for _ in range(2)]
+        bot["allowed_tools"] = ["ask_bot"]
+        bot["delegate_to"] = [t["id"] for t in targets]
+        self.collab_sample(bot,targets[0],"Python 编程")
+        self.collab_sample(bot,targets[0],"修复编程 bug")
+        delegation_ids = [delegation_store.insert(user_id=self.uid,from_bot_id=bot["id"],to_bot_id=target["id"],
+                            question="Python 编程",shared_context="",answer="答复",status="ok",reason="",depth=1,payload="{}")
+                          for target in targets]
+        message_id = db.add_message(self.uid,bot["id"],"assistant","综合答复",traces=[
+            {"name":"ask_bot","result":{"delegation_id":did}} for did in delegation_ids])
+        feedback_service.submit(self.uid,message_id,1,None)
+        self.assertEqual(prompt_hints(self.uid,bot),[])
+        feedback_service.clear(self.uid,message_id)
+        self.collab_sample(bot,targets[0],"又一个 Python 编程问题")
+        self.assertEqual(len(prompt_hints(self.uid,bot)),1)
+
     def test_v17_vectors_migrate_idempotently_and_cascade_with_memory(self):
         db.init_db()
         with db.tx() as c:

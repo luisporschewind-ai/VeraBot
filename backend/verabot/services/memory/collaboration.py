@@ -58,14 +58,15 @@ def prompt_hints(user_id: int, bot: dict) -> list[str]:
                 f"AND status='ok' AND depth=1 AND id IN ({','.join('?' * len(delegation_ids))})",
                 (user_id, bot["id"], *delegation_ids)).fetchall()
             records = [d for d in records if d["to_bot_id"] in eligible]
-            if not records:
+            # 一条助手回答只有一份评分；多目标委派时无法可靠归因，因此整条反馈不参与协作统计。
+            if len(records) != 1:
                 continue
             feedback_count += 1
-            for record in records:
-                key = (_topic(record["question"]), record["to_bot_id"])
-                stat = stats.setdefault(key, {"count": 0, "positive": 0})
-                stat["count"] += 1
-                stat["positive"] += int(row["rating"] == 1)
+            record = records[0]
+            key = (_topic(record["question"]), record["to_bot_id"])
+            stat = stats.setdefault(key, {"count": 0, "positive": 0})
+            stat["count"] += 1
+            stat["positive"] += int(row["rating"] == 1)
 
     if feedback_count < 3:
         return []

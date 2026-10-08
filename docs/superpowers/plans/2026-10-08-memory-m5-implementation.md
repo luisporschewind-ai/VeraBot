@@ -69,7 +69,7 @@
 
 **文件：**新增 `backend/verabot/services/memory/collaboration.py`；修改 `backend/verabot/services/memory/feedback.py`、`runtime.py`、`prompts.py`、必要的迁移 / store；测试 `memory_m5_test.py`。
 
-**接口：**`collaboration.prompt_hints(user_id: int, bot: dict) -> list[str]`；仅汇总当前用户 depth-0 Bot 的成功委派和对应助手回答评分，至少 3 条反馈后提供最多 3 条提示，不读其他用户数据、不自动改权限。
+**接口：**`collaboration.prompt_hints(user_id: int, bot: dict) -> list[str]`；仅汇总当前用户 depth-0 Bot 的成功委派和对应助手回答评分，至少 3 条可归因反馈后提供最多 3 条提示；多目标委派不参与统计，不读其他用户数据、不自动改权限。
 
 - [x] 测试反馈阈值、目标排序、清除反馈后的更新、跨用户隔离与提示条数上限。
 - [x] 运行测试确认当前 prompt 尚无反馈建议。

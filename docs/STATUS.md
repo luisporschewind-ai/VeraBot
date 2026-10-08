@@ -5,7 +5,7 @@
 记忆 M3、M4、M5 已在隔离分支 `codex/memory-m5` 完成；此分支从 `codex/memory-m3-m4` 的 M3/M4 实现继续。后端定向回归通过。M3~M5 的实际产品体验由负责人合并后一起手工验收；本分支未合并或推送到 `main`。
 
 - **M5 内容**：schema v17 本地 BGE-small-zh 向量、关键词 / 语义混合召回、按双方 `memory_access` 过滤的委派记忆共享、成功委派反馈的有限提示。RAG 分块延后；没有 iOS / Web 改动。
-- **自动验证**：M1 36/36、M2 18/18、M3 21/21、M4 8/8、M5 12/12；委派 25/25、状态事件 8/8、VeraBotKit 163 项通过；iOS Simulator 构建成功。首次模型缓存约 90 MB；可用 `uv sync --extra memory-vector` 安装，可选关闭 `VERABOT_MEMORY_VECTOR=0`。
+- **自动验证**：M1 36/36、M2 18/18、M3 21/21、M4 8/8、M5 13/13；委派 25/25、状态事件 8/8、VeraBotKit 163 项通过；iOS Simulator 构建成功。首次模型缓存约 90 MB；可用 `uv sync --extra memory-vector` 安装，可选关闭 `VERABOT_MEMORY_VECTOR=0`。
 - **待负责人手工验收**：M3 候选 / 建议 / 快捷提问；M4 成长、月度回顾、导出、引用；M5 真实语义召回、授权共享与反馈提示。未做 UI 自动化。
 
 回归注意：静态 Bearer `connector_test.py` 的旧用例 CONN-03 要求未同意时为 `connected`，与当前 `needs_consent` 状态不符；在 `main` 与本分支均复现。CONN-03b 同意后为 `ready` 通过，其余连接器用例通过。
@@ -106,7 +106,7 @@ v0.1.0 之后的改动都在 `main` 上，尚未发版 (见 [CHANGELOG.md](CHANG
 | 项 | 状态 |
 |---|---|
 | MCP 后续 M5~M7 | M4 OAuth 已在功能分支实现；Gmail 工具、变更审阅、自定义 URL / stdio 仍未做 |
-| 以记忆为核心的 Bot 成长体系 | M1–M4 已实现；M5 暂停等待方案。M3/M4 位于隔离分支，尚未合入 main；手工界面验收待做 |
+| 以记忆为核心的 Bot 成长体系 | M1–M5 已实现；M3–M5 位于隔离分支 `codex/memory-m5`，尚未合入 main；手工界面验收待做 |
 | 首页搜索扩展 (完整聊天历史搜索、搜索历史) | ⏸ 延期到后续迭代；当前只过滤已加载列表 |
 
 ### 已知遗留 (Known leftovers，仅列出，未处理)
@@ -130,7 +130,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | MCP M4（OAuth 2.1 + Google 连接） | 同上 §15 / §18.6 | ✅ 功能分支实现；未合并 | 真实授权需 Google Cloud OAuth 客户端、测试用户与 Workspace Developer Preview；由 Boss 手工完成 |
 | MCP M5~M7（Gmail 工具、变更审阅、自定义 URL / stdio） | 同上 §15 | 未实现 | 按设计稿后续推进 |
 | Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准，未实现 | 同上，在 M4 之前 |
-| 以记忆为核心的 Bot 成长体系 | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准；M1–M4 已实现，M5 暂停 | M3/M4 隔离分支；按 MEM-50~64 手工验收；Web 冻结 |
+| 以记忆为核心的 Bot 成长体系 | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准；M1–M5 已实现 | M3–M5 位于隔离分支；按 MEM-50~68 一并手工验收；Web 冻结 |
 
 **MCP M1–M4 已有实现**（M4 OAuth 已合入 `main`）；M4 不升 schema。M5~M7 未实现。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**，账号占用 **v9**，插件安装表占用 **v10**。`frontend/web` 冻结。
 
@@ -142,7 +142,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 租户隔离 Isolation | ✅ | 所有查询带 `user_id`，越权 (IDOR) 返回 404 |
 | Bot 管理 | ✅ (API) / 🟡 (标签部分 UI 延期) | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；置顶支持左滑 / 长按，置顶项优先排序且 Boss 已验收；标签 UI 与 Bot 详情/删除流程验收延期；软上限 20 (`MAX_BOTS_PER_USER`)；名称右侧显示标签，行右上角显示最后消息时间；搜索只过滤已加载的 Bot 名称与最后消息预览，完整聊天历史搜索、搜索历史等延期 |
 | 流式对话 SSE | ✅ | 逐 token 渲染、工具卡片、交接 Trace 卡片、错误气泡 |
-| 记忆 Memory | 🟡 | M1–M4 已实现；M3 候选 / 建议 / 快捷提问及 M4 成长 / 回顾 / 导出 / 引用已自动化与构建验证，M3 / M4 UI 待手工验收；M5 暂停 |
+| 记忆 Memory | 🟡 | M1–M5 已实现；M3 候选 / 建议 / 快捷提问、M4 成长 / 回顾 / 导出 / 引用、M5 语义召回 / 协作优化均已自动化验证；M3–M5 手工验收待做 |
 | 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot`；外部插件（Learn / AWS）需先安装并同意，再在 Bot 里单独打开 |
 | 多 Agent 协作 | ✅ | 工具白名单、委派白名单、接受委派、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 |
 | 每日 Token 预算 | ✅ | 超额 429，委派也被拒 |
