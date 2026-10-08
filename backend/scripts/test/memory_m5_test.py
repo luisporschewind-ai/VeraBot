@@ -16,7 +16,10 @@ os.environ["VERABOT_MEMORY_JOBS"] = "0"
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from verabot import db
+from verabot.services.memory import service as memory_service
 from verabot.services.memory import embeddings
+from verabot.services.memory.recall import rank, render
+from verabot.core import config
 
 
 class MemoryM5Tests(unittest.TestCase):
@@ -96,6 +99,32 @@ class MemoryM5Tests(unittest.TestCase):
         memory = self.memory()
         with patch.object(embeddings, "_encode_local", side_effect=RuntimeError("local model unavailable")):
             self.assertIsNone(embeddings.score(self.uid,[memory],"晚餐"))
+
+    def test_hybrid_rank_keeps_style_profile_first_and_includes_semantic_only_matches(self):
+        memories = [{"id":1,"type":"style","_text":"简短回答","scope":"bot"},
+                    {"id":2,"type":"profile","_text":"住在杭州","scope":"global"},
+                    {"id":3,"type":"preference","_text":"素食","scope":"global"},
+                    {"id":4,"type":"fact","_text":"周三有空","scope":"bot"},
+                    {"id":5,"type":"fact","_text":"养了两只猫","scope":"bot"}]
+        memories.extend({"id":i,"type":"fact","_text":f"无关条目{i}","scope":"bot"} for i in range(6,18))
+        result = rank(memories,"周末找餐厅",semantic_scores={3:0.92,4:0.61,5:0.12})
+        self.assertEqual([m["id"] for m in result[:4]],[1,2,3,4])
+        self.assertNotIn(5,[m["id"] for m in result])
+        rendered = render(result)
+        self.assertLessEqual(len(rendered.ids),config.MEMORY_INJECT_MAX)
+        self.assertLessEqual(sum(len(m["_text"]) for m in result if m["id"] in rendered.ids),
+                             config.MEMORY_INJECT_CHARS)
+        fallback = rank(memories,"周末找餐厅",semantic_scores=None)
+        self.assertNotIn(3,[m["id"] for m in fallback])
+
+    def test_recall_uses_local_semantic_matches_for_large_memory_sets(self):
+        records = [self.memory(content=f"条目编号{i}的独有内容") for i in range(14)]
+        bot = db.get_bot(self.uid,self.bid)
+        target_id = records[-1]["id"]
+        with patch.object(embeddings,"score",return_value={target_id:0.95}) as score:
+            recalled = memory_service.recall(self.uid,bot,"一个完全不同语义的问题")
+        self.assertIn(target_id,recalled.ids)
+        score.assert_called_once()
 
 
 if __name__ == "__main__":

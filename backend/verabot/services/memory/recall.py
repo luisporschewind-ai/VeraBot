@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from ... import db
 from ...core import config
+from . import embeddings
 from . import repository as repo
 from .policy import render_safe
 
@@ -65,7 +66,7 @@ def _days_since(*stamps) -> float:
     return max((datetime.now(timezone.utc) - best).total_seconds() / 86400, 0.0)
 
 
-def rank(mems: list[dict], query_text: str) -> list[dict]:
+def rank(mems: list[dict], query_text: str, semantic_scores: dict[int, float] | None = None) -> list[dict]:
     """style 最多 3 条排在记忆块最前，其次 profile（最多 5 条）；其余按
     2.0×重叠 + 0.5×新近 + 0.3×使用 + 0.2×置信度 排序。
     可见集合 ≤ INJECT_MAX 时全部保留；否则只用与查询有关键词重叠的条目补满。"""
@@ -73,9 +74,10 @@ def rank(mems: list[dict], query_text: str) -> list[dict]:
     style_ids = {m["id"] for m in styles}
     profiles = [m for m in mems if m["type"] == "profile" and m["id"] not in style_ids]
     q = tokens(query_text)
+    semantic_scores = semantic_scores or {}
     if len(mems) <= config.MEMORY_INJECT_MAX:
         rest = [m for m in mems if m["id"] not in style_ids and m["type"] != "profile"]
-        rest.sort(key=lambda m: -_score(m, q))
+        rest.sort(key=lambda m: -_score(m, q, semantic_scores.get(m["id"], 0.0)))
         return styles + profiles + rest
     profiles = profiles[:PINNED_MAX]
     pinned_ids = style_ids | {m["id"] for m in profiles}
@@ -85,17 +87,19 @@ def rank(mems: list[dict], query_text: str) -> list[dict]:
             continue
         mt = tokens(m["_text"])
         overlap = len(mt & q) / len(mt) if mt else 0.0
-        if overlap > 0:
-            scored.append((_score(m, q), m))
+        semantic = semantic_scores.get(m["id"], 0.0)
+        if overlap > 0 or semantic >= config.MEMORY_VECTOR_MIN_SIMILARITY:
+            scored.append((_score(m, q, semantic), m))
     scored.sort(key=lambda x: -x[0])
     return styles + profiles + [m for _, m in scored]
 
 
-def _score(m: dict, q: set[str]) -> float:
+def _score(m: dict, q: set[str], semantic: float = 0.0) -> float:
     mt = tokens(m["_text"])
     overlap = len(mt & q) / len(mt) if mt else 0.0
     recency = math.exp(-_days_since(m.get("last_used_at"), m.get("confirmed_at")) / 30)
-    return 2.0 * overlap + 0.5 * recency + 0.3 * min(m.get("use_count") or 0, 10) / 10 + 0.2 * (m.get("confidence") or 1.0)
+    return (2.0 * overlap + 1.5 * max(0.0, min(1.0, semantic)) + 0.5 * recency
+            + 0.3 * min(m.get("use_count") or 0, 10) / 10 + 0.2 * (m.get("confidence") or 1.0))
 
 
 def label(m: dict) -> str:
@@ -137,7 +141,8 @@ def recall(user_id: int, bot: dict, query_text: str) -> Recall:
         summary = repo.active_summary(c, user_id, bot["id"]) if access != "none" else None
     for m in mems:
         m["_text"] = repo.plaintext(m)
-    rec = render(rank(mems, query_text))
+    semantic_scores = embeddings.score(user_id, mems, query_text)
+    rec = render(rank(mems, query_text, semantic_scores))
     if not summary:
         return rec
     line = _summary_line(summary)
