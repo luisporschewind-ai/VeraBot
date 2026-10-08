@@ -46,6 +46,15 @@ struct MainTabView: View {
                 .tabItem { Label("提醒", systemImage: "alarm") }
                 .badge(app.unreadCount)
                 .tag(1)
+            PlaygroundView()
+                .tabItem { Label("游乐场", systemImage: "gamecontroller") }
+                .tag(2)
+            IslandView()
+                .tabItem { Label("小岛", systemImage: "leaf") }
+                .tag(3)
+            ExploreIdeasView()
+                .tabItem { Label("探索", systemImage: "sparkle.magnifyingglass") }
+                .tag(4)
         }
         .task {
             await app.refreshProfile()
