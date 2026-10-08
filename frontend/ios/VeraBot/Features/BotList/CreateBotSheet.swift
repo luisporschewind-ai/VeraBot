@@ -26,14 +26,11 @@ struct CreateBotSheet: View {
                     }
                     BotTagsField(text: $tagsText)
                 }
-                Section {
-                    BotFigurePicker(selection: BotAvatarFigure(stored: draft.avatar)) { figure in
-                        draft.avatar = figure.rawValue
-                    }
-                } header: {
-                    Text("默认形象")
-                } footer: {
-                    Text("设置了相册照片时，优先显示照片。")
+                Section("新版机器人头像") {
+                    RobotAvatarView(action: .idle, size: 88, color: Color(hex: draft.color))
+                        .frame(maxWidth: .infinity).frame(height: 108)
+                    Text("Bot 状态和情绪会驱动头像变化；外观可在新版头像实验室配置。")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 Section {
                     TextField("例如：资深研究员，擅长资料检索与总结", text: $draft.persona, axis: .vertical)

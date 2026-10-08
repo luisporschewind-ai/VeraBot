@@ -11,6 +11,10 @@ def _bot(r):
     if r is None:
         return None
     b = dict(r)
+    try:
+        b["appearance"] = json.loads(b["appearance"]) if b.get("appearance") else None
+    except (ValueError, TypeError):
+        b["appearance"] = None
     b["allowed_tools"] = json.loads(b.get("allowed_tools") or "[]")
     b["delegate_to"] = json.loads(b.get("delegate_to") or "[]")
     b["accept_delegation"] = bool(b.get("accept_delegation"))

@@ -1,8 +1,8 @@
 import SwiftUI
 import VeraBotCore
 
-/// Bot 头像：相册照片优先；没有照片时用头像实验室的默认形象。
-/// 对话页导航栏传入当前姿态并开启动画；首页列表等处保持静态空闲（默认参数）。
+/// Bot 头像：相册照片优先；其余位置统一使用新版头像实验室的可动形象。
+/// 对话页导航栏传入执行状态并开启动画；列表等处使用静态空闲形象。
 struct LiveBotAvatar: View {
     let botID: Int
     let emoji: String
@@ -10,8 +10,9 @@ struct LiveBotAvatar: View {
     var hasAvatar: Bool = false
     var updatedAt: String?
     var size: CGFloat = 44
-    var pose: AvatarLabState = .idle
+    var action: BotAvatarState = .idle
     var animated = false
+    var appearance: BotAppearance?
 
     @Environment(AppState.self) private var app
 
@@ -22,9 +23,9 @@ struct LiveBotAvatar: View {
             case .photo:
                 BotAvatar(emoji: emoji, color: color, image: photo, size: size)
             case .figure:
-                // 静态形象只是装饰：列表行已经读 Bot 名称，不再读「方糖，空闲」
-                DefaultBotFigure(storedAvatar: emoji, pose: pose, animated: animated, size: size)
-                    .accessibilityHidden(!animated)
+                RobotAvatarView(action: action, size: size, color: Color(hex: color),
+                                ambient: animated, appearance: appearance)
+                    .accessibilityLabel("Bot，\(action.title)")
             }
         }
         .task(id: "\(botID)|\(hasAvatar)|\(updatedAt ?? "")") {

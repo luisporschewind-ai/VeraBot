@@ -42,10 +42,10 @@ struct RobotAvatarInteraction {
     var committed: Bool { kind != .none && kind != .pendingSqueeze }
     private func clamp(_ x: Double, _ lo: Double, _ hi: Double) -> Double { max(lo, min(hi, x)) }
 
-    mutating func begin(at point: CGPoint, size: Double, antenna: CGPoint, antennaVisible: Bool, reduced: Bool) {
+    mutating func begin(at point: CGPoint, size: Double, antenna: CGPoint, antennaVisible: Bool, reduced: Bool, antennaRadius: Double = 15) {
         self = Self()
         self.size = max(1, size); hot = point; home = antenna; held = true
-        let radius = max(10, 15 * size / 240 + 3) * 240 / max(1, size)
+        let radius = max(10, antennaRadius * size / 240 + 3) * 240 / max(1, size)
         if antennaVisible && hypot(point.x - antenna.x, point.y - antenna.y) <= radius {
             kind = .antenna; overridesAction = true
         } else if hypot(point.x - 120, point.y - 120) <= 240 * 0.32 {
@@ -91,13 +91,23 @@ struct RobotAvatarInteraction {
         held = false; releaseAge = 0; releaseDepth = min(1, abs(squeeze.position))
         let tap = !overridesAction && maxDistance <= 2.5
         if kind == .pendingSqueeze || tap { kind = .none }
-        if reduced { finish() }
+        if reduced {
+            finish()
+            // The view has no animation tick in Reduce Motion. Release the temporary
+            // static feedback immediately, so the selected state's expression resumes.
+            overridesAction = false
+            reaction = nil
+            reactionAge = 2000
+        }
         return tap
     }
 
     mutating func advance(dt: Double, reduced: Bool) {
         reactionAge += dt * 1000
-        guard kind != .none else { return }
+        if kind == .none {
+            if reaction == nil || reactionAge >= 2000 { overridesAction = false; reaction = nil }
+            return
+        }
         let dt = min(0.034, max(0, dt))
         age += dt
         if !held { releaseAge += dt }

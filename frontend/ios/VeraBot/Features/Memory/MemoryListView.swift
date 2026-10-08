@@ -83,7 +83,8 @@ struct MemoryListView: View {
                     HStack(spacing: 6) {
                         if let b = group.bot {
                             LiveBotAvatar(botID: b.id, emoji: b.avatar, color: b.color,
-                                          hasAvatar: b.hasAvatar, updatedAt: b.avatarUpdatedAt, size: 22)
+                                          hasAvatar: b.hasAvatar, updatedAt: b.avatarUpdatedAt, size: 22,
+                                          appearance: b.supportedAppearance)
                         }
                         Text("仅 \(group.bot?.name ?? group.items.first?.botName ?? "Bot")")
                     }

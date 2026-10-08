@@ -47,7 +47,8 @@ struct QuotaView: View {
                     ForEach(q.perBot) { b in
                         HStack {
                             LiveBotAvatar(botID: b.id, emoji: b.avatar, color: b.color,
-                                           hasAvatar: b.hasAvatar, updatedAt: b.avatarUpdatedAt, size: 30)
+                                           hasAvatar: b.hasAvatar, updatedAt: b.avatarUpdatedAt, size: 30,
+                                           appearance: b.supportedAppearance)
                             Text(b.name)
                             Spacer()
                             Text("\(b.requests) 次 · 用量 \(b.totalTokens)").font(.caption).foregroundStyle(.secondary)

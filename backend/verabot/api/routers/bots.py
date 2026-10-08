@@ -43,6 +43,8 @@ def bots_create(body: BotIn, user=Depends(current_user)):
         cols = {"user_id": user["id"], "name": body.name, "avatar": body.avatar or "🤖", "color": body.color,
                 "persona": body.persona, "instructions": body.instructions,
                 "tags": json.dumps(body.tags, ensure_ascii=False), "created_at": db.now_iso(), **perms}
+        if body.appearance is not None:
+            cols["appearance"] = json.dumps(body.appearance.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":"))
         bid = bot_store.insert(c, cols)
     return public_bot(db.get_bot(user["id"], bid))
 
@@ -56,8 +58,11 @@ def bots_get(bot_id: int, user=Depends(current_user)):
 def bots_patch(bot_id: int, body: BotPatch, user=Depends(current_user)):
     require_bot(user, bot_id)
     pinned = body.pinned
-    fields = {k: v for k, v in body.model_dump(exclude={"allowed_tools", "delegate_to", "accept_delegation", "memory_access", "pinned"}).items()
+    fields = {k: v for k, v in body.model_dump(exclude={"allowed_tools", "delegate_to", "accept_delegation", "memory_access", "pinned", "appearance"}).items()
               if v is not None}
+    if "appearance" in body.model_fields_set:
+        fields["appearance"] = (json.dumps(body.appearance.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":"))
+                                if body.appearance is not None else None)
     if "tags" in fields:
         fields["tags"] = json.dumps(fields["tags"], ensure_ascii=False)
     fields.update(validate_perms(user, body, bot_id))

@@ -122,6 +122,12 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
     public let name: String
     public let avatar: String
     public let color: String
+    public let appearance: JSONValue?
+    public let appearanceFieldPresent: Bool
+    public var supportedAppearance: BotAppearance? {
+        guard let appearance, let data = try? JSONEncoder().encode(appearance) else { return nil }
+        return try? JSONDecoder().decode(BotAppearance.self, from: data)
+    }
     public let persona: String
     public let instructions: String
     public let createdAt: String?
@@ -150,7 +156,7 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, avatar, color, persona, instructions
+        case id, name, avatar, color, persona, instructions, appearance
         case createdAt = "created_at"
         case lastMessage = "last_message"
         case allowedTools = "allowed_tools"
@@ -170,6 +176,8 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         name = try c.decode(String.self, forKey: .name)
         avatar = try c.decode(String.self, forKey: .avatar)
         color = try c.decode(String.self, forKey: .color)
+        appearanceFieldPresent = c.contains(.appearance)
+        appearance = try c.decodeIfPresent(JSONValue.self, forKey: .appearance)
         persona = try c.decodeIfPresent(String.self, forKey: .persona) ?? ""
         instructions = try c.decodeIfPresent(String.self, forKey: .instructions) ?? ""
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
@@ -191,6 +199,7 @@ public struct BotPatch: Codable, Sendable {
     public var name: String?
     public var avatar: String?
     public var color: String?
+    public var appearance: JSONValue?
     public var persona: String?
     public var instructions: String?
     public var allowedTools: [String]?
@@ -204,7 +213,7 @@ public struct BotPatch: Codable, Sendable {
     public init(name: String? = nil, avatar: String? = nil, color: String? = nil, persona: String? = nil,
                 instructions: String? = nil, allowedTools: [String]? = nil, delegateTo: [Int]? = nil,
                 acceptDelegation: Bool? = nil, memoryAccess: MemoryAccess? = nil, tags: [String]? = nil,
-                pinned: Bool? = nil) {
+                pinned: Bool? = nil, appearance: JSONValue? = nil) {
         self.name = name
         self.avatar = avatar
         self.color = color
@@ -216,10 +225,11 @@ public struct BotPatch: Codable, Sendable {
         self.memoryAccess = memoryAccess
         self.tags = tags
         self.pinned = pinned
+        self.appearance = appearance
     }
 
     enum CodingKeys: String, CodingKey {
-        case name, avatar, color, persona, instructions
+        case name, avatar, color, persona, instructions, appearance
         case allowedTools = "allowed_tools"
         case delegateTo = "delegate_to"
         case acceptDelegation = "accept_delegation"
@@ -376,15 +386,17 @@ public struct BotCreate: Codable, Sendable {
     public var persona: String
     public var instructions: String
     public var tags: [String]
+    public var appearance: JSONValue?
 
     public init(name: String, avatar: String, color: String, persona: String, instructions: String,
-                tags: [String] = []) {
+                tags: [String] = [], appearance: JSONValue? = nil) {
         self.name = name
         self.avatar = avatar
         self.color = color
         self.persona = persona
         self.instructions = instructions
         self.tags = tags
+        self.appearance = appearance
     }
 }
 
@@ -473,12 +485,18 @@ public struct BotUsage: Codable, Sendable, Hashable, Identifiable {
     public let totalTokens: Int
     public let hasAvatar: Bool
     public let avatarUpdatedAt: String?
+    public let appearance: JSONValue?
+    public var supportedAppearance: BotAppearance? {
+        guard let appearance, let data = try? JSONEncoder().encode(appearance) else { return nil }
+        return try? JSONDecoder().decode(BotAppearance.self, from: data)
+    }
 
     enum CodingKeys: String, CodingKey {
         case id, name, avatar, color, requests
         case totalTokens = "total_tokens"
         case hasAvatar = "has_avatar"
         case avatarUpdatedAt = "avatar_updated_at"
+        case appearance
     }
 
     public init(from decoder: Decoder) throws {
@@ -491,6 +509,7 @@ public struct BotUsage: Codable, Sendable, Hashable, Identifiable {
         totalTokens = try c.decode(Int.self, forKey: .totalTokens)
         hasAvatar = try c.decodeIfPresent(Bool.self, forKey: .hasAvatar) ?? false
         avatarUpdatedAt = try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt)
+        appearance = try c.decodeIfPresent(JSONValue.self, forKey: .appearance)
     }
 }
 

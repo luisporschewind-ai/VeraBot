@@ -1,4 +1,5 @@
 """用量看板（Quota）统计。"""
+import json
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -29,6 +30,11 @@ def compute_quota(user: dict) -> dict:
             daily[k] += r["total_tokens"]
     _, budget = db.token_budget(user["id"])
     for row in per_bot:
+        raw_appearance = row.get("appearance")
+        try:
+            row["appearance"] = json.loads(raw_appearance) if raw_appearance else None
+        except (TypeError, ValueError):
+            row["appearance"] = None
         updated = row.pop("image_updated_at", None)
         row["has_avatar"] = bool(updated)
         row["avatar_updated_at"] = updated

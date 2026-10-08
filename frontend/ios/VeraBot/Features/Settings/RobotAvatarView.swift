@@ -1,58 +1,9 @@
 import SwiftUI
 import UIKit
+import VeraBotCore
 
 // Native study of CX ArtLab's Agent Robot Avatar (MIT).
 // Geometry/pose proportions adapted from the original; see docs/design/ROBOT_AVATAR_LAB.md.
-enum RobotAvatarAction: String, CaseIterable, Identifiable {
-    case idle, bored, waiting
-    case waitingWrap = "waiting-wrap"
-    case input, send, success, failure, warning, inspect, blocked, error, surprise, sleep, wake, love, random
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .idle: "正常"
-        case .bored: "发呆"
-        case .waiting: "等待"
-        case .waitingWrap: "等待 · 环绕"
-        case .input: "输入"
-        case .send: "发送 / 点头"
-        case .success: "成功"
-        case .failure: "失败"
-        case .warning: "警告"
-        case .inspect: "审视"
-        case .blocked: "内容阻止"
-        case .error: "系统错误"
-        case .surprise: "惊讶"
-        case .sleep: "睡着"
-        case .wake: "醒来"
-        case .love: "喜欢"
-        case .random: "随机"
-        }
-    }
-    var detail: String {
-        switch self {
-        case .idle: "自然眨眼，偶尔看向四周"
-        case .bored: "抬眼看向左上、右上，再回到中央"
-        case .waiting: "双眼交叉绕行，随前后位置改变大小"
-        case .waitingWrap: "双眼绕过头部，在背面隐去再出现"
-        case .input: "双眼收成竖向光标，同步闪烁"
-        case .send: "连续点两次头，第二次缓缓回正"
-        case .success: "笑眼和短促的轻弹"
-        case .failure: "眼睑下垂，表示任务未完成"
-        case .warning: "近眼放大、远眼收窄，眼睑下压再抬起"
-        case .inspect: "眯起双眼，上下观察后重新睁开"
-        case .blocked: "收紧眼神，轻摇一次"
-        case .error: "双眼左右扫动，头部随后左右摇动"
-        case .surprise: "先收缩，再睁大双眼"
-        case .sleep: "双眼合上，头部轻垂"
-        case .wake: "睁开眼睛，重新抬头"
-        case .love: "两只眼睛各变为一颗心，轻跳后回正"
-        case .random: "双眼滚动，先后减速并回弹停下"
-        }
-    }
-    var continuous: Bool { self == .input }
-}
-
 enum RobotAvatarTone: String, CaseIterable, Identifiable {
     case graphite, violet, blue
     var id: String { rawValue }
@@ -76,6 +27,7 @@ struct RobotAvatarView: View {
     var color: Color = RobotAvatarTone.graphite.color
     var ambient = true
     var replay = 0
+    var appearance: BotAppearance? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -83,16 +35,23 @@ struct RobotAvatarView: View {
     @State private var elapsed = 0.0
     @State private var gaze = CGSize.zero
     @State private var blink = 1.0
+    @State private var motionAmbient = true
     @State private var antenna = CGPoint(x: 120, y: 12)
     @State private var antennaVelocity = CGVector.zero
     @State private var tapReplay = 0
     @State private var interaction = RobotAvatarInteraction()
+    @State private var previousAction: RobotAvatarAction = .idle
+    @State private var lastMotionFrame = RobotAvatarMotion.Frame()
+    @State private var entryPose: RobotAvatarMotion.Frame?
     @GestureState private var fingerDown = false
 
     private var active: Bool { visible && scenePhase == .active && !reduceMotion }
     // The antenna extends above the 240-point viewport; its spring needs extra drawing room.
-    private var drawingOverflow: CGFloat { size / 240 * 40 }
-    private var taskKey: String { "\(action.rawValue)|\(replay)|\(tapReplay)|\(active)|\(ambient)" }
+    private var template: BotAvatarTemplate { BotAvatarTemplateRegistry.resolve(id:appearance?.templateID ?? "cx-robot",version:appearance?.templateVersion ?? 1) ?? .robot }
+    private var bodyColor: Color { appearance?.palette.body.swiftUIColor ?? color }
+    private var eyeColor: Color { appearance?.palette.eyes.swiftUIColor ?? Color(red:248.0/255,green:248.0/255,blue:246.0/255) }
+    private var drawingOverflow: CGFloat { size / 240 * template.drawingMargin }
+    private var taskKey: String { "\(action.rawValue)|\(replay)|\(tapReplay)|\(active)" }
 
     var body: some View {
         ZStack {
@@ -102,10 +61,10 @@ struct RobotAvatarView: View {
             context.scaleBy(x: scale, y: scale)
             context.translateBy(x: -120, y: -120)
             let frame = currentFrame()
-            let headPath = RobotAvatarGeometry.head(roundness: roundness, interaction: interaction)
+            let headPath = BotAvatarTemplateGeometry.head(template:template,parameters:appearance?.parameters ?? .init(roundness:roundness),interaction:interaction)
             var head = context
             head.concatenate(headTransform(frame))
-            head.fill(headPath, with: .color(color))
+            head.fill(headPath, with: .color(bodyColor))
             head.clip(to: headPath)
             for eye in frame.eyes {
                 var eyeContext = head
@@ -113,13 +72,13 @@ struct RobotAvatarView: View {
                 eyeContext.scaleBy(x: eye.scaleX, y: eye.scaleY)
                 eyeContext.opacity = eye.opacity
                 let path = eye.heart > 0 ? RobotAvatarGeometry.heart(eye) : RobotAvatarGeometry.eye(eye, blink: allowsAmbient ? blink : 1)
-                eyeContext.fill(path, with: .color(Color(red: 248.0 / 255, green: 248.0 / 255, blue: 246.0 / 255)))
+                eyeContext.fill(path, with: .color(eyeColor))
             }
             let point = displayedAntenna
             let stretch = interaction.kind == .antenna ? max(-0.06, min(0.06, interaction.y.velocity * 0.0004)) : 0
             context.opacity = frame.antennaOpacity
-            context.fill(Path(ellipseIn: CGRect(x: point.x - 15 * (1 + stretch), y: point.y - 15 * (1 - stretch),
-                                               width: 30 * (1 + stretch), height: 30 * (1 - stretch))), with: .color(color))
+            context.fill(Path(ellipseIn: CGRect(x: point.x - template.antennaRadius * (1 + stretch), y: point.y - template.antennaRadius * (1 - stretch),
+                                               width: template.antennaRadius * 2 * (1 + stretch), height: template.antennaRadius * 2 * (1 - stretch))), with: .color(bodyColor))
           }
           .accessibilityHidden(true)
           Color.clear
@@ -149,7 +108,7 @@ struct RobotAvatarView: View {
                     let point = CGPoint(x: (value.startLocation.x - drawingOverflow) * 240 / size,
                                         y: (value.startLocation.y - drawingOverflow) * 240 / size)
                     interaction.begin(at: point, size: size, antenna: displayedAntenna,
-                                      antennaVisible: currentFrame().antennaOpacity > 0.01, reduced: reduceMotion)
+                                      antennaVisible: template.capabilities.contains(.antenna) && currentFrame().antennaOpacity > 0.01, reduced: reduceMotion, antennaRadius:template.antennaRadius)
                 }
                 interaction.move(translation: value.translation, reduced: reduceMotion)
             }
@@ -164,22 +123,28 @@ struct RobotAvatarView: View {
         .frame(width: size, height: size)
         .accessibilityElement(children: .contain)
         .modifier(RobotScrollVisibility(visible: $visible))
-        .onAppear { visible = true }
+        .onAppear { visible = true; motionAmbient = ambient }
+        .onChange(of: ambient) { _, value in
+            motionAmbient = value
+            if !value { gaze = .zero; blink = 1 }
+        }
         .onDisappear { visible = false; interaction = .init() }
         .task(id: taskKey) { await runMotion() }
     }
 
     private var allowsAmbient: Bool {
         if interaction.overridesAction {
-            return ambient && interaction.kind == .none &&
+            return motionAmbient && interaction.kind == .none &&
                 (interaction.reaction == nil || interaction.reactionAge >= 2000)
         }
-        return ambient && (action == .idle || action == .bored || (action != .sleep && elapsed >= RobotAvatarMotion.duration(action)))
+        return motionAmbient && (action == .idle || action == .bored || (action != .sleep && elapsed >= RobotAvatarMotion.duration(action)))
     }
     private var displayedAntenna: CGPoint {
         if interaction.kind == .squeeze { return interaction.squeezePose.antenna }
         if interaction.kind == .antenna { return CGPoint(x: interaction.home.x + interaction.x.position, y: interaction.home.y + interaction.y.position) }
-        return active ? antenna : CGPoint(x: 120, y: 12).applying(headTransform(currentFrame()))
+        let frame = currentFrame()
+        let anchor = CGPoint(x:template.antennaAnchor.x+frame.antennaOffsetX,y:template.antennaAnchor.y+frame.antennaOffsetY)
+        return active ? antenna : anchor.applying(headTransform(frame))
     }
     private func currentFrame() -> RobotAvatarMotion.Frame {
         var frame = interaction.overridesAction ? RobotAvatarMotion.Frame() : RobotAvatarMotion.sample(action, ms: elapsed, reduced: reduceMotion)
@@ -217,7 +182,11 @@ struct RobotAvatarView: View {
                 frame.eyes[i].x += (eye.width - w) * 0.58 * (i == 0 ? 1 : -1)
             }
         }
-        return frame
+        let adapted = template.adapt(frame)
+        if !interaction.overridesAction, let entryPose, elapsed < 200, !reduceMotion {
+            return BotAvatarWorkMotion.enter(from:entryPose,to:adapted,ms:elapsed)
+        }
+        return adapted
     }
     private func headTransform(_ frame: RobotAvatarMotion.Frame) -> CGAffineTransform {
         let base = CGAffineTransform(translationX: 120 + frame.headX, y: 120 + frame.headY)
@@ -246,9 +215,12 @@ struct RobotAvatarView: View {
 
     @MainActor
     private func runMotion() async {
+        let enteringWork = active && previousAction != action && action.category == .work
+        entryPose = enteringWork ? lastMotionFrame : nil
+        previousAction = action
         elapsed = 0; gaze = .zero; blink = 1
         interaction = .init()
-        antenna = CGPoint(x: 120, y: 12); antennaVelocity = .zero
+        if !enteringWork { antenna = template.antennaAnchor; antennaVelocity = .zero }
         guard active else { return }
         let start = Date()
         var previous = start
@@ -278,7 +250,9 @@ struct RobotAvatarView: View {
                     gaze.width += (targetGaze.width - gaze.width) * k
                     gaze.height += (targetGaze.height - gaze.height) * k
                 }
-                let target = CGPoint(x: 120, y: 12).applying(headTransform(currentFrame()))
+                let frame = currentFrame()
+                lastMotionFrame = frame
+                let target = CGPoint(x:template.antennaAnchor.x+frame.antennaOffsetX,y:template.antennaAnchor.y+frame.antennaOffsetY).applying(headTransform(frame))
                 // Independent upstream spring: stiffness 180, damping 5.6. The dot trails the head.
                 antennaVelocity.dx += ((target.x - antenna.x) * 180 - antennaVelocity.dx * 5.6) * dt
                 antennaVelocity.dy += ((target.y - antenna.y) * 180 - antennaVelocity.dy * 5.6) * dt

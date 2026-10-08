@@ -94,16 +94,6 @@ struct BotEditView: View {
             }
 
             Section {
-                BotFigurePicker(selection: BotAvatarFigure(stored: avatar.isEmpty ? bot.avatar : avatar)) { figure in
-                    avatar = figure.rawValue
-                }
-            } header: {
-                Text("默认形象")
-            } footer: {
-                Text("设置了相册照片时，优先显示照片。")
-            }
-
-            Section {
                 // 多行：回车换行（不使用 submitLabel .next）；下拉表单 / 保存 / 关闭收起键盘
                 TextField("例如：资深研究员，擅长资料检索与总结", text: $persona, axis: .vertical).lineLimit(3...8)
                     .focused($focus, equals: .persona)
@@ -205,7 +195,8 @@ struct BotEditView: View {
                     CompactToggle(isOn: targetBinding(o.id)) {
                         HStack {
                             LiveBotAvatar(botID: o.id, emoji: o.avatar, color: o.color,
-                                           hasAvatar: o.hasAvatar, updatedAt: o.avatarUpdatedAt, size: 26)
+                                           hasAvatar: o.hasAvatar, updatedAt: o.avatarUpdatedAt, size: 26,
+                                           appearance: o.supportedAppearance)
                             Text(o.name)
                             if !o.acceptDelegation {
                                 Text("未开放委派").font(.caption2).foregroundStyle(.orange)
@@ -326,10 +317,12 @@ struct BotEditView: View {
         if let pendingImage {
             BotAvatar(emoji: stored, color: tint, image: pendingImage, size: 72)
         } else if draft.photo == .remove || !savedBot.hasAvatar {
-            DefaultBotFigure(storedAvatar: stored, size: 72)
+            DefaultBotFigure(storedAvatar: stored, size: 72,
+                             appearance: savedBot.supportedAppearance, color: Color(hex: tint))
         } else {
             LiveBotAvatar(botID: bot.id, emoji: stored, color: tint,
-                          hasAvatar: savedBot.hasAvatar, updatedAt: savedBot.avatarUpdatedAt, size: 72)
+                          hasAvatar: savedBot.hasAvatar, updatedAt: savedBot.avatarUpdatedAt, size: 72,
+                          appearance: savedBot.supportedAppearance)
         }
     }
 

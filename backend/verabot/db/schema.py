@@ -44,6 +44,7 @@ def init_db():
              新表 mcp_oauth_clients（P2 用）。只加列 / 建表，不改已有行。
     v13 → v14：记忆 M2。新表 memory_jobs（滚动摘要任务）、message_feedback（👍 / 👎）。只建表，不写记忆。
     """
+    # v15: optional bots.appearance; historical avatars are unchanged.
     _backup_before_v11()
     with tx() as c:
         _apply_migrations(c)

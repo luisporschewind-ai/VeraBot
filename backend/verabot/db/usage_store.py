@@ -22,7 +22,7 @@ def usage_totals(c, user_id: int, since: str | None = None) -> dict:
 
 def per_bot_usage(c, user_id: int) -> list[dict]:
     return rows(c.execute(
-        "SELECT b.id, b.name, b.avatar, b.color, b.image_updated_at, COUNT(u.id) AS requests, "
+        "SELECT b.id, b.name, b.avatar, b.color, b.appearance, b.image_updated_at, COUNT(u.id) AS requests, "
         "COALESCE(SUM(u.total_tokens),0) AS total_tokens FROM bots b "
         "LEFT JOIN usage_log u ON u.bot_id=b.id AND u.user_id=b.user_id "
         "WHERE b.user_id=? GROUP BY b.id ORDER BY total_tokens DESC", (user_id,)).fetchall())

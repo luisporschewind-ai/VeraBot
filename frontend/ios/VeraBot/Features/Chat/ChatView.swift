@@ -111,19 +111,17 @@ struct ChatView: View {
     }
 
     private var botTitleButton: some View {
-        let pose = AvatarLabState(vm.executionState)
+        let action = BotAvatarState(vm.executionState)
         return Button { focused = false; showInfo = true } label: {   // 弹出 sheet 前收起键盘
             HStack(spacing: 6) {
                 LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
                                hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt,
-                               size: 26, pose: pose, animated: true)
-                    .accessibilityHidden(true)
+                               size: 26, action: action, animated: true,
+                               appearance: vm.bot.supportedAppearance)
                 Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
             }
         }
-        .accessibilityLabel(vm.bot.hasAvatar
-            ? "\(vm.bot.name)，查看 Bot 详情"
-            : "\(vm.bot.name)，\(pose.title)，查看 Bot 详情")
+        .accessibilityLabel("\(vm.bot.name)，\(action.title)，查看 Bot 详情")
     }
 
     /// 底部浮动输入栏（Liquid Glass）：[＋ 圆形玻璃按钮] [胶囊玻璃：输入框 … 🎙]。

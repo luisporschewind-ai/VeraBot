@@ -8,7 +8,7 @@ from ..core.config import MCP_MAX_TOOLS_PER_BOT
 from ..db import bot_store, mcp_store
 from ..tools import REGISTRY
 
-PUBLIC_FIELDS = ("id", "name", "avatar", "color", "persona", "instructions", "created_at",
+PUBLIC_FIELDS = ("id", "name", "avatar", "color", "appearance", "persona", "instructions", "created_at",
                  "allowed_tools", "delegate_to", "accept_delegation", "memory_access", "tags", "pinned_at")
 
 

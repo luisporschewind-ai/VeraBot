@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
 
+from ..core.appearance import AppearanceV1
 from ..core.tags import MAX_BOT_TAGS, MAX_TAG_CHARS   # 3 个 / 每个 4 字
 from ..services.users import clean_nickname
 
@@ -108,6 +109,7 @@ class BotPerms(BaseModel):
 
 class BotIn(BotPerms):
     name: str = Field(min_length=1, max_length=64)
+    appearance: AppearanceV1 | None = None
     avatar: str = Field(default="🤖", max_length=8)
     color: str = Field(default="#0F766E", max_length=9)
     persona: str = Field(default="", max_length=1000)
@@ -129,6 +131,7 @@ class BotIn(BotPerms):
 
 class BotPatch(BotPerms):
     name: str | None = Field(default=None, min_length=1, max_length=64)
+    appearance: AppearanceV1 | None = None
     avatar: str | None = Field(default=None, max_length=8)
     color: str | None = Field(default=None, max_length=9)
     persona: str | None = Field(default=None, max_length=1000)

@@ -1,9 +1,9 @@
 # 执行状态机 (Execution State Machine) — v1.1
 
-> 状态：**已实现**，并已接到对话页默认头像。v1.0 (2026-10-03，`d43176e`)：Core 状态 + 测试。v1.1 (2026-10-03，Boss 批准 4 项决定)：后端新增 SSE `status` 事件 (召回记忆 + 委派内部进度)；Core 新增 `recalling`、委派进度、短暂受阻 `blocked`；头像实验室新增「回复中」「委派中」并接入映射与演示。
-> 进度 (2026-10-03)：实验室的五款形象成为没有相册照片时的默认 Bot 头像（首页列表静态、对话页导航栏按状态动画、Bot 详情静态）。照片仍然优先。`completed` 后等待 `completedIdleDelay` (1.5 s) 再 `reset` 到 `idle`。状态机转移表未改，没有新的 SSE 字段。
-> 代码：后端 `backend/verabot/agents/runtime.py` (`status_data` / `_emit_status` / `_run_tool_streaming`)、`tools/registry.py` (`TurnState.status_queue` / `parent_id`)；iOS `VeraBotCore/ExecutionState.swift` (`ChatStatus`、`ExecutionState`、`ExecutionStateMachine`)、`BotAvatarFigure.swift` (`BotAvatarPose`)、`ExecutionAvatarController.swift` (受阻 / 完成后回空闲的计时命令)、`VeraBotNetworking/APIClient.swift` (`ChatEvent.status`、`executionEvent`)、`Features/Chat/ChatViewModel.swift` (执行命令并取消 Task)、`Features/Settings/AvatarLab*.swift` (形象与 `phaseAnimator`)、`Core/UI/LiveBotAvatar.swift` / `DefaultBotFigure.swift`。
-> 测试：后端 `scripts/test/status_event_test.py` STAT-01~08 (status 字段契约，未改键名)；`avatar_profile_test.py` AV-18 (形象 id 与 `avatar` 长度、实验室枚举同名)；iOS `ExecutionStateTests.swift`、`AvatarFigureTests.swift`。
+> 状态：**已实现**。v1.0 (2026-10-03，`d43176e`)：Core 状态 + 测试。v1.1 (2026-10-03，Boss 批准 4 项决定)：后端新增 SSE `status` 事件 (召回记忆 + 委派内部进度)；Core 新增 `recalling`、委派进度、短暂受阻 `blocked`。2026-10-08：对话页导航栏正式头像切换为新版机器人，沿用现有执行状态与 SSE 契约，不新增后端状态字段。
+> 当前表现：无相册照片时，对话页导航栏按状态驱动新版 23 动作体系中的对应动作；列表、消息、记忆、用量和 Bot 编辑界面使用新版静态头像。相册照片仍优先显示。`completed` 后等待 `completedIdleDelay` (1.5 s) 再回到 `idle`。
+> 代码：后端 `backend/verabot/agents/runtime.py` (`status_data` / `_emit_status` / `_run_tool_streaming`)、`tools/registry.py` (`TurnState.status_queue` / `parent_id`)；iOS `VeraBotCore/ExecutionState.swift` (`ChatStatus`、`ExecutionState`、`ExecutionStateMachine`)、`Features/Settings/BotAvatarState.swift` (新版动作映射)、`Features/Settings/RobotAvatarView.swift`、`ExecutionAvatarController.swift` (受阻 / 完成后回空闲的计时命令)、`VeraBotNetworking/APIClient.swift` (`ChatEvent.status`、`executionEvent`)、`Features/Chat/ChatViewModel.swift` (执行命令并取消 Task)、`Features/Settings/AvatarLab*.swift` (旧实验室)、`Core/UI/LiveBotAvatar.swift`。
+> 测试：后端 `scripts/test/status_event_test.py` STAT-01~08 (status 字段契约，未改键名)；`avatar_profile_test.py` AV-18 (形象 id 与 `avatar` 长度、实验室枚举同名)；iOS `ExecutionStateTests.swift`、`AvatarFigureTests.swift`。2026-10-08 本轮未运行测试。
 > **Web 冻结**：忽略 `status` 事件；`bots.avatar` 若存的是形象 id（如 `veraBean`），Web 会把这串文字原样显示，没有这五款形象。
 
 ## 1. 后端 `status` 事件 (新增，向后兼容)
@@ -92,20 +92,22 @@ event: status   data: {"phase", "depth", "bot_name", "tool", "parent_id"}   # �
 
 未使用的后端信号：`error.code`、`done.usage`、`done.memory_ids`、委派内部工具结果 (不推送)、持久化状态 (`delegations.status`、`reminders.done`、`memories.status`，属于历史记录)。
 
-## 6. 状态机 → 头像实验室 (8 种)
+## 6. 状态机 → 新版头像 (10 种执行状态)
 
-映射在 Core `BotAvatarPose.init(_:)`（不依赖界面色和动画）。App 的 `AvatarLabState.init` 只做同名转发，继续用系统 `phaseAnimator`，没有另一套动画。
+执行状态到新版动作的映射位于 App `BotAvatarState.init(_:)`；底层 `ExecutionStateMachine` 与后端 SSE 契约不变。新头像直接使用 `RobotAvatarView` 和统一动作时间线。
 
-| `ExecutionState` | `AvatarLabState` | 动画 (系统 `phaseAnimator`) |
+| `ExecutionState` | 新版头像动作 | 表现 |
 |---|---|---|
-| `idle` | 空闲 `idle` | 单次轻微缩放 |
-| `recalling`、`thinking` | 思考中 `thinking` | **循环**：轻摆 + 眼睛看向一侧 |
-| `callingTool` | 执行中 `working` | **循环**：上下跳动 |
-| `delegating` | 委派中 `delegating` (新) | **循环**：侧移 + 眼睛看向另一侧 |
-| `replying` | 回复中 `replying` (新) | **循环**：纵向起伏 + 张嘴 |
-| `awaitingConfirmation` | 等你确认 `waiting` | 单次 |
-| `completed` | 已完成 `done` | 单次轻跳 |
-| `blocked`、`failed` | 遇到阻塞 `blocked` | 单次轻摇；`blocked` 1.2 s 后回到原状态，`failed` 停留 |
+| `idle` | `idle` 正常 | 自然眨眼与视线游移 |
+| `recalling` | `recalling` 召回记忆 | 左右回望，天线随节奏响应 |
+| `thinking` | `thinking` 思考 | 向左上思考，天线轻抬 |
+| `callingTool` | `working` 执行工具 | 专注眼神与工作脉冲 |
+| `delegating` | `delegating` 委派 | 向右观察并点头 |
+| `replying` | `replying` 回复 | 双眼轻动，头部和天线按节奏响应 |
+| `awaitingConfirmation` | `awaitingConfirmation` 等待确认 | 面向用户停顿并轻点头 |
+| `completed` | `success` 成功 | 播放成功动作后回到空闲 |
+| `blocked` | `blocked` 内容阻止 | 播放短暂阻塞动作后回到流程状态 |
+| `failed` | `error` 系统错误 | 播放系统错误动作并摇头，保持至下一状态 |
 
 - 持续状态只在**视图处于滚动视口内且 App 在前台**时循环。iOS 18+ 用系统 `onScrollVisibilityChange`（普通 ScrollView 把预览滚出屏幕不会触发 `onDisappear`）；离开页面仍走 `onDisappear`；退到后台看 `scenePhase`。不可见时卸掉 `phaseAnimator`，循环停止。其余状态在状态切换或「重播」时播放一次。
 - 状态角标符号按角标直径的 70% 绘制（`badgeGlyphSide`）。68pt 时约 12.4pt；原先字号 `side * 0.13`（约 8.8pt）再加符号内边距，角标里显得过小。
@@ -119,15 +121,13 @@ event: status   data: {"phase", "depth", "bot_name", "tool", "parent_id"}   # �
 
 | 位置 | 表现 |
 |---|---|
-| 对话页导航栏 | 无照片时按上表动画。`completed` 保持「已完成」1.5 s (`completedIdleDelay`) 后 `reset` → 空闲。`awaitingConfirmation` 停在「等你确认」，卡片处理完直接空闲。`failed` 停在「遇到阻塞」，不自动回空闲 |
-| 首页列表 | 只画静态空闲形象，不动画 |
-| Bot 详情 / 创建页 | 静态形象；相册照片优先。选择写入已有 `avatar` 字段（五款 id），不新增接口 |
-| 消息气泡、用量、记忆、委派列表 | 同一默认形象，静态 |
+| 对话页导航栏 | 无照片时按上表播放新版动作；完成、阻塞等保持时长由现有状态控制器管理。等待确认持续显示，处理后回到空闲 |
+| 首页列表、消息气泡、用量、记忆、Bot 编辑/创建 | 新版机器人静态空闲形象；照片头像继续优先显示 |
 
-SSE `status` 的 5 个键没有增删，见 [FEATURES.md](../product/FEATURES.md) 字段映射。10 个 `ExecutionState` 里，`recalling` 与 `thinking` 共用「思考中」，`blocked` 与 `failed` 共用「遇到阻塞」。
+SSE `status` 的 5 个键没有增删，见 [FEATURES.md](../product/FEATURES.md) 字段映射。`recalling` 与 `thinking` 现在分别映射为独立动作；`blocked` 与 `failed` 分别使用内容阻止和系统错误动作。后端无需为此次头像映射新增事件或字段。
 
 ## 8. 未做 / 待定
 
 - 首页列表、消息气泡不做状态动画。
 - 委派内部工具的结果、`error.code` 未进入状态。
-- 有相册照片时导航栏不播形象动画（照片优先，照片本身不动）。
+- 有相册照片时导航栏仍优先显示照片，照片本身不播状态动画。

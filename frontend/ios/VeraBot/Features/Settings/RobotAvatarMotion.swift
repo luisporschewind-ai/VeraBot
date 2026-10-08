@@ -25,6 +25,8 @@ enum RobotAvatarMotion {
         var headScale = 1.0
         var headRotation = 0.0
         var antennaOpacity = 1.0
+        var antennaOffsetX = 0.0
+        var antennaOffsetY = 0.0
     }
     static func clamp(_ t: Double) -> Double { max(0, min(1, t)) }
     static func smooth(_ t: Double) -> Double { let t = clamp(t); return t * t * (3 - 2 * t) }
@@ -52,7 +54,7 @@ enum RobotAvatarMotion {
     }
     static func duration(_ action: RobotAvatarAction) -> Double {
         switch action {
-        case .idle, .input: return .infinity
+        case .idle, .input, .thinking, .recalling, .working, .delegating, .replying, .awaitingConfirmation: return .infinity
         case .bored: return 3920
         case .waiting: return 3320
         case .waitingWrap: return 2520
@@ -71,15 +73,15 @@ enum RobotAvatarMotion {
     }
     /// Let finite actions finish and settle; continuous states get a visible observation window.
     static func demoDuration(_ action: RobotAvatarAction) -> Double {
-        let length = duration(action)
-        if length.isFinite { return length + 800 }
-        return action == .input ? 3000 : 2500
+        action.descriptor.demoMS
     }
     static func sample(_ action: RobotAvatarAction, ms: Double, reduced: Bool = false) -> Frame {
         var f = Frame()
         // Reduced motion retains representative eyes but removes flashing and spatial movement.
         let t = reduced ? staticTime(action) : max(0, ms)
         switch action {
+        case .thinking,.recalling,.working,.delegating,.replying,.awaitingConfirmation:
+            f = BotAvatarWorkMotion.sample(action,ms:t,reduced:reduced)
         case .idle: break
         case .bored:
             let u = t - 800
@@ -198,16 +200,11 @@ enum RobotAvatarMotion {
             }
             f.headY = t < 275 ? mix(4, -2, quint(t / 275)) : mix(-2, 0, quint((t - 275) / 225))
         }
-        let multiplier: Double? = switch action {
-        case .input: 1.2
-        case .send, .warning: 1
-        case .success: 1.1
-        case .blocked: 0.9
-        case .error, .surprise: 0.8
-        default: nil
-        }
-        if !reduced, t < duration(action), let multiplier {
-            f.antennaOpacity = t.truncatingRemainder(dividingBy: 1000 * multiplier) < 800 * multiplier ? 1 : 0
+        if !reduced, t < duration(action), let period = action.descriptor.antennaPeriodMS {
+            let phaseTime = action.category == .work ? max(0,t-200) : t
+            // Preserve the original arithmetic at exact blink boundaries (e.g. success at 880ms).
+            let visibleMS = action.category == .original ? 800 * (period / 1000) : period * 0.8
+            f.antennaOpacity = phaseTime.truncatingRemainder(dividingBy:period) < visibleMS ? 1 : 0
         }
         if reduced { f.headX = 0; f.headY = 0; f.headRotation = 0; f.headScale = 1 }
         return f

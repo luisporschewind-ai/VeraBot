@@ -58,7 +58,8 @@ struct MessageRow: View {
         } else {
             HStack(alignment: .top, spacing: 8) {
                 LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
-                               hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 34)
+                               hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 34,
+                               appearance: bot.supportedAppearance)
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(item.traces) { trace in
                         // 记忆工具：待确认 → 确认卡片；其他结果 → 一行说明；执行中 / 非记忆工具 → 普通 Trace

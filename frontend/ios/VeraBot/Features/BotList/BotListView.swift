@@ -327,7 +327,8 @@ struct BotRow: View {
     var body: some View {
         HStack(spacing: 12) {
             LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
-                           hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
+                           hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt,
+                           appearance: bot.supportedAppearance)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(bot.name).font(.headline).lineLimit(1).layoutPriority(1)
