@@ -7,6 +7,7 @@ TMP=tempfile.mkdtemp(prefix="vb_m4_")
 os.environ["VERABOT_DB"]=str(Path(TMP)/"m4.db")
 os.environ["VERABOT_DATA_DIR"]=TMP
 os.environ["VERABOT_MEMORY_JOBS"]="0"
+os.environ["VERABOT_MEMORY_VECTOR"]="0"
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from verabot import db
 from verabot.db import review_store

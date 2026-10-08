@@ -6,6 +6,9 @@ import sys
 import tempfile
 import uuid
 import unittest
+import asyncio
+import json
+from unittest.mock import AsyncMock
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,6 +23,14 @@ from verabot.services.memory import service as memory_service
 from verabot.services.memory import embeddings
 from verabot.services.memory.recall import rank, render
 from verabot.core import config
+from verabot.agents import delegation
+from verabot.agents.context import delegation_message
+from verabot.agents.prompts import system_prompt
+from verabot.agents.runtime import run_once
+from verabot.tools.registry import ToolContext, REGISTRY
+from verabot.services.memory import feedback as feedback_service
+from verabot.services.memory.collaboration import prompt_hints
+from verabot.db import delegation_store
 
 
 class MemoryM5Tests(unittest.TestCase):
@@ -35,14 +46,166 @@ class MemoryM5Tests(unittest.TestCase):
             c.execute("INSERT INTO bots(user_id,name,created_at) VALUES (?, 'M5 Bot','x')", (self.uid,))
             self.bid = c.execute("SELECT id FROM bots WHERE user_id=?", (self.uid,)).fetchone()[0]
 
-    def memory(self, *, content="素食偏好", sensitivity="normal"):
+    def memory(self, *, content="素食偏好", sensitivity="normal", scope="bot", bot_id=None,
+               memory_type="preference", status="active", user_id=None):
+        user_id = self.uid if user_id is None else user_id
+        bot_id = self.bid if bot_id is None and scope != "global" else bot_id
         with db.tx() as c:
             cur = c.execute("INSERT INTO memories(user_id,scope,bot_id,type,content,content_hash,source,status,sensitivity,created_at,updated_at) "
-                            "VALUES (?, 'bot', ?, 'preference', ?, ?, 'memory_page', 'active', ?, 'x','x')",
-                            (self.uid,self.bid,content,"hash-"+content,sensitivity))
+                            "VALUES (?, ?, ?, ?, ?, ?, 'memory_page', ?, ?, 'x','x')",
+                            (user_id,scope,bot_id,memory_type,content,"hash-"+content,status,sensitivity))
             mid = cur.lastrowid
-        return {"id":mid,"user_id":self.uid,"scope":"bot","bot_id":self.bid,"type":"preference",
-                "status":"active","sensitivity":sensitivity,"content_hash":"hash-"+content,"_text":content}
+        return {"id":mid,"user_id":user_id,"scope":scope,"bot_id":bot_id,"type":memory_type,
+                "status":status,"sensitivity":sensitivity,"content_hash":"hash-"+content,"_text":content}
+
+    def target_bot(self, access="bot_and_global"):
+        name = "M5 Target " + uuid.uuid4().hex[:8]
+        with db.tx() as c:
+            c.execute("INSERT INTO bots(user_id,name,created_at,memory_access,accept_delegation) VALUES (?, ?,'x',?,1)",
+                      (self.uid,name,access))
+            target_id = c.execute("SELECT id FROM bots WHERE user_id=? AND name=?",(self.uid,name)).fetchone()[0]
+        return db.get_bot(self.uid,target_id)
+
+    def delegation_context(self):
+        bot = db.get_bot(self.uid,self.bid)
+        bot["delegate_to"] = []
+        target = self.target_bot()
+        bot["delegate_to"] = [target["id"]]
+        return ToolContext(self.uid,bot),target
+
+    def test_ask_bot_schema_and_context_support_bounded_memory_sharing(self):
+        props = REGISTRY["ask_bot"].parameters["properties"]
+        self.assertIn("memory_ids",props)
+        self.assertEqual(props["memory_ids"]["maxItems"],8)
+        message = delegation_message({"name":"源Bot"},"问题","背景",shared_memories=[
+            {"id":7,"type":"style","content":"简短回答","origin":"selected"},
+            {"id":8,"type":"profile","content":"保持礼貌","origin":"target"}])
+        self.assertIn("记忆 #7",message)
+        self.assertIn("记忆 #8",message)
+
+    def test_ask_bot_shares_only_authorized_active_normal_memories_and_target_style_profile(self):
+        ctx,target = self.delegation_context()
+        allowed = self.memory(content="只吃素食",scope="global")
+        hidden_bot = self.memory(content="源Bot私有",scope="bot",bot_id=self.bid)
+        sensitive = self.memory(content="[健康信息]",sensitivity="health",scope="global")
+        candidate = self.memory(content="未确认",scope="global",status="candidate")
+        with db.tx() as c:
+            c.execute("INSERT INTO users(username,password_hash,created_at) VALUES (?, 'x','x')",("m5-cross-"+uuid.uuid4().hex,))
+            other_uid = c.execute("SELECT id FROM users ORDER BY id DESC LIMIT 1").fetchone()[0]
+        cross_user = self.memory(content="他人资料",scope="global",user_id=other_uid)
+        target_style = self.memory(content="回答简短",scope="bot",bot_id=target["id"],memory_type="style")
+        target_profile = self.memory(content="称呼用户为林先生",scope="bot",bot_id=target["id"],memory_type="profile")
+        capture = {}
+        async def run(*args,**kwargs):
+            capture.update(kwargs)
+            return "答复",{"total_tokens":3},"payload"
+        with patch("verabot.agents.runtime.run_once",new=AsyncMock(side_effect=run)):
+            result = asyncio.run(delegation.ask_bot(ctx,target["name"],"请推荐晚餐",memory_ids=[
+                allowed["id"],hidden_bot["id"],sensitive["id"],candidate["id"],cross_user["id"],999999]))
+        self.assertEqual(result["shared_memory_ids"],[allowed["id"]])
+        self.assertEqual(result["target_memory_ids"],[target_style["id"],target_profile["id"]])
+        sent = capture["shared_memories"]
+        self.assertEqual([m["id"] for m in sent],[allowed["id"],target_style["id"],target_profile["id"]])
+        self.assertNotIn("源Bot私有",str(sent))
+        self.assertNotIn("[健康信息]",str(sent))
+        with db.tx() as c:
+            rows = c.execute("SELECT kind,detail FROM audit_log WHERE user_id=? AND kind='delegation_memory_filtered'",(self.uid,)).fetchall()
+        self.assertTrue(rows)
+        self.assertNotIn("只吃素食",rows[-1]["detail"])
+
+    def test_delegation_payload_keeps_structured_ids_and_memory_context_is_bounded(self):
+        bot = db.get_bot(self.uid,self.bid)
+        target = self.target_bot()
+        memories = [self.memory(content=(f"资料{i}"*200),scope="global",memory_type="preference") for i in range(10)]
+        selected,shared_ids,target_ids,rejected = delegation.select_shared_memories(self.uid,bot,target,[m["id"] for m in memories])
+        self.assertLessEqual(len(shared_ids),8)
+        self.assertLessEqual(sum(len(m["content"]) for m in selected),config.MAX_DELEGATION_MEMORY_CHARS)
+        self.assertGreaterEqual(rejected,2)
+        _,bad_shared,bad_target,bad_rejected = delegation.select_shared_memories(self.uid,bot,target,"not-an-id-list")
+        self.assertEqual((bad_shared,bad_target,bad_rejected),([],[],1))
+        async def complete(messages, tools):
+            return {"content":"ok"},{}
+        payload_memories = [{"id":m["id"],"type":m["type"],"scope":m["scope"],"content":m["content"],"origin":"selected"}
+                            for m in selected]
+        with patch("verabot.agents.runtime.llm.complete",new=AsyncMock(side_effect=complete)):
+            _,_,payload = asyncio.run(run_once(self.uid,target,"问题","",from_bot=bot,depth=1,shared_memories=payload_memories))
+        payload_obj = json.loads(payload)
+        self.assertEqual(payload_obj["shared_memories"],[{"id":m["id"],"type":m["type"],"scope":m["scope"],"origin":m["origin"]} for m in selected])
+        self.assertIn("资料",payload_obj["message"])
+
+    def test_target_memory_access_controls_auto_attached_memories(self):
+        for access, expected_scopes in (("none",[]),("bot",["bot"]),("bot_and_global",["bot","global"])):
+            with self.subTest(access=access):
+                ctx,target = self.delegation_context()
+                with db.tx() as c:
+                    c.execute("UPDATE bots SET memory_access=? WHERE id=?",(access,target["id"]))
+                local = self.memory(content=f"风格 {access}",scope="bot",bot_id=target["id"],memory_type="style")
+                global_profile = self.memory(content=f"全局资料 {access}",scope="global",memory_type="profile")
+                async def run(*args,**kwargs):
+                    return "答复",{},"payload"
+                with patch("verabot.agents.runtime.run_once",new=AsyncMock(side_effect=run)):
+                    result = asyncio.run(delegation.ask_bot(ctx,target["name"],"问题",memory_ids=[global_profile["id"]]))
+                ids = result.get("target_memory_ids",[])
+                expected = [local["id"]] if "bot" in expected_scopes else []
+                self.assertEqual(result["shared_memory_ids"], [global_profile["id"]] if "global" in expected_scopes else [])
+                self.assertEqual(ids,expected)
+                with db.tx() as c:
+                    c.execute("DELETE FROM memories WHERE user_id=? AND id IN (?,?)",(self.uid,local["id"],global_profile["id"]))
+
+    def collab_sample(self, bot, target, question, rating=1, user_id=None):
+        user_id = self.uid if user_id is None else user_id
+        did = delegation_store.insert(user_id=user_id,from_bot_id=bot["id"],to_bot_id=target["id"],
+                                      question=question,shared_context="",answer="答复",status="ok",reason="",
+                                      depth=1,payload="{}")
+        message_id = db.add_message(user_id,bot["id"],"assistant","已完成咨询",traces=[
+            {"id":"call-"+str(did),"name":"ask_bot","result":{"delegation_id":did}}])
+        feedback_service.submit(user_id,message_id,rating,None if rating == 1 else "inaccurate")
+        return message_id
+
+    def test_collaboration_hints_need_three_feedbacks_rank_targets_and_update_when_cleared(self):
+        bot = db.get_bot(self.uid,self.bid)
+        targets = [self.target_bot() for _ in range(2)]
+        bot["allowed_tools"] = ["ask_bot"]
+        bot["delegate_to"] = [t["id"] for t in targets]
+        before = self.collab_sample(bot,targets[0],"帮我看这段 Python 代码")
+        self.collab_sample(bot,targets[0],"这个编程 bug 怎么修")
+        self.assertEqual(prompt_hints(self.uid,bot),[])
+        negative = self.collab_sample(bot,targets[1],"iOS 编程接口问题",rating=-1)
+        hints = prompt_hints(self.uid,bot)
+        self.assertEqual(len(hints),1)
+        self.assertIn(targets[0]["name"],hints[0])
+        self.assertIn("编程",hints[0])
+        root_prompt = system_prompt(self.uid,bot)
+        delegated_prompt = system_prompt(self.uid,targets[0],delegated_by=bot,depth=1)
+        self.assertIn("基于用户反馈的委派参考",root_prompt)
+        self.assertNotIn("基于用户反馈的委派参考",delegated_prompt)
+        feedback_service.clear(self.uid,before)
+        self.assertEqual(prompt_hints(self.uid,bot),[])
+        feedback_service.clear(self.uid,negative)
+
+    def test_collaboration_feedback_is_user_scoped_and_hints_are_capped(self):
+        bot = db.get_bot(self.uid,self.bid)
+        targets = [self.target_bot() for _ in range(4)]
+        bot["allowed_tools"] = ["ask_bot"]
+        bot["delegate_to"] = [t["id"] for t in targets]
+        with db.tx() as c:
+            c.execute("INSERT INTO users(username,password_hash,created_at) VALUES (?, 'x','x')",("m5-other-"+uuid.uuid4().hex,))
+            other_uid = c.execute("SELECT id FROM users ORDER BY id DESC LIMIT 1").fetchone()[0]
+            c.execute("INSERT INTO bots(user_id,name,created_at,allowed_tools,delegate_to,accept_delegation) VALUES (?, 'Other Source','x','[\"ask_bot\"]','[]',1)",(other_uid,))
+            other_bid = c.execute("SELECT id FROM bots WHERE user_id=? AND name='Other Source'",(other_uid,)).fetchone()[0]
+            c.execute("INSERT INTO bots(user_id,name,created_at,accept_delegation) VALUES (?, 'Other Target','x',1)",(other_uid,))
+            other_target_id = c.execute("SELECT id FROM bots WHERE user_id=? AND name='Other Target'",(other_uid,)).fetchone()[0]
+        other_bot = db.get_bot(other_uid,other_bid)
+        other_bot["allowed_tools"] = ["ask_bot"]
+        other_bot["delegate_to"] = [other_target_id]
+        other_target = db.get_bot(other_uid,other_target_id)
+        for _ in range(4):
+            self.collab_sample(other_bot,other_target,"Python 编程",user_id=other_uid)
+        self.assertEqual(prompt_hints(self.uid,bot),[])
+        for target,topic in zip(targets,("Python 编程","写作邮件","素食晚餐","日本旅行")):
+            self.collab_sample(bot,target,topic)
+            self.collab_sample(bot,target,topic)
+        self.assertLessEqual(len(prompt_hints(self.uid,bot)),3)
 
     def test_v17_vectors_migrate_idempotently_and_cascade_with_memory(self):
         db.init_db()

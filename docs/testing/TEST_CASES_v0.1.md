@@ -841,3 +841,15 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MEM-64 | 后端引用 / Kit | 只返回该助手消息中当前用户可见且仍生效的记忆；跨用户、权限关闭、空引用安全处理；增长 / 回顾 / 导出 / 引用模型解码 | 自动化通过 |
 | MEM-M4-UI | iOS 手工 | Bot 成长统计；记忆页搜索 / 类型过滤；月度回顾与删除入口；主动导出 JSON；助手回答长按查看引用 | ⏳ 待负责人手工验收；未做 UI 自动化 |
 | MEM-M4-REG | 回归 | M4 / M3 / M2 后端与 Kit；iOS Simulator 编译 | M4 8 项、M3 21 项、M2 18/18、Kit 163 项通过；iOS 构建成功（scheme 平台配置警告） |
+
+## 记忆成长 M5（schema v17）— 2026-10-08，隔离分支
+
+自动化：`cd backend && uv run --extra memory-vector python scripts/test/memory_m5_test.py`；委派回归 `uv run python scripts/test/multi_agent_test.py`。真实 BGE 模型只做本地 smoke；用户手工验收 M3~M5 时再验证实际对话体验。
+
+| ID | 模块 | 验收点 | 结果 |
+|---|---|---|---|
+| MEM-65 | 后端迁移 / 向量 | v17 幂等；删除记忆时向量级联；本地向量按哈希缓存，内容变化后重建；敏感记忆不生成明文向量 | 自动化通过；本地模型 smoke 512 维 |
+| MEM-66 | 后端召回 | 关键词与语义混合排序；profile / style 保持优先；无语义运行时回退；保留注入条数 / 字数限制 | 自动化通过 |
+| MEM-67 | 后端委派 | 共享 ID 经过用户、状态、范围、敏感度与双方权限过滤；覆盖 `none` / `bot` / `bot_and_global`；目标 style / profile 自动附加；payload 记录实际 ID，审计不写记忆正文；上下文限长 | 自动化通过；委派回归 25/25 |
+| MEM-68 | 后端协作提示 | 至少 3 条反馈才提示；仅当前用户和成功的 depth-0 委派参与；按问题类型与目标统计；清除反馈后更新；最多 3 条，权限不变 | 自动化通过 |
+| MEM-M5-UI | 手工验收 | 在真实记忆与反馈下体验语义召回、委派记忆、委派建议；M3~M5 合并验收 | ⏳ 待负责人手工验收；未做 UI 自动化 |

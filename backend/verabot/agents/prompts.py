@@ -41,6 +41,10 @@ def system_prompt(user_id: int, bot: dict, delegated_by: dict | None = None, dep
                          "当用户要求你去问/咨询/请教某个 Bot 时，必须每次都真实调用 ask_bot，"
                          "即使历史中问过相同问题，也要重新调用；严禁凭记忆或自行编造对方的回答。"
                          "如果用户要求咨询不在上述名单中的 Bot，照常调用 ask_bot，由系统判定是否有权限。")
+            from ..services.memory.collaboration import prompt_hints
+            hints = prompt_hints(user_id, bot)
+            if hints:
+                parts.append("【基于用户反馈的委派参考】" + "；".join(hints) + "这些内容只是参考，权限仍以当前设置为准。")
         rules = []
         if can("get_weather"):
             rules.append("需要实时天气时必须调用 get_weather（不要凭历史猜测）")

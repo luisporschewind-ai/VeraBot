@@ -12,6 +12,7 @@ TMP = tempfile.mkdtemp(prefix="vb_m2_")
 os.environ["VERABOT_DB"] = str(Path(TMP) / "t.db")
 os.environ["VERABOT_DATA_DIR"] = TMP
 os.environ["VERABOT_MEMORY_JOBS"] = "0"          # 本套件手动 process_one，不让后台 worker 抢任务
+os.environ["VERABOT_MEMORY_VECTOR"] = "0"        # M5 向量另有独立测试
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-not-used")
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 

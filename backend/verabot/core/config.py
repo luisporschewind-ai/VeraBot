@@ -30,6 +30,9 @@ DAILY_TOKEN_QUOTA = int(os.getenv("VERABOT_DAILY_TOKEN_QUOTA", "200000"))  # 每
 MAX_DELEGATION_DEPTH = int(os.getenv("VERABOT_MAX_DELEGATION_DEPTH", "1"))        # 委派最大跳数，默认 1 跳
 MAX_DELEGATIONS_PER_TURN = int(os.getenv("VERABOT_MAX_DELEGATIONS_PER_TURN", "3"))  # 单轮对话（一次用户请求）内委派次数上限
 MAX_SHARED_CONTEXT = int(os.getenv("VERABOT_MAX_SHARED_CONTEXT", "2000"))          # shared_context 字符上限
+MAX_DELEGATION_MEMORY_IDS = int(os.getenv("VERABOT_MAX_DELEGATION_MEMORY_IDS", "8"))
+MAX_DELEGATION_MEMORY_CHARS = int(os.getenv("VERABOT_MAX_DELEGATION_MEMORY_CHARS", "1200"))
+MAX_DELEGATION_AUTO_MEMORIES = int(os.getenv("VERABOT_MAX_DELEGATION_AUTO_MEMORIES", "5"))
 EMPTY_REPLY_RETRIES = int(os.getenv("VERABOT_EMPTY_REPLY_RETRIES", "1"))            # LLM 空回复自动重试次数
 TIMEZONE = os.getenv("VERABOT_TZ", "Asia/Shanghai")
 # 图片附件（schema v12，见 docs/design/ATTACHMENTS_DESIGN.md）：文件在 DATA_DIR/attachments，元数据在 SQLite

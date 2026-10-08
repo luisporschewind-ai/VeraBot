@@ -23,9 +23,15 @@ def limit_shared_context(shared_context: str) -> tuple[str, bool]:
     return raw[:MAX_SHARED_CONTEXT], len(raw) > MAX_SHARED_CONTEXT
 
 
-def delegation_message(from_bot: dict, question: str, shared_context: str) -> str:
+def delegation_message(from_bot: dict, question: str, shared_context: str, shared_memories: list[dict] | None = None) -> str:
     """发给被委派 Bot 的唯一一条 user 消息（同时作为审计 payload 保存）。"""
     user_msg = f"【来自 {from_bot['name']} 的咨询】\n{question}"
     if shared_context:
         user_msg += f"\n\n【对方共享的背景】\n{shared_context}"
+    shared_memories = shared_memories or []
+    for origin, heading in (("selected", "【发起方明确共享的记忆】"), ("target", "【你的相关资料】")):
+        memories = [m for m in shared_memories if m.get("origin") == origin]
+        if memories:
+            user_msg += "\n\n" + heading + "\n" + "\n".join(
+                f"- 记忆 #{m['id']}（{m['type']}）：{m['content']}" for m in memories)
     return user_msg

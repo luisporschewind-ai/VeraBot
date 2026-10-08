@@ -1,6 +1,6 @@
 # 以记忆为核心的 Bot 成长体系 (Memory-centred Bot Growth System) — 实施方案 v1.0
 
-> 状态：**v1.0 已批准；M1、M2 已实现；M3、M4 已在隔离分支完成；M5 暂停**。日期：2026-10-01 (UTC+8)；实现说明见 §19~§22。负责人对 §17 开放问题的决定见 §17 (优先于正文中的「建议」)；M1 的实现说明与偏差见 §19。
+> 状态：**v1.0 已批准；M1、M2 已实现；M3、M4、M5 已在隔离分支完成，等待负责人合并验收**。日期：2026-10-08 (UTC+8)；实现说明见 §19~§23。负责人对 §17 开放问题的决定见 §17 (优先于正文中的「建议」)；M1 的实现说明与偏差见 §19。
 > 基于代码：commit `2cfb018` (功能代码同 `4f4cd49`)，数据库 **schema v3**。涉及文件：`backend/verabot/agents/{runtime,prompts,permissions,context,delegation}.py`、`tools/registry.py`、`services/llm.py`、`db/{schema,repository,database}.py`、`api/routers/*`、`core/config.py`；iOS `Features/{Chat,BotInfo,Settings}`、`Core/UI/Theme.swift`、`Packages/VeraBotKit`。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md) (权限 / 上下文隔离 / 护栏)、[MCP_CAPABILITY.md](MCP_CAPABILITY.md) (HITL 确认卡片、不可信内容处理的思路与本文一致)。
 > 本文以 **M1 为完整实施规格**，M2~M5 为较粗的规格，实施前各自再细化。
@@ -687,10 +687,11 @@ system: 你帮助私人助理「{bot_name}」发现值得长期记住的用户�
 
 ### 11.4 M5 向量检索 + 协作优化 (Vector retrieval & collaboration)
 
-- **Embedding**：DeepSeek API 只有 Chat Completions，**没有 Embedding 接口** (2026-10-01 核实)。候选：本地 `bge-small-zh` / `bge-m3` (fastembed / sentence-transformers，零外部依赖、无跨境，需约 100~600 MB 模型与 CPU 计算)；或云端 (OpenAI `text-embedding-3-small`、阿里云百炼 text-embedding)。见 Q5。
+- **Embedding**：采用本地 FastEmbed `BAAI/bge-small-zh-v1.5`；通过可选依赖 `uv sync --extra memory-vector` 安装，模型首次使用时缓存到 `backend/data/models/memory`（约 90 MB）。不调用云端 Embedding API。模型缺失或推理失败时保持关键词召回。
 - 存储：`memory_vectors` 表 (BLOB) 或 `sqlite-vec` 扩展；记忆 ≤ 数千条时 NumPy 暴力余弦即可，不引入向量数据库。
 - 召回：关键词分 + 向量相似度混合 (hybrid)，失败时回退 v1；对长摘要做分块 RAG (历史对话检索) 作为可选项。
-- 协作优化：`ask_bot.memory_ids` 结构化共享 (§7)；根据 `delegations` 结果与 👍 / 👎 学习「哪类问题交给哪个 Bot 更好」，以 prompt 提示形式给 depth 0 Bot (不自动改权限)；委派前自动附带目标 Bot 需要的 style / profile 条目 (受目标 `memory_access` 限制)。
+- **协作优化**：`ask_bot.memory_ids` 最多 8 个；服务器校验用户所有权、发起方和目标 Bot 的 `memory_access`、active 状态与普通敏感度，只接受 bot / global 记忆。目标 Bot 的可见 style / profile 最多自动附带 5 条。记忆内容总长最多 1200 字，使用安全渲染；实际 ID 与发送正文保存在委派 payload，过滤审计只保存 ID 和拒绝数量。基于至少 3 条成功委派后的评分生成最多 3 条分类提示；仅 depth 0 使用，清除反馈后即时重算，不自动改变权限。
+- **可选项**：长对话 / 摘要分块 RAG 不在本次 M5 范围。
 - **估算 8~12 人日** (取决于 Embedding 方案)。
 
 ## 12. 里程碑与工作量 (Milestones & effort)
@@ -751,7 +752,7 @@ FEATURES (记忆 / API 表)、ARCHITECTURE (§2.1 模块、§2.2 插件注册例
 | Q2 | 健康 / 财务等敏感类别：v1 完全不存，还是允许用户在设置中主动开启 (单独 Fernet 加密、只给指定 Bot、永不进入委派)？ | v1 完全不存；M4 后视需求再加。密码 / 验证码 / 证件号 / 卡号**永远不存** |
 | Q3 | 「清空对话」是否同时删除该 Bot 的记忆？ | 删除对话摘要 (M2)，**保留**已确认的记忆，并在确认框里说明；记忆页另有「清空」 |
 | Q4 | 记忆会随 prompt 发给 DeepSeek (第三方、可能跨境)，是否接受？是否需要首次使用时的说明？ | 接受 (与对话内容相同的处理方)；在「Vera 了解的你」首次打开时显示一次说明 |
-| Q5 | M5 的 Embedding 方案：本地模型 (bge 系列，无外部依赖) 还是云端 (OpenAI / 阿里云百炼)？ | 本地 `bge-small-zh` 起步，数据不出本机；性能不足再评估云端 |
+| Q5 | M5 的 Embedding 方案：本地模型 (bge 系列，无外部依赖) 还是云端 (OpenAI / 阿里云百炼)？ | 已按建议采用本地 `bge-small-zh`；M5 不调用云端 Embedding API |
 | Q6 | 设置页分组位置与命名：「记忆」放在「用量」之后？与 MCP「连接的账号 / MCP 服务」同时存在时谁在前？页面名用「Vera 了解的你」还是「记忆」？ | 账号 → 用量 → 记忆 → 连接的账号 / MCP 服务 → 通用 → 语音 → 关于 → 退出登录；分组名「记忆」、页面名「Vera 了解的你」 |
 | Q7 | 隐式学习 (M3) 的后台 LLM 调用计入用户每日 Token 预算，频率「每 6 轮或空闲 10 分钟」是否可以？ | 可以；预算 ≥ 90% 时自动跳过 |
 | Q8 | 规律提醒与月度回顾需要通知：是否在 M3 前先做本地通知 (`UNUserNotificationCenter`) 与重复提醒？ | 是，作为 M3 的前置小任务 (约 2 人日，未计入上表) |
@@ -768,7 +769,7 @@ FEATURES (记忆 / API 表)、ARCHITECTURE (§2.1 模块、§2.2 插件注册例
 | Q2 | **健康、财务信息可以保存**，用 Fernet 加密，密钥与数据库分离；界面标为「敏感」。密码、验证码、密钥、证件号、卡号**永不保存** | `core/crypto.py`、`content_enc`、`sensitivity` 列；§8.1 |
 | Q3 | **清空对话默认保留记忆**；确认框提供第二个选项，同时删除该 Bot 的记忆与摘要 | `DELETE /api/bots/{id}/messages?include_memories=true`；BotEditView 两个按钮 |
 | Q4 | **接受**记忆随 prompt 发送给 DeepSeek；「Vera 了解的你」首次打开时显示一次说明 | `SettingsKeys.memoryIntroShown` |
-| Q5 | M5 再定 (沿用建议：本地 `bge-small-zh` 起步) | — |
+| Q5 | 已定：本地 `bge-small-zh` 起步 | 2026-10-08 实施时选用 `BAAI/bge-small-zh-v1.5` 与 FastEmbed |
 | Q6 | 采用建议：设置分组「记忆」位于「用量」之后；页面名「Vera 了解的你」 | `SettingsView` |
 | Q7 / Q8 / Q11 | M3 / M4 再定 (沿用建议) | — |
 | Q9 | 采用建议：Bot 可在用户没说「记住」时主动提议，但**必须用户确认**；单轮 ≤ 2 次，被拒 30 天不再问 | `MEMORY_RULE`、`PROPOSALS_PER_TURN`、`REJECT_COOLDOWN_DAYS` |
@@ -823,3 +824,11 @@ FEATURES (记忆 / API 表)、ARCHITECTURE (§2.1 模块、§2.2 插件注册例
 - **搜索与筛选**：iOS 记忆页按本地已加载内容搜索、按类型过滤，候选仍单独成组；列表和详情显示使用次数 / 最近使用时间；月度回顾可进入记忆详情并删除。
 - **范围**：Web 冻结；无通知、自动权限变更、游戏化或 M5 向量检索。
 - **验证**：`memory_m4_test.py` 8 项、M3 21 项、M2 18/18 通过；VeraBotKit `swift test` 163 项通过；iPhone 17 Simulator `xcodebuild` 成功（scheme 平台配置警告）。UI 尚待负责人手工验收。
+
+## 23. M5 实现说明（2026-10-08，隔离分支 `codex/memory-m5`）
+
+- **Schema v17 与本地向量**：新增 `memory_vectors`，按 memory id 保存模型名、维度、内容哈希和 float32 向量；删除记忆时级联清除。FastEmbed 为可选依赖，采用 `BAAI/bge-small-zh-v1.5`（512 维）。仅给普通敏感度的 active 记忆生成向量；本地模型或推理不可用时沿用关键词召回。
+- **混合召回**：语义分与关键词、近期使用、置信度合并；profile / style 固定优先，继续遵守每轮条数和总字数限制。语义匹配可补入无关键词重叠的记忆。
+- **委派记忆**：新增可选 `ask_bot.memory_ids`。服务器以用户 ID 查询，再校验来源 Bot 与目标 Bot 的可见权限、状态、范围和敏感度；拒绝项只写 ID 与数量到审计。payload 记录实际发送消息和结构化 `shared_memories` ID、类型、来源。目标 Bot 自动获得其有权读取的 style / profile 记忆。不会自动更改任何权限。
+- **反馈提示**：将助手消息评分关联到其成功委派 trace，只统计同一用户、当前 depth-0 Bot、当前仍授权且接受委派的目标。达到至少 3 条委派反馈、某分类目标至少 2 条样本后，向 depth-0 system prompt 提供最多 3 条优先级参考；清除反馈后重新统计。
+- **验证**：M5 12/12、委派 25/25、状态事件 8/8、M1~M4 记忆回归 83/83、VeraBotKit 163 项通过；iOS Simulator 构建成功。本次未改 iOS / Web 界面。负责人将 M3~M5 一并手工验收。长对话 / 摘要分块 RAG 延后。

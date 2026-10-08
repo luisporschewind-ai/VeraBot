@@ -44,6 +44,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 | `MAX_BOTS_PER_USER` | `20` | Bot 数量软上限 (兼容旧名 `VERABOT_MAX_BOTS`) |
 | `VERABOT_DAILY_TOKEN_QUOTA` | `200000` | 每用户每日 Token 预算，超额 429 |
 | `VERABOT_MAX_DELEGATION_DEPTH` / `_MAX_DELEGATIONS_PER_TURN` / `_MAX_SHARED_CONTEXT` | `1` / `3` / `2000` | 多 Agent 护栏 |
+| `VERABOT_MAX_DELEGATION_MEMORY_IDS` / `_MEMORY_CHARS` / `_AUTO_MEMORIES` | `8` / `1200` / `5` | 委派记忆 ID 上限 / 共享正文总字数 / 自动附加目标 Bot 资料条数 |
 | `VERABOT_HISTORY_WINDOW` / `VERABOT_MAX_TOOL_ROUNDS` | `20` / `4` | 记忆窗口 / 单轮工具轮数 |
 | `VERABOT_TZ` | `Asia/Shanghai` | 提醒 / 统计时区 |
 | `VERABOT_WEB_DIR` | `../frontend/web` | Web 客户端目录 |

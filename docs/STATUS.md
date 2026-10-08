@@ -1,8 +1,12 @@
-# 项目状态 (STATUS) — 2026-10-07
+# 项目状态 (STATUS) — 2026-10-08
 
-## 当前进度 — 记忆成长 M3 / M4 已实现，等待手工验收
+## 当前进度 — 记忆成长 M3 / M4 / M5 已实现，等待合并与一并手工验收
 
-记忆 M3、M4 已在隔离分支 `codex/memory-m3-m4` 完成；M5 暂停等待方案。后端、Kit 自动化和 iOS 构建通过，M3 / M4 界面待手工验收。该分支未合并到 `main`。
+记忆 M3、M4、M5 已在隔离分支 `codex/memory-m5` 完成；此分支从 `codex/memory-m3-m4` 的 M3/M4 实现继续。后端定向回归通过。M3~M5 的实际产品体验由负责人合并后一起手工验收；本分支未合并或推送到 `main`。
+
+- **M5 内容**：schema v17 本地 BGE-small-zh 向量、关键词 / 语义混合召回、按双方 `memory_access` 过滤的委派记忆共享、成功委派反馈的有限提示。RAG 分块延后；没有 iOS / Web 改动。
+- **自动验证**：M1 36/36、M2 18/18、M3 21/21、M4 8/8、M5 12/12；委派 25/25、状态事件 8/8、VeraBotKit 163 项通过；iOS Simulator 构建成功。首次模型缓存约 90 MB；可用 `uv sync --extra memory-vector` 安装，可选关闭 `VERABOT_MEMORY_VECTOR=0`。
+- **待负责人手工验收**：M3 候选 / 建议 / 快捷提问；M4 成长、月度回顾、导出、引用；M5 真实语义召回、授权共享与反馈提示。未做 UI 自动化。
 
 回归注意：静态 Bearer `connector_test.py` 的旧用例 CONN-03 要求未同意时为 `connected`，与当前 `needs_consent` 状态不符；在 `main` 与本分支均复现。CONN-03b 同意后为 `ready` 通过，其余连接器用例通过。
 
@@ -17,7 +21,7 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前未发布改动在启动时迁到 **schema v11**（v3 昵称 + 照片头像；v4 长期记忆；v5 Bot 标签；v6 Bot 置顶；v7 MCP 表；v8 MCP 同意 / 同步状态 / 熔断；v9 邮箱 / 手机号账号 + 刷新令牌；v10 插件安装表 `user_plugins` + `mcp_servers.plugin_id`；v11 提醒、通知、设备与幂等键）。iOS `0.1.0 (1)` |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前分支启动时迁到 **schema v17**（v3 昵称 + 照片头像；v4~v6 记忆、标签和置顶；v7~v13 MCP / 账号 / 提醒与附件；v14~v17 记忆任务、建议、回顾与本地向量）。iOS `0.1.0 (1)` |
 | 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-flash` (思考模式关闭；2026-10-03 前为 `deepseek-chat`) |
