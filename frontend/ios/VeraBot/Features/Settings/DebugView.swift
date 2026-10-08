@@ -58,6 +58,12 @@ struct DebugView: View {
                 } label: {
                     Label("头像实验室", systemImage: "face.smiling")
                 }
+                NavigationLink {
+                    RobotAvatarLabView()
+                        .toolbar(.hidden, for: .tabBar)
+                } label: {
+                    Label("新版头像实验室", systemImage: "eyes")
+                }
             }
         }
         .navigationTitle("调试")
