@@ -57,6 +57,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 | `VERABOT_MCP_BREAKER_THRESHOLD` / `VERABOT_MCP_BREAKER_COOLDOWN` | `5` / `60` | 连续传输失败多少次打开熔断 / 冷却秒数 |
 | `VERABOT_MCP_CALLS_PER_TURN` / `VERABOT_MCP_MAX_RESULT_CHARS` / `VERABOT_MCP_MAX_TOOLS_PER_SERVER` | `8` / `8000` / `50` | 单轮调用上限 / 结果截断 / 每服务工具上限 |
 | `VERABOT_MEMORY_MAX_ACTIVE` / `_MAX_CHARS` / `_INJECT_MAX` / `_INJECT_CHARS` | `200` / `200` / `12` / `1000` | 每用户生效记忆上限 / 单条字数 / 每轮注入条数 / 每轮注入字数 |
+| `VERABOT_MEMORY_VECTOR` / `_MODEL` / `_MIN_SIMILARITY` | `1` / `BAAI/bge-small-zh-v1.5` / `0.25` | 本地语义召回开关 / 模型 / 最低相似度；先运行 `uv sync --extra memory-vector`，首次召回会在 `data/models/memory` 缓存约 90 MB 模型；模型缺失或失败时退回关键词召回 |
 
 ## 3. 依赖管理 (uv)
 

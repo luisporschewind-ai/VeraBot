@@ -72,7 +72,7 @@ events = con.execute("SELECT COUNT(*) FROM reminder_events").fetchone()[0]
 by_id = {r[0]: r for r in con.execute(
     "SELECT id, title, note, status, due_at, due_utc, created_by, assignee_bot_id, bot_id, completed_at, version FROM reminders ORDER BY id")}
 con.close()
-assert ver == "16" == str(db.SCHEMA_VERSION), ver  # v16 = 记忆 M4
+assert ver == "17" == str(db.SCHEMA_VERSION), ver  # v17 = 记忆 M5
 assert needed <= tables, needed - tables
 assert {"title", "status", "due_utc", "rrule", "version", "assignee_bot_id"} <= cols
 assert len(backups) == 1, backups

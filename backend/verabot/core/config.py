@@ -96,6 +96,13 @@ MEMORY_STYLE_MIN_FEEDBACK = int(os.getenv("VERABOT_MEMORY_STYLE_MIN_FEEDBACK", "
 MEMORY_STYLE_INJECT_MAX = int(os.getenv("VERABOT_MEMORY_STYLE_INJECT_MAX", "3"))
 # 👎 too_long 聚合与「再短一点」规则共用同一条风格提议，避免对同一意图重复弹卡片
 MEMORY_STYLE_SHORTER = "回答再短一点，说重点"
+# ---- 记忆 M5：本地语义召回（可选安装 `uv sync --extra memory-vector`）----
+MEMORY_VECTOR_ENABLED = os.getenv("VERABOT_MEMORY_VECTOR", "1") != "0"
+MEMORY_VECTOR_MODEL = os.getenv("VERABOT_MEMORY_VECTOR_MODEL", "BAAI/bge-small-zh-v1.5")
+MEMORY_VECTOR_CACHE = Path(os.getenv("VERABOT_MEMORY_VECTOR_CACHE", DATA_DIR / "models" / "memory"))
+MEMORY_VECTOR_DIM = 512
+MEMORY_VECTOR_MIN_SIMILARITY = float(os.getenv("VERABOT_MEMORY_VECTOR_MIN_SIMILARITY", "0.25"))
+MEMORY_VECTOR_THREADS = max(1, int(os.getenv("VERABOT_MEMORY_VECTOR_THREADS", "2")))
 
 # ---- MCP（schema v8，见 docs/design/MCP_CAPABILITY.md）----
 # 地址、超时、重试与熔断都在调用时读取环境变量，测试可以在导入之后再改。

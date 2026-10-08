@@ -46,7 +46,7 @@ con.close()
 needed_jobs = {"id", "user_id", "bot_id", "kind", "status", "after_message_id", "attempts", "error", "created_at", "finished_at"}
 needed_fb = {"id", "user_id", "bot_id", "message_id", "rating", "reason", "created_at"}
 check("MEM-40", "schema v14：memory_jobs / message_feedback 建表且二次启动幂等",
-      ver == "16" == str(db.SCHEMA_VERSION) and needed_jobs <= job_cols and needed_fb <= fb_cols, f"ver={ver}")
+      ver == "17" == str(db.SCHEMA_VERSION) and needed_jobs <= job_cols and needed_fb <= fb_cols, f"ver={ver}")
 
 with db.tx() as c:
     c.execute("DROP TABLE memory_jobs")
@@ -58,7 +58,7 @@ ver2 = con.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone
 tables2 = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
 con.close()
 check("MEM-40b", "v13 库升级后保留 M2 两张表并迁到当前版本",
-      ver2 == "16" and {"memory_jobs", "message_feedback"} <= tables2, ver2)
+      ver2 == "17" and {"memory_jobs", "message_feedback"} <= tables2, ver2)
 
 # 纯函数：窗口外未覆盖条数、摘要长度
 msgs40 = [{"id": i, "role": "user", "content": "x"} for i in range(1, 41)]

@@ -1,4 +1,4 @@
-"""表结构（Models / Schema）与幂等迁移（Migration v1 → v15）的入口 / 门面。
+"""表结构（Models / Schema）与幂等迁移（Migration v1 → v17）的入口 / 门面。
 
 DDL 与每个版本的迁移步骤在 db/migrations/（一个版本一个模块）；这里原样 re-export 旧名字，
 `from verabot import db` / `db.init_db()` / `db.SCHEMA` 等写法不变。
@@ -45,6 +45,7 @@ def init_db():
     v13 → v14：记忆 M2。新表 memory_jobs（滚动摘要任务）、message_feedback（👍 / 👎）。只建表，不写记忆。
     v14 → v15：记忆 M3。新增用户 / Bot 范围的有界主动建议存储。
     v15 → v16：记忆 M4。新增按用户 / 月唯一回顾缓存；review job 可为空 bot_id，其他 job 仍需 Bot。
+    v16 → v17：记忆 M5。新增本地记忆向量缓存，记忆删除时级联删除向量。
     """
     _backup_before_v11()
     with tx() as c:

@@ -61,7 +61,7 @@ class SuggestionStoreTests(unittest.TestCase):
             version = c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
             names = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             indexes = {r[1] for r in c.execute("PRAGMA index_list(suggestions)")}
-        self.assertEqual(version, "16")
+        self.assertEqual(version, "17")
         self.assertIn("suggestions", names)
         self.assertTrue(any("dedupe" in name for name in indexes))
 
