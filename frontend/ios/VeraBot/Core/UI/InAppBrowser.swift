@@ -33,6 +33,7 @@ private struct BrowserPage: Identifiable {
 
 /// SFSafariViewController 的最小 SwiftUI 包装
 struct SafariView: UIViewControllerRepresentable {
+    @Environment(\.colorScheme) private var colorScheme
     let url: URL
     var onFinish: () -> Void = {}
 
@@ -43,7 +44,11 @@ struct SafariView: UIViewControllerRepresentable {
         return vc
     }
 
-    func updateUIViewController(_ vc: SFSafariViewController, context: Context) {}
+    func updateUIViewController(_ vc: SFSafariViewController, context: Context) {
+        // Re-resolve the brand tint when the host changes appearance while Safari is open.
+        let traits = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
+        vc.preferredControlTintColor = UIColor(Color.brand).resolvedColor(with: traits)
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
 

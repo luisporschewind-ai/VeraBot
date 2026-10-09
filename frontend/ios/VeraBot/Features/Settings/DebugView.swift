@@ -8,12 +8,31 @@ struct DebugView: View {
     @State private var health: HealthStatus?
     @State private var healthError: String?
     @State private var checking = false
+    @State private var serverDraft = ""
+    @State private var serverError: String?
+    @FocusState private var editingServer: Bool
+    @AppStorage(SettingsKeys.appearance) private var appearanceRaw = AppearanceMode.system.rawValue
 
     var body: some View {
         ThemedForm {
             Section {
-                LabeledContent("服务器地址", value: app.baseURLString)
-                    .textSelection(.enabled)
+                if app.token == nil {
+                    TextField(AppConfig.defaultBaseURL, text: $serverDraft)
+                        .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .focused($editingServer).submitLabel(.done)
+                        .onSubmit { saveServer() }
+                    Button("保存服务器地址") { saveServer() }
+                        .disabled(checking)
+                    if let serverError { Text(serverError).font(.footnote).foregroundStyle(.red) }
+                } else {
+                    LabeledContent("服务器地址", value: app.baseURLString).textSelection(.enabled)
+                }
+            } header: {
+                Text("连接配置")
+            } footer: {
+                Text(app.token == nil ? "模拟器可用本机地址；真机请填写电脑的局域网地址。" : "退出登录后可修改服务器地址。")
+            }
+            Section {
                 LabeledContent("状态") {
                     if checking {
                         ProgressView()
@@ -36,7 +55,19 @@ struct DebugView: View {
             } header: {
                 Text("后端")
             } footer: {
-                Text("服务器地址在登录页「服务器地址」中修改（需先退出登录）。健康检查：GET /api/health")
+                Text("健康检查：GET /api/health")
+            }
+
+            if let diagnostic = app.connectionDiagnostic {
+                Section("最近的连接错误") {
+                    Text(diagnostic).font(.footnote).textSelection(.enabled)
+                }
+            }
+
+            Section("外观") {
+                Picker("外观", selection: $appearanceRaw) {
+                    ForEach(AppearanceMode.allCases) { Text($0.title).tag($0.rawValue) }
+                }
             }
 
             Section("应用") {
@@ -68,7 +99,8 @@ struct DebugView: View {
         }
         .navigationTitle("调试")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await check() }
+        .keyboardDoneButton { editingServer = false }
+        .task { serverDraft = app.baseURLString; await check() }
     }
 
     private func info(_ key: String) -> String {
@@ -76,6 +108,7 @@ struct DebugView: View {
     }
 
     private func check() async {
+        guard !checking else { return }
         checking = true
         defer { checking = false }
         do {
@@ -85,5 +118,23 @@ struct DebugView: View {
             health = nil
             healthError = error.localizedDescription
         }
+    }
+
+    private func saveServer() {
+        guard app.token == nil, !checking else { return }
+        let value = serverDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              url.host != nil, url.user == nil, url.password == nil,
+              url.query == nil, url.fragment == nil else {
+            serverError = "请输入有效的 http 或 https 服务器地址"
+            return
+        }
+        app.baseURLString = value
+        app.saveBaseURL()
+        serverDraft = value
+        serverError = nil
+        app.connectionDiagnostic = nil
+        editingServer = false
+        Task { await check() }
     }
 }

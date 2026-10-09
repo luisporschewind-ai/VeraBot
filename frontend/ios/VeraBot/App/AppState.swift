@@ -46,6 +46,8 @@ final class AppState {
     var missingNotice: String?
     var showNotificationSettings = false
     var baseURLString: String
+    /// Last transport failure for the debug page; never rendered in product copy.
+    var connectionDiagnostic: String?
     let avatars = AvatarStore()
 
     var displayName: String {

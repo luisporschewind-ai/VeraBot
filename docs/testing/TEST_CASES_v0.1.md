@@ -820,3 +820,8 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | CONN-K-01 | Kit | `PluginTests`：新字段解码、旧后端缺键、`needs_auth` / 错误文案、Trace 文案 | 通过 | 见 PR |
 | CONN-UI-01~10 | iOS 模拟器 | 方案 §9.5 验收清单 | — | ⏳ 待 Boss |
 | CONN-LIVE-01~06 | Mac | 真实 GitHub / Linear 冒烟 | — | ⏳ 待 Boss 令牌 |
+
+
+## 2026-10-09 启动、连接、登录与主题专项
+
+参见 [专项验收记录](2026-10-09-startup-connection-appearance.md)：包含 START / CONN / LOGIN / APPEAR 验收矩阵、测试环境、主题问题的修复前后证据，以及自动检查 / 模拟器 / 真机状态的区分。

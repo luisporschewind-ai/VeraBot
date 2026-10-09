@@ -15,19 +15,31 @@ struct VeraBotApp: App {
                 .environment(player)
                 .tint(.brand)   // 全局强调色：按钮、导航、进度条、Tab 选中态
                 .dismissKeyboardOnBackground()   // App 进入后台时收起键盘
-                .preferredColorScheme((AppearanceMode(rawValue: appearanceRaw) ?? .system).colorScheme)   // 设置 › 外观
+                .background(AppearanceWindowSync(mode: AppearanceMode(rawValue: appearanceRaw) ?? .system)
+                    .frame(width: 0, height: 0).accessibilityHidden(true))
         }
     }
 }
 
 struct RootView: View {
     @Environment(AppState.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var welcoming = true
 
     var body: some View {
-        if app.token == nil {
-            LoginView()
-        } else {
-            MainTabView()
+        ZStack {
+            Group {
+                if app.token == nil { LoginView() } else { MainTabView() }
+            }
+            .allowsHitTesting(!welcoming)
+            .accessibilityHidden(welcoming)
+            if welcoming { BotLaunchView().transition(.opacity).zIndex(1) }
+        }
+        .task {
+            do {
+                try await Task.sleep(for: .milliseconds(reduceMotion ? 350 : 1500))
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { welcoming = false }
+            } catch { /* Root dismissal cancels the welcome. */ }
         }
     }
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 外观：跟随系统 / 浅色 / 深色。rawValue 存入 @AppStorage(SettingsKeys.appearance)，在 App 根视图用 preferredColorScheme 应用。
+/// 外观：跟随系统 / 浅色 / 深色。rawValue 存入 @AppStorage(SettingsKeys.appearance)，由根视图同步到所属窗口。
 enum AppearanceMode: String, CaseIterable, Identifiable {
     case system, light, dark
 

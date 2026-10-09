@@ -1,5 +1,6 @@
 import SwiftUI
 import VeraBotCore
+import VeraBotNetworking
 
 struct BotListView: View {
     @Environment(AppState.self) private var app
@@ -11,6 +12,10 @@ struct BotListView: View {
     @State private var showSettings = false   // 点头像：设置页以大尺寸原生 sheet 弹出
     @State private var showSearch = false
     @State private var errorText: String?
+    @State private var loading = false
+    @State private var loaded = false
+    @State private var connectionIssue: ConnectionIssue?
+    @State private var reloadRequested = false
     @State private var pinning: Set<Int> = []    // 正在与服务端同步置顶状态的 Bot，避免连点重复提交
     @State private var linkedChat: LinkedChat?
     @State private var linkedPlugin: String?
@@ -19,6 +24,12 @@ struct BotListView: View {
         NavigationStack {
             // 沉浸式平铺列表：白底、无圆角分组、无分隔线（plainListRow 见 Theme）
             List {
+                if !bots.isEmpty, let connectionIssue {
+                    BotConnectionView(issue: connectionIssue, retrying: loading, compact: true) {
+                        Task { await load() }
+                    }
+                    .plainListRow()
+                }
                 ForEach(bots) { bot in
                     NavigationLink(value: bot) { BotRow(bot: bot) }
                         .contextMenu {
@@ -52,7 +63,11 @@ struct BotListView: View {
             }
             .themedPageBackground()
             .overlay {
-                if bots.isEmpty && errorText == nil {
+                if bots.isEmpty, let connectionIssue {
+                    BotConnectionView(issue: connectionIssue, retrying: loading) { Task { await load() } }
+                } else if bots.isEmpty && (!loaded || loading) {
+                    BotLoadingView()
+                } else if bots.isEmpty && errorText == nil {
                     ContentUnavailableView {
                         Label("还没有 Bot", systemImage: "person.crop.circle.badge.plus")
                     } description: {
@@ -134,7 +149,7 @@ struct BotListView: View {
             .onChange(of: app.token) { _, token in
                 if token == nil { showSettings = false }
             }
-            .onAppear { Task { await load() } }   // 从对话页返回时刷新（对话页可能新建了 Bot）
+            .task { await load() }   // 返回时刷新；离开视图时取消请求
             .refreshable { await load() }
         }
     }
@@ -148,17 +163,41 @@ struct BotListView: View {
     }
 
     private func load() async {
+        guard !loading else { reloadRequested = true; return }
+        loading = true
+        let generation = app.sessionGeneration
+        let endpoint = app.baseURLString
+        defer {
+            loading = false
+            if reloadRequested {
+                reloadRequested = false
+                if !Task.isCancelled { Task { await load() } }
+            }
+        }
         do {
             let r = try await app.api.bots()
+            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
             bots = BotOrdering.sorted(r.bots)
             limit = r.limit
             for bot in r.bots {
                 app.avatars.reconcileBot(id: bot.id, hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
             }
             errorText = nil
+            connectionIssue = nil
+            app.connectionDiagnostic = nil
+            loaded = true
             open(app.pendingLink)
         } catch {
-            errorText = app.message(for: error)
+            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint,
+                  (error as? URLError)?.code != .cancelled else { return }
+            loaded = true
+            connectionIssue = ConnectionIssue.classify(error)
+            if connectionIssue != nil {
+                errorText = nil
+                app.connectionDiagnostic = error.localizedDescription
+            } else {
+                errorText = app.message(for: error)
+            }
         }
     }
 
