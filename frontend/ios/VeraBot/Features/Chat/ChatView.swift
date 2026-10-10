@@ -11,6 +11,9 @@ struct ChatView: View {
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
     @FocusState private var focused: Bool
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
+    @State private var confirmClearConversation = false
+    @State private var confirmDeleteBot = false
+    @State private var deletingBot = false
     @State private var showMemoryList = false
     @State private var sendCount = 0            // 触感反馈触发器：每次发送 +1
     @State private var attachment: ComposerAttachmentModel   // 待发送图片（最多 1 张）
@@ -20,6 +23,7 @@ struct ChatView: View {
     @State private var showFiles = false
     @State private var cameraDenied = false
     @Environment(AppState.self) private var app
+    @Environment(\.dismiss) private var dismiss
     @Environment(BotTravelStore.self) private var travelStore
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(SettingsKeys.quickPromptsEnabled) private var quickPromptsEnabled = SettingsKeys.quickPromptsEnabledDefault
@@ -79,7 +83,21 @@ struct ChatView: View {
                     .buttonBorderShape(.capsule)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button {} label: {
+                Menu {
+                    Button(role: .destructive) {
+                        confirmClearConversation = true
+                    } label: {
+                        Label("清空对话", systemImage: "trash")
+                    }
+                    .disabled(vm.sending)
+
+                    Button(role: .destructive) {
+                        confirmDeleteBot = true
+                    } label: {
+                        Label("删除 Bot", systemImage: "person.crop.circle.badge.minus")
+                    }
+                    .disabled(deletingBot)
+                } label: {
                     Image(systemName: "ellipsis")
                 }
                 .accessibilityLabel("更多")
@@ -93,6 +111,22 @@ struct ChatView: View {
                 BotInfoView(vm: vm)
             }
             .environment(app)
+        }
+        .confirmationDialog("清空与「\(vm.bot.name)」的全部对话？", isPresented: $confirmClearConversation, titleVisibility: .visible) {
+            Button("清空对话", role: .destructive) {
+                Task { await vm.clear() }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("对话内容和对话摘要将被删除，已确认的记忆会保留。此操作不可撤销。")
+        }
+        .confirmationDialog(BotDeletion.title(vm.bot.name), isPresented: $confirmDeleteBot, titleVisibility: .visible) {
+            Button("删除", role: .destructive) {
+                Task { await deleteBot() }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text(BotDeletion.message(vm.bot.name))
         }
         .task {
             await vm.load()
@@ -135,6 +169,19 @@ struct ChatView: View {
     private func openCamera() {
         Task {
             if await CameraPicker.requestAccess() { showCamera = true } else { cameraDenied = true }
+        }
+    }
+
+    private func deleteBot() async {
+        guard !deletingBot else { return }
+        deletingBot = true
+        defer { deletingBot = false }
+        vm.errorText = nil
+        do {
+            _ = try await app.api.deleteBot(vm.bot.id)
+            dismiss()
+        } catch {
+            vm.errorText = app.message(for: error)
         }
     }
 

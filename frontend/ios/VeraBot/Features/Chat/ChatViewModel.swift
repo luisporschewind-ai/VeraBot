@@ -325,7 +325,13 @@ final class ChatViewModel {
 
     /// 清空对话；includeMemories = true 时同时删除该 Bot 的「本 Bot 记忆」。对话摘要总会删掉，已确认的记忆默认保留。
     func clear(includeMemories: Bool = false) async {
-        _ = try? await api.clearMessages(botID: bot.id, includeMemories: includeMemories)
+        errorText = nil
+        do {
+            _ = try await api.clearMessages(botID: bot.id, includeMemories: includeMemories)
+        } catch {
+            errorText = error.localizedDescription
+            return
+        }
         memoryStates = [:]
         memoryOutcomes = [:]
         actionStates = [:]
