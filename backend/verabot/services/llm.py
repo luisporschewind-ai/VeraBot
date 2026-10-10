@@ -17,25 +17,27 @@ def _headers():
     return {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
 
 
-def _body(messages, tools, stream):
+def _body(messages, tools, stream, tool_choice=None):
     body = {"model": DEEPSEEK_MODEL, "messages": messages, "stream": stream, "temperature": 0.7}
     if not DEEPSEEK_THINKING:
         # 关闭思考模式：否则带 tools 的多轮请求缺 reasoning_content 会 400（见 core/config.py）
         body["thinking"] = {"type": "disabled"}
     if tools:
         body["tools"] = tools
+    if tool_choice is not None:
+        body["tool_choice"] = tool_choice
     if stream:
         body["stream_options"] = {"include_usage": True}
     return body
 
 
-async def stream_chat(messages: list, tools: list | None) -> AsyncIterator[tuple[str, object]]:
+async def stream_chat(messages: list, tools: list | None, *, tool_choice=None) -> AsyncIterator[tuple[str, object]]:
     """产出事件：("delta", str) / ("tool_calls", list) / ("usage", dict) / ("finish", reason)"""
     calls: dict[int, dict] = {}
     finish = None
     async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
         async with client.stream("POST", f"{DEEPSEEK_BASE_URL}/chat/completions",
-                                 headers=_headers(), json=_body(messages, tools, True)) as r:
+                                 headers=_headers(), json=_body(messages, tools, True, tool_choice=tool_choice)) as r:
             if r.status_code != 200:
                 text = (await r.aread()).decode(errors="ignore")[:300]
                 raise LLMError(f"DeepSeek HTTP {r.status_code}: {text}")

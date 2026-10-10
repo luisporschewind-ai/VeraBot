@@ -44,6 +44,15 @@ check("LLM-03 tools / stream_options unchanged",
       b_stream_tools["tools"] == tools and b_stream_tools["stream_options"] == {"include_usage": True}
       and "tools" not in b_plain and "stream_options" not in b_plain and b_plain["temperature"] == 0.7,
       (b_stream_tools, b_plain))
+remember_choice = {"type": "function", "function": {"name": "remember"}}
+try:
+    forced_body = llm._body(msgs, tools, True, tool_choice=remember_choice)
+except TypeError:
+    forced_body = {}
+check("LLM-06 named tool choice is passed through only when requested",
+      llm._body(msgs, tools, True).get("tool_choice") is None
+      and forced_body.get("tool_choice") == remember_choice,
+      forced_body)
 
 os.environ["VERABOT_DEEPSEEK_THINKING"] = "1"
 importlib.reload(config)

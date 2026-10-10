@@ -9,7 +9,8 @@ from ..tools.registry import ToolContext, tool
 
 @tool("remember",
       "提议把一条关于用户的长期信息记下来。用于：用户明确要求记住，或用户说出明显长期有效的个人资料 / 偏好。"
-      "调用后系统会向用户显示确认卡片，用户确认前不会保存。不要用于一次性信息、他人隐私、密码 / 验证码 / 证件号 / 卡号。"
+      "只有工具返回 status=proposed 和 memory_id 时才会向用户显示确认卡片；返回其他状态或 error 时如实说明，不要声称卡片已显示或内容已保存。"
+      "用户确认卡片前不会保存。不要用于一次性信息、他人隐私、密码 / 验证码 / 证件号 / 卡号。"
       "如果是修改已有记忆，传 replaces_memory_id（取自 <user_memory> 中的 M 编号）。",
       {"type": "object", "properties": {
           "content": {"type": "string", "description": "用第三人称、一句话陈述，如「用户不吃香菜」，最多 200 字"},

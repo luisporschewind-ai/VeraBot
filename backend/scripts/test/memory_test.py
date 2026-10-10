@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""记忆（Memory，schema v4）M1 确定性测试 MEM-01 ~ MEM-34。
+"""记忆（Memory，schema v4+）确定性回归 MEM-01 ~ MEM-42。
 临时 SQLite + 临时密钥目录 + mock LLM，不消耗 Token、不触碰正式数据库。
 运行（在 backend/ 下）：uv run python scripts/test/memory_test.py
 """
@@ -70,7 +70,7 @@ check("MEM-01", "v3 → v4 迁移幂等：memories 表 + 三个新列，默认 b
 from fastapi.testclient import TestClient  # noqa: E402
 from verabot.main import app  # noqa: E402
 from verabot.agents.permissions import get_schemas  # noqa: E402
-from verabot.agents.prompts import system_prompt  # noqa: E402
+from verabot.agents.prompts import explicit_memory_request, system_prompt  # noqa: E402
 from verabot.tools.registry import ToolContext, TurnState, run_tool  # noqa: E402
 cli = TestClient(app)
 
@@ -91,11 +91,15 @@ def q(sql, *a):
 
 # ---------- mock LLM ----------
 CALLS, PLAN = [], []
-async def fake_stream(messages, tools):
-    CALLS.append({"system": messages[0]["content"], "tools": [t["function"]["name"] for t in (tools or [])]})
+async def fake_stream(messages, tools, tool_choice=None):
+    CALLS.append({"system": messages[0]["content"], "tools": [t["function"]["name"] for t in (tools or [])],
+                  "tool_choice": tool_choice})
     step = PLAN.pop(0) if PLAN else "好的"
     if isinstance(step, str):
         yield "delta", step
+    elif isinstance(step, dict) and "chunks" in step:
+        for chunk in step["chunks"]:
+            yield "delta", chunk
     else:
         yield "tool_calls", [{"id": f"c{len(CALLS)}_{i}", "name": n, "arguments": json.dumps(a, ensure_ascii=False)}
                              for i, (n, a) in enumerate(step)]
@@ -139,6 +143,30 @@ ok = ("remember" in names(V, 0, True) and "forget_memory" in names(V, 0, True)
 tl = cli.get("/api/tools", headers=H).json()
 check("MEM-02", "记忆工具只在 memory_on + depth 0 + memory_access≠none 时暴露；/api/tools 不列出",
       ok and all(t["name"] not in ("remember", "forget_memory") for t in tl["tools"]) and tl["memory"]["enabled"] is True, str(tl["memory"]))
+explicit_memory_prompt = system_prompt(UID, {**V, "memory_access": "bot_and_global"}, memory_tools=True)
+remember_schema = next(s for s in get_schemas({**V, "memory_access": "bot_and_global"}, 0, memory_on=True)
+                       if s["function"]["name"] == "remember")
+check("MEM-37", "明确要求记忆时必须调用工具，且没有有效提议结果不得声称卡片已显示或已保存",
+      "必须调用 remember" in explicit_memory_prompt and "status=proposed 和 memory_id" in explicit_memory_prompt
+      and "绝不可声称卡片已显示或内容已保存" in explicit_memory_prompt
+      and "status=proposed 和 memory_id" in remember_schema["function"]["description"],
+      explicit_memory_prompt)
+check("MEM-38", "回复列表必须写完整，不得用省略号代替未写完的实质内容",
+      "列表中的每一项都要写完整" in explicit_memory_prompt
+      and "不要用「…」或「...」代替未写完的实质内容" in explicit_memory_prompt,
+      explicit_memory_prompt)
+
+# ---------- MEM-39 分段流式正文原样拼接并持久化 ----------
+complete_answer = "几个提醒：\n- 上山前热身 5–10 分钟。\n- 每小时补充饮水。\n- 膝盖不适就减少运动量。"
+chunks = ["几个提醒：\n- 上山前热身 5–10 ", "分钟。\n- 每小时补充饮水。\n", "- 膝盖不适就减少运动量。"]
+answer_events = sse(vera["id"], "给我完整建议", plan=[{"chunks": chunks}])
+streamed_answer = "".join(d["text"] for e, d in answer_events if e == "delta")
+history = cli.get(f"/api/bots/{vera['id']}/messages", headers=H).json()["messages"]
+saved_answer = next((m["content"] for m in reversed(history)
+                     if m["role"] == "assistant" and m["content"] == complete_answer), None)
+check("MEM-39", "多段 SSE 正文与数据库 / messages API 完全一致，不截断或改写",
+      streamed_answer == complete_answer and saved_answer == complete_answer,
+      f"stream={streamed_answer!r} saved={saved_answer!r}")
 
 # ---------- MEM-03 Bot 字段 ----------
 r1 = cli.patch(f"/api/bots/{vera['id']}", json={"allowed_tools": ["remember"]}, headers=H)
@@ -160,6 +188,32 @@ check("MEM-04", "remember → proposed 行（来源字段齐全、+7 天有效�
       res.get("status") == "proposed" and row.get("status") == "proposed" and row.get("source") == "explicit_chat"
       and row.get("source_bot_id") == vera["id"] and row.get("source_message_id") == umid and row.get("expires_at")
       and "香菜" not in CALLS[-1]["system"] and "remember" in CALLS[-1]["tools"], f"res={res}")
+
+# ---------- MEM-40 明确记忆请求强制调用 remember，并产生可渲染 / 可重载的确认卡片 trace ----------
+forced_events = sse(vera["id"], "记住这个事", plan=[
+    [("remember", {"content": "用户周末经常去爬山", "type": "routine", "scope": "global"})],
+    "已经为你创建了确认卡片。",
+])
+forced_choice = CALLS[-2]["tool_choice"]
+forced_trace = next((d for e, d in forced_events if e == "tool_result" and d.get("name") == "remember"), {})
+forced_mid = (forced_trace.get("result") or {}).get("memory_id")
+forced_history = cli.get(f"/api/bots/{vera['id']}/messages", headers=H).json()["messages"]
+persisted_trace = next((t for m in reversed(forced_history) if m["role"] == "assistant"
+                        for t in m.get("traces", []) if t.get("id") == forced_trace.get("id")), {})
+check("MEM-40", "明确记忆请求指定 remember；真实 proposed tool_result 在 SSE 与历史消息中保留",
+      forced_choice == {"type": "function", "function": {"name": "remember"}}
+      and (forced_trace.get("result") or {}).get("status") == "proposed" and forced_mid
+      and persisted_trace.get("result", {}).get("memory_id") == forced_mid,
+      f"choice={forced_choice} trace={forced_trace} persisted={persisted_trace}")
+negative_events = sse(vera["id"], "不要记住这条测试信息", plan=["好的，我不会记住。"])
+check("MEM-41", "明确拒绝记忆时不强制调用 remember",
+      CALLS[-1]["tool_choice"] is None and not any(e == "tool_result" and d.get("name") == "remember"
+                                                   for e, d in negative_events),
+      str(CALLS[-1]["tool_choice"]))
+check("MEM-42", "识别明确保存指令，但不把普通长期资料陈述升级为强制保存",
+      explicit_memory_request("记住这个事") and explicit_memory_request("帮我把这条记下来")
+      and not explicit_memory_request("我周末经常去爬山")
+      and not explicit_memory_request("不要记住这条信息"), "intent recognition")
 
 # ---------- MEM-05 确认 + 注入 ----------
 cr = cli.post(f"/api/memories/{MID}/confirm", headers=H).json()

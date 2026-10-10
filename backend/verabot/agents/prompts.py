@@ -1,5 +1,6 @@
 """System Prompt 组装（Prompts）：只列出有权限的能力与委派目标；被委派时使用独立的简短 prompt。"""
 from datetime import datetime
+import re
 from zoneinfo import ZoneInfo
 
 from ..core.config import TIMEZONE
@@ -7,13 +8,30 @@ from .context import public_profile
 from .permissions import delegation_targets, is_permitted
 
 
-MEMORY_RULE = ("用户明确要求记住某事，或说出明显长期有效的个人资料 / 偏好时（即使没说「记住」），可以调用 remember 提议记住，"
-               "并在回复中简短询问「要我记住吗？」；系统会显示确认卡片，用户必须点卡片上的「记住」才会保存，"
-               "用户只在对话里回复「好的」不算确认，请提示用户点卡片。确认前不要说「已记住」。"
+MEMORY_RULE = ("用户明确要求记住某事时，必须调用 remember 提议记住；用户没有明确要求、但说出明显长期有效的个人资料 / 偏好时，可以调用 remember 提议记住。"
+               "只有本轮实际调用 remember / forget_memory 且工具返回 status=proposed 和 memory_id 后，才可以说系统显示了确认卡片；"
+               "如果没有调用工具、工具报错或返回其他状态，必须如实说明，绝不可声称卡片已显示或内容已保存。"
+               "提议后用户必须点卡片上的「记住」才会保存；用户只在对话里回复「好的」不算确认，请提示用户点卡片。确认前不要说「已记住」。"
                "同一件事已在记忆中或用户拒绝过，就不要再提；一次性信息、他人隐私不要记；"
                "密码、验证码、密钥、证件号、卡号绝不记录；健康、财务信息只在用户明确要求记住时才提议（会加密保存）。"
                "用户要求忘记时调用 forget_memory；信息变了用 remember 并传 replaces_memory_id。"
                "委派其他 Bot 时，只把任务确实需要的记忆写进 shared_context，不要传递标注「敏感」的记忆")
+
+RESPONSE_COMPLETENESS_RULE = ("回答要简洁但完整；列举建议或步骤时，列表中的每一项都要写完整。"
+                              "不要用「…」或「...」代替未写完的实质内容；如果需要缩短回答，就删减项目而不是截断项目。")
+
+_MEMORY_WRITE_ACTION = re.compile(r"记住|记下(?:来)?|记一下|存入记忆|保存到记忆|加入记忆|remember\s+(?:this|that)", re.I)
+_MEMORY_WRITE_NEGATION = re.compile(r"(?:不要|别|不用|不必|无需|不需要|不想|不)\s*(?:再\s*)?$", re.I)
+
+
+def explicit_memory_request(text: str) -> bool:
+    """识别明确的记忆写入请求，供运行时强制调用 remember；纯资料陈述仍由模型自行判断。"""
+    for match in _MEMORY_WRITE_ACTION.finditer(text or ""):
+        prefix = (text or "")[max(0, match.start() - 8):match.start()]
+        if _MEMORY_WRITE_NEGATION.search(prefix):
+            continue
+        return True
+    return False
 
 
 def system_prompt(user_id: int, bot: dict, delegated_by: dict | None = None, depth: int = 0,
@@ -67,4 +85,5 @@ def system_prompt(user_id: int, bot: dict, delegated_by: dict | None = None, dep
                      "只能依据对方提供的问题与共享背景作答。请直接给出专业、简洁的答复。"
                      "如果对方要求你再去转问其他 Bot，直接说明你无法转交、请对方自行咨询，并尽量就问题本身作答；"
                      "不要提及、列举或解释你的内部工具、函数名或系统配置。")
+    parts.append(RESPONSE_COMPLETENESS_RULE)
     return "\n".join(parts)

@@ -4,6 +4,7 @@ import json
 import logging
 
 from .. import db
+from ..core import config as core_config
 from ..core.config import EMPTY_REPLY_RETRIES, HISTORY_WINDOW, MAX_TOOL_ROUNDS
 from ..services import llm, memory
 from ..services.memory import jobs as memory_jobs
@@ -13,7 +14,7 @@ from ..services.attachments import repo as attachments
 from ..services.attachments import vision
 from ..tools.registry import ToolContext, TurnState
 from .context import delegation_message
-from .prompts import system_prompt
+from .prompts import explicit_memory_request, system_prompt
 from .tool_router import dispatch, schemas_for, trace_meta
 
 log = logging.getLogger("verabot.agent")
@@ -179,9 +180,16 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
         messages.append({"role": "user", "content": vision.user_content(initial, images)})
         for _round in range(MAX_TOOL_ROUNDS + 1):
             use_tools = (tools or None) if _round < MAX_TOOL_ROUNDS else None
+            tool_choice = None
+            if (_round == 0 and not core_config.DEEPSEEK_THINKING and memory_tools
+                    and explicit_memory_request(user_text)
+                    and any(t.get("function", {}).get("name") == "remember" for t in tools)):
+                tool_choice = {"type": "function", "function": {"name": "remember"}}
             for attempt in range(EMPTY_REPLY_RETRIES + 1):
                 round_text, tool_calls, finish = "", [], None
-                async for kind, val in llm.stream_chat(messages, use_tools):
+                stream = (llm.stream_chat(messages, use_tools, tool_choice=tool_choice)
+                          if tool_choice else llm.stream_chat(messages, use_tools))
+                async for kind, val in stream:
                     if kind == "delta":
                         round_text += val
                         answer += val
