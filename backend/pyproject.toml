@@ -17,6 +17,7 @@ dependencies = [
     "mcp==2.2.0",
     "jsonschema==4.25.1",
     "python-dateutil==2.9.0.post0",
+    "pypdf>=5,<7",
 ]
 
 [project.optional-dependencies]

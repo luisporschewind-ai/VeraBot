@@ -18,6 +18,11 @@ struct ComposerAttachmentChip: View {
                     } else {
                         Image(uiImage: preview).resizable().scaledToFill()
                     }
+                } else if let name = model.pendingFilename {
+                    VStack(spacing: 4) {
+                        Image(systemName: "doc.text").font(.title2)
+                        Text(name).font(.system(size: 8)).lineLimit(2).multilineTextAlignment(.center)
+                    }.foregroundStyle(.secondary)
                 } else {
                     Color.botBubble
                 }
@@ -50,9 +55,9 @@ struct ComposerAttachmentChip: View {
     @ViewBuilder private var statusText: some View {
         switch model.state {
         case .empty: EmptyView()
-        case .preparing: Text("正在处理图片…").foregroundStyle(.secondary)
+        case .preparing: Text(model.pendingFilename == nil ? "正在处理图片…" : "正在准备文件…").foregroundStyle(.secondary)
         case .uploading: Text("正在上传…").foregroundStyle(.secondary)
-        case .ready: Text("图片已就绪，可直接发送").foregroundStyle(.secondary)
+        case .ready(let attachment): Text(attachment.isFile ? "文件已就绪，可直接发送" : "图片已就绪，可直接发送").foregroundStyle(.secondary)
         case .failed(let message): Text(message).foregroundStyle(.red)
         }
     }
@@ -71,10 +76,23 @@ struct AttachmentBubble: View {
     private static let minWidth: CGFloat = 120
 
     var body: some View {
-        let width = min(Self.maxWidth, max(Self.minWidth, CGFloat(attachment.width)))
-        let height = width * CGFloat(min(max(attachment.aspectRatio, 0.3), 3.0))
+        let width = attachment.isFile ? Self.maxWidth : min(Self.maxWidth, max(Self.minWidth, CGFloat(attachment.width)))
+        let height = attachment.isFile ? 88 : width * CGFloat(min(max(attachment.aspectRatio, 0.3), 3.0))
         ZStack {
-            if let image {
+            if attachment.isFile {
+                HStack(spacing: 10) {
+                    Image(systemName: "doc.text").font(.title2).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(attachment.filename ?? "文件").font(.subheadline.weight(.medium)).lineLimit(2)
+                        Text("\((attachment.ext ?? "FILE").uppercased()) · \(ByteCountFormatter.string(fromByteCount: Int64(attachment.bytes), countStyle: .file))")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(12)
+                .frame(width: 240, alignment: .leading)
+                .background(Color.botBubble)
+            } else if let image {
                 if attachment.isGIF {
                     AnimatedImageView(image: image)
                 } else {
@@ -111,7 +129,8 @@ struct AttachmentBubble: View {
     private func load() async {
         failed = false
         do {
-            let bytes = try await AttachmentImageStore.shared.load(attachment.id, api: api)
+            let bytes = attachment.isFile ? try await api.attachmentContent(id: attachment.id) : try await AttachmentImageStore.shared.load(attachment.id, api: api)
+            if attachment.isFile { data = bytes; return }
             let decoded = await Task.detached(priority: .userInitiated) {
                 DecodedImage(image: AttachmentImageDecoder.image(from: bytes))
             }.value
@@ -127,7 +146,7 @@ struct AttachmentBubble: View {
 
     private func openPreview() {
         guard let data else { return }
-        previewURL = AttachmentPreviewFiles.write(data, id: attachment.id)
+        previewURL = AttachmentPreviewFiles.write(data, id: attachment.id, ext: attachment.isFile ? (attachment.ext ?? "txt") : nil)
     }
 }
 

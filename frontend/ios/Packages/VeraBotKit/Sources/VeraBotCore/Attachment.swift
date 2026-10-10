@@ -11,14 +11,21 @@ public struct Attachment: Codable, Sendable, Hashable, Identifiable {
     public let bytes: Int
     public let status: String        // pending（已上传未发送）/ attached（已随消息发送）
     public let expiresAt: String?    // 仅 pending：过期后服务器删除
+    public let filename: String?
+    public let ext: String?
+    public let pageCount: Int?
+    public let textStatus: String?
+    public let textChars: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, kind, mime, width, height, bytes, status
         case expiresAt = "expires_at"
+        case filename, ext, pageCount = "page_count", textStatus = "text_status", textChars = "text_chars"
     }
 
     public init(id: String, kind: String = "image", mime: String, width: Int, height: Int, bytes: Int,
-                status: String, expiresAt: String? = nil) {
+                status: String, expiresAt: String? = nil, filename: String? = nil, ext: String? = nil,
+                pageCount: Int? = nil, textStatus: String? = nil, textChars: Int? = nil) {
         self.id = id
         self.kind = kind
         self.mime = mime
@@ -27,9 +34,12 @@ public struct Attachment: Codable, Sendable, Hashable, Identifiable {
         self.bytes = bytes
         self.status = status
         self.expiresAt = expiresAt
+        self.filename = filename; self.ext = ext; self.pageCount = pageCount
+        self.textStatus = textStatus; self.textChars = textChars
     }
 
     public var isGIF: Bool { mime == "image/gif" }
+    public var isFile: Bool { kind == "file" }
 
     /// 宽高比（高 / 宽），尺寸异常时按正方形处理。
     public var aspectRatio: Double {

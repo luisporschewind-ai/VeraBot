@@ -7,6 +7,7 @@
 """
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from urllib.parse import quote
 
 from ...core.config import ATTACHMENT_MAX_BYTES
 from ...services.attachments import repo
@@ -33,7 +34,9 @@ def upload_attachment(file: UploadFile = File(...), bot_id: int | None = Form(No
     data = file.file.read(ATTACHMENT_MAX_BYTES + 1)
     file.file.close()
     try:
-        return repo.create(user["id"], bot_id, data)
+        if file.content_type and file.content_type.startswith("image/"):
+            return repo.create(user["id"], bot_id, data)
+        return repo.create_file(user["id"], bot_id, data, file.filename or "file")
     except repo.AttachmentError as e:
         _raise(e)
 
@@ -49,7 +52,11 @@ def _file(user, att_id: str, variant: str):
     if path is None:
         raise HTTPException(410, repo.GONE_MESSAGE)
     mime = r["mime"] if variant == "content" else "image/jpeg"
-    return FileResponse(path, media_type=mime, headers=FILE_HEADERS)
+    headers = dict(FILE_HEADERS)
+    if r["kind"] == "file" and variant == "content":
+        filename = repo.file_processing.safe_filename(r.get("filename") or "file")
+        headers["Content-Disposition"] = f"inline; filename*=UTF-8''{quote(filename)}"
+    return FileResponse(path, media_type=mime, headers=headers)
 
 
 @router.get("/api/attachments/{att_id}/content")

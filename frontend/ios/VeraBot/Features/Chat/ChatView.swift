@@ -1,5 +1,6 @@
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 import VeraBotCore
 import VeraBotNetworking
 
@@ -16,6 +17,7 @@ struct ChatView: View {
     @State private var showPhotos = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showCamera = false
+    @State private var showFiles = false
     @State private var cameraDenied = false
     @Environment(AppState.self) private var app
     @Environment(BotTravelStore.self) private var travelStore
@@ -70,11 +72,19 @@ struct ChatView: View {
         .navigationTitle(vm.bot.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // 标题（头像 + 名称）可点击 → Bot 详情；右上角不再放按钮
+            // 标题（头像 + 名称）可点击 → Bot 详情
             ToolbarItem(placement: .principal) {
                 botTitleButton
                     .glassButtonStyle()   // iOS 26 Liquid Glass 胶囊；旧系统 bordered
                     .buttonBorderShape(.capsule)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {} label: {
+                    Image(systemName: "ellipsis")
+                }
+                .accessibilityLabel("更多")
+                .glassButtonStyle()
+                .buttonBorderShape(.capsule)
             }
         }
         // Bot 详情：系统默认 sheet（page sheet 卡片，非 push / 非全屏），下滑关闭
@@ -97,6 +107,11 @@ struct ChatView: View {
         .onChange(of: vm.openBotSettingsTick) { showInfo = true }
         // 只用系统相册选择器（PhotosPicker，单选；再选替换），不需要相册权限
         .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
+        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .plainText, .commaSeparatedText,
+            UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "docx") ?? .data,
+            UTType(filenameExtension: "xlsx") ?? .data], allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first { attachment.pickFile(url) }
+        }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             attachment.pick(item)
@@ -226,14 +241,14 @@ struct ChatView: View {
             }
             GlassGroup(spacing: 10) {
                 HStack(alignment: .bottom, spacing: 10) {
-                    // 附件菜单：图片（相册）/ 拍照（系统相机，无相机的设备与模拟器不显示），每条 1 张；文件暂不支持
+                    // 附件菜单保持原有图片 / 拍照入口；文件由系统文件选择器提供
                     Menu {
                         Section("添加附件") {
                             Button { focused = false; showPhotos = true } label: { Label("图片", systemImage: "photo") }
                             if CameraPicker.isAvailable {
                                 Button { focused = false; openCamera() } label: { Label("拍照", systemImage: "camera") }
                             }
-                            Button {} label: { Label("文件（即将支持）", systemImage: "paperclip") }.disabled(true)
+                            Button { focused = false; showFiles = true } label: { Label("文件", systemImage: "paperclip") }
                         }
                     } label: {
                         Image(systemName: "plus")

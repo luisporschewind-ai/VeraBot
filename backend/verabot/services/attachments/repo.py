@@ -21,6 +21,7 @@ from ...db import attachment_store as store_sql
 from ...core.config import (ATTACHMENT_MAX_BYTES, ATTACHMENT_PENDING_TTL_HOURS, ATTACHMENT_USER_QUOTA_BYTES,
                             ATTACHMENTS_PER_DAY, TIMEZONE)
 from . import images
+from . import files as file_processing
 from .store import get_store
 
 log = logging.getLogger("verabot.attachments")
@@ -44,8 +45,12 @@ def new_id() -> str:
 
 def public(r: dict) -> dict:
     """接口字段（iOS `Attachment` 的 CodingKeys 必须与此一致，见 ATT-CONTRACT）。"""
-    return {"id": r["id"], "kind": r["kind"], "mime": r["mime"], "width": r["width"], "height": r["height"],
-            "bytes": r["bytes"], "status": r["status"], "expires_at": r["expires_at"]}
+    result = {"id": r["id"], "kind": r["kind"], "mime": r["mime"], "width": r["width"], "height": r["height"],
+              "bytes": r["bytes"], "status": r["status"], "expires_at": r["expires_at"]}
+    if r["kind"] == "file":
+        result.update(filename=r.get("filename"), ext=r.get("extension"), page_count=r.get("page_count"),
+                      text_status=r.get("text_status"), text_chars=r.get("text_chars", 0))
+    return result
 
 
 def still_key(r: dict) -> str | None:
@@ -54,7 +59,7 @@ def still_key(r: dict) -> str | None:
 
 
 def file_keys(r: dict) -> list[str]:
-    return [k for k in (r["storage_key"], r.get("thumb_key"), still_key(r)) if k]
+    return [k for k in (r["storage_key"], r.get("thumb_key"), r.get("text_key"), still_key(r)) if k]
 
 
 def delete_files(keys) -> None:
@@ -104,6 +109,58 @@ def create(user_id: int, bot_id: int | None, data: bytes) -> dict:
         delete_files(written)
         raise
     return get_public(user_id, att_id)
+
+
+def create_file(user_id: int, bot_id: int | None, data: bytes, filename: str) -> dict:
+    if bot_id is not None and not db.get_bot(user_id, bot_id):
+        raise AttachmentError(404, "Bot 不存在")
+    try:
+        parsed = file_processing.process_file(data, filename)
+    except file_processing.FileProcessingError as e:
+        raise AttachmentError(413 if e.code in {"file_too_large", "file_resource_limit"} else 415, e.message, e.code)
+    with db.tx() as c:
+        n_today = store_sql.count_since(c, user_id, db.day_start_utc(TIMEZONE))
+        used = store_sql.bytes_used(c, user_id)
+    text_data = parsed.text.encode("utf-8")
+    if used + len(data) + len(text_data) > ATTACHMENT_USER_QUOTA_BYTES:
+        raise AttachmentError(413, "附件存储空间已满，请清理旧对话后再试", "attachment_storage_full")
+    if n_today >= ATTACHMENTS_PER_DAY:
+        raise AttachmentError(429, f"今天的附件已达上限（{ATTACHMENTS_PER_DAY} 个），请明天再试", "attachment_daily_limit")
+    att_id = new_id()
+    base = f"u{user_id}/{att_id[4:6]}/{att_id}"
+    key, text_key = f"{base}.{parsed.extension}", f"{base}.txt"
+    store = get_store(); written = []
+    try:
+        store.put(key, data); written.append(key)
+        store.put(text_key, text_data); written.append(text_key)
+        now = datetime.now(timezone.utc)
+        expires = (now + timedelta(hours=ATTACHMENT_PENDING_TTL_HOURS)).isoformat(timespec="seconds")
+        with db.tx() as c:
+            store_sql.insert_pending_file(c, att_id=att_id, user_id=user_id, bot_id=bot_id, mime=parsed.mime,
+                nbytes=len(data), sha256=hashlib.sha256(data).hexdigest(), storage_backend=store.backend,
+                storage_key=key, text_key=text_key, text_bytes=len(text_data), filename=parsed.filename,
+                extension=parsed.extension, text_status=parsed.text_status, text_chars=len(parsed.text),
+                page_count=len(parsed.pages) if parsed.extension == "pdf" else None,
+                created_at=now.isoformat(timespec="seconds"), expires_at=expires)
+    except BaseException:
+        delete_files(written); raise
+    return get_public(user_id, att_id)
+
+
+def read_file_text(user_id: int, bot_id: int, att_id: str, offset: int = 0, length: int = 30_000,
+                   owner_bot_id: int | None = None) -> dict:
+    r = get(user_id, att_id)
+    if not r or r["kind"] != "file" or r["status"] != "attached" or r["bot_id"] not in {bot_id, owner_bot_id}:
+        raise AttachmentError(404, "文件不存在或不属于当前对话")
+    length = max(1, min(int(length), 30_000)); offset = max(0, int(offset))
+    path = get_store().path(r.get("text_key"))
+    if path is None: raise AttachmentError(410, "文件内容已不可用")
+    text_all = path.read_text(encoding="utf-8")
+    text = text_all[offset:offset + length + 1]
+    more = len(text) > length
+    return {"filename": r.get("filename"), "offset": offset, "text": text[:length],
+            "next_offset": offset + len(text[:length]) if more else None, "has_more": more,
+            "text_chars": r.get("text_chars", 0), "text_status": r.get("text_status")}
 
 
 # ---------------------------------------------------------------- 查询

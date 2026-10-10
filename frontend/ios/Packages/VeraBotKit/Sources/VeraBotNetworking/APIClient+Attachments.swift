@@ -8,7 +8,7 @@ import VeraBotCore
 
 extension APIClient {
     /// multipart 上传，字段 file（可选 bot_id）。返回 201 + Attachment（status = pending）。
-    public func uploadAttachment(data: Data, mime: String, botID: Int?) async throws -> Attachment {
+    public func uploadAttachment(data: Data, mime: String, botID: Int?, filename: String? = nil) async throws -> Attachment {
         let path = "/api/attachments"
         let boundary = "VeraBotBoundary-\(UUID().uuidString)"
         let ext = mime == "image/gif" ? "gif" : (mime == "image/png" ? "png" : "jpg")
@@ -20,7 +20,8 @@ extension APIClient {
             append("\(botID)\r\n")
         }
         append("--\(boundary)\r\n")
-        append("Content-Disposition: form-data; name=\"file\"; filename=\"image.\(ext)\"\r\n")
+        let safeName = (filename ?? "image.\(ext)").replacingOccurrences(of: "\"", with: "_").replacingOccurrences(of: "\\", with: "_")
+        append("Content-Disposition: form-data; name=\"file\"; filename=\"\(safeName)\"\r\n")
         append("Content-Type: \(mime)\r\n\r\n")
         body.append(data)
         append("\r\n--\(boundary)--\r\n")

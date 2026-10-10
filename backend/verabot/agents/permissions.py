@@ -21,6 +21,7 @@ def is_permitted(bot: dict, name: str, depth: int) -> tuple[bool, str]:
             return False, "memory_disabled"
         return True, ""
     if t.kind == "attachment":                   # view_image：只给用户直接对话的 Bot（会话归属在工具内校验）
+        if name == "read_file": return True, ""
         return (True, "") if depth == 0 else (False, "tool_not_allowed")
     if name not in (bot.get("allowed_tools") or []):
         return False, "tool_not_allowed"
