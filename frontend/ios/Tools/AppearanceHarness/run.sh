@@ -40,5 +40,5 @@ python3 - "$OUT_DETAIL" <<'PY'
 from pathlib import Path
 import sys
 reports = list(Path(sys.argv[1]).glob('system-*/report.txt'))
-assert len(reports) == 2 and all('checks=8 failures=0' in p.read_text() for p in reports), 'Appearance regression failed'
+assert len(reports) == 2 and all('checks=10 failures=0' in p.read_text() for p in reports), 'Appearance regression failed'
 PY

@@ -56,6 +56,17 @@ import UIKit
     private func run() async {
         await settle()
         record("initial-light", expected: 1, presented: false)
+        let defaults = UserDefaults.standard
+        let previousAppearance = defaults.object(forKey: "vb_appearance")
+        defaults.set("native", forKey: "vb_appearance")
+        state.mode = .native
+        await settle()
+        recordNativePalette()
+        record("native-light", expected: 1, presented: false)
+        if let previousAppearance { defaults.set(previousAppearance, forKey: "vb_appearance") }
+        else { defaults.removeObject(forKey: "vb_appearance") }
+        state.mode = .light
+        await settle()
         state.sheet = true
         await settle()
         state.mode = .dark
@@ -86,6 +97,34 @@ import UIKit
         record("system", expected: ProcessInfo.processInfo.arguments.contains("--system-dark") ? 2 : 1, presented: false)
         let report = "checks=\(state.checks) failures=\(state.failures.count)\n" + state.failures.joined(separator: "\n")
         try? report.write(to: output("report.txt"), atomically: true, encoding: .utf8)
+    }
+
+    private func recordNativePalette() {
+        let traits = UITraitCollection(userInterfaceStyle: .light)
+        let palette: [(String, Color, UIColor)] = [
+            ("background", .appBackground, .systemBackground),
+            ("section", .sectionFill, .secondarySystemBackground),
+            ("brand-text", .brandText, .label),
+            ("brand", .brand, .systemBlue)
+        ]
+        var problems: [String] = []
+        for (name, color, expected) in palette where !matches(UIColor(color), expected, traits: traits) {
+            problems.append(name)
+        }
+        state.checks += 1
+        let passed = problems.isEmpty
+        let text = "native-palette: \(passed ? "PASS" : "FAIL") mismatched=\(problems.joined(separator: ","))\n"
+        if !passed { state.failures.append(text) }
+        try? text.write(to: output("native-palette.txt"), atomically: true, encoding: .utf8)
+    }
+
+    private func matches(_ actual: UIColor, _ expected: UIColor, traits: UITraitCollection) -> Bool {
+        var actualRed: CGFloat = 0, actualGreen: CGFloat = 0, actualBlue: CGFloat = 0, actualAlpha: CGFloat = 0
+        var expectedRed: CGFloat = 0, expectedGreen: CGFloat = 0, expectedBlue: CGFloat = 0, expectedAlpha: CGFloat = 0
+        guard actual.resolvedColor(with: traits).getRed(&actualRed, green: &actualGreen, blue: &actualBlue, alpha: &actualAlpha),
+              expected.resolvedColor(with: traits).getRed(&expectedRed, green: &expectedGreen, blue: &expectedBlue, alpha: &expectedAlpha) else { return false }
+        return abs(actualRed - expectedRed) < 0.005 && abs(actualGreen - expectedGreen) < 0.005 &&
+            abs(actualBlue - expectedBlue) < 0.005 && abs(actualAlpha - expectedAlpha) < 0.005
     }
 
     private func output(_ name: String) -> URL {

@@ -15,7 +15,7 @@ struct VeraBotApp: App {
                 .environment(app)
                 .environment(travelStore)
                 .environment(player)
-                .tint(.brand)   // 全局强调色：按钮、导航、进度条、Tab 选中态
+                .tint(AppearanceMode(rawValue: appearanceRaw) == .native ? .primary : .brand)
                 .dismissKeyboardOnBackground()   // App 进入后台时收起键盘
                 .background(AppearanceWindowSync(mode: AppearanceMode(rawValue: appearanceRaw) ?? .system)
                     .frame(width: 0, height: 0).accessibilityHidden(true))

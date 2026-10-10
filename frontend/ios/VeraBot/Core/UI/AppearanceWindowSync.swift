@@ -31,6 +31,7 @@ struct AppearanceWindowSync: UIViewRepresentable {
             case .system: .unspecified
             case .light: .light
             case .dark: .dark
+            case .native: .light
             }
             if let window, window.overrideUserInterfaceStyle != style {
                 window.overrideUserInterfaceStyle = style

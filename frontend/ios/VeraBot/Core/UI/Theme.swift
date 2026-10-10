@@ -4,7 +4,7 @@ import UIKit
 // MARK: - 主题（Theme）
 //
 // 全 App 唯一的颜色 / 样式入口：视图里只用这里的语义色（Semantic colors）与修饰符，不写死颜色值。
-// 语义色由 UIColor 动态提供（随 trait 解析），设置 › 外观（跟随系统 / 浅色 / 深色）切换时所有页面一起更新。
+// 语义色由 UIColor 动态提供（随 trait 解析）；外观可选跟随系统 / 浅色 / 深色 / 原生风格。
 //
 //   主题「薰衣草 × 青绿」（Lavender Teal Duo，Boss 2026-10-03 选定，替换 502e11e 的纯青绿主题）
 //   appBackground  页面背景      浅色 #FFFFFF；深色 #0B0B14
@@ -16,6 +16,7 @@ import UIKit
 //   userBubble     用户气泡底    浅色 #D7D7FF；深色 #3F3D9E；文字 userBubbleText 浅色 #1B1A3A / 深色 #FFFFFF
 //   brandAccent    第二强调色    浅色 #3D7A8C；深色 #5FA3B6（Vera 青绿：置顶、引用竖条、用量条；= brandLight）
 //   toggleTint     开关          浅色 #3D7A8C；深色 #4E9AAE
+//   原生风格       使用系统背景、标签、灰阶与蓝色控件；Bot 插画保留角色配色，主操作为黑字系统按钮
 //
 // 对比度（WCAG）：#6461D1 白底 5.0:1、#F2F2F8 上 4.5:1、白字在 #6461D1 上 5.0:1；深色 #D7D7FF 在 #0B0B14 上 14:1；
 //   白字在 #4B48B8 上 7.2:1；用户气泡 #1B1A3A / #D7D7FF 12:1、白字 / #3F3D9E 8.9:1；#2A2870 白底 12.8:1；#3D7A8C 白底 4.8:1。
@@ -30,28 +31,24 @@ extension Color {
     // 深色模式 #D7D7FF 直接做主色）；Vera 青绿 #3D7A8C 是第二强调色（开关、置顶、引用竖条、用量条）。
 
     /// 品牌主色（薰衣草）：全局 tint（导航按钮、链接、选中态）、强调文字与图标。浅色 #6461D1 / 深色 #D7D7FF
-    static let brand = Color.dynamic(light: UIColor(hex: 0x6461D1), dark: UIColor(hex: 0xD7D7FF))
+    static let brand = Color.dynamic(light: UIColor(hex: 0x6461D1), dark: UIColor(hex: 0xD7D7FF), native: .systemBlue)
     /// 白字下面的品牌实色底（主按钮、默认头像）：浅色 #6461D1 / 深色 #4B48B8，保证白字对比度
-    static let brandFill = Color.dynamic(light: UIColor(hex: 0x6461D1), dark: UIColor(hex: 0x4B48B8))
+    static let brandFill = Color.dynamic(light: UIColor(hex: 0x6461D1), dark: UIColor(hex: 0x4B48B8), native: .systemBlue)
     /// 第二强调色（Vera 青绿）：引用竖条、用量进度条、置顶。浅色 #3D7A8C / 深色 #5FA3B6
-    static let brandAccent = Color.dynamic(light: UIColor(hex: 0x3D7A8C), dark: UIColor(hex: 0x5FA3B6))
+    static let brandAccent = Color.dynamic(light: UIColor(hex: 0x3D7A8C), dark: UIColor(hex: 0x5FA3B6), native: .systemBlue)
     /// 历史名字，等同 brandAccent
     static let brandLight = brandAccent
     /// 暗一档的青绿（Vera Light 主题 accent）
-    static let brandDark = Color(hex: "#2F6F82")
+    static let brandDark = Color.dynamic(light: UIColor(hex: 0x2F6F82), dark: UIColor(hex: 0x2F6F82), native: .systemBlue)
     /// 品牌文字色：登录页标题、设置里的账号名。浅色 #2A2870 / 深色 #D7D7FF
-    static let brandText = Color.dynamic(light: UIColor(hex: 0x2A2870), dark: UIColor(hex: 0xD7D7FF))
+    static let brandText = Color.dynamic(light: UIColor(hex: 0x2A2870), dark: UIColor(hex: 0xD7D7FF), native: .label)
     /// 品牌浅底（选中态、交接 Trace 卡片）：浅色 #EEEEFF / 深色 #26254A
-    static let brandSoft = Color.dynamic(light: UIColor(hex: 0xEEEEFF), dark: UIColor(hex: 0x26254A))
+    static let brandSoft = Color.dynamic(light: UIColor(hex: 0xEEEEFF), dark: UIColor(hex: 0x26254A), native: .secondarySystemBackground)
 
     /// 页面背景：浅色纯白，深色带一点紫的近黑 #0B0B14
-    static let appBackground = Color.dynamic(light: UIColor(hex: 0xFFFFFF), dark: UIColor(hex: 0x0B0B14))
+    static let appBackground = Color.dynamic(light: UIColor(hex: 0xFFFFFF), dark: UIColor(hex: 0x0B0B14), native: .systemBackground)
     /// 分组 Section / 卡片 / Bot 气泡底色：浅色 #F2F2F8，深色 #1C1B2E（都略带薰衣草色调）
-    static let sectionFill = Color(uiColor: UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(hex: 0x1C1B2E)
-            : UIColor(hex: 0xF2F2F8)
-    })
+    static let sectionFill = Color.dynamic(light: UIColor(hex: 0xF2F2F8), dark: UIColor(hex: 0x1C1B2E), native: .secondarySystemBackground)
     /// Bot 回复气泡
     static let botBubble = sectionFill
     /// 普通工具 Trace 卡片
@@ -67,14 +64,19 @@ extension Color {
     static let unpinTint = Color(uiColor: .systemGray)
 
     /// 用户消息气泡底：浅色薰衣草 #D7D7FF / 深色 #3F3D9E
-    static let userBubble = Color.dynamic(light: UIColor(hex: 0xD7D7FF), dark: UIColor(hex: 0x3F3D9E))
+    static let userBubble = Color.dynamic(light: UIColor(hex: 0xD7D7FF), dark: UIColor(hex: 0x3F3D9E), native: .systemGray5)
     /// 用户消息气泡文字：浅色深靛 #1B1A3A / 深色白
-    static let userBubbleText = Color.dynamic(light: UIColor(hex: 0x1B1A3A), dark: UIColor(hex: 0xFFFFFF))
+    static let userBubbleText = Color.dynamic(light: UIColor(hex: 0x1B1A3A), dark: UIColor(hex: 0xFFFFFF), native: .label)
     /// 开关打开时的颜色（青绿）：浅色 #3D7A8C / 深色 #4E9AAE
-    static let toggleTint = Color.dynamic(light: UIColor(hex: 0x3D7A8C), dark: UIColor(hex: 0x4E9AAE))
+    static let toggleTint = Color.dynamic(light: UIColor(hex: 0x3D7A8C), dark: UIColor(hex: 0x4E9AAE), native: .systemBlue)
 
-    static func dynamic(light: UIColor, dark: UIColor) -> Color {
-        Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? dark : light })
+    static func dynamic(light: UIColor, dark: UIColor, native: UIColor? = nil) -> Color {
+        Color(uiColor: UIColor { traits in
+            if UserDefaults.standard.string(forKey: "vb_appearance") == "native" {
+                return native ?? light
+            }
+            return traits.userInterfaceStyle == .dark ? dark : light
+        })
     }
 
     init(hex: String) {
@@ -147,13 +149,9 @@ extension View {
         }
     }
 
-    /// 主操作按钮：iOS 26 .glassProminent（品牌实色玻璃），旧系统 .borderedProminent；底色 brandFill
-    @ViewBuilder func prominentButtonStyle() -> some View {
-        if #available(iOS 26.0, *) {
-            buttonStyle(.glassProminent).tint(Color.brandFill)
-        } else {
-            buttonStyle(.borderedProminent).tint(Color.brandFill)
-        }
+    /// 主操作按钮：原生风格用黑字系统 bordered；其他主题保留品牌实色玻璃 / borderedProminent。
+    func prominentButtonStyle() -> some View {
+        NativeAwareProminentButton(content: self)
     }
 
     /// 底部浮动栏（如对话输入栏）：iOS 26 用 `safeAreaBar(edge: .bottom)`，系统在栏后方给滚动内容加底部滚动边缘效果
@@ -174,6 +172,21 @@ extension View {
         } else {
             background(.regularMaterial, in: shape)
                 .overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+        }
+    }
+}
+
+private struct NativeAwareProminentButton<Content: View>: View {
+    let content: Content
+    @AppStorage("vb_appearance") private var appearanceRaw = AppearanceMode.system.rawValue
+
+    @ViewBuilder var body: some View {
+        if appearanceRaw == AppearanceMode.native.rawValue {
+            content.buttonStyle(.bordered).tint(.primary)
+        } else if #available(iOS 26.0, *) {
+            content.buttonStyle(.glassProminent).tint(Color.brandFill)
+        } else {
+            content.buttonStyle(.borderedProminent).tint(Color.brandFill)
         }
     }
 }

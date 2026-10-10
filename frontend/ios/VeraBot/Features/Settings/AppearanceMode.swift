@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// 外观：跟随系统 / 浅色 / 深色。rawValue 存入 @AppStorage(SettingsKeys.appearance)，由根视图同步到所属窗口。
+/// 外观：跟随系统 / 浅色 / 深色 / 原生风格。rawValue 存入 @AppStorage(SettingsKeys.appearance)，由根视图同步到所属窗口。
 enum AppearanceMode: String, CaseIterable, Identifiable {
-    case system, light, dark
+    case system, light, dark, native
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
         case .system: "跟随系统"
         case .light: "浅色"
         case .dark: "深色"
+        case .native: "原生风格"
         }
     }
 
@@ -20,6 +21,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
         case .system: nil
         case .light: .light
         case .dark: .dark
+        case .native: .light
         }
     }
 }
