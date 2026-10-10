@@ -83,8 +83,6 @@ struct ChatView: View {
                     Image(systemName: "ellipsis")
                 }
                 .accessibilityLabel("更多")
-                .glassButtonStyle()
-                .buttonBorderShape(.capsule)
             }
         }
         // Bot 详情：系统默认 sheet（page sheet 卡片，非 push / 非全屏），下滑关闭
