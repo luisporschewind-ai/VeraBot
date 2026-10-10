@@ -42,7 +42,7 @@ struct RobotAvatarLabView: View {
             }.padding(16)
         }
         .themedPageBackground()
-        .navigationTitle("新版头像实验室").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("头像实验室").navigationBarTitleDisplayMode(.inline)
         .task {
             guard !loaded else { return }; loaded = true
             if let data = familyLookJSON.data(using:.utf8), !data.isEmpty {

@@ -84,16 +84,10 @@ struct DebugView: View {
 
             Section("实验") {
                 NavigationLink {
-                    AvatarLabView()
-                        .toolbar(.hidden, for: .tabBar)
-                } label: {
-                    Label("头像实验室", systemImage: "face.smiling")
-                }
-                NavigationLink {
                     RobotAvatarLabView()
                         .toolbar(.hidden, for: .tabBar)
                 } label: {
-                    Label("新版头像实验室", systemImage: "eyes")
+                    Label("头像实验室", systemImage: "eyes")
                 }
             }
         }
