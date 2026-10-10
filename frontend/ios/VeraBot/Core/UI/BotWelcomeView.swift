@@ -9,9 +9,9 @@ struct BotWelcomeGroup: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: -8) {
-            character(index: 0, color: .brandAccent, scale: 0.78, angle: -12, delay: 0)
-            character(index: 1, color: .brandFill, scale: 1, angle: 0, delay: 0.12)
-            character(index: 2, color: .brandFill, scale: 0.72, angle: 12, delay: 0.24)
+            character(index: 0, color: Color(hex: "#54B9A6"), name: "青绿", scale: 0.78, angle: -12, delay: 0)
+            character(index: 1, color: Color(hex: "#F09D38"), name: "琥珀", scale: 1, angle: 0, delay: 0.12)
+            character(index: 2, color: Color(hex: "#895BF5"), name: "紫色", scale: 0.72, angle: 12, delay: 0.24)
         }
         .padding(.top, 24)
         .padding(.bottom, 12)
@@ -20,8 +20,6 @@ struct BotWelcomeGroup: View {
                 .frame(width: size * 2.6, height: size * 0.95)
                 .offset(y: 20)
         }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
         .onAppear { arrived = true }
         .task {
             guard !reduceMotion else { return }
@@ -35,9 +33,10 @@ struct BotWelcomeGroup: View {
         }
     }
 
-    private func character(index: Int, color: Color, scale: CGFloat, angle: Double, delay: Double) -> some View {
+    private func character(index: Int, color: Color, name: String, scale: CGFloat, angle: Double, delay: Double) -> some View {
         RobotAvatarView(action: reduceMotion ? .idle : (greeted >= index ? .send : .wake), size: size * scale,
                         roundness: index == 1 ? 0.7 : 0.35, color: color, ambient: !reduceMotion)
+            .accessibilityLabel("\(name)机器人")
             .rotationEffect(.degrees(angle))
             .offset(y: arrived || reduceMotion ? 0 : 18)
             .opacity(arrived || reduceMotion ? 1 : 0)
@@ -58,7 +57,7 @@ struct BotLaunchView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.appBackground.ignoresSafeArea())
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("launch.welcome")
     }
 }
