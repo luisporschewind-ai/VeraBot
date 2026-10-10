@@ -350,6 +350,26 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/memory/settings", method: "PATCH", body: try encode(["enabled": enabled]))
     }
 
+    public func botGrowth(botID:Int) async throws -> BotGrowth { try await call("/api/bots/\(botID)/growth") }
+    public func monthlyMemoryReview(month:String) async throws -> MonthlyMemoryReview {
+        try await call("/api/review/monthly", query:[URLQueryItem(name:"month",value:month)])
+    }
+    public func memoryReferences(messageID:Int) async throws -> MemoryReferencesResponse { try await call("/api/messages/\(messageID)/memories") }
+    public func memoryExport() async throws -> MemoryExportResponse { try await call("/api/memories/export") }
+
+    public func memorySuggestions(botID: Int) async throws -> MemorySuggestionsResponse {
+        try await call("/api/bots/\(botID)/suggestions")
+    }
+
+    public func decideMemorySuggestion(id: Int, accept: Bool) async throws -> SuggestionDecisionResponse {
+        let action = accept ? "accept" : "dismiss"
+        return try await call("/api/suggestions/\(id)/\(action)", method: "POST", body: Data("{}".utf8))
+    }
+
+    public func quickPrompts(botID: Int) async throws -> QuickPromptsResponse {
+        try await call("/api/bots/\(botID)/quick-prompts")
+    }
+
     // MARK: - Reminders / Quota
     public func reminders() async throws -> RemindersResponse { try await call("/api/reminders") }
 

@@ -46,6 +46,16 @@ def list_conversation(c, user_id: int, bot_id: int) -> list[dict]:
         (user_id, bot_id)).fetchall())
 
 
+def list_for_extraction(c, user_id: int, bot_id: int, after_message_id: int, limit: int = 64) -> list[dict]:
+    """Recent conversation rows for implicit extraction; caller filters to user evidence and safe context."""
+    found = rows(c.execute(
+        "SELECT id, role, content, traces, created_at FROM messages "
+        "WHERE user_id=? AND bot_id=? AND id<=? ORDER BY id DESC LIMIT ?",
+        (user_id, bot_id, after_message_id, limit),
+    ).fetchall())
+    return list(reversed(found))
+
+
 def clear_conversation(c, user_id: int, bot_id: int) -> None:
     """清空对话：先删该 Bot 的附件行，再删消息（同一事务）。磁盘文件由调用方在提交后删除。"""
     attachment_store.delete_for_bot(c, user_id, bot_id)

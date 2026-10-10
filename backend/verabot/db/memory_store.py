@@ -9,13 +9,13 @@ from .database import now_iso, row, rows, tx
 
 COLS = ("m.id, m.scope, m.bot_id, b.name AS bot_name, m.type, m.content, m.content_enc, m.sensitivity, m.source, "
         "m.source_bot_id, sb.name AS source_bot_name, m.status, m.action, m.target_id, m.confidence, m.use_count, "
-        "m.last_used_at, m.confirmed_at, m.expires_at, m.created_at, m.updated_at")
+        "m.last_used_at, m.confirmed_at, m.expires_at, m.created_at, m.updated_at, m.meta")
 FROM = "FROM memories m LEFT JOIN bots b ON b.id=m.bot_id LEFT JOIN bots sb ON sb.id=m.source_bot_id"
 
 
 def expire_stale(c, user_id: int):
     """惰性过期：proposed / candidate 超过有效期 → expired，清空正文。"""
-    c.execute("UPDATE memories SET status='expired', content='', content_enc=NULL, updated_at=? "
+    c.execute("UPDATE memories SET status='expired', content='', content_enc=NULL, meta=NULL, updated_at=? "
               "WHERE user_id=? AND status IN ('proposed','candidate') AND expires_at IS NOT NULL AND expires_at<?",
               (now_iso(), user_id, now_iso()))
 

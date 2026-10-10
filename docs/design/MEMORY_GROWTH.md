@@ -1,6 +1,6 @@
 # 以记忆为核心的 Bot 成长体系 (Memory-centred Bot Growth System) — 实施方案 v1.0
 
-> 状态：**v1.0 已批准 (Approved)；M1、M2 已实现 (Implemented)**，M3~M5 未开始。日期：2026-10-01 (UTC+8)；M2 实现说明见 §20。Boss 对 §17 开放问题的决定见 §17 (优先于正文中的「建议」)；M1 的实现说明与偏差见 §19。
+> 状态：**v1.0 已批准；M1、M2 已实现；M3、M4 已在隔离分支完成；M5 暂停**。日期：2026-10-01 (UTC+8)；实现说明见 §19~§22。负责人对 §17 开放问题的决定见 §17 (优先于正文中的「建议」)；M1 的实现说明与偏差见 §19。
 > 基于代码：commit `2cfb018` (功能代码同 `4f4cd49`)，数据库 **schema v3**。涉及文件：`backend/verabot/agents/{runtime,prompts,permissions,context,delegation}.py`、`tools/registry.py`、`services/llm.py`、`db/{schema,repository,database}.py`、`api/routers/*`、`core/config.py`；iOS `Features/{Chat,BotInfo,Settings}`、`Core/UI/Theme.swift`、`Packages/VeraBotKit`。
 > 相关文档：[ARCHITECTURE.md](ARCHITECTURE.md)、[MULTI_AGENT_DESIGN.md](MULTI_AGENT_DESIGN.md) (权限 / 上下文隔离 / 护栏)、[MCP_CAPABILITY.md](MCP_CAPABILITY.md) (HITL 确认卡片、不可信内容处理的思路与本文一致)。
 > 本文以 **M1 为完整实施规格**，M2~M5 为较粗的规格，实施前各自再细化。
@@ -804,3 +804,22 @@ FEATURES (记忆 / API 表)、ARCHITECTURE (§2.1 模块、§2.2 插件注册例
 - **iOS**：Bot 回复气泡在朗读按钮旁有 👍 / 👎；👎 用系统确认框选原因；选中为填充图标；再点撤销。风格提议走既有确认卡片。
 - **Web**：冻结，没有这套界面。
 - **测试**：`backend/scripts/test/memory_m2_test.py`（MEM-40~49，mock LLM）。iOS 未在本环境 `xcodebuild`。
+
+## 21. M3 实现说明（2026-10-07，隔离分支 `codex/memory-m3-m4`）
+
+- **Schema v15**：新增 `suggestions` 与状态 / 去重索引；记忆后台任务按每 6 条用户消息或空闲 10 分钟触发抽取。迁移不生成记忆。
+- **隐式候选**：仅读取本用户最近 12 条用户消息及少量相邻助手上下文；跳过委派回答、敏感 / 注入内容。JSON 候选必须通过类型、作用域、置信度、证据消息归属与相似度校验；最多 3 条，14 天过期。候选保持 `candidate`，不进入召回；记忆页显示证据日期与原因，不展示原始消息正文。
+- **主动建议**：同一提醒至少跨 3 个 ISO 周、时间相近才建议重复提醒；规律记忆必须明确包含星期和本地时间。接受提醒时与建议决议在同一事务完成。委派建议要求 14 天内至少 3 次请求；接受只导航到 Bot 权限设置，不自动改权限。拒绝后 30 天冷却。
+- **快捷提问**：只统计本人、本 Bot 近 30 天的用户消息；过滤风险和低质量文本，最多展示 6 条。点按仅填入输入框，不自动发送。设置项默认开启，可关闭。
+- **iOS**：对话显示建议卡片、候选记忆提示与快捷提问；记忆页列出候选证据。Web 冻结，未增加界面。
+- **实现核对**：`memory_m3_test.py` 21 项通过；M2 回归 18/18；VeraBotKit `swift test` 161 项通过；iPhone 17 Simulator `xcodebuild` 成功，Xcode 给出 scheme supported platforms 为空的警告。界面尚待负责人手工验收。
+
+## 22. M4 实现说明（2026-10-07，隔离分支 `codex/memory-m3-m4`）
+
+- **Schema v16**：新增 `reviews`，按用户 / 月唯一缓存；重建 `memory_jobs` 以允许仅 `review` 使用空 `bot_id`，保留已有任务、外键和索引。每个 review job 另存月份，保证不同月份可以分别排队。
+- **成长统计**：新增 `GET /api/bots/{id}/growth`，只统计该用户 Bot 的生效记忆、已保存助手回答与成功委派，返回初次对话日期和最多 3 条可见的普通记忆。Bot 详情以文字显示统计与最近记忆。
+- **月度回顾**：首次请求立即返回安全聚合和 `pending` 状态，后台 worker 异步生成后续 GET 可见的回顾。模型输入仅含数量、能力类别、本月新确认的非敏感记忆和候选数；不读取消息、摘要、工具参数 / 结果或候选正文。预算达到 90% 或模型不可用时返回聚合降级；失败可重试；用量记入 `memory`。
+- **导出与引用**：`GET /api/memories/export` 只导出当前用户的记忆及必要元数据；敏感内容仅通过 Fernet 解密，密钥不可用时使用安全占位。`GET /api/messages/{id}/memories` 重新校验消息归属、记忆状态与 Bot 的 `memory_access`。iOS 提供用户主动导出 JSON 文件、回答长按查看引用记忆。
+- **搜索与筛选**：iOS 记忆页按本地已加载内容搜索、按类型过滤，候选仍单独成组；列表和详情显示使用次数 / 最近使用时间；月度回顾可进入记忆详情并删除。
+- **范围**：Web 冻结；无通知、自动权限变更、游戏化或 M5 向量检索。
+- **验证**：`memory_m4_test.py` 8 项、M3 21 项、M2 18/18 通过；VeraBotKit `swift test` 163 项通过；iPhone 17 Simulator `xcodebuild` 成功（scheme 平台配置警告）。UI 尚待负责人手工验收。

@@ -35,6 +35,7 @@ struct BotEditView: View {
     @State private var acceptDelegation = false
     @State private var memoryAccess: MemoryAccess = .botAndGlobal
     @State private var memoryCount: Int?
+    @State private var memoryGrowth:BotGrowth?
     @State private var saving = false
     @State private var errorText: String?
     @State private var loaded = false
@@ -137,6 +138,13 @@ struct BotEditView: View {
                     } label: {
                         Text("\(draft.name) 记住的内容")
                     }
+                }
+                if let growth=memoryGrowth {
+                    LabeledContent("已协助",value:"\(growth.assistedCount) 次")
+                    if let date=ListTimestamp.parse(growth.firstConversationAt) { LabeledContent("开始对话",value:date.formatted(date:.abbreviated,time:.omitted)) }
+                    let counts=growth.memoryCounts.sorted{$0.key<$1.key}.map{"\(MemoryType(rawValue:$0.key)?.title ?? "其他") \($0.value)"}.joined(separator:" · ")
+                    if !counts.isEmpty { Text("记忆：\(counts)").font(.footnote).foregroundStyle(.secondary) }
+                    ForEach(growth.recentMemories) { memory in Text("最近记住：\(memory.content)").font(.footnote).lineLimit(2) }
                 }
             } header: {
                 Text("记忆")
@@ -406,6 +414,7 @@ struct BotEditView: View {
         avatar = bot.avatar; color = bot.color; persona = bot.persona; instructions = bot.instructions
         allowedTools = Set(bot.allowedTools); delegateTo = Set(bot.delegateTo); acceptDelegation = bot.acceptDelegation
         memoryAccess = bot.memoryAccess; memoryCount = bot.memoryCount
+        memoryGrowth=try? await app.api.botGrowth(botID:bot.id)
         if let prefs = try? await app.api.notificationSettings() {
             notificationPrefs = prefs
             notificationsMuted = prefs.mutedBots.contains(bot.id)

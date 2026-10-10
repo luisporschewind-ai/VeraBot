@@ -7,6 +7,7 @@ from .. import db
 from ..core.config import EMPTY_REPLY_RETRIES, HISTORY_WINDOW, MAX_TOOL_ROUNDS
 from ..services import llm, memory
 from ..services.memory import jobs as memory_jobs
+from ..services.memory import extract as memory_extract
 from ..services.memory import style as memory_style
 from ..services.attachments import repo as attachments
 from ..services.attachments import vision
@@ -137,6 +138,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
         yield {"event": "status", "data": status_data("recalling", depth=0, bot_name=bot.get("name"))}
     rec = memory.recall(user_id, bot, _memory_query(history, user_text)) if memory_on else memory.EMPTY
     user_mid = db.add_message(user_id, bot["id"], "user", user_text)
+    memory_extract.enqueue_if_due(user_id, bot["id"], user_mid)
     new_images = attachments.attach(user_id, bot["id"], list(attachment_ids or []), user_mid)
     turn = TurnState()
     images = new_images or ([latest_image] if latest_image and vision.wants_recall(user_text) else [])

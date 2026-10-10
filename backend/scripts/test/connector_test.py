@@ -173,7 +173,7 @@ try:
     con.close()
     db.init_db()
     check("CONN-01 schema v14 keeps v13 connector columns, idempotent",
-          ver == "14" == str(db.SCHEMA_VERSION) and {"kind", "token_hint", "last_verified_at"} <= cred_cols
+          ver == "16" == str(db.SCHEMA_VERSION) and {"kind", "token_hint", "last_verified_at"} <= cred_cols
           and "auth_error" in srv_cols and "mcp_oauth_clients" in tables, f"{ver} {cred_cols} {srv_cols}")
 
     cat = {p["plugin_id"]: p for p in local.get("/api/plugins/catalog", headers=A).json()["catalog"]}

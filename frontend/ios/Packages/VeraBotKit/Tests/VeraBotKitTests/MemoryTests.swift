@@ -24,6 +24,45 @@ private let memoryJSON = ##"""
     #expect(m.useCount == 3)
     #expect(m.sourceTitle == "来自与 Vera 的对话")
     #expect(m.sensitive == false)
+    #expect(m.evidence.isEmpty)
+    #expect(m.reason == nil)
+}
+
+@Test func decodesImplicitCandidateEvidenceAndSuggestions() throws {
+    let candidateJSON = ##"{"id":42,"scope":"bot","bot_id":7,"type":"routine","content":"每周徒步","source":"implicit_extraction","status":"candidate","evidence":[{"message_id":31,"date":"2026-10-01","role":"user"}],"reason":"重复提到"}"##
+    let candidate = try JSONDecoder().decode(Memory.self, from: Data(candidateJSON.utf8))
+    #expect(candidate.evidence.count == 1)
+    #expect(candidate.evidence[0].messageID == 31)
+    #expect(candidate.reason == "重复提到")
+
+    let suggestionJSON = ##"{"suggestions":[{"id":9,"kind":"routine_reminder","title":"周末徒步","created_at":"2026-10-07","expires_at":"2026-11-06"}]}"##
+    let response = try JSONDecoder().decode(MemorySuggestionsResponse.self, from: Data(suggestionJSON.utf8))
+    #expect(response.suggestions.first?.id == 9)
+    #expect(response.suggestions.first?.kind == .routineReminder)
+    #expect(response.suggestions.first?.title == "周末徒步")
+}
+
+@Test func oldSuggestionAndQuickPromptResponsesDefaultSafely() throws {
+    let suggestions = try JSONDecoder().decode(MemorySuggestionsResponse.self, from: Data("{}".utf8))
+    let prompts = try JSONDecoder().decode(QuickPromptsResponse.self, from: Data("{}".utf8))
+    #expect(suggestions.suggestions.isEmpty)
+    #expect(prompts.prompts.isEmpty)
+}
+
+@Test func quickPromptSettingDefaultsOnAndPersistsPerKey() throws {
+    let suite = "VeraBotKitTests.quickPrompts.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    #expect(defaults.object(forKey: SettingsKeys.quickPromptsEnabled) == nil)
+    #expect((defaults.object(forKey: SettingsKeys.quickPromptsEnabled) as? Bool) ?? SettingsKeys.quickPromptsEnabledDefault)
+    defaults.set(false, forKey: SettingsKeys.quickPromptsEnabled)
+    #expect(defaults.bool(forKey: SettingsKeys.quickPromptsEnabled) == false)
+}
+
+@Test func quickPromptResponseIsBoundedToSix() throws {
+    let prompts = (1...8).map { "提问\($0)" }
+    let data = try JSONSerialization.data(withJSONObject: ["prompts": prompts])
+    #expect(try JSONDecoder().decode(QuickPromptsResponse.self, from: data).prompts.count == 6)
 }
 
 @Test func unknownMemoryEnumsDecodeAsUnknown() throws {
@@ -156,4 +195,25 @@ private let memoryJSON = ##"""
     #expect(new.deletedMemories == 5)
     let done = try JSONDecoder().decode(ChatDone.self, from: Data(#"{"message_id":9,"usage":{},"memory_ids":[1,2]}"#.utf8))
     #expect(done.memoryIDs == [1, 2] && done.messageID == 9)
+}
+
+@Test func m4ModelsDecodeOptionalGrowthReviewReferencesAndExport() throws {
+    let d=JSONDecoder()
+    let growth=try d.decode(BotGrowth.self,from:Data(#"{"bot_id":4,"memory_counts":{"fact":2},"assisted_count":8,"recent_memories":[]}"#.utf8))
+    #expect(growth.assistedCount==8 && growth.firstConversationAt==nil)
+    let review=try d.decode(MonthlyMemoryReview.self,from:Data(#"{"month":"2026-10","review_status":"pending","assisted_count":3,"candidate_count":1}"#.utf8))
+    #expect(review.newMemories.isEmpty && review.capabilities.isEmpty && review.suggestion==nil)
+    let refs=try d.decode(MemoryReferencesResponse.self,from:Data(#"{"message_id":7,"memories":[]}"#.utf8))
+    #expect(refs.messageId==7 && refs.memories.isEmpty)
+    let export=try d.decode(MemoryExportResponse.self,from:Data(#"{"format":"verabot-memory-export-v1","memories":[{"id":5,"scope":"global","bot_id":null,"type":"fact","source":"memory_page","source_bot_id":null,"source_message_id":null,"status":"active","action":"create","target_id":null,"sensitivity":"normal","confidence":1,"use_count":2,"last_used_at":null,"confirmed_at":"2026-10-01","expires_at":null,"created_at":"2026-10-01","updated_at":"2026-10-01","content":"茶"}]}"#.utf8))
+    #expect(export.memories.count==1 && export.memories[0].content=="茶" && export.memories[0].useCount==2)
+}
+
+@Test func memoryFilterIsCaseInsensitiveAndKeepsTypeAndCandidateSearch() throws {
+    let data=Data(#"{"id":1,"scope":"bot","bot_id":2,"type":"preference","content":"Likes Green Tea","status":"candidate","source":"implicit_extraction"}"#.utf8)
+    let item=try JSONDecoder().decode(Memory.self,from:data)
+    #expect(MemoryFilter.matches(item,query:"GREEN",type:nil))
+    #expect(MemoryFilter.matches(item,query:"tea",type:.preference))
+    #expect(!MemoryFilter.matches(item,query:"tea",type:.fact))
+    #expect(MemoryFilter.matches(item,query:"",type:.preference))
 }

@@ -8,6 +8,7 @@ from ... import db
 from ...db import bot_store, delegation_store, message_store
 from ...core.config import MAX_BOTS_PER_USER
 from ...services import memory
+from ...services.memory import growth
 from ...services.bots import public_bot, remove_from_delegate_lists, validate_perms
 from ...services.attachments import repo as attachments
 from ..deps import current_user, require_bot
@@ -133,3 +134,10 @@ def bot_tool_calls(bot_id: int, limit: int = 50, user=Depends(current_user)):
             "duration_ms": detail.get("duration_ms"),
         })
     return {"tool_calls": out}
+
+
+@router.get("/api/bots/{bot_id}/growth")
+def bot_growth(bot_id:int,user=Depends(current_user)):
+    result=growth.for_bot(user["id"],bot_id)
+    if result is None: raise HTTPException(404,"Bot 不存在")
+    return result

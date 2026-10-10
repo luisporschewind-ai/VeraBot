@@ -3,10 +3,11 @@
 所有接口需 Bearer JWT，所有查询带 user_id；他人或不存在的记忆 → 404「记忆不存在」（防枚举）。
 需要区分原因的错误使用 {"detail": {"message": "…", "code": "…"}}。契约见 docs/design/MEMORY_GROWTH.md §5.5。
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ...services import memory
 from ...services.memory import MemoryServiceError
+from ...services.memory import growth
 from ..deps import current_user, require_bot
 from ..schemas import MemoryConfirmIn, MemoryIn, MemoryPatch, MemorySettingsIn
 
@@ -47,6 +48,11 @@ def memories_list(status: str = "active", scope: str | None = None, bot_id: int 
     vis = require_bot(user, visible_to) if visible_to is not None else None
     return memory.list_memories(user["id"], statuses=statuses, scope=scope, bot_id=bot_id, ids=id_list,
                                 visible_to=vis, limit=limit, before_id=before_id)
+
+
+@router.get("/api/memories/export")
+def memories_export(user=Depends(current_user)):
+    return growth.export_memories(user["id"])
 
 
 @router.get("/api/memories/{memory_id}")
@@ -95,3 +101,19 @@ def memory_settings(user=Depends(current_user)):
 @router.patch("/api/memory/settings")
 def memory_settings_patch(body: MemorySettingsIn, user=Depends(current_user)):
     return memory.set_enabled(user["id"], body.enabled)
+
+
+@router.get("/api/review/monthly")
+def monthly_review(month: str | None = Query(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$"), user=Depends(current_user)):
+    from datetime import datetime
+    try:
+        return growth.request_monthly_review(user["id"], month or datetime.now().strftime("%Y-%m"))
+    except ValueError:
+        raise HTTPException(422, {"message":"月份格式应为 YYYY-MM", "code":"invalid_month"})
+
+
+@router.get("/api/messages/{message_id}/memories")
+def message_memories(message_id:int, user=Depends(current_user)):
+    result=growth.message_memories(user["id"],message_id)
+    if result is None: raise HTTPException(404,"消息不存在")
+    return result

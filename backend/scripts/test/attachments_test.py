@@ -493,7 +493,7 @@ cols = {r[1] for r in c.execute("PRAGMA table_info(attachments)")}
 idx = {r[1] for r in c.execute("PRAGMA index_list(attachments)")}
 c.close()
 check("ATT-MIG", "schema v12：attachments 表字段齐全（storage_backend / storage_key / thumb_key / caption），idx_att_user",
-      ver == "14" == str(db.SCHEMA_VERSION) and {"id", "user_id", "bot_id", "message_id", "kind", "mime", "bytes", "width",
+      ver == "16" == str(db.SCHEMA_VERSION) and {"id", "user_id", "bot_id", "message_id", "kind", "mime", "bytes", "width",
       "height", "sha256", "storage_backend", "storage_key", "thumb_key", "caption", "caption_status", "status",
       "created_at", "expires_at"} == cols and "idx_att_user" in idx, f"{ver} {cols}")
 
@@ -510,7 +510,7 @@ has_tbl = c.execute("SELECT 1 FROM sqlite_master WHERE name='attachments'").fetc
 n_rem_after = c.execute("SELECT COUNT(*) FROM reminders").fetchone()[0]
 c.close()
 check("ATT-MIG-11", "v11 → v12：补建 attachments 表、版本 12，提醒数据不变",
-      ver2 == "14" and has_tbl and n_rem_before == n_rem_after, f"{ver2} {has_tbl}")
+      ver2 == "16" and has_tbl and n_rem_before == n_rem_after, f"{ver2} {has_tbl}")
 
 # ---------------------------------------------------------------- ATT-CONTRACT
 swift = (IOS / "Packages/VeraBotKit/Sources/VeraBotCore/Attachment.swift").read_text(encoding="utf-8")

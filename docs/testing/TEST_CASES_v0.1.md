@@ -832,3 +832,9 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 - 界面验收：伙伴选择保持、头像暂停与聊天、安静模式、底部控制与棋盘完整显示、重开/离开/后台请求隔离、断网可玩。详细状态见 [专项记录](2026-10-09-tetris-companion.md)。
 
 - 陪玩 Model 生命周期专项：`bash frontend/ios/scripts/test/tetris-companion-model-check.sh`，覆盖请求竞态、用户交流优先、静音与表情保持；使用数据与网络替身，不代替真机验收。
+
+## 记忆成长 M3 / M4（2026-10-10 主线整合）
+
+- M3：`cd backend && uv run python scripts/test/memory_m3_test.py`；覆盖用户消息候选抽取、过滤与去重、证据归属、建议冷却与幂等、快捷提问过滤。
+- M4：`cd backend && uv run python scripts/test/memory_m4_test.py`；覆盖 v16→v17 迁移、月度回顾缓存与隐私边界、导出、记忆引用权限。
+- Kit 回归与 iPhone Simulator 构建沿用隔离分支记录；本次合并后尚未重跑。M3/M4 UI 仍待手工验收。

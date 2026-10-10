@@ -2,13 +2,52 @@ import SwiftUI
 import VeraBotCore
 import VeraBotNetworking
 
+struct MemorySuggestionCard: View {
+    let suggestion: MemorySuggestion
+    let vm: ChatViewModel
+
+    private var kindTitle: String {
+        switch suggestion.kind {
+        case .routineReminder: return "规律提醒建议"
+        case .delegation: return "委派权限建议"
+        case .unknown: return "建议"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(kindTitle, systemImage: suggestion.kind == .delegation ? "arrow.triangle.branch" : "calendar")
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Text(suggestion.title).font(.subheadline).foregroundStyle(.primary)
+            HStack(spacing: 8) {
+                Button("接受") { Task { await vm.acceptMemorySuggestion(suggestion.id) } }
+                    .prominentButtonStyle()
+                Button("暂不") { Task { await vm.dismissMemorySuggestion(suggestion.id) } }
+                    .glassButtonStyle()
+                if vm.suggestionBusy.contains(suggestion.id) { ProgressView() }
+            }
+            .controlSize(.small)
+            .disabled(vm.suggestionBusy.contains(suggestion.id))
+            if let message = vm.suggestionErrors[suggestion.id] {
+                Text(message).font(.caption).foregroundStyle(.orange)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassSurface(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
+        .accessibilityElement(children: .contain)
+    }
+}
+
 struct MessageRow: View {
+    @Environment(AppState.self) private var app
     let item: ChatViewModel.Item
     let bot: Bot
     let vm: ChatViewModel
     @AppStorage(SettingsKeys.ttsEnabled) private var ttsEnabled = true
     @State private var confirmDelete = false
     @State private var feedbackReason = false
+    @State private var showMemoryReferences=false
 
     /// 只有已落库（有 messageID）且不在流式输出中的消息可删除；欢迎语、正在生成的回复不显示「删除」
     private var canDelete: Bool { item.messageID != nil && !item.streaming }
@@ -21,6 +60,9 @@ struct MessageRow: View {
             } message: {
                 Text("只删除这一条，已记住的内容不受影响。")
             }
+            .sheet(isPresented:$showMemoryReferences) {
+                NavigationStack { if let id=item.messageID { MemoryReferencesView(messageID:id).environment(app) } }
+            }
     }
 
     /// 长按菜单：复制 / 复制链接（有正文时）+ 删除（系统 destructive 样式，点按后用系统确认框二次确认）
@@ -30,6 +72,10 @@ struct MessageRow: View {
         }
         if canDelete {
             Button(role: .destructive) { confirmDelete = true } label: { Label("删除", systemImage: "trash") }
+        }
+        if !item.isUser,let id=item.messageID,!item.streaming {
+            Button { showMemoryReferences=true } label:{Label("这条回答参考了哪些记忆",systemImage:"brain")}
+                .disabled(id<=0)
         }
     }
 

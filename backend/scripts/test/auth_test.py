@@ -46,7 +46,7 @@ tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type IN 
 version = c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
 legacy = c.execute("SELECT username, nickname, email, phone, token_version FROM users WHERE id=1").fetchone()
 c.close()
-assert version == str(db.SCHEMA_VERSION) == "14", version
+assert version == str(db.SCHEMA_VERSION) == "16", version
 assert {"email", "email_verified_at", "phone", "token_version", "failed_logins", "locked_until"} <= cols
 assert {"auth_codes", "auth_refresh_tokens", "idx_users_email", "idx_users_phone"} <= tables
 assert legacy == ("demo", "Boss", None, None, 0)

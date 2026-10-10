@@ -10,13 +10,13 @@ import logging
 
 from ... import db
 from ...core import config
-from ...db import memory_job_store as store
-from . import summarize
+from ...db import memory_job_store as store, review_store
+from . import extract, summarize, growth
 
 log = logging.getLogger("verabot.memory.jobs")
 POLL_SECONDS = 1.0
 # 这些失败可以重试；策略拦截 / 预算跳过不重试
-_RETRYABLE = {"llm_error", "invalid_json", "empty_summary"}
+_RETRYABLE = {"llm_error", "invalid_json", "empty_summary", "empty_extract"}
 
 
 def enabled() -> bool:
@@ -61,11 +61,20 @@ async def process_one() -> bool:
     try:
         if kind == "summarize":
             status, error = await summarize.run(job)
+        elif kind == "extract":
+            status, error = await extract.run(job)
+        elif kind == "review":
+            status, error = await growth.run_review(job)
         else:
-            # extract / review 属于 M3+，M2 不执行
+            # review 由 M4 接入
             status, error = "skipped", "unsupported"
     except Exception:
         log.info("memory job crashed: id=%s kind=%s", job["id"], kind)
+        if kind == "review" and job.get("review_month"):
+            # A worker crash bypasses run_review's normal fallback. Mark the
+            # cache unavailable so the next request can safely enqueue a retry.
+            with db.tx() as c:
+                review_store.save(c, job["user_id"], job["review_month"], "unavailable", "{}")
         status, error = "failed", "crash"
     final = _apply(job, status, error)
     log.info("memory job done: id=%s kind=%s status=%s error=%s attempts=%s",

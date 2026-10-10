@@ -10,6 +10,7 @@ struct ChatView: View {
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
     @FocusState private var focused: Bool
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
+    @State private var showMemoryList = false
     @State private var sendCount = 0            // 触感反馈触发器：每次发送 +1
     @State private var attachment: ComposerAttachmentModel   // 待发送图片（最多 1 张）
     @State private var showPhotos = false
@@ -19,6 +20,7 @@ struct ChatView: View {
     @Environment(AppState.self) private var app
     @Environment(BotTravelStore.self) private var travelStore
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(SettingsKeys.quickPromptsEnabled) private var quickPromptsEnabled = SettingsKeys.quickPromptsEnabledDefault
     let highlightMessageID: Int?
     @State private var travelTripToShow: BotTravelTrip?
 
@@ -35,6 +37,9 @@ struct ChatView: View {
                     ForEach(vm.items) { item in
                         MessageRow(item: item, bot: vm.bot, vm: vm)
                             .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
+                    }
+                    ForEach(vm.memorySuggestions) { suggestion in
+                        MemorySuggestionCard(suggestion: suggestion, vm: vm)
                     }
                     if let e = vm.errorText {
                         Text(e).font(.footnote).foregroundStyle(.red)
@@ -81,7 +86,15 @@ struct ChatView: View {
             }
             .environment(app)
         }
-        .task { await vm.load() }
+        .task {
+            await vm.load()
+            if quickPromptsEnabled { await vm.refreshQuickPrompts() }
+        }
+        .onChange(of: quickPromptsEnabled) { _, enabled in
+            if enabled { Task { await vm.refreshQuickPrompts() } }
+            else { vm.quickPrompts = [] }
+        }
+        .onChange(of: vm.openBotSettingsTick) { showInfo = true }
         // 只用系统相册选择器（PhotosPicker，单选；再选替换），不需要相册权限
         .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
         .onChange(of: photoItem) { _, item in
@@ -164,6 +177,20 @@ struct ChatView: View {
 
     private var regularComposer: some View {
         VStack(spacing: 6) {
+            if let userID = app.userID,
+               vm.candidateMemoryCount > 0,
+               input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               !focused,
+               UserDefaults.standard.string(forKey: candidateNudgeKey(userID)) != todayStamp {
+                Button { showMemoryList = true } label: {
+                    Label("有 \(vm.candidateMemoryCount) 条记忆待确认 · 查看", systemImage: "brain")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .glassSurface(in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .onAppear { UserDefaults.standard.set(todayStamp, forKey: candidateNudgeKey(userID)) }
+            }
             if speech.isRecording {
                 Label("正在聆听…再次点击麦克风结束", systemImage: "waveform")
                     .font(.caption).foregroundStyle(.red)
@@ -176,6 +203,26 @@ struct ChatView: View {
             }
             if !attachment.isEmpty {
                 ComposerAttachmentChip(model: attachment)
+            }
+            if quickPromptsEnabled && input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !focused && !vm.quickPrompts.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(vm.quickPrompts, id: \.self) { prompt in
+                            Button {
+                                input = prompt
+                                focused = true
+                            } label: {
+                                Text(prompt).lineLimit(1)
+                                    .font(.caption)
+                                    .padding(.horizontal, 12).padding(.vertical, 8)
+                                    .glassSurface(in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("填入快捷提问：\(prompt)")
+                        }
+                    }
+                }
             }
             GlassGroup(spacing: 10) {
                 HStack(alignment: .bottom, spacing: 10) {
@@ -245,6 +292,21 @@ struct ChatView: View {
         }
         .hapticFeedback(.impact(weight: .light), trigger: sendCount)   // 发送消息（受「触感反馈」开关控制）
         .hapticFeedback(.selection, trigger: speech.isRecording)        // 开始 / 结束语音输入
+        .sheet(isPresented: $showMemoryList) {
+            NavigationStack {
+                MemoryListView(botFilter: vm.bot)
+            }
+            .environment(app)
+        }
+    }
+
+    private var todayStamp: String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+
+    private func candidateNudgeKey(_ userID: Int) -> String {
+        "vb_memory_candidates_nudge.\(userID)"
     }
 
     private static let barHeight: CGFloat = 48
@@ -261,7 +323,10 @@ struct ChatView: View {
         input = ""
         focused = true   // 发送后键盘保持弹出，便于连续输入
         sendCount += 1
-        Task { await vm.send(text, attachment: image) }
+        Task {
+            await vm.send(text, attachment: image)
+            if quickPromptsEnabled { await vm.refreshQuickPrompts() }
+        }
     }
 
     private func toggleSpeech() {
