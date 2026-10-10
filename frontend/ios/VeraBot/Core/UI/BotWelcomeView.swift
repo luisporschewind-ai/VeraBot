@@ -10,8 +10,8 @@ struct BotWelcomeGroup: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: -8) {
             character(index: 0, color: Color(hex: "#54B9A6"), name: "青绿", scale: 0.78, angle: -12, delay: 0)
-            character(index: 1, color: Color(hex: "#F09D38"), name: "琥珀", scale: 1, angle: 0, delay: 0.12)
-            character(index: 2, color: Color(hex: "#895BF5"), name: "紫色", scale: 0.72, angle: 12, delay: 0.24)
+            character(index: 1, color: Color(hex: "#EA4045"), name: "红色", scale: 1, angle: 0, delay: 0.12)
+            character(index: 2, color: Color(hex: "#EC702E"), name: "橙色", scale: 0.72, angle: 12, delay: 0.24)
         }
         .padding(.top, 24)
         .padding(.bottom, 12)
