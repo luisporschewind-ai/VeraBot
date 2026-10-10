@@ -20,21 +20,31 @@ public enum BotAvatarAccessory: String, CaseIterable, Codable, Sendable, Identif
     }
 }
 
+public enum BotAvatarBadgeStyle: String, CaseIterable, Codable, Sendable, Identifiable {
+    case spark, heart, bolt, leaf
+    public var id: String { rawValue }
+    public var title: String {
+        switch self { case .spark: "星芒"; case .heart: "爱心"; case .bolt: "闪电"; case .leaf: "嫩叶" }
+    }
+}
+
 /// Lab-only layers; deliberately separate from the persisted/server BotAppearance schema.
 public struct BotAvatarFamilyLook: Codable, Equatable, Sendable {
     public var shape: BotAvatarFamilyShape
     public var skinID: String?
     public var accessory: BotAvatarAccessory
+    public var badgeStyle: BotAvatarBadgeStyle
     public var skin: BotAvatarSkin? { BotAvatarSkin.all.first { $0.id == skinID } }
-    public init(shape: BotAvatarFamilyShape = .standard, skinID: String? = nil, accessory: BotAvatarAccessory = .none) {
-        self.shape = shape; self.skinID = skinID; self.accessory = accessory
+    public init(shape: BotAvatarFamilyShape = .standard, skinID: String? = nil, accessory: BotAvatarAccessory = .none, badgeStyle: BotAvatarBadgeStyle = .spark) {
+        self.shape = shape; self.skinID = skinID; self.accessory = accessory; self.badgeStyle = badgeStyle
     }
-    private enum CodingKeys: String, CodingKey { case shape, skinID, accessory }
+    private enum CodingKeys: String, CodingKey { case shape, skinID, accessory, badgeStyle }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         shape = try values.decode(BotAvatarFamilyShape.self, forKey: .shape)
         skinID = try values.decodeIfPresent(String.self, forKey: .skinID)
         accessory = try values.decode(BotAvatarAccessory.self, forKey: .accessory)
+        badgeStyle = try values.decodeIfPresent(BotAvatarBadgeStyle.self,forKey:.badgeStyle) ?? .spark
         if skinID != nil && skin == nil { throw BotAppearanceError.invalid("实验皮肤暂未安装") }
     }
 }

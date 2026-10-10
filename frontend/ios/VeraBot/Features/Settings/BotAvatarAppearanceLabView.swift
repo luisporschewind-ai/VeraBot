@@ -18,6 +18,7 @@ struct BotAvatarAppearanceLabView: View {
                 if compare { comparison }
                 skinChoices
                 accessoryChoices
+                if familyLook.accessory == .badge { badgeChoices }
                 colorChoices
                 HStack {
                     Text("头部圆角")
@@ -92,7 +93,7 @@ struct BotAvatarAppearanceLabView: View {
                     .accessibilityAddTraits(familyLook.skinID == skin.id ? .isSelected : [])
                 }
             }
-            Text("皮肤保留参考纹路的配色。切换原色不清除皮肤，选择纯色可查看原色。").font(.footnote).foregroundStyle(.secondary)
+            Text("皮肤随身体表面弯曲和形变，并保留参考纹路的配色。切换原色不清除皮肤，选择纯色可查看原色。").font(.footnote).foregroundStyle(.secondary)
         }
     }
 
@@ -105,6 +106,20 @@ struct BotAvatarAppearanceLabView: View {
                         choice(title:accessory.title,look:look(accessory:accessory),selected:familyLook.accessory == accessory)
                     }.buttonStyle(.plain).accessibilityLabel("配饰：\(accessory.title)")
                     .accessibilityAddTraits(familyLook.accessory == accessory ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private var badgeChoices: some View {
+        VStack(alignment:.leading,spacing:10) {
+            Text("徽章款式").font(.headline)
+            HStack(spacing:8) {
+                ForEach(BotAvatarBadgeStyle.allCases) { badge in
+                    Button { familyLook.badgeStyle = badge } label: {
+                        choice(title:badge.title,look:look(badge:badge),selected:familyLook.badgeStyle == badge)
+                    }.buttonStyle(.plain).accessibilityLabel("徽章：\(badge.title)")
+                    .accessibilityAddTraits(familyLook.badgeStyle == badge ? .isSelected : [])
                 }
             }
         }
@@ -140,6 +155,7 @@ struct BotAvatarAppearanceLabView: View {
 
     private func look(shape:BotAvatarFamilyShape) -> BotAvatarFamilyLook { var value=familyLook; value.shape=shape; return value }
     private func look(skinID:String?) -> BotAvatarFamilyLook { var value=familyLook; value.skinID=skinID; return value }
+    private func look(badge:BotAvatarBadgeStyle) -> BotAvatarFamilyLook { var value=familyLook; value.accessory = .badge; value.badgeStyle=badge; return value }
     private func look(accessory:BotAvatarAccessory) -> BotAvatarFamilyLook { var value=familyLook; value.accessory=accessory; return value }
 
     private func swatches(_ items:[BotAvatarColorOption]) -> some View {

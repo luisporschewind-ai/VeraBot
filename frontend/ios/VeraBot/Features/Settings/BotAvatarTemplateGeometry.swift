@@ -21,20 +21,3 @@ extension BotAppearanceColor {
 extension BotAvatarColorOption {
     var color: Color { appearanceColor.swiftUIColor }
 }
-
-enum RobotAvatarSkinRendering {
-    static func antennaColor(_ skin: BotAvatarSkin) -> Color { color(skin.antennaColorHex) }
-
-    static func draw(_ skin: BotAvatarSkin, in context: inout GraphicsContext) {
-        let image = context.resolve(Image(skin.assetName))
-        context.draw(image, in:CGRect(x:0,y:0,width:240,height:240))
-    }
-
-    private static func color(_ hex:String) -> Color {
-        let value = UInt32(hex.dropFirst(),radix:16) ?? 0
-        return Color(.sRGB,
-                     red:Double((value >> 16) & 0xFF) / 255,
-                     green:Double((value >> 8) & 0xFF) / 255,
-                     blue:Double(value & 0xFF) / 255)
-    }
-}

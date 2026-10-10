@@ -75,7 +75,10 @@ struct RobotAvatarView: View {
             var head = context
             head.concatenate(headTransform(frame))
             head.clip(to: headPath)
-            if let activeSkin { RobotAvatarSkinRendering.draw(activeSkin, in: &head) }
+            if let activeSkin {
+                let surface = BotAvatarTemplateGeometry.head(template:template,parameters:appearance?.parameters ?? .init(roundness:roundness),interaction:.init(),familyShape:familyLook.shape)
+                RobotAvatarSkinRendering.draw(activeSkin,surface:surface,interaction:interaction,in:&head)
+            }
             else { head.fill(headPath, with:.color(bodyColor)) }
             for eye in frame.eyes {
                 var eyeContext = head
@@ -91,7 +94,7 @@ struct RobotAvatarView: View {
             }
             var adornment = context
             adornment.concatenate(headTransform(frame))
-            RobotAvatarAccessoryRendering.draw(familyLook.accessory,head:headPath,color:eyeColor,bodyColor:bodyColor,in:&adornment)
+            RobotAvatarAccessoryRendering.draw(familyLook.accessory,badge:familyLook.badgeStyle,head:headPath,color:eyeColor,bodyColor:bodyColor,in:&adornment)
             let point = displayedAntenna
             let stretch = interaction.kind == .antenna ? max(-0.06, min(0.06, interaction.y.velocity * 0.0004)) : 0
             context.opacity = frame.antennaOpacity

@@ -3,41 +3,82 @@ import VeraBotCore
 
 /// Accessories derive their anchors from the current deformed body, before its shared motion transform.
 enum RobotAvatarAccessoryRendering {
-    static func draw(_ accessory:BotAvatarAccessory,head:Path,color:Color,bodyColor:Color,in context:inout GraphicsContext) {
+    static func draw(_ accessory:BotAvatarAccessory,badge:BotAvatarBadgeStyle,head:Path,color:Color,bodyColor:Color,in context:inout GraphicsContext) {
         guard accessory != .none else { return }
         let bounds = head.boundingRect
         switch accessory {
         case .none: break
-        case .headphones:
-            let y = bounds.midY
-            let (left,right) = edges(head,at:y,fallback:bounds)
-            var band = Path()
-            band.move(to:CGPoint(x:left-2,y:y))
-            for point in contour(head).filter({ $0.y <= y }).sorted(by:{ $0.x < $1.x }) {
-                band.addLine(to:CGPoint(x:point.x,y:point.y-3))
-            }
-            band.addLine(to:CGPoint(x:right+2,y:y))
-            context.stroke(band,with:.color(bodyColor.opacity(0.8)),style:StrokeStyle(lineWidth:8,lineCap:.round))
-            context.stroke(band,with:.color(color),style:StrokeStyle(lineWidth:6,lineCap:.round))
-            for x in [left-7,right-7] {
-                let pad = Path(roundedRect:CGRect(x:x,y:y-20,width:14,height:40),cornerRadius:6)
-                context.fill(pad,with:.color(color))
-                context.stroke(pad,with:.color(bodyColor.opacity(0.65)),lineWidth:2)
-            }
+        case .headphones: headphones(head:head,bounds:bounds,accent:color,in:&context)
         case .badge:
-            let y = bounds.maxY-27
-            let (_,right) = edges(head,at:y,fallback:bounds)
-            let center = CGPoint(x:right-17,y:y)
-            let rim = Path(ellipseIn:CGRect(x:center.x-10,y:center.y-10,width:20,height:20))
-            context.fill(rim,with:.color(color))
-            context.stroke(rim,with:.color(bodyColor.opacity(0.6)),lineWidth:1.5)
-            var mark = Path()
-            mark.move(to:CGPoint(x:center.x,y:center.y-5))
-            mark.addLine(to:CGPoint(x:center.x+4,y:center.y))
-            mark.addLine(to:CGPoint(x:center.x,y:center.y+5))
-            mark.addLine(to:CGPoint(x:center.x-4,y:center.y))
+            let y=bounds.maxY-28
+            let (_,right)=edges(head,at:y,fallback:bounds)
+            let center=CGPoint(x:right-20,y:y)
+            let disc=Path(ellipseIn:CGRect(x:center.x-13,y:center.y-13,width:26,height:26))
+            context.fill(disc,with:.color(color))
+            context.stroke(disc,with:.color(.black.opacity(0.25)),lineWidth:1.5)
+            var glyph=context
+            glyph.translateBy(x:center.x,y:center.y)
+            drawBadge(badge,in:&glyph)
+        }
+    }
+
+    private static func headphones(head:Path,bounds:CGRect,accent:Color,in context:inout GraphicsContext) {
+        let y=bounds.midY+2
+        let (left,right)=edges(head,at:y,fallback:bounds)
+        let shell=Color(red:0.20,green:0.21,blue:0.25)
+        let cushion=Color(red:0.07,green:0.08,blue:0.10)
+        var band=Path(); band.move(to:CGPoint(x:left-2,y:y))
+        for point in contour(head).filter({ $0.y <= y }).sorted(by:{ $0.x < $1.x }) {
+            band.addLine(to:CGPoint(x:point.x,y:point.y-3))
+        }
+        band.addLine(to:CGPoint(x:right+2,y:y))
+        context.stroke(band,with:.color(shell),style:StrokeStyle(lineWidth:6,lineCap:.round,lineJoin:.round))
+        context.stroke(band,with:.color(accent.opacity(0.32)),style:StrokeStyle(lineWidth:1.2,lineCap:.round,lineJoin:.round))
+        for (x,side) in [(left-8,CGFloat(-1)),(right-8,CGFloat(1))] {
+            let cup=Path(roundedRect:CGRect(x:x,y:y-18,width:16,height:36),cornerRadius:8)
+            context.fill(cup,with:.linearGradient(Gradient(colors:[shell,shell.opacity(0.95),cushion]),
+                startPoint:CGPoint(x:x,y:y-18),endPoint:CGPoint(x:x+16,y:y+18)))
+            context.stroke(cup,with:.color(cushion.opacity(0.85)),lineWidth:1)
+            let padding=Path(roundedRect:CGRect(x:x+3,y:y-12,width:10,height:24),cornerRadius:5)
+            context.fill(padding,with:.color(cushion))
+            var seam=Path(); seam.move(to:CGPoint(x:x+8+side*4,y:y-8)); seam.addLine(to:CGPoint(x:x+8+side*4,y:y+8))
+            context.stroke(seam,with:.color(accent.opacity(0.48)),style:StrokeStyle(lineWidth:1.2,lineCap:.round))
+            let joint=Path(ellipseIn:CGRect(x:x+6,y:y-17,width:4,height:4))
+            context.fill(joint,with:.color(accent.opacity(0.5)))
+        }
+    }
+
+    private static func drawBadge(_ style:BotAvatarBadgeStyle,in glyph:inout GraphicsContext) {
+        let ink=Color(red:0.13,green:0.14,blue:0.18)
+        var mark=Path()
+        switch style {
+        case .spark:
+            mark.move(to:CGPoint(x:0,y:-7))
+            mark.addQuadCurve(to:CGPoint(x:6,y:0),control:CGPoint(x:1.5,y:-1.5))
+            mark.addQuadCurve(to:CGPoint(x:0,y:7),control:CGPoint(x:1.5,y:1.5))
+            mark.addQuadCurve(to:CGPoint(x:-6,y:0),control:CGPoint(x:-1.5,y:1.5))
+            mark.addQuadCurve(to:CGPoint(x:0,y:-7),control:CGPoint(x:-1.5,y:-1.5))
             mark.closeSubpath()
-            context.fill(mark,with:.color(bodyColor))
+        case .heart:
+            mark.move(to:CGPoint(x:0,y:6))
+            mark.addCurve(to:CGPoint(x:0,y:-3),control1:CGPoint(x:-13,y:-1),control2:CGPoint(x:-5,y:-10))
+            mark.addCurve(to:CGPoint(x:0,y:6),control1:CGPoint(x:5,y:-10),control2:CGPoint(x:13,y:-1))
+            mark.closeSubpath()
+        case .bolt:
+            mark.move(to:CGPoint(x:2,y:-7)); mark.addLine(to:CGPoint(x:-5,y:1))
+            mark.addLine(to:CGPoint(x:0,y:1)); mark.addLine(to:CGPoint(x:-2,y:7))
+            mark.addLine(to:CGPoint(x:5,y:-1)); mark.addLine(to:CGPoint(x:0,y:-1)); mark.closeSubpath()
+        case .leaf:
+            mark.move(to:CGPoint(x:-5,y:5))
+            mark.addCurve(to:CGPoint(x:6,y:-6),control1:CGPoint(x:-9,y:-5),control2:CGPoint(x:2,y:-8))
+            mark.addCurve(to:CGPoint(x:-5,y:5),control1:CGPoint(x:8,y:2),control2:CGPoint(x:3,y:9))
+            mark.closeSubpath()
+        }
+        glyph.fill(mark,with:.color(ink))
+        glyph.stroke(mark,with:.color(ink),style:StrokeStyle(lineWidth:0.7,lineCap:.round,lineJoin:.round))
+        if style == .leaf {
+            var vein=Path(); vein.move(to:CGPoint(x:-3,y:3)); vein.addLine(to:CGPoint(x:3,y:-3))
+            glyph.stroke(vein,with:.color(.white.opacity(0.8)),style:StrokeStyle(lineWidth:1,lineCap:.round))
         }
     }
 
