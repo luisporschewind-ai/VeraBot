@@ -1,8 +1,12 @@
 # 项目状态 (STATUS) — 2026-10-07
 
+## 2026-10-10 · 文件附件实现进行中
+
+- iOS 文件菜单已启用系统文件选择器；后端 schema v19 已增加文件存储、文本抽取和按需读取能力。支持 PDF/TXT/MD/CSV/DOCX/XLSX，10 MB，单消息一个附件。设备/真实模型验收尚未完成；解析器 15 秒硬超时已加入。
+
 ## 2026-10-10 · 主线整合待主机测试
 
-- `main` 已纳入头像系统、俄罗斯方块陪玩、记忆成长 M2–M5；数据库迁移版本为 v18（v15 Bot 外观、v16 M3、v17 M4、v18 M5）。
+- `main` 已纳入头像系统、俄罗斯方块陪玩、记忆成长 M2–M5；数据库迁移版本为 v19（v15 Bot 外观、v16 M3、v17 M4、v18 M5、v19 文件附件）。
 - M3/M4/M5 自动化与模拟器构建沿用隔离分支记录；本次整合后尚未重跑。M3/M4 页面与 M5 语义召回、权限共享、反馈提示仍待手工验收。
 - M5 的 BGE-small-zh 向量能力为可选本地依赖；未安装或不可用时回退关键词。Web 冻结。
 - 当前工作区为本机 `main`，整合后可在主机上启动验收；远程 `origin/main` 尚未同步。
@@ -36,7 +40,7 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前主线启动时迁移至 **schema v18**（v3 头像 / 昵称；v4 记忆；v5 标签；v6 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号；v10 插件；v11 提醒与通知；v12 图片附件；v13 授权连接器；v14 M2 任务；v15 Bot 外观；v16 M3；v17 M4；v18 M5 向量）。iOS `0.1.0 (1)` |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前代码启动时迁移至 **schema v19**（v3 头像 / 昵称；v4 记忆；v5 标签；v6 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号；v10 插件；v11 提醒与通知；v12 图片附件；v13 授权连接器；v14 M2 任务；v15 Bot 外观；v16 M3；v17 M4；v18 M5 向量；v19 文件附件）。iOS `0.1.0 (1)` |
 | 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-flash` (思考模式关闭；2026-10-03 前为 `deepseek-chat`) |
@@ -185,7 +189,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 输入栏 Composer | ✅ | 浮动玻璃：圆形 ＋ (附件占位菜单) + 胶囊输入框 + 🎙；无发送按钮，return 发送；Boss 已验收 |
 | 消息富文本 Rich messages | ✅ | Markdown 排版、自动识别网址 / 电话 / 邮箱、网页在 App 内打开、长按复制；解析有单元测试，Boss 已验收 |
 | App 图标 / 名称 | ✅ | 主屏「Vera Bot」；AppIcon 1024 单尺寸 |
-| 附件 Attachments | 🟡 部分 | ＋ 菜单：「图片」(PhotosPicker，P1) 与「拍照」(系统相机，P2，2026-10-04；无相机设备不显示) 可用；「文件」仍「即将支持」(禁用) |
+| 附件 Attachments | 🟡 部分 | ＋ 菜单：「图片」(PhotosPicker，P1) 与「拍照」(系统相机，P2，2026-10-04；无相机设备不显示) 可用；「文件」已启用 iOS 系统文件选择器；PDF/TXT/MD/CSV/DOCX/XLSX、10 MB、单消息一个；真实设备验收待做 |
 
 ## 2. 已知限制 (Known limits)
 

@@ -11,14 +11,15 @@
 from . import (tags_coerce, v001_base, v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned,
                v007_mcp, v008_mcp_sync, v009_auth, v010_plugins, v011_reminders, v012_attachments,
                v013_mcp_auth, v014_memory_jobs, v015_bot_appearance,
-               v016_memory_suggestions, v017_memory_reviews, v018_memory_vectors)
+               v016_memory_suggestions, v017_memory_reviews, v018_memory_vectors, v019_file_attachments)
 
-SCHEMA_VERSION = 18  # v15 = Bot 外观，v16 = 记忆 M3，v17 = 记忆 M4，v18 = 记忆 M5 向量缓存
+SCHEMA_VERSION = 19  # v19 = 文件附件
 
 STEPS = (
     v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned, v007_mcp, v008_mcp_sync,
     v009_auth, v010_plugins, v011_reminders, tags_coerce, v012_attachments, v013_mcp_auth,
     v014_memory_jobs, v015_bot_appearance, v016_memory_suggestions, v017_memory_reviews, v018_memory_vectors,
+    v019_file_attachments,
 )
 
 

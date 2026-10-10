@@ -32,6 +32,9 @@ class TurnState:
     image_tainted: bool = False
     recalls: int = 0
     pending_images: list = field(default_factory=list)
+    file_ids: list = field(default_factory=list)
+    file_reads: int = 0
+    file_owner_bot_id: int | None = None
 
 
 @dataclass

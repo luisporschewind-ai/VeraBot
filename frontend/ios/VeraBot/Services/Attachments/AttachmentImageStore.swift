@@ -47,10 +47,10 @@ enum AttachmentPreviewFiles {
         FileManager.default.temporaryDirectory.appendingPathComponent("vb-attachment-preview", isDirectory: true)
     }
 
-    static func write(_ data: Data, id: String) -> URL? {
+    static func write(_ data: Data, id: String, ext: String? = nil) -> URL? {
         let dir = directory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let url = dir.appendingPathComponent(id).appendingPathExtension(AttachmentLimits.fileExtension(for: data))
+        let url = dir.appendingPathComponent(id).appendingPathExtension(ext ?? AttachmentLimits.fileExtension(for: data))
         do {
             try data.write(to: url, options: [.atomic, .completeFileProtection])
             return url

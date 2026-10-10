@@ -92,8 +92,9 @@ async def ask_bot(ctx: ToolContext, bot_name: str, question: str, shared_context
         db.audit(ctx.user_id, ctx.bot["id"], "delegation_memory_filtered",
                  {"delegation_id": did, "to": target["id"], "shared_ids": shared_ids,
                   "target_memory_ids": target_memory_ids, "rejected_count": filtered_count})
-    if ctx.turn.image_ids:   # 图片附件 v12：本轮图片按引用转给了被委派 Bot（同一用户，同一 attachment_id）
-        out["attachment_ids"] = list(ctx.turn.image_ids)
+    delegated_attachment_ids = list(dict.fromkeys([*ctx.turn.image_ids, *ctx.turn.file_ids]))
+    if delegated_attachment_ids:   # 附件按引用传递；文件正文不写入委派审计
+        out["attachment_ids"] = delegated_attachment_ids
         db.audit(ctx.user_id, ctx.bot["id"], "delegation_attachments",
                  {"delegation_id": did, "to": target["id"], "attachment_ids": out["attachment_ids"]})
     return out

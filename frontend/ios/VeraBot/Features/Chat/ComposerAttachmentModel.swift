@@ -20,6 +20,8 @@ final class ComposerAttachmentModel {
     /// 缩略图：GIF 为逐帧动图（与气泡同一解码器），其他格式为静态图。
     private(set) var preview: UIImage?
     private var prepared: PreparedImage?
+    private var preparedFile: Data?
+    private var preparedFilename: String?
     private var task: Task<Void, Never>?
     private let botID: Int
     private let api: any VeraBotAPI
@@ -41,6 +43,7 @@ final class ComposerAttachmentModel {
 
     /// 待发送的是 GIF：缩略图用 `AnimatedImageView` 播放（与对话气泡一致）。
     var isGIF: Bool { prepared?.mime == "image/gif" }
+    var pendingFilename: String? { preparedFilename }
 
     var ready: Attachment? {
         if case .ready(let attachment) = state { return attachment }
@@ -55,6 +58,27 @@ final class ComposerAttachmentModel {
     /// 再走与相册相同的压缩路径（长边 2048、JPEG 0.8、重新写出不带 EXIF / GPS）；拍新照片同样替换当前这张。
     func pick(_ photo: UIImage) {
         start { photo.jpegData(compressionQuality: 1) }
+    }
+
+    func pickFile(_ url: URL) {
+        discardUploaded(); task?.cancel(); state = .preparing; preview = nil; prepared = nil
+        task = Task { [weak self] in
+            do {
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                let values = try url.resourceValues(forKeys: [.fileSizeKey])
+                if let size = values.fileSize, size > AttachmentLimits.maxBytes { throw CocoaError(.fileReadTooLarge) }
+                let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+                guard data.count <= AttachmentLimits.maxBytes else { throw CocoaError(.fileReadTooLarge) }
+                let name = url.lastPathComponent
+                guard ["pdf", "txt", "md", "csv", "docx", "xlsx"].contains(url.pathExtension.lowercased()) else {
+                    throw NSError(domain: "VeraBotAttachment", code: 1, userInfo: [NSLocalizedDescriptionKey: "支持 PDF、TXT、MD、CSV、DOCX 和 XLSX 文件"])
+                }
+                guard let self else { return }
+                self.preparedFile = data; self.preparedFilename = name
+                await self.upload()
+            } catch { self?.fail(error.localizedDescription) }
+        }
     }
 
     private func start(_ load: @escaping @MainActor () async throws -> Data?) {
@@ -87,7 +111,7 @@ final class ComposerAttachmentModel {
     }
 
     func retry() {
-        guard prepared != nil else { return }
+        guard prepared != nil || preparedFile != nil else { return }
         task?.cancel()
         task = Task { [weak self] in await self?.upload() }
     }
@@ -108,10 +132,19 @@ final class ComposerAttachmentModel {
     }
 
     private func upload() async {
-        guard let prepared else { return }
+        guard let prepared, preparedFile == nil else {
+            guard let data = preparedFile, let filename = preparedFilename else { return }
+            state = .uploading
+            do {
+                let result = try await api.uploadAttachment(data: data, mime: "application/octet-stream", botID: botID, filename: filename)
+                guard !Task.isCancelled else { return }
+                state = .ready(result)
+            } catch { guard !Task.isCancelled else { return }; fail(error.localizedDescription) }
+            return
+        }
         state = .uploading
         do {
-            let attachment = try await api.uploadAttachment(data: prepared.data, mime: prepared.mime, botID: botID)
+            let attachment = try await api.uploadAttachment(data: prepared.data, mime: prepared.mime, botID: botID, filename: nil)
             guard !Task.isCancelled else { return }
             state = .ready(attachment)
         } catch {
@@ -128,6 +161,7 @@ final class ComposerAttachmentModel {
         state = .empty
         preview = nil
         prepared = nil
+        preparedFile = nil; preparedFilename = nil
         task = nil
     }
 

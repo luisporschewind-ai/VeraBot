@@ -14,7 +14,7 @@ def count_since(c, user_id: int, since: str) -> int:
 
 
 def bytes_used(c, user_id: int) -> int:
-    return c.execute("SELECT COALESCE(SUM(bytes),0) FROM attachments WHERE user_id=?", (user_id,)).fetchone()[0]
+    return c.execute("SELECT COALESCE(SUM(bytes + COALESCE(text_bytes,0)),0) FROM attachments WHERE user_id=?", (user_id,)).fetchone()[0]
 
 
 def insert_pending(c, *, att_id: str, user_id: int, bot_id: int | None, mime: str, nbytes: int, width: int,
@@ -26,6 +26,17 @@ def insert_pending(c, *, att_id: str, user_id: int, bot_id: int | None, mime: st
         " VALUES (?,?,?,NULL,'image',?,?,?,?,?,?,?,?,'pending',?,?)",
         (att_id, user_id, bot_id, mime, nbytes, width, height, sha256, storage_backend, storage_key, thumb_key,
          created_at, expires_at))
+
+
+def insert_pending_file(c, *, att_id: str, user_id: int, bot_id: int | None, mime: str, nbytes: int,
+                        sha256: str, storage_backend: str, storage_key: str, text_key: str,
+                        text_bytes: int, filename: str, extension: str, text_status: str,
+                        text_chars: int, page_count: int, created_at: str, expires_at: str) -> None:
+    c.execute("INSERT INTO attachments(id,user_id,bot_id,kind,mime,bytes,width,height,sha256,storage_backend,"
+              "storage_key,text_key,text_bytes,filename,extension,text_status,text_chars,page_count,status,created_at,expires_at) "
+              "VALUES (?,?,?,'file',?,?,0,0,?,?,?,?,?,?,?,?,?,?,'pending',?,?)",
+              (att_id,user_id,bot_id,mime,nbytes,sha256,storage_backend,storage_key,text_key,text_bytes,
+               filename,extension,text_status,text_chars,page_count,created_at,expires_at))
 
 
 def get(c, user_id: int, att_id: str) -> dict | None:
@@ -82,4 +93,4 @@ def delete_by_id(c, att_id: str) -> None:
 
 
 def all_keys(c) -> list[dict]:
-    return rows(c.execute("SELECT id, storage_key, thumb_key FROM attachments"))
+    return rows(c.execute("SELECT id, storage_key, thumb_key, text_key FROM attachments"))

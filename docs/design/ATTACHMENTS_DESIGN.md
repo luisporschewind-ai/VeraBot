@@ -16,6 +16,8 @@
 - **P1 范围**：iOS 用系统 `PhotosPicker` 每条消息选 **1 张**图（Q3；相机 P2，Q4），输入栏显示缩略图，气泡**始终显示真实图片**（Q6；GIF 在气泡里完整播放，Q9）；后端两步上传（先传图拿 id，再随消息发送），本地磁盘 + SQLite 元数据 + 薄存储接口（Q5），鉴权代理返回、`no-store`、去 EXIF、限大小和类型；首轮由模型生成图片描述，后续轮次按需召回原图（Q6）；委派时把图片转给被委派的 Bot（Q8）；带图轮次的写操作需用户确认（Q11）；schema v12 新增 `attachments` 表。
 - **分期**：P0 模型迁移（约 0.5 人日，已完成）→ P1 图片（约 4.5 人日，含委派带图与图片描述）→ P2 相机 / 保存到相册 / OCR → P3 文件与 PDF。
 
+> **当前补充（2026-10-10）**：本文历史正文记录 schema v12 图片附件；图片菜单与拍照实现仍沿用。文件附件方案和当前实现边界以 [FILE_ATTACHMENT_PLAN.md](FILE_ATTACHMENT_PLAN.md) 为准：schema v19、iOS 系统文件选择器、PDF/TXT/MD/CSV/DOCX/XLSX、10 MB、单消息 1 个。Web 仍不支持附件。
+
 ## 1. DeepSeek 视觉能力核查 (Vision support check)
 
 ### 1.1 仓库现状（只读，未打开 `.env`、未使用 Key）
