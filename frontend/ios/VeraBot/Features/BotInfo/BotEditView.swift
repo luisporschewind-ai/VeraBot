@@ -93,6 +93,16 @@ struct BotEditView: View {
                 .listRowBackground(Color.clear)
             }
 
+            Section("新版机器人形象") {
+                RobotAvatarView(action: .idle, size: 88,
+                                color: BotAvatarColorPalette.appearanceColor(for: color)?.swiftUIColor ?? Color(hex: color),
+                                appearance: avatarPreviewAppearance)
+                    .frame(maxWidth: .infinity).frame(height: 112)
+                BotAvatarColorPicker(selection: $color)
+                Text("相册照片继续作为头像显示；这里设置机器人默认主色，状态动画会沿用该颜色。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+
             Section {
                 // 多行：回车换行（不使用 submitLabel .next）；下拉表单 / 保存 / 关闭收起键盘
                 TextField("例如：资深研究员，擅长资料检索与总结", text: $persona, axis: .vertical).lineLimit(3...8)
@@ -317,8 +327,9 @@ struct BotEditView: View {
         if let pendingImage {
             BotAvatar(emoji: stored, color: tint, image: pendingImage, size: 72)
         } else if draft.photo == .remove || !savedBot.hasAvatar {
-            DefaultBotFigure(storedAvatar: stored, size: 72,
-                             appearance: savedBot.supportedAppearance, color: Color(hex: tint))
+            RobotAvatarView(action: .idle, size: 72,
+                            color: BotAvatarColorPalette.appearanceColor(for: tint)?.swiftUIColor ?? Color(hex: tint),
+                            appearance: avatarPreviewAppearance)
         } else {
             LiveBotAvatar(botID: bot.id, emoji: stored, color: tint,
                           hasAvatar: savedBot.hasAvatar, updatedAt: savedBot.avatarUpdatedAt, size: 72,
@@ -353,6 +364,15 @@ struct BotEditView: View {
             s += "护栏：最多 \(g.maxDelegationDepth) 跳、每轮最多 \(g.maxDelegationsPerTurn) 次委派、共享背景最多 \(g.maxSharedContext) 字；对方看不到你们的聊天记录。"
         }
         return s
+    }
+
+    private var avatarPreviewAppearance: BotAppearance? {
+        guard var appearance = savedBot.supportedAppearance,
+              let selected = BotAvatarColorPalette.appearanceColor(for: color) else {
+            return savedBot.supportedAppearance
+        }
+        appearance.palette.body = selected
+        return appearance
     }
 
     private func setMuted(_ on: Bool) async {

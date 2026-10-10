@@ -22,6 +22,7 @@ public protocol VeraBotAPI: Sendable {
     func uploadBotAvatar(botID: Int, jpeg: Data) async throws -> Bot
     func botAvatarData(botID: Int) async throws -> Data
     func deleteBotAvatar(botID: Int) async throws -> Bot
+    func tetrisCompanion(botID: Int, request: TetrisCompanionRequest) async throws -> TetrisCompanionReply
     func bots() async throws -> BotsResponse
     func createBot(_ b: BotCreate) async throws -> Bot
     func deleteBot(_ id: Int) async throws -> OKResponse

@@ -8,6 +8,7 @@
 | — | [CHANGELOG.md](CHANGELOG.md) | 更新日志 (Keep a Changelog + SemVer) |
 | — | [ROADMAP_NEXT.md](ROADMAP_NEXT.md) | 提醒、附件、多模态、TTS、安全、部署、CI 与 Web 的后续规划草案；未授权开工 |
 | product/ | [FEATURES.md](product/FEATURES.md) | 功能清单、API 摘要、SSE 事件格式 |
+| product/ | [2026-10-08-playful-world-discussion.md](product/2026-10-08-playful-world-discussion.md) | Vera Bot 私人小世界、游乐场玩法、三 Tab 与阶段性产品讨论；含 3D 魔方候选方案（未实现） |
 | superpowers/specs/ | [2026-10-09-bot-travel-design.md](superpowers/specs/2026-10-09-bot-travel-design.md) | Bot 旅行第一版：真实地点轻探索、分阶段揭晓、旅行相册与五分钟 iOS 原型范围 |
 | superpowers/plans/ | [2026-10-09-bot-travel.md](superpowers/plans/2026-10-09-bot-travel.md) | Bot 旅行第一版实现步骤与核对清单 |
 | design/ | [ARCHITECTURE.md](design/ARCHITECTURE.md) | 两个项目的架构、模块、依赖规则、依赖管理 (SPM / uv)、数据模型 |

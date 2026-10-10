@@ -6,7 +6,7 @@ struct CreateBotSheet: View {
     @Environment(\.dismiss) private var dismiss
     let onCreated: @MainActor () -> Void
 
-    @State private var draft = BotCreate(name: "", avatar: BotAvatarFigure.default.rawValue, color: BotLook.colors[0], persona: "", instructions: "")
+    @State private var draft = BotCreate(name: "", avatar: BotAvatarFigure.default.rawValue, color: BotAvatarColorPalette.defaultColor, persona: "", instructions: "")
     @State private var saving = false
     @State private var errorText: String?
     @State private var tagsText = ""   // 「搜索, 查询, 调研」；保存时 BotTagRules.parse
@@ -18,7 +18,6 @@ struct CreateBotSheet: View {
             ThemedForm {
                 Section {
                     HStack(spacing: 14) {
-                        DefaultBotFigure(storedAvatar: draft.avatar, size: 56)
                         TextField("昵称，如：小研", text: $draft.name)
                             .focused($focus, equals: .name)
                             .submitLabel(.next)
@@ -27,9 +26,11 @@ struct CreateBotSheet: View {
                     BotTagsField(text: $tagsText)
                 }
                 Section("新版机器人头像") {
-                    RobotAvatarView(action: .idle, size: 88, color: Color(hex: draft.color))
-                        .frame(maxWidth: .infinity).frame(height: 108)
-                    Text("Bot 状态和情绪会驱动头像变化；外观可在新版头像实验室配置。")
+                    RobotAvatarView(action: .idle, size: 88,
+                                    color: BotAvatarColorPalette.appearanceColor(for: draft.color)?.swiftUIColor ?? Color(hex: draft.color))
+                        .frame(maxWidth: .infinity).frame(height: 112)
+                    BotAvatarColorPicker(selection: $draft.color)
+                    Text("Bot 状态和情绪会驱动头像变化；当前可设置颜色，更多形状后续支持。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 Section {

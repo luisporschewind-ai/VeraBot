@@ -5,6 +5,8 @@ enum BotAvatarState: String, CaseIterable, Identifiable {
     case idle, bored, waiting
     case waitingWrap = "waiting-wrap"
     case input, send, success, failure, warning, inspect, blocked, error, surprise, sleep, wake, love, random
+    case starEyes = "star-eyes"
+    case smile = "smile"
     case thinking, recalling, working, delegating, replying
     case awaitingConfirmation = "awaiting-confirmation"
     var id: String { rawValue }
@@ -33,6 +35,8 @@ enum BotAvatarState: String, CaseIterable, Identifiable {
         case .delegating: "委派"
         case .replying: "回复"
         case .awaitingConfirmation: "等待确认"
+        case .starEyes: "星星眼"
+        case .smile: "微笑 · 月牙眼"
         }
     }
     var detail: String {
@@ -60,6 +64,8 @@ enum BotAvatarState: String, CaseIterable, Identifiable {
         case .delegating: "向右观察并点头，天线随交接方向偏移"
         case .replying: "双眼轻动，头部与天线随回复节奏点动"
         case .awaitingConfirmation: "面向你等待回应，轻点头提示确认"
+        case .starEyes: "双眼变成圆润星星，明亮地轻轻闪烁"
+        case .smile: "双眼弯成圆润月牙，轻轻笑起后自然睁开"
         }
     }
     enum Category { case original, work }

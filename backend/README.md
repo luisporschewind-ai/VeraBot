@@ -108,3 +108,7 @@ uv run python scripts/dev/seed_demo.py --reset   # 重建演示账号 demo / ver
 ## 7. 许可证 (License)
 
 [MIT License](../LICENSE)，Copyright (c) 2026 Luis Porsche。打包的 `VeraBot-backend-v*.zip` 内附 `LICENSE`。
+
+### 俄罗斯方块陪玩
+
+`POST /api/bots/{bot_id}/tetris-companion` 接收局面摘要和短对话，返回 `{text}`；采用现有登录鉴权、Bot 归属和每日 Token 预算。服务端调用模型，携带 Bot 人设，不执行工具、不持久化对话或记忆。输入验证、权限、预算和错误用例：`uv run python scripts/test/tetris_companion_test.py`。

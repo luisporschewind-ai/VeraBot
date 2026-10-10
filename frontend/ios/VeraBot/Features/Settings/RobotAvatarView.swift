@@ -28,6 +28,9 @@ struct RobotAvatarView: View {
     var ambient = true
     var replay = 0
     var appearance: BotAppearance? = nil
+    var skin: BotAvatarSkin? = nil
+    var familyLook = BotAvatarFamilyLook()
+    var staticPreview = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -45,13 +48,20 @@ struct RobotAvatarView: View {
     @State private var entryPose: RobotAvatarMotion.Frame?
     @GestureState private var fingerDown = false
 
-    private var active: Bool { visible && scenePhase == .active && !reduceMotion }
+    private var active: Bool { visible && scenePhase == .active && !reduceMotion && !staticPreview }
     // The antenna extends above the 240-point viewport; its spring needs extra drawing room.
-    private var template: BotAvatarTemplate { BotAvatarTemplateRegistry.resolve(id:appearance?.templateID ?? "cx-robot",version:appearance?.templateVersion ?? 1) ?? .robot }
+    private var template: BotAvatarTemplate {
+        var value = BotAvatarTemplateRegistry.resolve(id:appearance?.templateID ?? "cx-robot",version:appearance?.templateVersion ?? 1) ?? .robot
+        if let seed = familyLook.shape.seed {
+            value.antennaAnchor = RobotAvatarFamilyGeometry.antenna(seed:seed,roundness:appearance?.parameters.roundness ?? roundness)
+        }
+        return value
+    }
+    private var activeSkin: BotAvatarSkin? { familyLook.skin ?? skin }
     private var bodyColor: Color { appearance?.palette.body.swiftUIColor ?? color }
     private var eyeColor: Color { appearance?.palette.eyes.swiftUIColor ?? Color(red:248.0/255,green:248.0/255,blue:246.0/255) }
     private var drawingOverflow: CGFloat { size / 240 * template.drawingMargin }
-    private var taskKey: String { "\(action.rawValue)|\(replay)|\(tapReplay)|\(active)" }
+    private var taskKey: String { "\(action.rawValue)|\(replay)|\(tapReplay)|\(active)|\(familyLook.shape.rawValue)" }
 
     var body: some View {
         ZStack {
@@ -61,24 +71,32 @@ struct RobotAvatarView: View {
             context.scaleBy(x: scale, y: scale)
             context.translateBy(x: -120, y: -120)
             let frame = currentFrame()
-            let headPath = BotAvatarTemplateGeometry.head(template:template,parameters:appearance?.parameters ?? .init(roundness:roundness),interaction:interaction)
+            let headPath = BotAvatarTemplateGeometry.head(template:template,parameters:appearance?.parameters ?? .init(roundness:roundness),interaction:interaction,familyShape:familyLook.shape)
             var head = context
             head.concatenate(headTransform(frame))
-            head.fill(headPath, with: .color(bodyColor))
             head.clip(to: headPath)
+            if let activeSkin { RobotAvatarSkinRendering.draw(activeSkin, in: &head) }
+            else { head.fill(headPath, with:.color(bodyColor)) }
             for eye in frame.eyes {
                 var eyeContext = head
                 eyeContext.translateBy(x: 120 + eye.x, y: 120 + eye.y)
                 eyeContext.scaleBy(x: eye.scaleX, y: eye.scaleY)
                 eyeContext.opacity = eye.opacity
-                let path = eye.heart > 0 ? RobotAvatarGeometry.heart(eye) : RobotAvatarGeometry.eye(eye, blink: allowsAmbient ? blink : 1)
+                let path: Path
+                if eye.star > 0.001 { path = RobotAvatarGeometry.star(eye,progress:eye.star) }
+                else if eye.heart > 0 { path = RobotAvatarGeometry.heart(eye) }
+                else if eye.smile > 0.001 { path = RobotAvatarGeometry.crescent(eye) }
+                else { path = RobotAvatarGeometry.eye(eye,blink:allowsAmbient ? blink : 1) }
                 eyeContext.fill(path, with: .color(eyeColor))
             }
+            var adornment = context
+            adornment.concatenate(headTransform(frame))
+            RobotAvatarAccessoryRendering.draw(familyLook.accessory,head:headPath,color:eyeColor,bodyColor:bodyColor,in:&adornment)
             let point = displayedAntenna
             let stretch = interaction.kind == .antenna ? max(-0.06, min(0.06, interaction.y.velocity * 0.0004)) : 0
             context.opacity = frame.antennaOpacity
             context.fill(Path(ellipseIn: CGRect(x: point.x - template.antennaRadius * (1 + stretch), y: point.y - template.antennaRadius * (1 - stretch),
-                                               width: template.antennaRadius * 2 * (1 + stretch), height: template.antennaRadius * 2 * (1 - stretch))), with: .color(bodyColor))
+                                               width: template.antennaRadius * 2 * (1 + stretch), height: template.antennaRadius * 2 * (1 - stretch))), with: .color(activeSkin.map(RobotAvatarSkinRendering.antennaColor) ?? bodyColor))
           }
           .accessibilityHidden(true)
           Color.clear

@@ -142,4 +142,43 @@ enum RobotAvatarGeometry {
         path.closeSubpath()
         return path
     }
+
+    /// Morph the open ellipse into a rounded upward smile, preserving both curved ends.
+    static func crescent(_ eye: RobotAvatarMotion.Eye) -> Path {
+        let morph = RobotAvatarMotion.clamp(eye.smile)
+        var path = Path()
+        for index in 0..<128 {
+            let angle = Double(index) / 128 * .pi * 2
+            let u = cos(angle)
+            let openY = sin(angle) * eye.height / 2
+            let smileY = -8 + 12 * u * u + sin(angle) * 5
+            let point = CGPoint(x:u * eye.width / 2,
+                                y:RobotAvatarMotion.mix(openY,smileY,morph))
+            if index == 0 { path.move(to:point) } else { path.addLine(to:point) }
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    static func star(_ eye: RobotAvatarMotion.Eye, progress: Double) -> Path {
+        let morph = RobotAvatarMotion.clamp(progress)
+        let innerRadius = RobotAvatarMotion.mix(1,0.46,morph)
+        let points = (0..<10).map { index -> CGPoint in
+            let angle = -Double.pi / 2 + Double(index) * .pi / 5
+            let radius = index.isMultiple(of:2) ? 1.0 : innerRadius
+            return CGPoint(x:cos(angle) * radius * eye.width / 2,
+                           y:sin(angle) * radius * eye.height / 2)
+        }
+        func blend(_ a:CGPoint,_ b:CGPoint,_ amount:CGFloat) -> CGPoint {
+            CGPoint(x:a.x + (b.x-a.x)*amount,y:a.y + (b.y-a.y)*amount)
+        }
+        var path = Path()
+        path.move(to:blend(points[9],points[0],0.18))
+        for index in points.indices {
+            let current = points[index], next = points[(index+1) % points.count]
+            path.addQuadCurve(to:blend(current,next,0.18),control:current)
+        }
+        path.closeSubpath()
+        return path
+    }
 }

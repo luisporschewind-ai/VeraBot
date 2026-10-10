@@ -1,4 +1,6 @@
 import SwiftUI
+import VeraBotCore
+import VeraBotNetworking
 
 struct SokobanGameView: View {
     @Environment(\.dismiss) private var dismiss
@@ -450,77 +452,42 @@ private enum TwentyPrompt {
 struct TetrisGameView: View {
     @State private var game = TetrisGame()
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 10)
+    @Environment(AppState.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var companion = TetrisCompanionModel()
+    @State private var showingConversation = false
+    @State private var showingPartners = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(game.isGameOver ? "这一局结束啦" : "方块落下，慢慢找位置")
-                            .font(.headline)
-                        Text("消除整行得分，速度会逐渐加快。")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(game.score)")
-                            .font(.title2.bold().monospacedDigit())
-                            .foregroundStyle(Color.brand)
-                        Text("\(game.lines) 行")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+        GeometryReader { proxy in
+            let availableHeight = max(200, proxy.size.height - 204 - (game.isPaused || game.isGameOver ? 40 : 0))
+            let boardWidth = min(290, max(100, proxy.size.width - 122), availableHeight / 2)
+            ScrollView {
+            VStack(spacing: 12) {
+                TetrisCompanionPresence(model: companion, onTalk: openConversation,
+                    onChoose: { game.isPaused = true; showingPartners = true },
+                    onQuiet: { companion.setQuiet(!companion.quiet) },
+                    onRetry: { Task { await companion.load(app: app) } })
+                scoreHeader
 
-                HStack(spacing: 12) {
-                    TetrisBoard(game: game)
-                        .aspectRatio(0.5, contentMode: .fit)
-                        .frame(maxWidth: 290)
-                    VStack(spacing: 8) {
-                        Text("下一个")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        TetrisNextPiece(kind: game.nextKind)
-                            .frame(width: 74, height: 74)
-                        Spacer(minLength: 8)
-                        Button {
-                            game.isPaused.toggle()
-                        } label: {
-                            Image(systemName: game.isPaused ? "play.fill" : "pause.fill")
-                                .font(.headline)
-                                .frame(width: 48, height: 44)
-                                .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 12))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(game.isGameOver)
-                        .accessibilityLabel(game.isPaused ? "继续" : "暂停")
-
-                        Button {
-                            game = TetrisGame()
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.headline)
-                                .frame(width: 48, height: 44)
-                                .background(Color.brandSoft, in: RoundedRectangle(cornerRadius: 12))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("重新开始")
-                    }
-                    .frame(maxHeight: .infinity, alignment: .top)
-                }
-                .frame(maxWidth: .infinity)
+                boardArea(width: boardWidth)
 
                 if game.isGameOver || game.isPaused {
-                    Text(game.isGameOver ? "再来一局，试试新的摆法。" : "游戏已暂停，准备好后继续。")
+                    Text(game.isGameOver ? "本局 \(game.score) 分 · 消除 \(game.lines) 行，点头像一起回顾。" : "游戏已暂停，准备好后继续。")
                         .font(.footnote.weight(.medium))
                         .foregroundStyle(Color.brand)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 9)
                         .background(Color.brandSoft, in: RoundedRectangle(cornerRadius: 12))
                 }
-
+            }
+            .padding(18)
+            .frame(maxWidth: 480)
+            .frame(maxWidth: .infinity)
+        }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 6) {
                 HStack(spacing: 10) {
                     TetrisControlButton(symbol: "chevron.left", label: "向左") { game.move(-1) }
                     TetrisControlButton(symbol: "chevron.down", label: "加速下落") { game.softDrop() }
@@ -531,17 +498,68 @@ struct TetrisGameView: View {
                 .disabled(game.isPaused || game.isGameOver)
 
                 Text("左右移动 · 旋转 · 加速下落 · 直接落下")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity)
             }
-            .padding(18)
-            .frame(maxWidth: 480)
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 18)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            .background(.ultraThinMaterial)
         }
         .themedPageBackground()
         .navigationTitle("俄罗斯方块")
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: app.sessionGeneration) {
+            companion.newRound()
+            companion.selected = nil
+            companion.bots = []
+            await companion.load(app: app)
+            guard !Task.isCancelled else { return }
+            companion.send(snapshot(event: "start"), automatic: true, app: app)
+        }
+        .onChange(of: game.lockedPieces) { _, count in
+            guard count > 0 else { return }
+            companion.observe(snapshot(event: game.isGameOver ? "end" : "clear"), ended: game.isGameOver, app: app)
+        }
+        .onChange(of: game.isPaused) { _, paused in if paused { companion.flushPending() } }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { game.isPaused = true; companion.stop() }
+        }
+        .onDisappear { game.isPaused = true; companion.stop() }
+        .sheet(isPresented: $showingConversation) {
+            TetrisCompanionConversation(model: companion,
+                summary: "\(game.isGameOver ? "这一局结束了" : "游戏已暂停") · \(game.score) 分 · 消除 \(game.lines) 行",
+                onSend: { message in
+                    var request = snapshot(event: "chat")
+                    request.message = message
+                    companion.send(request, automatic: false, app: app)
+                }, onContinue: { showingConversation = false })
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showingPartners) {
+            NavigationStack {
+                List(companion.bots) { bot in
+                    Button {
+                        companion.choose(bot, app: app)
+                        showingPartners = false
+                    } label: {
+                        HStack {
+                            LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
+                                hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt,
+                                size: 40, appearance: bot.supportedAppearance)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                            Text(bot.name).foregroundStyle(.primary)
+                            Spacer()
+                            if companion.selected?.id == bot.id { Image(systemName: "checkmark").foregroundStyle(Color.brand) }
+                        }
+                    }
+                }
+                .navigationTitle("邀请一个伙伴")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { showingPartners = false } } }
+            }.presentationDetents([.medium, .large])
+        }
         .task(id: game.isPaused || game.isGameOver ? -1 : game.dropInterval) {
             guard !game.isPaused, !game.isGameOver else { return }
             while !Task.isCancelled {
@@ -551,17 +569,105 @@ struct TetrisGameView: View {
             }
         }
     }
+
+    private var scoreHeader: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(game.isGameOver ? "这一局结束啦" : "方块落下，慢慢找位置")
+                    .font(.headline)
+                Text("消除整行得分，速度会逐渐加快。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(game.score)")
+                    .font(.title2.bold().monospacedDigit())
+                    .foregroundStyle(Color.brand)
+                Text("\(game.lines) 行")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func boardArea(width boardWidth: CGFloat) -> some View {
+        HStack(spacing: 12) {
+            TetrisBoard(game: game)
+                .frame(width: boardWidth, height: boardWidth * 2)
+            VStack(spacing: 8) {
+                Text("下一个")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                TetrisNextPiece(kind: game.nextKind)
+                    .frame(width: 74, height: 74)
+                Spacer(minLength: 8)
+                Button {
+                    game.isPaused.toggle()
+                } label: {
+                    Image(systemName: game.isPaused ? "play.fill" : "pause.fill")
+                        .font(.headline)
+                        .frame(width: 48, height: 44)
+                        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .disabled(game.isGameOver)
+                .accessibilityLabel(game.isPaused ? "继续" : "暂停")
+
+                Button {
+                    restart()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.headline)
+                        .frame(width: 48, height: 44)
+                        .background(Color.brandSoft, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("重新开始")
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: boardWidth * 2)
+    }
+
+    private func openConversation() {
+        game.isPaused = true
+        companion.prepareConversation()
+        showingConversation = true
+    }
+
+    private func restart() {
+        game = TetrisGame()
+        companion.newRound()
+        companion.send(snapshot(event: "start"), automatic: true, app: app)
+    }
+
+    private func snapshot(event: String) -> TetrisCompanionRequest {
+        var height = 0
+        var holes = 0
+        for column in 0..<TetrisGame.width {
+            var occupied = false
+            for row in 0..<TetrisGame.height {
+                if game.board[row][column] != nil {
+                    occupied = true
+                    height = max(height, TetrisGame.height - row)
+                } else if occupied { holes += 1 }
+            }
+        }
+        return TetrisCompanionRequest(event: event, score: game.score, lines: game.lines, height: height, holes: holes)
+    }
 }
 
 private struct TetrisBoard: View {
     let game: TetrisGame
-    private let columns = Array(repeating: GridItem(.flexible(minimum: 0), spacing: 2), count: TetrisGame.width)
 
     var body: some View {
         GeometryReader { proxy in
-            let cellSide = proxy.size.width / CGFloat(TetrisGame.width)
+            let cellSide = max(1, min((proxy.size.width - 12 - 18) / CGFloat(TetrisGame.width),
+                                      (proxy.size.height - 12 - 38) / CGFloat(TetrisGame.height)))
             let activeCells = Set(game.activeCells.map { $0.row * TetrisGame.width + $0.column })
-            LazyVGrid(columns: columns, spacing: 2) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(cellSide), spacing: 2), count: TetrisGame.width), spacing: 2) {
                 ForEach(0..<(TetrisGame.width * TetrisGame.height), id: \.self) { index in
                     let row = index / TetrisGame.width
                     let column = index % TetrisGame.width
@@ -575,8 +681,8 @@ private struct TetrisBoard: View {
                         .frame(width: cellSide, height: cellSide)
                 }
             }
-            .frame(width: proxy.size.width, height: cellSide * CGFloat(TetrisGame.height), alignment: .top)
             .padding(6)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
             .background(Color.primary.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
             .overlay(alignment: .center) {
                 if game.isPaused || game.isGameOver {
@@ -677,6 +783,7 @@ private struct TetrisGame {
     private(set) var lines = 0
     var isPaused = false
     private(set) var isGameOver = false
+    private(set) var lockedPieces = 0
 
     var dropInterval: Int { max(130, 620 - (lines / 10) * 55) }
     var activeCells: [TetrisCell] {
@@ -760,6 +867,7 @@ private struct TetrisGame {
     }
 
     private mutating func lockPiece() {
+        lockedPieces += 1
         for cell in activeCells {
             guard cell.row >= 0 else { isGameOver = true; return }
             board[cell.row][cell.column] = activeKind

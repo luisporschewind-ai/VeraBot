@@ -20,6 +20,8 @@ enum BotAvatarWorkMotion {
             frame.eyes[i].scaleX = mix(a.scaleX,b.scaleX); frame.eyes[i].scaleY = mix(a.scaleY,b.scaleY)
             frame.eyes[i].opacity = mix(a.opacity,b.opacity); frame.eyes[i].cursor = mix(a.cursor,b.cursor)
             frame.eyes[i].heart = mix(a.heart,b.heart)
+            frame.eyes[i].star = mix(a.star,b.star)
+            frame.eyes[i].smile = mix(a.smile,b.smile)
         }
         return frame
     }

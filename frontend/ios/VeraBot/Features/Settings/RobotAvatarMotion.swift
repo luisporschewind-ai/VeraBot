@@ -1,4 +1,5 @@
 import Foundation
+import VeraBotCore
 
 // Agent Robot Avatar 0.5.2 (MIT): port of core/actions/waiting/inspect timing and geometry.
 // Time is measured from the user's action in milliseconds, including preparation pauses.
@@ -17,6 +18,8 @@ enum RobotAvatarMotion {
         var opacity = 1.0
         var cursor = 0.0
         var heart = 0.0
+        var star = 0.0
+        var smile = 0.0
     }
     struct Frame {
         var eyes = [Eye(x: -34), Eye(x: 34)]
@@ -64,6 +67,8 @@ enum RobotAvatarMotion {
         case .error: return 1840
         case .surprise: return 1760
         case .love, .random: return RobotSpecialMotion.duration(action: action)
+        case .starEyes: return BotAvatarStarEyesMotion.durationMS
+        case .smile: return BotAvatarSmileMotion.durationMS
         case .success: return 2000
         case .failure: return 2720
         case .blocked: return 1980
@@ -181,6 +186,17 @@ enum RobotAvatarMotion {
             else { morph = 1 - smooth((t - 2520) / 360) }
             let beat = RobotSpecialMotion.pulse(action: .love, milliseconds: t, reduced: reduced, playing: t < 2880)
             for i in 0..<2 { f.eyes[i].heart = morph; f.eyes[i].scaleX = beat; f.eyes[i].scaleY = beat }
+        case .starEyes:
+            let pose = BotAvatarStarEyesMotion.sample(milliseconds:t,reduceMotion:reduced)
+            for i in 0..<2 {
+                f.eyes[i].star = pose.morph
+                f.eyes[i].scaleX = pose.scale
+                f.eyes[i].scaleY = pose.scale
+            }
+        case .smile:
+            let morph = BotAvatarSmileMotion.sample(milliseconds:t,reduceMotion:reduced)
+            for i in 0..<2 { f.eyes[i].smile = morph }
+            f.headY = -2 * morph
         case .success, .failure, .blocked: emotion(action, time: t, frame: &f)
         case .sleep:
             let lid: Double
@@ -219,6 +235,8 @@ enum RobotAvatarMotion {
         case .inspect: 800
         case .surprise: 1000
         case .love: 800
+        case .starEyes: 1100
+        case .smile: 1100
         case .sleep: 4100
         case .success: 800
         case .failure: 1400

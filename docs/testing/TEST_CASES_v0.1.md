@@ -825,3 +825,10 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 ## 2026-10-09 启动、连接、登录与主题专项
 
 参见 [专项验收记录](2026-10-09-startup-connection-appearance.md)：包含 START / CONN / LOGIN / APPEAR 验收矩阵、测试环境、主题问题的修复前后证据，以及自动检查 / 模拟器 / 真机状态的区分。
+
+## Tetris 陪玩专项（2026-10-09）
+
+- 自动用例：`backend/scripts/test/tetris_companion_test.py`（归属/预算/输入/人设/摘要/用量/错误），Kit `TetrisCompanionTests.swift`（30 秒、三次上限、安静模式）。
+- 界面验收：伙伴选择保持、头像暂停与聊天、安静模式、底部控制与棋盘完整显示、重开/离开/后台请求隔离、断网可玩。详细状态见 [专项记录](2026-10-09-tetris-companion.md)。
+
+- 陪玩 Model 生命周期专项：`bash frontend/ios/scripts/test/tetris-companion-model-check.sh`，覆盖请求竞态、用户交流优先、静音与表情保持；使用数据与网络替身，不代替真机验收。

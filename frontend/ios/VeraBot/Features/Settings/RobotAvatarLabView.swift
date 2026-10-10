@@ -2,6 +2,8 @@ import SwiftUI
 import VeraBotCore
 
 struct RobotAvatarLabView: View {
+    @AppStorage("avatarLab.familyLook.v1") private var familyLookJSON = ""
+    @State private var familyLook = BotAvatarFamilyLook()
     @State private var draft = BotAppearanceDraft(saved: .robotDefault)
     @State private var loaded = false
     @State private var message: String?
@@ -14,14 +16,14 @@ struct RobotAvatarLabView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                RobotAvatarView(action:.idle,size:160,appearance:draft.current)
+                RobotAvatarView(action:.idle,size:160,appearance:draft.current,familyLook:familyLook)
                     .frame(maxWidth:.infinity).frame(height:210)
                     .background(Color.sectionFill,in:RoundedRectangle(cornerRadius:20))
-                NavigationLink { BotAvatarStateLabView(appearance:appearance,size:$size) } label: {
-                    entry("状态演示",detail:"原版 17 种＋工作 6 种 · 全部演示与循环",icon:"play.circle")
+                NavigationLink { BotAvatarStateLabView(appearance:appearance,size:$size,familyLook:$familyLook) } label: {
+                    entry("状态演示",detail:"全部 \(BotAvatarState.allCases.count) 种 · 完整演示与循环",icon:"play.circle")
                 }
-                NavigationLink { BotAvatarAppearanceLabView(appearance:appearance,size:$size) } label: {
-                    entry("形象与配色",detail:"共享模板 · 快捷配色与 Bot 选色卡",icon:"paintpalette")
+                NavigationLink { BotAvatarAppearanceLabView(appearance:appearance,size:$size,familyLook:$familyLook) } label: {
+                    entry("家族形象与配色",detail:"四种形状 · 原色与皮肤 · 耳机与徽章",icon:"paintpalette")
                 }
                 NavigationLink { BotAvatarAppearanceSaveView(draft:$draft) } label: {
                     entry("外观配置",detail:"本机保存与加载 · 指定 Bot 外观配置",icon:"square.and.arrow.down")
@@ -29,9 +31,11 @@ struct RobotAvatarLabView: View {
                 Text(draft.isDirty ? "当前有未保存的外观草稿" : "当前外观已载入")
                     .font(.caption).foregroundStyle(.secondary)
                 if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
-                Text("新版仅用于实验预览。保存外观配置后，正式 Bot 头像暂未切换；工作状态由手动选择驱动。")
+                Text("家族形状、皮肤和配饰仅在实验室预览，并在本机记住。正式 Bot 继续使用已保存的外观与执行状态；实验室可手动演示全部表情。")
                     .font(.footnote).foregroundStyle(.secondary)
                 Link("参考项目：Agent Robot Avatar · CX ArtLab",destination:URL(string:"https://github.com/CX-ArtLab/agent-robot-avatar")!)
+                    .font(.footnote)
+                Link("轮廓算法参考：Avatar Studio",destination:URL(string:"https://github.com/ai-calypse/avatar-studio")!)
                     .font(.footnote)
                 Text("参考角色由 CX ArtLab 原创；许可及来源见项目说明。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -41,6 +45,10 @@ struct RobotAvatarLabView: View {
         .navigationTitle("新版头像实验室").navigationBarTitleDisplayMode(.inline)
         .task {
             guard !loaded else { return }; loaded = true
+            if let data = familyLookJSON.data(using:.utf8), !data.isEmpty {
+                do { familyLook = try JSONDecoder().decode(BotAvatarFamilyLook.self,from:data) }
+                catch { message = "实验选择读取失败，原记录已保留：\(error.localizedDescription)" }
+            }
             do {
                 if let value = try BotAppearanceLabStore().load() {
                     guard BotAvatarTemplateRegistry.resolve(id:value.templateID,version:value.templateVersion) != nil else {
@@ -49,6 +57,9 @@ struct RobotAvatarLabView: View {
                     draft = BotAppearanceDraft(saved:value)
                 }
             } catch { message = "本机外观读取失败，原文件已保留：\(error.localizedDescription)" }
+        }
+        .onChange(of:familyLook) { _,value in
+            if let data = try? JSONEncoder().encode(value), let text = String(data:data,encoding:.utf8) { familyLookJSON = text }
         }
     }
     private func entry(_ title:String,detail:String,icon:String) -> some View {
@@ -63,6 +74,7 @@ struct RobotAvatarLabView: View {
 struct BotAvatarStateLabView: View {
     @Binding var appearance: BotAppearance
     @Binding var size: Int
+    @Binding var familyLook: BotAvatarFamilyLook
     @State private var action: BotAvatarState = .idle
     @State private var ambient = true
     @State private var replay = 0
@@ -75,7 +87,7 @@ struct BotAvatarStateLabView: View {
             ScrollView {
                 VStack(alignment:.leading,spacing:20) {
                     VStack(spacing:12) {
-                        RobotAvatarView(action:action,size:CGFloat(size),ambient:ambient,replay:replay,appearance:appearance)
+                        RobotAvatarView(action:action,size:CGFloat(size),ambient:ambient,replay:replay,appearance:appearance,familyLook:familyLook)
                             .frame(maxWidth:.infinity).frame(height:190)
                         Text(action.title).font(.title3.weight(.semibold))
                         Text(action.detail).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -83,7 +95,7 @@ struct BotAvatarStateLabView: View {
                         Text("拖动头部或天线 · 按住中心挤压 · 轻点重播").font(.caption).foregroundStyle(.secondary)
                         HStack {
                             Button("重播") { playback.stop(); replay += 1 }
-                            Button(playback.running ? "停止" : "演示全部 23 种") {
+                            Button(playback.running ? "停止" : "演示全部 \(BotAvatarState.allCases.count) 种") {
                                 if playback.running { playback.stop() } else { start(.all) }
                             }
                         }.buttonStyle(.bordered)
@@ -92,8 +104,8 @@ struct BotAvatarStateLabView: View {
                             Button("状态切换测试") { start(.transitions) }
                         }.buttonStyle(.bordered)
                     }.padding(16).background(Color.sectionFill,in:RoundedRectangle(cornerRadius:20)).id("preview")
-                    stateGroup("原版表情与动作",states:Array(BotAvatarState.allCases.prefix(17)))
-                    stateGroup("工作状态",states:Array(BotAvatarState.allCases.suffix(6)))
+                    stateGroup("原版表情与动作",states:BotAvatarState.allCases.filter { $0.category == .original })
+                    stateGroup("工作状态",states:BotAvatarState.allCases.filter { $0.category == .work })
                     Picker("预览尺寸",selection:$size) {
                         ForEach([32,44,96,160],id:\.self) { Text(String($0)).tag($0) }
                     }.pickerStyle(.segmented)
@@ -162,30 +174,4 @@ enum RobotLabColor: Equatable {
     }
 }
 
-/// Flat center pixels sampled from the user's Display P3 screenshot (2026-10-07 23:31:35).
-/// Keep the source gamut instead of interpreting the encoded components as sRGB.
-struct RobotLabSwatch: Equatable, Identifiable {
-    let name: String
-    let rgb: UInt32
-    var id: UInt32 { rgb }
-    var appearanceColor: BotAppearanceColor {
-        BotAppearanceColor(space: .displayP3,
-              red: Double((rgb >> 16) & 0xFF) / 255,
-              green: Double((rgb >> 8) & 0xFF) / 255,
-              blue: Double(rgb & 0xFF) / 255)
-    }
-    var color: Color { appearanceColor.swiftUIColor }
-    static let palette: [RobotLabSwatch] = [
-        .init(name: "黑色", rgb: 0x000000),
-        .init(name: "棕色", rgb: 0x8C6640),
-        .init(name: "红色", rgb: 0xEA4045),
-        .init(name: "橙色", rgb: 0xEC702E),
-        .init(name: "琥珀", rgb: 0xF09D38),
-        .init(name: "绿色", rgb: 0x5AC67A),
-        .init(name: "青绿", rgb: 0x54B9A6),
-        .init(name: "蓝色", rgb: 0x3C82F5),
-        .init(name: "紫色", rgb: 0x895BF5),
-        .init(name: "粉色", rgb: 0xEA4698),
-        .init(name: "灰色", rgb: 0x777777),
-    ]
-}
+typealias RobotLabSwatch = BotAvatarColorOption

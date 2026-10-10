@@ -90,3 +90,26 @@ async def chat(bot_id: int, body: ChatIn, user=Depends(current_user)):
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+# 陪玩使用独立、无工具、无持久化对话的模型路径。
+from ...services.tetris_companion import CompanionIn, reply as companion_reply
+
+@router.post('/api/bots/{bot_id}/tetris-companion')
+async def tetris_companion(bot_id: int, body: CompanionIn, user=Depends(current_user)):
+    bot = require_bot(user, bot_id)
+    used, budget = db.token_budget(user['id'])
+    if used >= budget:
+        raise HTTPException(429, '今日额度已用完，仍可继续玩游戏')
+    try:
+        raw, usage = await companion_reply(bot, body)
+    except Exception as exc:
+        # 不向客户端泄露 provider、密钥或内部报错；取消请求不拦截。
+        raise HTTPException(502, '陪玩回应暂时没连上，请稍后再试') from exc
+    db.log_usage(user['id'], bot_id, 'game', usage)
+    try:
+        text = json.loads(raw).get('text', '').strip()
+        if not text:
+            raise ValueError('empty reply')
+    except (ValueError, AttributeError, TypeError) as exc:
+        raise HTTPException(502, '陪玩回应暂时没准备好，请稍后再试') from exc
+    return {'text': text[:180 if body.event in ('chat', 'pause') else 60]}

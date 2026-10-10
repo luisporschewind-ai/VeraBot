@@ -259,3 +259,7 @@ iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（�
 | 流式协议 | SSE (`event:` + `data:` JSON) | 浏览器 `fetch` 与 iOS `URLSession.bytes` 都能直接解析 |
 | 语音输入 | Web 走服务端转写，iOS 走系统 Speech；结果只填入输入框 | 用户确认后再发送，避免误发 |
 | 存储 | SQLite (WAL) | 原型零运维；表结构可平移到 PostgreSQL |
+
+## 俄罗斯方块陪玩首版（2026-10-09）
+
+本地 TetrisGame 独立运行；TetrisCompanionModel 管理伙伴、每局短对话、请求取消和旧响应隔离。VeraBotCore 的 TetrisCompanionPolicy 限制每局最多 3 次主动请求、间隔至少 30 秒。客户端通过 VeraBotNetworking → 鉴权 `/api/bots/{id}/tetris-companion` → services/tetris_companion → llm.complete_json → 模型供应商；服务端检查归属、预算并记录用量。局面只传递分数、消行、高度、空洞数量，不能据此声称知道具体摆放位置。无工具、无消息持久化、无记忆写入。
