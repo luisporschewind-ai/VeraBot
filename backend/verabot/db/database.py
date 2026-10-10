@@ -18,9 +18,11 @@ def connect() -> sqlite3.Connection:
 
 
 @contextmanager
-def tx():
+def tx(*, immediate: bool = False):
     conn = connect()
     try:
+        if immediate:
+            conn.execute("BEGIN IMMEDIATE")
         yield conn
         conn.commit()
     except Exception:

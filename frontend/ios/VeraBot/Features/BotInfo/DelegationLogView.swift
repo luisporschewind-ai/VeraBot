@@ -34,7 +34,7 @@ struct DelegationLogView: View {
                                        description: Text("当该 Bot 委派、被委派或调用外部工具时，记录会显示在这里"))
             }
         }
-        .navigationTitle("\(BotAvatarFigure.textLabel(stored: bot.avatar)) 协作记录")
+        .navigationTitle("\(bot.name) 协作记录")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .refreshable { await load() }
@@ -43,7 +43,7 @@ struct DelegationLogView: View {
     @ViewBuilder private func delegationRow(_ r: DelegationRecord) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("\(BotAvatarFigure.textLabel(stored: r.fromAvatar)) \(r.fromBot ?? "已删除") → \(BotAvatarFigure.textLabel(stored: r.toAvatar)) \(r.toBot ?? "已删除")")
+                Text("\(r.fromBot ?? "已删除") → \(r.toBot ?? "已删除")")
                     .font(.subheadline.bold())
                 Spacer()
                 Text(r.status == "ok" ? "成功" : "已拒绝")

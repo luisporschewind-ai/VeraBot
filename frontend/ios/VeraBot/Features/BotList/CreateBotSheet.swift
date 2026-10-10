@@ -16,26 +16,27 @@ struct CreateBotSheet: View {
     var body: some View {
         NavigationStack {
             ThemedForm {
+                RobotAvatarView(action: .idle, size: 88,
+                                color: BotAvatarColorPalette.appearanceColor(for: draft.color)?.swiftUIColor ?? Color(hex: draft.color))
+                    .frame(maxWidth: .infinity).frame(height: 88)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
+                    .listRowSeparator(.hidden)
                 Section {
-                    HStack(spacing: 14) {
-                        TextField("昵称，如：小研", text: $draft.name)
-                            .focused($focus, equals: .name)
-                            .submitLabel(.next)
-                            .onSubmit { focus = .persona }
-                    }
+                    TextField("昵称，如：小研", text: $draft.name)
+                        .multilineTextAlignment(.center)
+                        .focused($focus, equals: .name)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .persona }
                     BotTagsField(text: $tagsText)
                 }
-                Section("新版机器人头像") {
-                    RobotAvatarView(action: .idle, size: 88,
-                                    color: BotAvatarColorPalette.appearanceColor(for: draft.color)?.swiftUIColor ?? Color(hex: draft.color))
-                        .frame(maxWidth: .infinity).frame(height: 112)
+
+                Section {
                     BotAvatarColorPicker(selection: $draft.color)
-                    Text("Bot 状态和情绪会驱动头像变化；当前可设置颜色，更多形状后续支持。")
-                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 Section {
                     TextField("例如：资深研究员，擅长资料检索与总结", text: $draft.persona, axis: .vertical)
-                        .lineLimit(3...8)                         // 多行：回车换行；键盘工具栏「完成」收起
+                        .lineLimit(3...8)
                         .focused($focus, equals: .persona)
                 } header: {
                     Text("人设")
@@ -51,15 +52,11 @@ struct CreateBotSheet: View {
                 } footer: {
                     Text("仅本 Bot 使用，不对其他 Bot 公开。")
                 }
-                Section {
-                    Label("新 Bot 默认不开启工具、不参与委派。",
-                          systemImage: "lock.shield")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
                 if let errorText {
                     Text(errorText).foregroundStyle(.red)
                 }
             }
+            .listSectionSpacing(12)
             .navigationTitle("创建 Bot")
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)

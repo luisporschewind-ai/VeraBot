@@ -27,12 +27,11 @@ struct BotTagsField: View {
     @Binding var text: String
 
     var body: some View {
-        LabeledContent("标签") {
-            TextField("如：搜索, 查询, 调研", text: $text)
-                .multilineTextAlignment(.trailing)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-        }
+        TextField("如：搜索, 查询, 调研", text: $text)
+            .multilineTextAlignment(.center)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .accessibilityLabel("标签")
         if let error = BotTagRules.parse(text).error {
             Text(error)
                 .font(.footnote)

@@ -3,12 +3,21 @@ import Foundation
 /// Curated, stable silhouettes. The standard member retains the original geometry.
 public enum BotAvatarFamilyShape: String, CaseIterable, Codable, Sendable, Identifiable {
     case standard, soft, tilted, rounded
+    case circle, droplet, roundedTriangle, capsule, pentagon, pumpkin, roundedDroplet
     public var id: String { rawValue }
     public var title: String {
-        switch self { case .standard: "标准"; case .soft: "微鼓"; case .tilted: "轻偏"; case .rounded: "饱满" }
+        switch self {
+        case .standard: "标准"; case .soft: "微鼓"; case .tilted: "轻偏"; case .rounded: "饱满"
+        case .circle: "圆形"; case .droplet: "花朵形"; case .roundedTriangle: "圆润三角形"
+        case .capsule: "胶囊型"; case .pentagon: "五边形"
+        case .pumpkin: "南瓜形"; case .roundedDroplet: "圆润水滴形"
+        }
     }
     public var seed: UInt32? {
-        switch self { case .standard: nil; case .soft: 47; case .tilted: 132; case .rounded: 70 }
+        switch self {
+        case .standard, .circle, .droplet, .roundedTriangle, .capsule, .pentagon, .pumpkin, .roundedDroplet: nil
+        case .soft: 47; case .tilted: 132; case .rounded: 70
+        }
     }
 }
 
@@ -41,7 +50,14 @@ public struct BotAvatarFamilyLook: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey { case shape, skinID, accessory, badgeStyle }
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        shape = try values.decode(BotAvatarFamilyShape.self, forKey: .shape)
+        let storedShape = try values.decode(String.self, forKey: .shape)
+        if storedShape == "roundedHeart" {
+            shape = .standard
+        } else if let restoredShape = BotAvatarFamilyShape(rawValue:storedShape) {
+            shape = restoredShape
+        } else {
+            throw BotAppearanceError.invalid("实验形状暂未安装")
+        }
         skinID = try values.decodeIfPresent(String.self, forKey: .skinID)
         accessory = try values.decode(BotAvatarAccessory.self, forKey: .accessory)
         badgeStyle = try values.decodeIfPresent(BotAvatarBadgeStyle.self,forKey:.badgeStyle) ?? .spark
@@ -79,5 +95,71 @@ public enum BotAvatarFamilySilhouette {
             for i in 0..<3 { wave += amplitudes[i] * sin(Double(i + 2) * angle + phases[i]) }
             return Point(x:120 + c * radius * wave, y:120 + s * radius * wave)
         }
+    }
+
+    /// Explicit silhouettes used by the expanded lab family. Existing seeded members
+    /// retain their established contour; new silhouettes share the same 240-unit face grid.
+    public static func points(shape: BotAvatarFamilyShape, roundness: Double) -> [Point] {
+        guard shape != .standard else { return [] }
+        if let seed = shape.seed { return points(seed:seed,roundness:roundness) }
+        let amount = roundness.isFinite ? min(1,max(0,roundness)) : 0.5
+        return (0..<160).map { curatedPoint(shape:shape,index:$0,roundness:amount) }
+    }
+
+    private static func curatedPoint(shape:BotAvatarFamilyShape,index:Int,roundness:Double) -> Point {
+        let angle = -Double.pi/2.0 + Double(index)*Double.pi*2.0/160.0
+        let cosine = cos(angle)
+        let sine = sin(angle)
+        var x = 0.0
+        var y = 0.0
+        switch shape {
+        case .circle:
+            x = 96*cosine; y = 96*sine
+        case .droplet:
+            let narrowing = 1.0 - 0.48*pow(max(0.0,-sine),10.0)
+            x = 99*cosine*narrowing; y = 89*sine*narrowing
+        case .roundedTriangle:
+            let base = 0.88 + 0.08*roundness
+            let wave = 0.12 - 0.08*roundness
+            let radius = base + wave*cos(3*(angle + .pi/2))
+            x = 101*cosine*radius; y = 91*sine*radius
+        case .capsule:
+            let endDirection = cosine < 0 ? -1.0 : 1.0
+            x = 28*endDirection + 76*cosine; y = 76*sine
+        case .pentagon:
+            let base = 0.94 + 0.04*roundness
+            let wave = 0.06 - 0.04*roundness
+            let radius = base + wave*cos(5*(angle + .pi/2))
+            x = 100*cosine*radius; y = 91*sine*radius
+        case .pumpkin:
+            let radius = 0.92 + 0.08*cos(5*(angle + .pi/2))
+            x = 101*cosine*radius; y = 90*sine*radius
+        case .roundedDroplet:
+            return roundedDropletPoint(index:index)
+        case .standard, .soft, .tilted, .rounded:
+            break
+        }
+        return Point(x:120+x,y:120+y)
+    }
+
+    private static func roundedDropletPoint(index:Int) -> Point {
+        let segments: [(Point,Point,Point,Point)] = [
+            (Point(x:120,y:37),Point(x:129,y:37),Point(x:202,y:112),Point(x:214,y:148)),
+            (Point(x:214,y:148),Point(x:232,y:191),Point(x:179,y:209),Point(x:120,y:209)),
+            (Point(x:120,y:209),Point(x:61,y:209),Point(x:8,y:191),Point(x:26,y:148)),
+            (Point(x:26,y:148),Point(x:38,y:112),Point(x:111,y:37),Point(x:120,y:37))
+        ]
+        return cubicPoint(segments:segments,index:index)
+    }
+
+    private static func cubicPoint(segments:[(Point,Point,Point,Point)],index:Int) -> Point {
+        let samplesPerSegment = 160/segments.count
+        let segmentIndex = min(segments.count-1,index/samplesPerSegment)
+        let t = Double(index%samplesPerSegment)/Double(samplesPerSegment)
+        let inverse = 1-t
+        let p = segments[segmentIndex]
+        let x = inverse*inverse*inverse*p.0.x + 3*inverse*inverse*t*p.1.x + 3*inverse*t*t*p.2.x + t*t*t*p.3.x
+        let y = inverse*inverse*inverse*p.0.y + 3*inverse*inverse*t*p.1.y + 3*inverse*t*t*p.2.y + t*t*t*p.3.y
+        return Point(x:x,y:y)
     }
 }

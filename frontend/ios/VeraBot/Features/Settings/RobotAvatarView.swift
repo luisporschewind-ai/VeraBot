@@ -52,8 +52,8 @@ struct RobotAvatarView: View {
     // The antenna extends above the 240-point viewport; its spring needs extra drawing room.
     private var template: BotAvatarTemplate {
         var value = BotAvatarTemplateRegistry.resolve(id:appearance?.templateID ?? "cx-robot",version:appearance?.templateVersion ?? 1) ?? .robot
-        if let seed = familyLook.shape.seed {
-            value.antennaAnchor = RobotAvatarFamilyGeometry.antenna(seed:seed,roundness:appearance?.parameters.roundness ?? roundness)
+        if familyLook.shape != .standard {
+            value.antennaAnchor = RobotAvatarFamilyGeometry.antenna(shape:familyLook.shape,roundness:appearance?.parameters.roundness ?? roundness)
         }
         return value
     }

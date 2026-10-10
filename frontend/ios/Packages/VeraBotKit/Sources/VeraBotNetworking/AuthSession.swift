@@ -48,6 +48,9 @@ public final class AuthSession: @unchecked Sendable {
 
     public func isCurrent(_ generation: UInt64) -> Bool { lock.withLock { gen == generation && current != nil } }
 
+    /// 登录 / 发验证码尚无令牌，仍需检查请求期间是否切换了会话。
+    public func isCurrentAuthAttempt(_ generation: UInt64) -> Bool { lock.withLock { gen == generation } }
+
     public func set(_ tokens: AuthTokens?) {
         lock.withLock { current = tokens; inflight = nil; gen &+= 1 }
         onChange(tokens, false)

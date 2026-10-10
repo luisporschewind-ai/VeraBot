@@ -491,9 +491,10 @@ public struct APIClient: VeraBotAPI {
                         let (bytes, response) = try await urlSession.bytes(for: r)
                         return (bytes, (response as? HTTPURLResponse)?.statusCode ?? 0)
                     }
+                    let generation = session?.generation
                     let sent = token
                     var (bytes, status) = try await open(sent)
-                    if status == 401, let fresh = await refreshedToken(after: sent, path: path) {
+                    if status == 401, let fresh = await refreshedToken(after: sent, path: path, generation: generation) {
                         (bytes, status) = try await open(fresh)
                     }
                     guard status == 200 else {
@@ -572,18 +573,21 @@ public struct APIClient: VeraBotAPI {
     }
 
     /// 401 后的透明刷新：只对非 /api/auth/ 请求、且有 session + 刷新令牌时生效；返回新访问令牌或 nil。
-    func refreshedToken(after sent: String?, path: String) async -> String? {
-        guard let session, !path.hasPrefix("/api/auth/") else { return nil }
-        if case .refreshed(let t) = await session.refresh(after: sent, baseURL: baseURL) { return t.access }
+    func refreshedToken(after sent: String?, path: String, generation: UInt64?) async -> String? {
+        guard let session, let generation, session.isCurrent(generation), !path.hasPrefix("/api/auth/") else { return nil }
+        if case .refreshed(let t) = await session.refresh(after: sent, baseURL: baseURL), session.isCurrent(generation) {
+            return t.access
+        }
         return nil
     }
 
     /// 发送请求；401 时刷新一次令牌后用同样的请求重试。
     func send(_ path: String, _ build: (String?) -> URLRequest) async throws -> (Data, Int) {
+        let generation = session?.generation
         let sent = token
         var (data, response) = try await urlSession.data(for: build(sent))
         var status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 401, let fresh = await refreshedToken(after: sent, path: path) {
+        if status == 401, let fresh = await refreshedToken(after: sent, path: path, generation: generation) {
             (data, response) = try await urlSession.data(for: build(fresh))
             status = (response as? HTTPURLResponse)?.statusCode ?? 0
         }

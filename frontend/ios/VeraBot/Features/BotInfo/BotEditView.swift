@@ -40,8 +40,6 @@ struct BotEditView: View {
     @State private var errorText: String?
     @State private var loaded = false
     @State private var freshBot: Bot?
-    // 顶部卡片的系统弹窗
-    @State private var showAvatarOptions = false
     @State private var showPhotoPicker = false
     @State private var photoItem: PhotosPickerItem?
     @State private var pendingImage: UIImage?   // 未保存的新照片，只用于卡片预览
@@ -70,43 +68,51 @@ struct BotEditView: View {
 
     var body: some View {
         ThemedForm {
-            Section {
-                VStack(spacing: 8) {
-                    Button { endEditing(); showAvatarOptions = true } label: { cardAvatar }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("更换头像")
-                    Button { nameInput = draft.name; showNameAlert = true } label: {
-                        Text(draft.name).font(.title2.bold())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("修改昵称")
-                    Button { tagsInput = draft.tagsText; showTagsAlert = true } label: {
-                        Text(draft.tags.isEmpty ? "添加标签" : draft.tagsText)
-                            .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("修改标签")
-                    Text(persona.isEmpty ? "暂无人设简介" : persona)
-                        .font(.subheadline).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center).lineLimit(3)
+            Menu {
+                Button { endEditing(); showPhotoPicker = true } label: {
+                    Label("从相册选择", systemImage: "photo")
                 }
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.clear)
+                if draft.canUseDefaultLook {
+                    Button("使用默认形象") { draft.useDefaultLook(); pendingImage = nil }
+                }
+            } label: {
+                cardAvatar
             }
+            .accessibilityLabel("更换头像")
+            .frame(maxWidth: .infinity)
+            .frame(height: 88)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
+            .listRowSeparator(.hidden)
 
-            Section("新版机器人形象") {
-                RobotAvatarView(action: .idle, size: 88,
-                                color: BotAvatarColorPalette.appearanceColor(for: color)?.swiftUIColor ?? Color(hex: color),
-                                appearance: avatarPreviewAppearance)
-                    .frame(maxWidth: .infinity).frame(height: 112)
-                BotAvatarColorPicker(selection: $color)
-                Text("相册照片继续作为头像显示；这里设置机器人默认主色，状态动画会沿用该颜色。")
-                    .font(.footnote).foregroundStyle(.secondary)
+            Section {
+                Button { nameInput = draft.name; showNameAlert = true } label: {
+                    Text(draft.name).font(.body)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("修改昵称")
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+                .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
+                Button { tagsInput = draft.tagsText; showTagsAlert = true } label: {
+                    Text(draft.tags.isEmpty ? "如：搜索, 查询, 调研" : draft.tagsText)
+                        .font(.body).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("修改标签")
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+                .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
             }
 
             Section {
-                // 多行：回车换行（不使用 submitLabel .next）；下拉表单 / 保存 / 关闭收起键盘
-                TextField("例如：资深研究员，擅长资料检索与总结", text: $persona, axis: .vertical).lineLimit(3...8)
+                BotAvatarColorPicker(selection: $color)
+            }
+
+            Section {
+                TextField("例如：资深研究员，擅长资料检索与总结", text: $persona, axis: .vertical)
+                    .lineLimit(3...8)
                     .focused($focus, equals: .persona)
             } header: {
                 Text("人设")
@@ -277,6 +283,7 @@ struct BotEditView: View {
                 }
             }
         }
+        .listSectionSpacing(12)
         .navigationTitle(infoMode ? "Bot 详情" : "Bot 设置")
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
@@ -295,13 +302,6 @@ struct BotEditView: View {
                     .disabled(saving || !loaded)
             }
         }
-        .confirmationDialog("头像", isPresented: $showAvatarOptions, titleVisibility: .hidden) {
-            Button("从相册选择") { showPhotoPicker = true }
-            if draft.canUseDefaultLook {
-                Button("使用默认形象") { draft.useDefaultLook(); pendingImage = nil }
-            }
-            Button("取消", role: .cancel) {}
-        }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
@@ -309,12 +309,14 @@ struct BotEditView: View {
         }
         .alert("修改昵称", isPresented: $showNameAlert) {
             TextField("昵称", text: $nameInput)
+                .multilineTextAlignment(.center)
             Button("取消", role: .cancel) {}
             Button("确定") { inputError = draft.rename(nameInput) }
                 .disabled(nameInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .alert("修改标签", isPresented: $showTagsAlert) {
             TextField("如：搜索, 查询, 调研", text: $tagsInput)
+                .multilineTextAlignment(.center)
             Button("取消", role: .cancel) {}
             Button("确定") { inputError = draft.setTags(tagsInput) }
         } message: {

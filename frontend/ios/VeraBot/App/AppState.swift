@@ -108,6 +108,9 @@ final class AppState {
     /// 异步任务回来时判断：还是同一次登录（没退出、没换账号）。
     func isCurrentSession(_ generation: UInt64) -> Bool { authSession.isCurrent(generation) }
 
+    /// 登录前没有令牌；只判断请求期间会话是否变化，不要求已经登录。
+    func isCurrentAuthAttempt(_ generation: UInt64) -> Bool { authSession.isCurrentAuthAttempt(generation) }
+
     func saveBaseURL() {
         UserDefaults.standard.set(baseURLString, forKey: Keys.baseURL)
     }

@@ -3,8 +3,8 @@ import VeraBotCore
 
 enum BotAvatarTemplateGeometry {
     static func head(template: BotAvatarTemplate, parameters: BotAppearance.Parameters, interaction: RobotAvatarInteraction, familyShape: BotAvatarFamilyShape = .standard) -> Path {
-        if let seed = familyShape.seed {
-            return RobotAvatarFamilyGeometry.head(seed:seed,roundness:parameters.roundness,interaction:interaction)
+        if familyShape != .standard {
+            return RobotAvatarFamilyGeometry.head(shape:familyShape,roundness:parameters.roundness,interaction:interaction)
         }
         return switch template.geometry {
         case .cxRobot: RobotAvatarGeometry.head(roundness:parameters.roundness,interaction:interaction)

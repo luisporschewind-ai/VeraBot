@@ -53,7 +53,7 @@ struct BotAvatarAppearanceLabView: View {
     private var shapeChoices: some View {
         VStack(alignment:.leading,spacing:10) {
             Text("家族形状").font(.headline)
-            HStack(spacing:8) {
+            LazyVGrid(columns:Array(repeating:GridItem(.flexible(),spacing:8),count:3),spacing:8) {
                 ForEach(BotAvatarFamilyShape.allCases) { shape in
                     Button { familyLook.shape = shape } label: {
                         choice(title:shape.title,look:look(shape:shape),selected:familyLook.shape == shape)
@@ -67,10 +67,10 @@ struct BotAvatarAppearanceLabView: View {
     }
 
     private var comparison: some View {
-        HStack(alignment:.bottom,spacing:6) {
+        LazyVGrid(columns:Array(repeating:GridItem(.flexible(),spacing:6),count:3),alignment:.center,spacing:18) {
             ForEach(BotAvatarFamilyShape.allCases) { shape in
                 VStack(spacing:8) {
-                    RobotAvatarView(action:action,size:CGFloat(min(size,72)),ambient:false,replay:replay,appearance:appearance,familyLook:look(shape:shape))
+                    RobotAvatarView(action:action,size:CGFloat(min(size,64)),ambient:false,replay:replay,appearance:appearance,familyLook:look(shape:shape))
                         .allowsHitTesting(false).accessibilityHidden(true)
                     Text(shape.title).font(.caption)
                 }.frame(maxWidth:.infinity)
@@ -179,10 +179,7 @@ struct BotAvatarColorPicker: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 6)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            colorGroup("新版头像原色", options: BotAvatarColorPalette.robotTones)
-            colorGroup("Bot 选色卡", options: BotAvatarColorPalette.screenshotSwatches)
-        }
+        colorGroup("选色卡", options: BotAvatarColorPalette.all)
     }
 
     private func colorGroup(_ title: String, options: [BotAvatarColorOption]) -> some View {

@@ -52,11 +52,13 @@ def normalize_phone(raw: str) -> str:
     return v
 
 
-def check_password(pw: str) -> str:
-    if not isinstance(pw, str) or len(pw) < PASSWORD_MIN:
-        raise AuthError(422, f"密码至少 {PASSWORD_MIN} 位", "weak_password")
+def check_password(pw: str, *, minimum: int = PASSWORD_MIN) -> str:
+    if not isinstance(pw, str) or len(pw) < minimum:
+        raise AuthError(422, f"密码至少 {minimum} 位", "weak_password")
     if len(pw) > 128:
         raise AuthError(422, "密码最多 128 位", "weak_password")
+    if len(pw.encode("utf-8")) > 72:
+        raise AuthError(422, "密码过长，请缩短（中文和表情占用更多长度）", "weak_password")
     return pw
 
 
@@ -125,7 +127,7 @@ def register(*, email: str | None, phone: str | None, password: str) -> dict:
     if bool(email) == bool(phone):
         raise AuthError(422, "请填写邮箱或手机号其中一项", "invalid_request")
     check_password(password)
-    with db.tx() as c:
+    with db.tx(immediate=True) as c:
         if email:
             email = normalize_email(email)
             if _user_by(c, "email", email):
@@ -148,7 +150,8 @@ def register(*, email: str | None, phone: str | None, password: str) -> dict:
 
 def register_username(username: str, password: str) -> dict:
     """老接口 {username, password}：保留给 demo / 测试脚本 / Web。"""
-    with db.tx() as c:
+    check_password(password, minimum=6)
+    with db.tx(immediate=True) as c:
         if _user_by(c, "username", username):
             raise AuthError(409, "用户名已存在", "username_taken")
         created = db.now_iso()
@@ -158,7 +161,7 @@ def register_username(username: str, password: str) -> dict:
 
 def login(identifier: str, password: str) -> dict:
     kind, value = classify_identifier(identifier)
-    with db.tx() as c:
+    with db.tx(immediate=True) as c:
         u = _user_by(c, kind, value)
         if u and u.get("locked_until") and u["locked_until"] > _iso(_now()):
             raise AuthError(429, f"密码错误次数过多，请 {AUTH_LOCK_MINUTES} 分钟后再试", "account_locked")
@@ -180,7 +183,7 @@ def login(identifier: str, password: str) -> dict:
 def refresh(token: str) -> dict:
     """轮换刷新令牌：旧的作废、发新的一对。已作废的令牌再次出现 → 视为泄露，作废该用户全部刷新令牌。"""
     h = hash_secret(token or "")
-    with db.tx() as c:
+    with db.tx(immediate=True) as c:
         r = auth_store.get_refresh(c, h)
         if r is None:
             raise AuthError(401, "登录已失效，请重新登录", "invalid_refresh")
@@ -207,7 +210,7 @@ def logout(token: str | None) -> None:
     if not token:
         return
     now = _iso(_now())
-    with db.tx() as c:
+    with db.tx(immediate=True) as c:
         row = auth_store.refresh_owner(c, hash_secret(token))
         auth_store.revoke_refresh_by_hash(c, hash_secret(token), now)
         if row:
@@ -216,7 +219,7 @@ def logout(token: str | None) -> None:
 
 def logout_all(user_id: int) -> None:
     now = _iso(_now())
-    with db.tx() as c:
+    with db.tx(immediate=True) as c:
         user_store.bump_token_version(c, user_id)
         auth_store.revoke_user_refresh(c, user_id, now)
         _disable_push_devices(c, user_id, now)
@@ -248,7 +251,7 @@ def send_code(email: str, purpose: str, *, ip: str | None, quiet: bool = False) 
         raise AuthError(429, "今天的验证码次数已用完，请明天再试", "code_daily_limit")
     code = f"{secrets.randbelow(1_000_000):06d}"
     now = _now()
-    with db.tx() as c:
+    with db.tx(immediate=True) as c:
         # 同一邮箱同一用途只保留最新的一条：旧码作废
         auth_store.supersede_codes(c, email, purpose, _iso(now))
         auth_store.insert_code(c, email, purpose, hash_secret(f"{email}:{purpose}:{code}"),
@@ -302,7 +305,7 @@ def login_with_code(email: str, code: str) -> dict:
     邮箱已经验证时只登录，不改密码、不吊销其他会话。
     """
     email = normalize_email(email)
-    with db.tx() as c:
+    with db.tx(immediate=True) as c:
         _consume_code(c, email, "login", code)
         u = _user_by(c, "email", email)
         created = u is None
@@ -319,7 +322,7 @@ def verify_email(user: dict, code: str) -> dict:
     email = user.get("email")
     if not email:
         raise AuthError(400, "当前账号没有绑定邮箱", "no_email")
-    with db.tx() as c:
+    with db.tx(immediate=True) as c:
         _consume_code(c, email, "verify", code)
         user_store.set_email_verified(c, user["id"], db.now_iso())
         _audit(c, user["id"], None, "auth_email_verified", {})

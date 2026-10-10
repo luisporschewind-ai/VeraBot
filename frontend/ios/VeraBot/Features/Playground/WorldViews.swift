@@ -1,23 +1,34 @@
 import SwiftUI
 import VeraBotCore
+import VeraBotNetworking
 
 struct PlaygroundView: View {
+    @Environment(AppState.self) private var app
     @State private var showingSudoku = false
     @State private var showingSokoban = false
     @State private var showingTwentyQuestions = false
     @State private var showingTetris = false
+    @State private var gameAssistant: Bot?
+    @State private var assistantChat: Bot?
+    @State private var openingAssistant = false
+    @State private var assistantError: String?
+    @State private var assistantTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("游乐场")
-                            .font(.largeTitle.bold())
-                            .foregroundStyle(Color.brandText)
-                        Text("和 Bot 一起玩点轻松的。")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                    HStack(alignment: .center, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("游乐场")
+                                .font(.largeTitle.bold())
+                                .foregroundStyle(Color.brandText)
+                            Text("和 Bot 一起玩点轻松的。")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        assistantAvatarButton
                     }
 
                     Button { showingSudoku = true } label: {
@@ -44,7 +55,7 @@ struct PlaygroundView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("卡住时，我们一起想")
                                 .font(.subheadline.weight(.semibold))
-                            Text("先轻松玩一局，Bot 的互动方式还在继续设计。")
+                            Text("点右上角的游戏助手，问规则、要提示，或挑一个适合现在玩的游戏。")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
@@ -63,6 +74,19 @@ struct PlaygroundView: View {
             .themedPageBackground()
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(item: $assistantChat) { bot in
+                ChatView(bot: bot, api: app.api)
+                    .toolbar(.hidden, for: .tabBar)
+            }
+            .alert("无法打开游戏助手", isPresented: Binding(
+                get: { assistantError != nil },
+                set: { if !$0 { assistantError = nil } }
+            )) {
+                Button("好", role: .cancel) { assistantError = nil }
+            } message: {
+                Text(assistantError ?? "")
+            }
+            .onDisappear { assistantTask?.cancel(); assistantTask = nil }
             .navigationDestination(isPresented: $showingSudoku) {
                 SudokuGameView()
                     .toolbar(.hidden, for: .tabBar)
@@ -76,6 +100,73 @@ struct PlaygroundView: View {
             .navigationDestination(isPresented: $showingTetris) {
                 TetrisGameView().toolbar(.hidden, for: .tabBar)
             }
+        }
+    }
+
+    private var assistantAvatarButton: some View {
+        Button {
+            guard !openingAssistant else { return }
+            openingAssistant = true
+            assistantTask = Task { await openAssistant() }
+        } label: {
+            Group {
+                if let gameAssistant {
+                    LiveBotAvatar(botID: gameAssistant.id, emoji: gameAssistant.avatar,
+                                  color: gameAssistant.color, hasAvatar: gameAssistant.hasAvatar,
+                                  updatedAt: gameAssistant.avatarUpdatedAt, size: 32,
+                                  appearance: gameAssistant.supportedAppearance)
+                } else {
+                    RobotAvatarView(action: .idle, size: 32,
+                                    color: Color(hex: PlaygroundAssistant.color), staticPreview: true)
+                }
+            }
+            .frame(width: 32, height: 32)
+            .allowsHitTesting(false)
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .disabled(openingAssistant)
+        .accessibilityLabel("游戏助手")
+        .accessibilityHint("打开游戏助手对话")
+    }
+
+    private func openAssistant() async {
+        defer { openingAssistant = false }
+        let generation = app.sessionGeneration
+        guard let userID = app.userID else {
+            assistantError = "账号信息正在加载，请稍后重试。"
+            return
+        }
+        let api = app.api
+        let key = "vb_playground_assistant_\(app.baseURLString)_\(userID)"
+        let storedID = UserDefaults.standard.integer(forKey: key)
+        do {
+            let bots = try await api.bots().bots
+            guard !Task.isCancelled, app.isCurrentSession(generation) else { return }
+            let assistant: Bot
+            if let existing = bots.first(where: { $0.id == storedID })
+                ?? bots.first(where: { $0.name == PlaygroundAssistant.name }) {
+                assistant = existing
+            } else {
+                do {
+                    assistant = try await api.createBot(PlaygroundAssistant.draft)
+                } catch let error as APIError where error.status == 409 {
+                    guard !Task.isCancelled, app.isCurrentSession(generation) else { return }
+                    // Another device may have created the preset while this request was in flight.
+                    let refreshed = try await api.bots().bots
+                    guard let existing = refreshed.first(where: { $0.name == PlaygroundAssistant.name }) else {
+                        throw error
+                    }
+                    assistant = existing
+                }
+            }
+            guard !Task.isCancelled, app.isCurrentSession(generation) else { return }
+            UserDefaults.standard.set(assistant.id, forKey: key)
+            gameAssistant = assistant
+            assistantChat = assistant
+        } catch {
+            guard !Task.isCancelled, app.isCurrentSession(generation) else { return }
+            assistantError = app.message(for: error)
         }
     }
 

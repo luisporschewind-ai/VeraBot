@@ -280,14 +280,14 @@ struct LoginView: View {
         app.saveBaseURL()
         do {
             let sent = try await app.api.sendEmailCode(email: addr)
-            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
+            guard !Task.isCancelled, app.isCurrentAuthAttempt(generation), app.baseURLString == endpoint else { return }
             connectionIssue = nil
             app.connectionDiagnostic = nil
             cooldown = sent.retryAfter ?? 60
             infoText = "验证码已发送，\((sent.expiresIn ?? 600) / 60) 分钟内有效"
             focus = .code
         } catch {
-            guard app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
+            guard app.isCurrentAuthAttempt(generation), app.baseURLString == endpoint else { return }
             showFailure(error)
         }
     }
@@ -319,7 +319,7 @@ struct LoginView: View {
                 auth = try await app.api.loginWithEmailCode(email: AuthInputRules.normalizedEmail(email) ?? trimmedEmail,
                                                             code: code.trimmingCharacters(in: .whitespaces))
             }
-            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
+            guard !Task.isCancelled, app.isCurrentAuthAttempt(generation), app.baseURLString == endpoint else { return }
             connectionIssue = nil
             app.connectionDiagnostic = nil
             let identifier = method == .phonePassword ? (AuthInputRules.normalizedPhone(phone) ?? phone) : trimmedEmail
@@ -328,7 +328,7 @@ struct LoginView: View {
                                         isPhone: method == .phonePassword), server: endpoint)
             app.signIn(auth)
         } catch {
-            guard app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
+            guard app.isCurrentAuthAttempt(generation), app.baseURLString == endpoint else { return }
             showFailure(error)
         }
     }
