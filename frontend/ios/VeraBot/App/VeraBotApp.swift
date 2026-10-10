@@ -39,7 +39,9 @@ struct RootView: View {
         }
         .task {
             do {
-                try await Task.sleep(for: .milliseconds(reduceMotion ? 350 : 1500))
+                // Three greetings stagger over 0.8s; each existing .send action lasts about 1.46s.
+                // Leave a short pause after the last Bot finishes before fading into the app.
+                try await Task.sleep(for: .milliseconds(reduceMotion ? 350 : 2600))
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { welcoming = false }
             } catch { /* Root dismissal cancels the welcome. */ }
         }
