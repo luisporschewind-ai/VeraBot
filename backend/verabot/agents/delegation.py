@@ -10,10 +10,11 @@
 import logging
 
 from .. import db
-from ..core.config import MAX_SHARED_CONTEXT
+from ..core.config import MAX_DELEGATION_MEMORY_IDS, MAX_SHARED_CONTEXT
 from ..db import delegation_store
 from ..tools.registry import ToolContext, tool
 from .context import clean_question, limit_shared_context
+from .delegation_memory import select as select_shared_memories
 from .guardrails import allowed_target_names, check_delegation
 
 log = logging.getLogger("verabot.delegation")
@@ -52,15 +53,17 @@ def _reject(ctx: ToolContext, target, question, shared, reason: str, message: st
     return {"error": message, "code": reason, "delegation_id": did, **extra}
 
 
-@tool("ask_bot", "向用户的另一个 Bot 咨询或委派子任务。对方看不到当前对话，只能看到 question 和 shared_context，"
-      "请把必要信息放进 shared_context（有长度上限）。",
+@tool("ask_bot", "向用户的另一个 Bot 咨询或委派子任务。对方看不到当前对话；必要时可显式共享可访问的记忆 ID，"
+      "服务器会按目标 Bot 权限过滤，并自动附加目标 Bot 可见的相关风格 / 资料。",
       {"type": "object", "properties": {
           "bot_name": {"type": "string", "description": "目标 Bot 的昵称"},
           "question": {"type": "string", "description": "要咨询的问题 / 子任务"},
-          "shared_context": {"type": "string", "description": f"显式共享给对方的必要背景（可选，最多 {MAX_SHARED_CONTEXT} 字）"}},
+          "shared_context": {"type": "string", "description": f"显式共享给对方的必要背景（可选，最多 {MAX_SHARED_CONTEXT} 字）"},
+          "memory_ids": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": True,
+                         "maxItems": MAX_DELEGATION_MEMORY_IDS, "description": "可选；显式共享的记忆 ID，服务端仍会校验所有权、状态、敏感度和双方权限"}},
        "required": ["bot_name", "question"]},
       delegation=True)
-async def ask_bot(ctx: ToolContext, bot_name: str, question: str, shared_context: str = ""):
+async def ask_bot(ctx: ToolContext, bot_name: str, question: str, shared_context: str = "", memory_ids=None):
     from .runtime import run_once  # 避免循环导入
 
     question = clean_question(question)
@@ -71,16 +74,24 @@ async def ask_bot(ctx: ToolContext, bot_name: str, question: str, shared_context
     rejection = check_delegation(ctx, target)
     if rejection:
         return _reject(ctx, target, question, shared, rejection.reason, rejection.message, **rejection.extra)
+    shared_memories, shared_ids, target_memory_ids, filtered_count = select_shared_memories(
+        ctx.user_id, ctx.bot, target, memory_ids)
     ctx.turn.delegations += 1
 
     answer, usage, payload = await run_once(ctx.user_id, target, question, shared, from_bot=ctx.bot,
-                                            depth=ctx.depth + 1, chain=[*ctx.chain, ctx.bot["id"]], turn=ctx.turn)
+                                            depth=ctx.depth + 1, chain=[*ctx.chain, ctx.bot["id"]], turn=ctx.turn,
+                                            shared_memories=shared_memories)
     db.log_usage(ctx.user_id, target["id"], "delegation", usage)
     did = _record(ctx, target, question, shared, status="ok", answer=answer, payload=payload,
                   truncated=truncated, usage=usage)
     out = {"from_bot": ctx.bot["name"], "to_bot": target["name"], "to_avatar": target["avatar"],
            "question": question, "shared_context": shared, "shared_truncated": truncated,
-           "answer": answer, "delegation_id": did, "tokens": int(usage.get("total_tokens") or 0)}
+           "answer": answer, "delegation_id": did, "tokens": int(usage.get("total_tokens") or 0),
+           "shared_memory_ids": shared_ids, "target_memory_ids": target_memory_ids}
+    if filtered_count:
+        db.audit(ctx.user_id, ctx.bot["id"], "delegation_memory_filtered",
+                 {"delegation_id": did, "to": target["id"], "shared_ids": shared_ids,
+                  "target_memory_ids": target_memory_ids, "rejected_count": filtered_count})
     if ctx.turn.image_ids:   # 图片附件 v12：本轮图片按引用转给了被委派 Bot（同一用户，同一 attachment_id）
         out["attachment_ids"] = list(ctx.turn.image_ids)
         db.audit(ctx.user_id, ctx.bot["id"], "delegation_attachments",

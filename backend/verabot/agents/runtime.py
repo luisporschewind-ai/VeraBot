@@ -249,11 +249,15 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
 
 
 async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
-                   from_bot: dict, depth: int, chain: list | None = None, turn: TurnState | None = None
+                   from_bot: dict, depth: int, chain: list | None = None, turn: TurnState | None = None,
+                   shared_memories: list[dict] | None = None
                    ) -> tuple[str, dict, str]:
     """被委派 Bot 的非流式执行：独立上下文（Context isolation）——只含 question + shared_context + 发起方公开资料，
     绝不携带任何一方的聊天历史。仅可使用目标 Bot 自身白名单内、且深度允许的工具。返回 (answer, usage, payload)。"""
-    user_msg = delegation_message(from_bot, question, shared_context)
+    user_msg = delegation_message(from_bot, question, shared_context, shared_memories)
+    audit_payload = json.dumps({"message": user_msg,
+                                "shared_memories": [{k: memory[k] for k in ("id", "type", "scope", "origin")}
+                                                    for memory in (shared_memories or [])]}, ensure_ascii=False)
     images = [r for r in (attachments.get(user_id, i) for i in (turn.image_ids if turn else [])) if r]
     system = system_prompt(user_id, bot, delegated_by=from_bot, depth=depth) + (vision.PROMPT_RULES if images else "")
     messages = [{"role": "system", "content": system},
@@ -273,7 +277,7 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
                 break
             log.warning("empty delegated reply (finish_reason=%s) bot=%s attempt=%s", msg.get("_finish_reason"), bot["id"], attempt)
         if not calls:
-            return content or f"（{bot['name']} 暂时没有给出答复）", usage_total, user_msg
+            return content or f"（{bot['name']} 暂时没有给出答复）", usage_total, audit_payload
         messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": calls})
         for tc in calls:
             _emit_status(ctx, "tool", tool=tc["function"]["name"])
@@ -282,4 +286,4 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
             )
             messages.append({"role": "tool", "tool_call_id": tc["id"],
                              "content": _tool_content(tc["function"]["name"], result)})
-    return f"（{bot['name']} 暂时没有给出答复）", usage_total, user_msg
+    return f"（{bot['name']} 暂时没有给出答复）", usage_total, audit_payload

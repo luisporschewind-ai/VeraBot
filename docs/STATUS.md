@@ -2,9 +2,9 @@
 
 ## 2026-10-10 · 主线整合待主机测试
 
-- `main` 已纳入头像系统、俄罗斯方块陪玩、记忆成长 M2–M4；数据库迁移版本为 v17（v15 Bot 外观、v16 M3、v17 M4）。
-- M3/M4 的自动化与模拟器构建沿用隔离分支记录；本次整合后尚未重跑测试。记忆成长页面和交互仍待手工验收。
-- M5 混合检索与协作记忆功能仍待纳入本次主线整合；Web 冻结。
+- `main` 已纳入头像系统、俄罗斯方块陪玩、记忆成长 M2–M5；数据库迁移版本为 v18（v15 Bot 外观、v16 M3、v17 M4、v18 M5）。
+- M3/M4/M5 自动化与模拟器构建沿用隔离分支记录；本次整合后尚未重跑。M3/M4 页面与 M5 语义召回、权限共享、反馈提示仍待手工验收。
+- M5 的 BGE-small-zh 向量能力为可选本地依赖；未安装或不可用时回退关键词。Web 冻结。
 - 当前工作区为本机 `main`，整合后可在主机上启动验收；远程 `origin/main` 尚未同步。
 
 ## 2026-10-09 · 俄罗斯方块陪玩首版
@@ -36,7 +36,7 @@
 | 项 | 状态 |
 |---|---|
 | 结论 | ✅ 原型验证完成，方案可行：多 Bot 私聊 + 多 Agent 协作 (权限 / 隔离 / 护栏 / 审计) + SSE 流式 + 工具调用在 iOS 模拟器 + 本机后端上端到端跑通 |
-| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前主线启动时迁移至 **schema v14**（v3 头像 / 昵称；v4 记忆；v5 标签；v6 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号；v10 插件；v11 提醒与通知；v12 图片附件；v13 授权连接器；v14 记忆 M2）。iOS `0.1.0 (1)` |
+| 版本 | git tag `v0.1.0`；后端 `verabot 0.1.0`。已发布包为 schema v2；当前主线启动时迁移至 **schema v18**（v3 头像 / 昵称；v4 记忆；v5 标签；v6 置顶；v7 MCP；v8 MCP 同意 / 同步 / 熔断；v9 账号；v10 插件；v11 提醒与通知；v12 图片附件；v13 授权连接器；v14 M2 任务；v15 Bot 外观；v16 M3；v17 M4；v18 M5 向量）。iOS `0.1.0 (1)` |
 | 测试 | v0.1.0 原始回归快照：**91 条用例：通过 90 / 失败 0 / 跳过 1** (当时 TC-31 按要求跳过)，见 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md)；2026-10-01 后续手工验收结果见该文档「后续手工验收」。之后新增：AV / NK 21/21 (API)、MEM 36/36 (记忆，mock)、MA 25/25 (含 MA-25 用量契约)、TAG 8/8 (Bot 标签)；UI 剩余验收已列为延期项。|
 | 交付 | 后端 `dist/VeraBot-backend-v0.1.0.zip` (一键启动)；iOS Xcode 工程 + SPM 本地包；见 [DELIVERY.md](ops/DELIVERY.md) |
 | 运行环境 | macOS Intel (MacBook Pro 13" 2018)、Xcode 26.0.1、iPhone 17 模拟器 (iOS 26)、Python 3.12 (uv)、DeepSeek `deepseek-flash` (思考模式关闭；2026-10-03 前为 `deepseek-chat`) |
@@ -134,7 +134,7 @@ v0.1.0 之后的已合并改动都在 `main`，尚未发版 (见 [CHANGELOG.md](
 | 项 | 状态 |
 |---|---|
 | MCP M5~M7、Gmail 邮件工具 | OAuth 连接已实现；邮件工具、变更审阅、自定义 URL / stdio 仍按设计稿待做 |
-| 以记忆为核心的 Bot 成长体系 M2~M5 (摘要、风格校准、隐式候选、成长界面、向量检索) | M2–M4 已实现；M3/M4 已合入本地 main，M5 待本次整合；界面手工验收待完成 |
+| 以记忆为核心的 Bot 成长体系 M2~M5 (摘要、风格校准、隐式候选、成长界面、向量检索) | M2–M5 已合入本地 main；M3/M4 页面及 M5 真实语义与协作体验待手工验收 |
 | 首页搜索扩展 (完整聊天历史搜索、搜索历史) | ⏸ 延期到后续迭代；当前只过滤已加载列表 |
 
 ### 已知遗留 (Known leftovers)
@@ -224,5 +224,5 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 2. **M4 真实 OAuth 手工验收**：需配置 Google Cloud OAuth 客户端、测试用户和 Workspace Developer Preview；完成授权、取消、重启保持、scope step-up、失效刷新及断开 / 撤销验收后，再推进 Gmail 工具。
 3. **完成剩余手工验收**：记忆 M1、用量、Bot 标签、详情 / 创建页、单条消息删除、MCP / 插件页面，以及尚未覆盖的视觉页面；按 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md) 的待验收项逐项记录。
 4. **连接器真实冒烟**：CONN-LIVE-01~06 需要 GitHub / Linear 测试令牌与测试仓库；连接器 UI 验收也仍待完成。
-5. **记忆成长验收**：M2–M4 已实现；完成 M3/M4 页面手工验收。M5 混合检索待本次整合后验证，按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) 记录结果。
+5. **记忆成长验收**：M2–M5 已实现；完成 M3/M4 页面和 M5 语义召回、授权共享、反馈提示的手工验收，按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) 记录结果。
 6. **平台覆盖**：APNs 尚未实现；iOS 17 / 18、Dynamic Type、iPad 等覆盖仍未验证。路线图见 [ROADMAP_NEXT.md](ROADMAP_NEXT.md)。

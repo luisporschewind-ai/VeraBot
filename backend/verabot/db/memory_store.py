@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from .database import now_iso, row, rows, tx
 
-COLS = ("m.id, m.scope, m.bot_id, b.name AS bot_name, m.type, m.content, m.content_enc, m.sensitivity, m.source, "
+COLS = ("m.id, m.scope, m.bot_id, b.name AS bot_name, m.type, m.content, m.content_enc, m.content_hash, m.sensitivity, m.source, "
         "m.source_bot_id, sb.name AS source_bot_name, m.status, m.action, m.target_id, m.confidence, m.use_count, "
         "m.last_used_at, m.confirmed_at, m.expires_at, m.created_at, m.updated_at, m.meta")
 FROM = "FROM memories m LEFT JOIN bots b ON b.id=m.bot_id LEFT JOIN bots sb ON sb.id=m.source_bot_id"

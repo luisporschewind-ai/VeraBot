@@ -224,18 +224,18 @@ fresh = migrate("empty", "1", "CREATE TABLE schema_meta (key TEXT PRIMARY KEY, v
 # if users missing, SCHEMA creates it. Good.
 
 check("PLG-01 empty database reaches v14 twice",
-      fresh["ver"] == "16" and fresh["has_plugins"] and fresh["n1"] == fresh["n2"] == 0 and fresh["tomb"] == 0,
+      fresh["ver"] == "17" and fresh["has_plugins"] and fresh["n1"] == fresh["n2"] == 0 and fresh["tomb"] == 0,
       str(fresh))
 
 v8 = migrate("v8", "8", v9("8", LEARN_UNUSED, AWS_UNUSED))
 check("PLG-01 v8 backfills plugin_id and does not add rows on the second start",
-      v8["ver"] == "16" and v8["has_plugins"] and v8["has_plugin_id"]
+      v8["ver"] == "17" and v8["has_plugins"] and v8["has_plugin_id"]
       and v8["learn"] and v8["learn"][0] == "microsoft_learn" and v8["n1"] == v8["n2"],
       str(v8))
 
 used = migrate("used", "9", v9("9", LEARN_CONSENT, AWS_UNUSED, tools='["get_weather","mcp__learn__microsoft_docs_search"]', tool_sql=TOOL_SQL))
 check("PLG-02 consented synced Learn stays installed without touching consent or allowlist",
-      used["ver"] == "16"
+      used["ver"] == "17"
       and ["1", "microsoft_learn", "installed"] in [list(map(str, p)) for p in used["plugins"]]
       and used["learn"][1] == "2026-10-02T00:00:00+00:00"
       and used["bots"] == ['["get_weather","mcp__learn__microsoft_docs_search"]']

@@ -1,24 +1,24 @@
-"""幂等迁移（Migration v1 → v15），一个版本一个模块，按原 init_db() 的语句顺序依次执行。
+"""幂等迁移（Migration v1 → v18），一个版本一个模块，按原 init_db() 的语句顺序依次执行。
 
 入口仍是 `db.schema.init_db()`（= `db.init_db()`）：先 `v011_reminders._backup_before_v11()`，
 再在同一个事务里调用 `apply(c)`。每一步都幂等（IF NOT EXISTS / 先查列再 ALTER），
 只在「从旧版本升上来」时才做的回填由 `ver < N` 守住。
 
 顺序与 v12 之前完全一致：v001 基础表 → v002 … v011 → tags_coerce（每次启动，原本就在 v11 之后）
-→ v012 附件 → v013 连接器凭据 → v014 记忆任务 / 消息反馈 → 写 schema_meta.version。
+→ v012 附件 → v013 连接器凭据 → v014 记忆任务 → v015 Bot 外观 → v016~v018 记忆成长 → 写 schema_meta.version。
 不要调换：后面的步骤依赖前面补的列（如 v010 回填读 consent_at）。
 """
 from . import (tags_coerce, v001_base, v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned,
                v007_mcp, v008_mcp_sync, v009_auth, v010_plugins, v011_reminders, v012_attachments,
                v013_mcp_auth, v014_memory_jobs, v015_bot_appearance,
-               v016_memory_suggestions, v017_memory_reviews)
+               v016_memory_suggestions, v017_memory_reviews, v018_memory_vectors)
 
-SCHEMA_VERSION = 17  # v15 = Bot 外观，v16 = 记忆 M3，v17 = 记忆 M4 月度回顾
+SCHEMA_VERSION = 18  # v15 = Bot 外观，v16 = 记忆 M3，v17 = 记忆 M4，v18 = 记忆 M5 向量缓存
 
 STEPS = (
     v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned, v007_mcp, v008_mcp_sync,
     v009_auth, v010_plugins, v011_reminders, tags_coerce, v012_attachments, v013_mcp_auth,
-    v014_memory_jobs, v015_bot_appearance, v016_memory_suggestions, v017_memory_reviews,
+    v014_memory_jobs, v015_bot_appearance, v016_memory_suggestions, v017_memory_reviews, v018_memory_vectors,
 )
 
 
