@@ -5,6 +5,7 @@ import VeraBotTTS
 @main
 struct VeraBotApp: App {
     @State private var app = AppState()
+    @State private var travelStore = BotTravelStore()
     @State private var player = SpeechPlayer()   // 全局语音播放（TTS）
     @AppStorage(SettingsKeys.appearance) private var appearanceRaw = AppearanceMode.system.rawValue
 
@@ -12,6 +13,7 @@ struct VeraBotApp: App {
         WindowGroup {
             RootView()
                 .environment(app)
+                .environment(travelStore)
                 .environment(player)
                 .tint(.brand)   // 全局强调色：按钮、导航、进度条、Tab 选中态
                 .dismissKeyboardOnBackground()   // App 进入后台时收起键盘
@@ -46,6 +48,7 @@ struct RootView: View {
 
 struct MainTabView: View {
     @Environment(AppState.self) private var app
+    @Environment(BotTravelStore.self) private var travelStore
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -70,11 +73,23 @@ struct MainTabView: View {
         }
         .task {
             await app.refreshProfile()
+            travelStore.configure(userID: app.userID)
             NotificationCoordinator.shared.start(app: app)
             await app.syncReminders()
         }
+        .task {
+            while !Task.isCancelled {
+                travelStore.refresh()
+                do { try await Task.sleep(for: .seconds(1)) }
+                catch { break }
+            }
+        }
+        .onChange(of: app.userID) { _, userID in travelStore.configure(userID: userID) }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await app.syncReminders() } }
+            if phase == .active {
+                travelStore.refresh()
+                Task { await app.syncReminders() }
+            }
         }
         .alert("提示", isPresented: Binding(
             get: { app.missingNotice != nil },

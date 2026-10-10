@@ -17,8 +17,10 @@ struct ChatView: View {
     @State private var showCamera = false
     @State private var cameraDenied = false
     @Environment(AppState.self) private var app
+    @Environment(BotTravelStore.self) private var travelStore
     @Environment(\.scenePhase) private var scenePhase
     let highlightMessageID: Int?
+    @State private var travelTripToShow: BotTravelTrip?
 
     init(bot: Bot, api: any VeraBotAPI, highlightMessageID: Int? = nil) {
         self.highlightMessageID = highlightMessageID
@@ -127,7 +129,40 @@ struct ChatView: View {
     /// 底部浮动输入栏（Liquid Glass）：[＋ 圆形玻璃按钮] [胶囊玻璃：输入框 … 🎙]。
     /// 无发送按钮：键盘 return 键（submitLabel .send）发送；无不透明底栏，消息从下方滚过；
     /// 用 Theme 的 bottomBar（iOS 26 safeAreaBar，系统底部滚动边缘效果 Scroll edge effect；旧系统 safeAreaInset）保证最后一条可见、随键盘上移。
+    @ViewBuilder
     private var composer: some View {
+        if let trip = travelStore.activeTrip(botID: vm.bot.id) {
+            HStack(spacing: 12) {
+                Image(systemName: "airplane")
+                    .font(.title3).foregroundStyle(Color.brand)
+                    .frame(width: 42, height: 42)
+                    .background(Color.brandSoft, in: Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(vm.bot.name)正在旅行")
+                        .font(.subheadline.weight(.semibold))
+                    Text("它会在旅程节点回来分享发现。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Button("看旅程") { travelTripToShow = trip }
+                    .font(.subheadline.weight(.semibold))
+            }
+            .padding(12)
+            .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(.horizontal)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+            .sheet(item: $travelTripToShow) { trip in
+                NavigationStack { BotTravelJourneyView(trip: trip) }
+                    .environment(app)
+                    .environment(travelStore)
+            }
+        } else {
+            regularComposer
+        }
+    }
+
+    private var regularComposer: some View {
         VStack(spacing: 6) {
             if speech.isRecording {
                 Label("正在聆听…再次点击麦克风结束", systemImage: "waveform")
@@ -217,6 +252,7 @@ struct ChatView: View {
     /// 发送：键盘 return 键触发；空内容或上一条仍在回复时忽略（文字保留）。
     /// 有图时可以只发图片；图片处理 / 上传中或上传失败时不发送（输入栏上方显示状态）。
     private func send() {
+        guard travelStore.activeTrip(botID: vm.bot.id) == nil else { return }
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !vm.sending, !attachment.blocksSend else { return }
         guard !text.isEmpty || attachment.ready != nil else { return }

@@ -786,7 +786,8 @@ private struct ExploreIdeaDetailView: View {
                 DetailInfoCard(title: "想带来的体验", content: idea.experience, symbol: "sparkles")
                 DetailInfoCard(title: "Bot 可以怎么参与", content: idea.botRole, symbol: "person.crop.circle.badge.questionmark")
                 VStack(alignment: .leading, spacing: 12) {
-                    WorldSectionTitle(title: "可以这样逐步展开", subtitle: "当前是规划占位，细节会随着讨论补充")
+                    WorldSectionTitle(title: "可以这样逐步展开",
+                                      subtitle: idea.id == "travel" ? "已确认的第一版体验" : "当前是规划占位，细节会随着讨论补充")
                     ForEach(Array(idea.steps.enumerated()), id: \.offset) { index, step in
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(index + 1)")
@@ -801,10 +802,24 @@ private struct ExploreIdeaDetailView: View {
                         }
                     }
                 }
-                Text("灵感占位 · 尚未实现")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                if idea.id == "travel" {
+                    NavigationLink {
+                        BotTravelStartView()
+                            .toolbar(.hidden, for: .tabBar)
+                    } label: {
+                        Label("开始一次旅行", systemImage: "paperplane.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .prominentButtonStyle()
+                    Text("第一版交互原型 · 一趟旅程约 5 分钟")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                } else {
+                    Text("灵感占位 · 尚未实现")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
             }
             .padding(20)
             .frame(maxWidth: 560, alignment: .leading)
@@ -876,7 +891,7 @@ private struct ExploreIdea: Identifiable {
         ]),
         ExploreIdeaGroup(title: "探索与旅程", ideas: [
             ExploreIdea(id: "space", category: "探索与旅程", title: "Bot Space 与发现", summary: "发现 Bot、活动、知识或新的主题空间。", experience: "用户可以通过主题空间找到适合当下的一位 Bot 或一件可做的事。", botRole: "担任空间里的伙伴或向导，让用户知道这里能做什么。", steps: ["厘清 Space 与小岛的关系", "确定 Discover／Find 的对象", "挑一个主题空间示例"], symbol: "safari"),
-            ExploreIdea(id: "travel", category: "探索与旅程", title: "Bot 旅行与 Journey", summary: "派一位 Bot 出发，等它带回故事和纪念品。", experience: "一次旅程可以成为新的谈资，并在小岛留下明信片、见闻等纪念。", botRole: "根据个性去探索，回来分享旅程中值得记住的片段。", steps: ["确定虚构旅行或现实探索", "设计出发、等待与归来的节奏", "让纪念品能继续引出对话"], symbol: "map")
+            ExploreIdea(id: "travel", category: "探索与旅程", title: "Bot 旅行与 Journey", summary: "派一位 Bot 出发，隔一段时间收获旅札和纪念卡。", experience: "选择真实城市和探索主题。旅程分阶段揭晓；归来后，旅札与数字纪念卡收进旅行相册。", botRole: "旅行期间专心探索，只在出发、途中线索、地点发现和归来时分享；事实附来源，旅途感受标注为想象。", steps: ["选择 Bot、目的地和探索主题", "经过一段时间，逐步收到旅途消息", "回看旅札和纪念卡，并继续和 Bot 聊天"], symbol: "map")
         ]),
         ExploreIdeaGroup(title: "游戏与互动", ideas: [
             ExploreIdea(id: "games", category: "游戏与互动", title: "数独、推箱子与小游戏", summary: "Bot 可以当队友、对手或温和的提示者。", experience: "规则清楚、随时能开始的小游戏，为用户带来一段轻松互动。", botRole: "按游戏担任角色；当用户卡住时先了解卡点，再提供适度提示。", steps: ["选定首个小游戏", "确定规则由程序负责的部分", "设计 Bot 的陪玩与提示方式"], symbol: "gamecontroller"),
