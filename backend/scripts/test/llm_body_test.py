@@ -69,5 +69,8 @@ with TestClient(app) as cli:
     h = cli.get("/api/health").json()
 check("LLM-05 /api/health reports the configured model", h.get("model") == config.DEEPSEEK_MODEL == "deepseek-flash", h)
 
+check("LLM-07 group output bound leaves private request unchanged",
+      llm._body(msgs,None,True,max_tokens=768).get('max_tokens')==768 and 'max_tokens' not in llm._body(msgs,tools,True))
+
 print(f"SUMMARY {sum(results)}/{len(results)} passed")
 sys.exit(0 if all(results) else 1)

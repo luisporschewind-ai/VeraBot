@@ -1,0 +1,35 @@
+group_store_test
+Ran 13 tests in 2.165s
+OK
+
+group_runtime_test
+Ran 7 tests in 3.208s
+OK
+
+group_lifecycle_test
+Ran 8 tests in 3.303s
+OK
+
+multi_agent_test
+SUMMARY 25/25 passed
+
+status_event_test
+SUMMARY 8/8 passed
+
+auth_stability_test
+AUTH stability tests passed: 6/6
+
+llm_body_test
+SUMMARY 7/7 passed
+
+swift_final
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.091 (0.092) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.091 (0.092) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.091 (0.095) seconds
+✔ Test run with 211 tests in 0 suites passed after 0.092 seconds.
+
+build_final
+** BUILD SUCCEEDED **
+
+sql_baseline
+SQL baseline findings: 100 current: 100 added: 0

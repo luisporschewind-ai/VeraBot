@@ -263,3 +263,9 @@ iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（�
 ## 俄罗斯方块陪玩首版（2026-10-09）
 
 本地 TetrisGame 独立运行；TetrisCompanionModel 管理伙伴、每局短对话、请求取消和旧响应隔离。VeraBotCore 的 TetrisCompanionPolicy 限制每局最多 3 次主动请求、间隔至少 30 秒。客户端通过 VeraBotNetworking → 鉴权 `/api/bots/{id}/tetris-companion` → services/tetris_companion → llm.complete_json → 模型供应商；服务端检查归属、预算并记录用量。局面只传递分数、消行、高度、空洞数量，不能据此声称知道具体摆放位置。无工具、无消息持久化、无记忆写入。
+
+## 群聊独立执行链（schema v20，2026-10-11）
+
+iOS GroupChatViewModel → APIClient 群 SSE → groups router → group_runtime → llm.stream_chat。chat_groups/members/turns/messages 独立存储，BEGIN IMMEDIATE 与部分唯一索引限制单群一个 running 轮次，UUID负责幂等。回复写入流式占位，256字符/1秒新delta检查点，终态原子保存文字与已知usage。
+
+群运行绑定请求；stop 持久化取消并通知当前进程，断流关闭上游，启动将遗留轮次设为 interrupted，无自动续跑。首版仅单 worker/单进程，不支持多个服务实例共享该取消状态；不得以多worker部署并宣称停止可靠。SSE使用 group_id/turn_id/member_id归属，status不混入正文。重试引用原user_message与上下文边界，新回复关联retry_of_message_id。历史最多24条/12000字符，单回复max_tokens768、成员60秒/轮次240秒，每次调用前预算检查。非严格跨群额度预占。详细 [规格](../superpowers/specs/2026-10-11-bot-group-chat-design.md)与[G3](../testing/2026-10-11-bot-group-chat.md)。

@@ -1,0 +1,104 @@
+=== red ===
+ let api = GroupVMFixture(delayed: true)
+64 |     var current = true
+   |         `- note: variable defined here
+65 |     let model = GroupChatViewModel(group: GroupVMFixture.group, api: api, sessionIsCurrent: { current })
+   |                                                                                             | `- note: capturing use
+   |                                                                                             `- note: variable captured by sendable closure
+66 |     let work = Task { await model.load() }
+67 |     while await api.calls == 0 { await Task.yield() }
+68 |     current = false; await work.value
+   |             `- warning: 'current' mutated after capture by sendable closure
+69 |     #expect(model.state.messages.isEmpty && model.errorMessage == nil)
+70 | }
+[4/6] Write Objects.LinkFileList
+[5/6] Linking VeraBotKitPackageTests
+Build complete! (12.72s)
+Test Suite 'Selected tests' started at 2026-10-11 下午5:48:22.609.
+Test Suite 'VeraBotKitPackageTests.xctest' started at 2026-10-11 下午5:48:22.622.
+Test Suite 'VeraBotKitPackageTests.xctest' passed at 2026-10-11 下午5:48:22.622.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-11 下午5:48:22.622.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.013) seconds
+◇ Test run started.
+↳ Testing Library Version: 1085
+↳ Target Platform: x86_64-apple-macos14.0
+◇ Test GroupChatRenamingPreservesExplicitResponder() started.
+◇ Test GroupChatChangedDefaultImmediatelySelectsNewResponder() started.
+✔ Test GroupChatRenamingPreservesExplicitResponder() passed after 0.011 seconds.
+✘ Test GroupChatChangedDefaultImmediatelySelectsNewResponder() recorded an issue at GroupChatViewModelTests.swift:86:5: Expectation failed: (model.preferredBotID → 1) == 3
+✘ Test GroupChatChangedDefaultImmediatelySelectsNewResponder() failed after 0.018 seconds with 1 issue.
+✘ Test run with 2 tests in 0 suites failed after 0.021 seconds with 1 issue.
+
+=== green ===
+rviveBotDecode() passed after 0.078 seconds.
+✔ Test deleteMessageSurfaces404() passed after 0.108 seconds.
+✔ Test appearanceNetworkFailureKeepsDraft() passed after 0.105 seconds.
+✔ Test deleteMessageSendsDeleteToMessagePath() passed after 0.085 seconds.
+✔ Test ttsPlainTextStripsMarkdown() passed after 0.082 seconds.
+✔ Test sessionReusesTokenRefreshedByAnotherRequest() passed after 0.089 seconds.
+✔ Test staleRefreshDoesNotBumpOrOverrideNewSession() passed after 0.084 seconds.
+✔ Test GroupChatRenamingPreservesExplicitResponder() passed after 0.109 seconds.
+✔ Test GroupChatViewModelRejectedSendKeepsDraftAndDoesNotInventMessages() passed after 0.089 seconds.
+✔ Test GroupChatViewModelPreservesHistoryOnReloadFailure() passed after 0.109 seconds.
+✔ Test GroupChatChangedDefaultImmediatelySelectsNewResponder() passed after 0.109 seconds.
+✔ Test GroupChatViewModelRefreshesUnavailableMembersAndExplainsTurnFailure() passed after 0.088 seconds.
+✔ Test inlineParsesEmphasisAndCode() passed after 0.102 seconds.
+✔ Test sseUsesInjectedSession() passed after 0.086 seconds.
+✔ Test inlineKeepsMarkdownLinksAndSkipsCode() passed after 0.083 seconds.
+✔ Test linksCollectsUniqueURLsAcrossBlocks() passed after 0.096 seconds.
+✔ Test inlineKeepsTildeLiteral() passed after 0.095 seconds.
+✔ Test GroupChatViewModelIgnoresOldSessionLoad() passed after 0.111 seconds.
+✔ Test appearanceSaveOnlyPatchesAppearanceAndVerifiesEcho() passed after 0.108 seconds.
+✔ Test oldAccountRequestDoesNotRetryWithNewAccountToken() passed after 0.107 seconds.
+✔ Test clientNeverServesOrStoresCachedResponses() passed after 0.113 seconds.
+✔ Test appearanceSaveRejectsMissingMismatchedOrWrongTargetReceipt() passed after 0.115 seconds.
+✔ Test sessionNetworkFailureKeepsTokens() passed after 0.141 seconds.
+✔ Test GroupChatNetworkKeepsRequestsInTheirOriginalSession() passed after 0.118 seconds.
+✔ Test inlineDetectsLinksPhonesAndEmails() passed after 0.133 seconds.
+✔ Test run with 213 tests in 0 suites passed after 0.150 seconds.
+
+SAME DEFAULT RED
+ble closure
+ 69 |     #expect(model.state.messages.isEmpty && model.errorMessage == nil)
+ 70 | }
+[4/6] Write Objects.LinkFileList
+[5/6] Linking VeraBotKitPackageTests
+Build complete! (6.11s)
+Test Suite 'Selected tests' started at 2026-10-11 下午5:50:04.017.
+Test Suite 'VeraBotKitPackageTests.xctest' started at 2026-10-11 下午5:50:04.020.
+Test Suite 'VeraBotKitPackageTests.xctest' passed at 2026-10-11 下午5:50:04.020.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-10-11 下午5:50:04.020.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1085
+↳ Target Platform: x86_64-apple-macos14.0
+◇ Test GroupChatSavingDefaultReplacesStaleLocalTargetEvenWhenDefaultUnchanged() started.
+✘ Test GroupChatSavingDefaultReplacesStaleLocalTargetEvenWhenDefaultUnchanged() recorded an issue at GroupChatViewModelTests.swift:99:5: Expectation failed: (model.preferredBotID → 2) == 1
+✘ Test GroupChatSavingDefaultReplacesStaleLocalTargetEvenWhenDefaultUnchanged() failed after 0.001 seconds with 1 issue.
+✘ Test run with 1 test in 0 suites failed after 0.001 seconds with 1 issue.
+
+FINAL GREEN
+er 0.040 seconds.
+✔ Test GroupChatViewModelPreservesHistoryOnReloadFailure() passed after 0.050 seconds.
+✔ Test GroupChatSavingDefaultReplacesStaleLocalTargetEvenWhenDefaultUnchanged() passed after 0.037 seconds.
+✔ Test sseUsesInjectedSession() passed after 0.046 seconds.
+✔ Test GroupChatChangedDefaultImmediatelySelectsNewResponder() passed after 0.049 seconds.
+✔ Test GroupChatRenamingPreservesExplicitResponder() passed after 0.047 seconds.
+✔ Test GroupChatViewModelRefreshesUnavailableMembersAndExplainsTurnFailure() passed after 0.043 seconds.
+✔ Test clientNeverServesOrStoresCachedResponses() passed after 0.049 seconds.
+✔ Test oldAccountRequestDoesNotRetryWithNewAccountToken() passed after 0.050 seconds.
+✔ Test appearanceSaveOnlyPatchesAppearanceAndVerifiesEcho() passed after 0.056 seconds.
+✔ Test appearanceSaveRejectsMissingMismatchedOrWrongTargetReceipt() passed after 0.049 seconds.
+✔ Test sessionNetworkFailureKeepsTokens() passed after 0.055 seconds.
+✔ Test GroupChatNetworkKeepsRequestsInTheirOriginalSession() passed after 0.064 seconds.
+✔ Test GroupChatViewModelIgnoresOldSessionLoad() passed after 0.074 seconds.
+✔ Test run with 214 tests in 0 suites passed after 0.079 seconds.
+
+BUILD
+ 'VeraBot' from project 'VeraBot')
+    cd /Users/admin/.codex/worktrees/bot-group-chat-preview/VeraBot-v0.1/frontend/ios
+    builtin-validationUtility /tmp/verabot_group_preview_dd/Build/Products/Debug-iphonesimulator/VeraBot.app -shallow-bundle -infoplist-subpath Info.plist
+
+** BUILD SUCCEEDED **

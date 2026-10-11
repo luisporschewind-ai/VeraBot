@@ -108,3 +108,7 @@
 
 - `backend/scripts/test/multi_agent_test.py`：确定性测试，使用 mock LLM 和临时 DB，**25/25 通过** (MA-01 ~ MA-25，MA-25 为 `/api/quota` 与 iOS `Quota` 的字段契约；覆盖迁移、最小权限、校验、拒绝与审计、白名单、accept、隔离、截断、深度、环路、单轮上限、预算、软上限，以及 BUG-02/03/04/08/09)。头像 / 昵称另见 `avatar_profile_test.py`（不在本文件的多 Agent 范围内）。
 - 真实 LLM 回归：`backend/scripts/test/api_regress.py`、`api_regress2.py`。iOS UI 回归见 [TEST_CASES_v0.1.md](../testing/TEST_CASES_v0.1.md) 的「回归测试」一节。
+
+## 群聊与委派的区别（2026-10-11）
+
+群聊成员平等，发言顺序由服务端显式目标/round决定，不调用ask_bot；不依赖委派权限，不允许群内工具。group_context只使用群已完成历史与当前成员自己的persona/instructions，其他成员指令、私聊与长期记忆不注入。后续成员看到前面已完成的真实回复；失败成员独立失败，用户重试限定原问题上下文。群名/成员名/历史属于结构化资料，不授予权限。规则与tools=None可以限制实际能力，但语义抵抗与模型不虚报动作仍需真实体验检查。[G3分项状态](../testing/2026-10-11-bot-group-chat.md)。

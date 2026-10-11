@@ -1,0 +1,27 @@
+store_green
+Ran 13 tests in 2.814s
+OK
+
+swift_filter_final
+✔ Test run with 11 tests in 0 suites passed after 0.024 seconds.
+
+swift_all
+✔ Test run with 206 tests in 0 suites passed after 0.111 seconds.
+
+multi_agent_test
+SUMMARY 25/25 passed
+
+status_event_test
+SUMMARY 8/8 passed
+
+auth_stability_test
+AUTH stability tests passed: 6/6
+
+llm_body_test
+SUMMARY 6/6 passed
+
+sql_baseline
+SQL baseline findings: 100 current: 100 added: 0
+
+g1_final_build
+** BUILD SUCCEEDED **

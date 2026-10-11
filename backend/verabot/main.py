@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
 from .api.routers import actions, attachments, auth, avatars, bots, chat, devices, feedback, mcp, memories, meta, notifications, plugins, reminders, suggestions, voice
+from .api.routers import groups
 from .services.reminders import scheduler as reminder_scheduler
 from .core.config import WEB_DIR
 from .core import log_redact
@@ -41,6 +42,8 @@ async def _validation_error(request, exc: RequestValidationError):
 @app.on_event("startup")
 async def _startup():
     db.init_db()
+    from .db.group_store import recover_interrupted_turns
+    recover_interrupted_turns()  # Single-worker only; never resume model calls.
     app.state.reminder_scheduler = asyncio.create_task(reminder_scheduler.loop())
 
 
@@ -70,7 +73,7 @@ async def _attachments_reconcile():
 
 for r in (attachments.router, auth.router, avatars.router, bots.router, chat.router, memories.router, feedback.router,
           voice.router, reminders.router, notifications.router, devices.router, meta.router, mcp.router, plugins.router,
-          actions.router, suggestions.router):
+          actions.router, suggestions.router, groups.router):
     app.include_router(r)
 
 
