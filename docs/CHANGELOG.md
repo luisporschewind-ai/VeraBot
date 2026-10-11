@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### 进度与验收文档对齐 — 2026-10-11
+
+- 记忆 M3/M4 用户验收通过；M3-05 委派复测通过；M5-02/03、记忆卡片缺失及回复省略问题复测通过，M5-04 服务层降级验证通过。
+- MCP M3 确认卡片模拟器实际操作通过：显示、取消、重启恢复、执行一次、重复确认拒绝、协作记录。按用户指定标准标记通过，布局不纳入此次验收。
+- 校正 Keychain / 刷新 / 登录限流、本地通知、图片附件、schema v19 和未推送提交状态；保留历史测试快照，不将旧记录当作当前全量回归。完整盘点见 [项目盘点](testing/2026-10-11-project-inventory.md)。
+
+
 ### iOS 游乐场游戏助手 — 2026-10-10
 
 - 游乐场大标题左侧与右侧 Bot 头像放在同一行，点击头像打开游戏助手对话。
@@ -56,7 +63,7 @@
 - M3 隐式候选、主动建议与快捷提问；候选经用户确认后才进入记忆，建议不会自动改动提醒或委派权限。
 - M4 Bot 成长统计、月度回顾、JSON 导出与回答记忆引用；回顾只使用安全聚合和符合条件的记忆。
 - 数据库迁移顺序校准：当前 v15 为 Bot 外观，M3 使用 v16，M4 使用 v17，保留既有 v14 记忆任务迁移和数据。
-- iOS 增加建议卡片、成长与月度回顾、记忆导出、引用查看；Web 仍冻结。M3/M4 自动检查与模拟器构建结果沿用分支记录，界面仍待手工验收。
+- iOS 增加建议卡片、成长与月度回顾、记忆导出、引用查看；Web 仍冻结。M3/M4 自动检查与模拟器构建结果沿用分支记录，M3-01～05、M4-01～05 已于 2026-10-10 由用户验收通过。
 
 ### 俄罗斯方块 Bot 陪玩首版 — 2026-10-09
 
@@ -86,7 +93,7 @@
 - **后端**：按 [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §7 / §15 M3。非只读 MCP 工具（及 `confirm_policy=always` 的只读工具）不再直接拒绝，而是冻结参数写入 `pending_actions`（Fernet，`VERABOT_ACTION_ENC_KEY` / `data/.action_key`，默认 15 分钟过期）、审计 `mcp_action_requested`，工具结果 `{status:pending_confirmation, action_id, …}`，SSE 另发 `confirmation_required`。`POST /api/pending-actions/{id}/confirm|cancel`、`GET /api/pending-actions`；确认后执行冻结参数、写结果摘要进对话历史、**不**自动再调 LLM。确认前工具变更 / 服务断开 → 409；过期 → 410；他人 → 404；重复 → 409。确认接口在事务内原子检查 TTL 并条件更新状态，避免过期时间边界竞态。单轮待确认上限 `VERABOT_MCP_PENDING_PER_TURN`（默认 2）。`PATCH /api/mcp/tools/{id}` 仅接受 `always`/`default`，拒绝 `never`/`auto`（MCP-13）。跨服务读→写时卡片带警告。协作记录新增 `GET /api/bots/{id}/tool-calls`。过期 pending 由调度器标 `expired`（不再直接删）。
 - **iOS**：`ToolConfirmationCard`（服务 / 工具 / 风险 / 参数表 / 警告 / 执行·取消）；`ChatEvent.confirmationRequired`；Kit `PendingAction` / `ConfirmationRequired`；打开对话恢复 pending；协作记录页增加「工具调用」分段。
 - **Web 冻结**：无确认卡片界面。
-- **测试**：`mcp_m3_test.py` 23/23（MCP-10~13、过期、pending 上限、跨服务警告、契约键）；MCP / 插件 / 并发回归通过；Kit `swift test` 156/156；iPhone 12 Pro Max 目标 `xcodebuild` 编译与签名通过。真机安装 / 启动及确认卡片手工验收仍待完成。
+- **测试**：`mcp_m3_test.py` 23/23（MCP-10~13、过期、pending 上限、跨服务警告、契约键）；MCP / 插件 / 并发回归通过；Kit `swift test` 156/156；iPhone 12 Pro Max 目标 `xcodebuild` 编译与签名通过。2026-10-11 确认卡片已按用户指定的模拟器标准验收通过，见 [专项记录](testing/2026-10-11-mcp-m3-simulator.md)。
 
 ### 新增 (Added) — 记忆 M2：滚动摘要 + 风格校准（schema v14）
 

@@ -1,4 +1,18 @@
-# 项目状态 (STATUS) — 2026-10-10
+# 项目状态 (STATUS) — 2026-10-11
+
+## 2026-10-11 · 代码与文档盘点
+
+- 当前本地 `main` 为 `c66f2d2`；相对本机 `origin/main` 引用超前 9 个提交，未确认远端最新状态。代码已提交；本次进度对齐与验收证据尚未提交。未发布新版本。
+- 记忆 M3-01～05、M4-01～05 均已由用户验收通过；M5-02/03 与卡片缺失、回复省略问题已复测通过。M5-04 服务层降级验证通过；真实本地向量模型的语义召回没有单独验收记录。
+- MCP M3 已按用户指定模拟器标准通过；MCP M4 OAuth 已实现，真实 Google 授权待验收。Google 账号登录 VeraBot 未实现，与 Gmail 授权连接分开跟踪。
+- 主要待验收：文件附件、提醒编辑与时区、真实 OAuth / GitHub / Linear、陪玩与旅行原型、启动 / 网络错误页面及剩余界面项。详见 [完整盘点](testing/2026-10-11-project-inventory.md)。
+- 文档中的旧测试数量均为对应提交快照；本次盘点不重跑测试、不新增功能，也不表示当前全量回归已通过。
+
+## 2026-10-11 · MCP M3 确认卡片验收通过
+
+- 用户指定模拟器功能测试通过即标记通过，布局不纳入本次验收。当前 `main` 的 `c66f2d2` 已在 iPhone 17 模拟器重新构建并运行。
+- 确认卡片、取消、执行、App 重启恢复待确认卡片、协作记录均通过；确认前及取消后远程调用为 0，执行后为 1，重复确认返回 409 且调用数保持 1。使用隔离后端与本地假 MCP / 模型，未删除真实数据。详见 [验收记录](testing/2026-10-11-mcp-m3-simulator.md)。
+- M3-05 委派能力由用户复测通过；MCP M3 确认卡片不再列为待验收项。
 
 ## 2026-10-10 · 游乐场游戏助手
 
@@ -28,12 +42,12 @@
 
 - 对话页导航栏右上角新增三点「更多」按钮，沿用系统原生圆形工具栏按钮样式；按钮暂为空操作。
 
-## 2026-10-10 · 主线整合待主机测试
+## 2026-10-10 · 主线整合（验收状态更新至 2026-10-11）
 
 - `main` 已纳入头像系统、俄罗斯方块陪玩、记忆成长 M2–M5；数据库迁移版本为 v19（v15 Bot 外观、v16 M3、v17 M4、v18 M5、v19 文件附件）。
-- M3/M4/M5 自动化与模拟器构建沿用隔离分支记录；本次整合后尚未重跑。M3/M4 页面与 M5 语义召回、权限共享、反馈提示仍待手工验收。
+- M3/M4/M5 自动化与模拟器构建沿用隔离分支记录；本次整合后尚未重跑。M3/M4 页面已由用户验收通过；M5 权限共享、反馈提示和两项修复复测通过，降级服务层验证通过；真实向量语义召回未单独记录验收。
 - M5 的 BGE-small-zh 向量能力为可选本地依赖；未安装或不可用时回退关键词。Web 冻结。
-- 当前工作区为本机 `main`，整合后可在主机上启动验收；本次汇总提交用于同步远程 `origin/main`，统一验证与验收由用户执行。
+- 当前工作区为本机 `main`，整合后可在主机上启动验收；代码已提交到本地 `main`，尚未推送本机记录的 9 个领先提交；具体验收结果见当前盘点。
 
 ## 2026-10-09 · 俄罗斯方块陪玩首版
 
@@ -130,9 +144,9 @@
   2. **头像动画**：采用头像实验室的五款形象和系统 `phaseAnimator`，不采用另一套自定义卡通动画。有相册照片时仍显示照片。
   3. **仓库清理记录**：`frontend/ios/VeraBot/File.txt` (QA 遗留，内容「QA回归」) 已在 `c5529ce` 删除，工作区无残留 (见 TEST_CASES NEW-03)。
 
-## 📍 当前进度 (Current progress) — main 工作区 (2026-10-07)
+## 📍 当前进度 (Current progress) — main 工作区 (2026-10-11)
 
-v0.1.0 之后的已合并改动都在 `main`，尚未发版 (见 [CHANGELOG.md](CHANGELOG.md) [Unreleased])。`main` 与 `origin/main` 当前同为 `61b9b4f`；数据库迁移已到 **schema v14**：v3 头像 / 昵称、v4 记忆 M1、v5 标签、v6 置顶、v7 MCP、v8 MCP 同意 / 同步 / 熔断、v9 账号、v10 插件、v11 提醒与通知、v12 图片附件、v13 授权连接器、v14 记忆 M2。iOS 版本仍为 `0.1.0 (1)`。当前没有开放 PR；PR #30 的 MCP M3 已合入。M3 后端 23/23、MCP / 插件 / 并发回归通过、Kit `swift test` 156/156，iPhone 12 Pro Max 目标构建通过；设备启动和确认卡片手工验收待 Boss 在 Xcode 完成。提醒编辑逻辑修复与 Xcode 编译修复保留在本地未提交；其他未提交改动也保持原样。
+当前本地 HEAD `c66f2d2`，相对本机 `origin/main` 引用领先 9 个提交；本次未访问远端更新引用，未核对开放 PR。代码 schema **v19**，iOS 版本 `0.1.0 (1)`，未发布新版本。最新状态以 [盘点](testing/2026-10-11-project-inventory.md) 和专项验收记录为准；下表旧测试数代表历史提交快照，不等于本次全量回归。
 
 ### 功能实现与验收状态 (Implementation and acceptance status)
 
@@ -151,7 +165,7 @@ v0.1.0 之后的已合并改动都在 `main`，尚未发版 (见 [CHANGELOG.md](
 | **Bot 标签** (schema v5；同日重新设计：3 个 / 4 字，首页一个浅灰圆角矩形、详情卡片一行、对话标题不显示、「基本信息」内单输入框) | 见 CHANGELOG | 后端 `bot_tags_test.py` 10/10 (含存量收敛与前后端契约)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；Kit 已测；iOS 标签 UI 验收延期 | TAG-01~10、TAG-UI-01~04 |
 | **Bot 置顶** (schema v6；列表排序、名称旁 pin 标识、左滑 / 长按入口、置顶行浅灰底) | `c5529ce` | 后端 `bot_pin_test.py` PIN-01~08 通过；回归 MA 25/25、AV/NK 21/21、MEM 36/36、TAG 10/10；`swift test` 55 项通过；Boss 确认功能无问题 | PIN-01~08、PIN-UI-01~03 |
 | **MCP M1** (schema v7；Learn 默认开、AWS 默认关；Bot / 设置里按服务开关只读工具) | 见 CHANGELOG | 后端 `mcp_test.py` 本地假服务器通过；真实公网用例默认跳过。iOS 未在本环境编译。Web 无界面 | MCP-01、MCP-02、MCP-04~08、MCP-25、MCP-CONTRACT、MCP-HTTP、MCP-LIVE |
-| **MCP M3 HITL** (写工具确认卡片；复用 v7 `pending_actions`) | PR #30，合并提交 `61b9b4f` | `mcp_m3_test.py` 23/23；MCP / 插件 / 并发回归通过；Kit `swift test` 156/156；iPhone 12 Pro Max 目标构建通过；真机交互验收待 Boss | MCP-10~13、M3-UI |
+| **MCP M3 HITL** (写工具确认卡片；复用 v7 `pending_actions`) | PR #30，合并提交 `61b9b4f` | `mcp_m3_test.py` 23/23；MCP / 插件 / 并发回归通过；Kit `swift test` 156/156；iPhone 12 Pro Max 目标构建通过；2026-10-11 模拟器功能验收通过（用户指定标准） | MCP-10~13、M3-UI |
 | **MCP M4 OAuth 2.1 + Google**（不升 schema） | 合并提交 `ed52159` | OAuth 假服务器与 MCP / 插件回归通过；Kit `swift test` 157/157；main 验收地址为 `127.0.0.1:8000` | MCP-20~21、刷新 / 撤销子集；真实 Google OAuth 待手工验收 |
 | **MCP M2** (schema v8；按服务同意、会话复用、审计、后台同步、重试与熔断) | 见 CHANGELOG | 后端 `mcp_test.py` 本地假服务器通过（含 v7→v8）；真实公网用例默认跳过。iOS 未在本环境编译。Web 冻结，无对应界面 | MCP-CONSENT、MCP-SESSION、MCP-AUDIT、MCP-SYNC、MCP-RETRY、MCP-BREAKER、MCP-CONTRACT |
 | **Bot 详情 / 创建页改版** (顶部卡片弹窗编辑头像 / 昵称 / 标签且「保存」才提交、「默认形象」分组、人设 / 指令独立分组、界面去英文、协作记录本地时间；仅 iOS) | 见 CHANGELOG | `swift test` 53/53；AV/NK 21/21；模拟器已构建 / 安装 / 启动；详情/创建 UI 验收延期 | DETAIL-UI-01~09 |
@@ -161,36 +175,36 @@ v0.1.0 之后的已合并改动都在 `main`，尚未发版 (见 [CHANGELOG.md](
 | App 图标、主屏显示名「Vera Bot」 | `b5eccd9`、`d824796` | 已构建 | — |
 | 去掉列表数量页脚、账号信息并入设置、移除「恢复默认头像」入口 | `8794552` 等 | 对应 UI 验收延期 | UI-01~03、UI-10 |
 
-### 暂停 / 延期 (Paused / deferred)
+### 后续实现 / 延期 / 待验收
 
 | 项 | 状态 |
 |---|---|
 | MCP M5~M7、Gmail 邮件工具 | OAuth 连接已实现；邮件工具、变更审阅、自定义 URL / stdio 仍按设计稿待做 |
-| 以记忆为核心的 Bot 成长体系 M2~M5 (摘要、风格校准、隐式候选、成长界面、向量检索) | M2–M5 已合入本地 main；M3/M4 页面及 M5 真实语义与协作体验待手工验收 |
+| 以记忆为核心的 Bot 成长体系 M2~M5 (摘要、风格校准、隐式候选、成长界面、向量检索) | M1–M5 已合入本地 main；M3/M4 用户验收、M5 共享 / 反馈复测及降级服务层验证通过；真实向量语义召回待明确验收记录（此行仅记录剩余验收） |
 | 首页搜索扩展 (完整聊天历史搜索、搜索历史) | ⏸ 延期到后续迭代；当前只过滤已加载列表 |
 
 ### 已知遗留 (Known leftovers)
 
-- **提醒编辑页旧缺陷**（2026-10-05 代码审查发现；本地实现已更新，iPhone 目标构建通过，尚未安装运行 / 手工验收）：修正了仅改标题仍回传旧排程、使用 snooze 时间、冲突重载不刷新版本、删除缺确认 / 吞错误、时间格式和原时区、日期 / 时间状态混用、关闭日期未清全天字段、重复出现时覆盖编辑态、打开日期后时间过期、备注清空、无日期开启日期默认全天，以及自定义 RRULE 丢失等路径；行内标签改为按钮。逐项验收仍待进行，尤其 DST、跨时区与点击命中区域。
+- **提醒编辑页旧缺陷**（2026-10-05 代码审查发现；修复已纳入当前 main 并随 App 安装，iPhone 目标构建通过；提醒编辑专项交互未验收）：修正了仅改标题仍回传旧排程、使用 snooze 时间、冲突重载不刷新版本、删除缺确认 / 吞错误、时间格式和原时区、日期 / 时间状态混用、关闭日期未清全天字段、重复出现时覆盖编辑态、打开日期后时间过期、备注清空、无日期开启日期默认全天，以及自定义 RRULE 丢失等路径；行内标签改为按钮。逐项验收仍待进行，尤其 DST、跨时区与点击命中区域。
 - **相对时间解析**（实现已更新，尚未验证）：创建提醒时，对用户原话中可解析的中文秒 / 分 / 小时 / 天相对时间按服务器时钟重算并向上取整到分钟；范围仅覆盖明确数字或中文数词加「后」的表达。
 - **改进建议：点按提醒通知先进只读详情页**：现在点按提醒通知直接进「编辑提醒」。建议改为先看详情 (标题、时间、来源、「查看对话」)，再从详情进编辑。路由规则不变 (仍不直接进对话，见 [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) §9.5)。
 - **Web 客户端落后于 iOS**：没有迭代 2 的 iOS UI，也没有 2026-10-01 之后的全部 iOS 改动 (见 §2 第一条)。**默认 Bot 形象没有 Web 对应** (Web 冻结)：iOS 无照片时画五款实验室形象，`bots.avatar` 可能是 `veraBean` 等 id；Web 仍把该字段当文字 / 表情显示，不播状态动画。`/api` 未新增字段。**设置 › 用量「已用 N%」没有 Web 对应** (Web 冻结；Web 用量页仍是原有额度进度条，`/api/quota` 未变，不受影响)。**Bot 标签与置顶没有 Web UI** (Web 冻结；后端字段向后兼容)。**Bot 详情改版 (卡片弹窗编辑、默认形象分组、去英文、协作记录本地时间) 没有 Web 对应** (Web 冻结；未改 API)。**记忆 M1 没有 Web UI**：Web 不显示确认卡片 (记忆工具结果显示为普通工具卡片，无法在 Web 确认)，没有记忆页与 `memory_access` 设置；后端接口向后兼容，Web 现有功能不受影响。**MCP M1 / M2 没有 Web UI**（`frontend/web` 冻结，落后于这项功能）：没有服务列表、同意开关、同步状态、熔断状态或工具开关。`/api/mcp/servers` 多了 `consent_at` / `sync_status` / `circuit_state` 等字段，`/api/tools` 的可选字段仍可忽略。对话若模型调用了 MCP 工具，Web 仍只显示普通工具卡片。**插件 P1 没有 Web 对应**（`frontend/web` 冻结）：没有插件页。`/api/plugins/*` 是新接口；`/api/tools` 增加可忽略的 `plugin_id`；`GET /api/mcp/servers` 不再自动补未安装的目录行。
 - **设计稿中的 schema 版本号**：v3 = 头像 / 昵称、v4 = 记忆、**v5 = Bot 标签**、**v6 = Bot 置顶**、MCP 表是 **v7**，M2 的同意 / 同步 / 熔断列是 **v8**，账号邮箱 / 手机号是 **v9**，插件安装表是 **v10**。Gmail 设计稿仍写与 MCP 共用 v7 表。
 
-## MCP M1 已实现；M2 起与 Gmail 仍待做
+## MCP M1–M4 已实现；Gmail 邮件工具待做
 
-Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gmail 优先通过 MCP 接入。两份设计稿已于 2026-10-01 由 Boss 批准为 **v1.0**。以记忆为核心的 Bot 成长体系方案 v1.0 已批准，记忆 M1 已实现。
+Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gmail 优先通过 MCP 接入。两份设计稿已于 2026-10-01 由 Boss 批准为 **v1.0**。以记忆为核心的 Bot 成长体系方案 v1.0 已批准，记忆 M1–M5 已实现；验收按各阶段单独记录。
 
 | 能力 | 设计文档 | 状态 | 需要 Boss 做的事 |
 |---|---|---|---|
 | MCP M1（Client、目录、只读工具开关、防注入） | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) §18 | ✅ 已实现（schema v7） | 验收设置页与 Bot 详情的 MCP 开关。真实公网用例需 `VERABOT_MCP_LIVE_TESTS=1` |
 | MCP M2（同意时间、会话复用、审计、后台同步、重试与熔断） | 同上 §18.3 | ✅ 已实现（schema v8） | 验收设置页的同意 / 同步 / 熔断。`frontend/web` 冻结，没有对应界面 |
-| MCP M3（pending_actions、写操作确认卡片、工具调用记录） | 同上 §7 / §15 / §18.5 | ✅ 已实现并由 PR #30 合入 `main`（复用 v7 表，不升版本） | `mcp_m3_test.py` 23/23；Kit 156 项；iPhone 目标构建通过；真机卡片交互待 Boss 验收 |
+| MCP M3（pending_actions、写操作确认卡片、工具调用记录） | 同上 §7 / §15 / §18.5 | ✅ 已实现并由 PR #30 合入 `main`（复用 v7 表，不升版本） | `mcp_m3_test.py` 23/23；Kit 156 项；iPhone 目标构建通过；2026-10-11 模拟器卡片交互验收通过 |
 | 插件 P1（安装关系、内置 / 外部入口、卸载） | [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) v1.0；进度见 MCP §18.4 | ✅ 已实现（schema v10） | 新账号不预装。验收设置 › 插件、内置详情的工具权限导航、卸载确认。`frontend/web` 冻结，插件 P1 没有 Web 对应 |
 | MCP M4（OAuth 2.1 + Google 连接） | 同上 §15 / §18.6 | ✅ 已合入 `main`，不升 schema | 真实授权需 Google Cloud OAuth 客户端、测试用户与 Workspace Developer Preview；由 Boss 手工完成 |
 | MCP M5~M7（Gmail 工具、变更审阅、自定义 URL / stdio） | 同上 §15 | 未实现 | 按设计稿后续推进 |
-| Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准，未实现 | 同上，在 M4 之前 |
-| 以记忆为核心的 Bot 成长体系 | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1 已实现 | 按 MEM-UI-01~12 验收 M1；决定是否开始记忆 M2 |
+| Gmail (主路径：Google 官方 Gmail MCP；备用：直连 Gmail API) | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | ✅ v1.0 已批准，未实现 | 在真实 M4 授权验收后推进邮件工具 |
+| 以记忆为核心的 Bot 成长体系 | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | ✅ v1.0 已批准，M1–M5 已实现 | M3/M4 已验收；M5 降级服务层通过，真实向量语义召回待记录 |
 
 **MCP M1–M4 已实现**，其上的 **插件 P1 已实现**（schema v10）。M4 仅提供 OAuth 连接，不提供 Gmail 邮件工具；M5~M7 未实现。原 M0 / G0 技术验证已取消。记忆 M1 占用 schema v4，Bot 标签占用 v5，Bot 置顶占用 v6，MCP 表占用 **v7**，M2 列占用 **v8**，账号占用 **v9**，插件安装表占用 **v10**。`frontend/web` 冻结。
 
@@ -202,7 +216,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 租户隔离 Isolation | ✅ | 所有查询带 `user_id`，越权 (IDOR) 返回 404 |
 | Bot 管理 | ✅ (API) / 🟡 (标签部分 UI 延期) | 创建 (＋)、编辑 (Bot 详情 / 长按「编辑与权限」)、左滑删除；置顶支持左滑 / 长按，置顶项优先排序且 Boss 已验收；标签 UI 与 Bot 详情/删除流程验收延期；软上限 20 (`MAX_BOTS_PER_USER`)；名称右侧显示标签，行右上角显示最后消息时间；搜索只过滤已加载的 Bot 名称与最后消息预览，完整聊天历史搜索、搜索历史等延期 |
 | 流式对话 SSE | ✅ | 逐 token 渲染、工具卡片、交接 Trace 卡片、错误气泡 |
-| 记忆 Memory | ✅ | 显式长期记忆 M1、每 Bot 记忆分组、最近 20 条对话窗口；M1 UI 验收延期，M2+ 摘要 / 向量检索尚未开始 |
+| 记忆 Memory | ✅ | 显式长期记忆 M1、每 Bot 记忆分组、最近 20 条对话窗口；M1–M5 已实现；M3/M4 已用户验收，M5 共享 / 反馈与修复通过，真实向量语义召回待记录 |
 | 工具 Tools | ✅ | 天气 (Open-Meteo)、创建 / 查询提醒、`ask_bot`；外部插件（Learn / AWS）需先安装并同意，再在 Bot 里单独打开 |
 | 多 Agent 协作 | ✅ | 工具白名单、委派白名单、接受委派、上下文隔离、深度 / 环路 / 单轮上限 / Token 预算、审计日志、协作记录页 |
 | 每日 Token 预算 | ✅ | 超额 429，委派也被拒 |
@@ -214,7 +228,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 导航 Navigation | ✅ | 二级页面隐藏 Tab 栏；对话标题 → Bot 详情 sheet；首页原生圆形按钮；头像统一正圆 (`CircleAvatar`)；工具栏取消 / 关闭为系统圆形 X (`DismissToolbarButton`) |
 | 键盘 Keyboard | ✅ | 输入栏随键盘上移、点空白 / 下拉收起、表单 next、多行人设 / 指令、sheet 保存后布局正常 |
 | 视觉风格 Visual style | 🟡 部分验收 | 白底 + 灰分组、iOS 26 Liquid Glass (旧系统回退)、主题语义色集中在 `Core/UI/Theme.swift`、深色模式；未覆盖页面验收延期 |
-| 输入栏 Composer | ✅ | 浮动玻璃：圆形 ＋ (附件占位菜单) + 胶囊输入框 + 🎙；无发送按钮，return 发送；Boss 已验收 |
+| 输入栏 Composer | ✅ | 浮动玻璃：圆形 ＋（图片 / 拍照 / 文件） + 胶囊输入框 + 🎙；无发送按钮，return 发送；Boss 已验收 |
 | 消息富文本 Rich messages | ✅ | Markdown 排版、自动识别网址 / 电话 / 邮箱、网页在 App 内打开、长按复制；解析有单元测试，Boss 已验收 |
 | App 图标 / 名称 | ✅ | 主屏「Vera Bot」；AppIcon 1024 单尺寸 |
 | 附件 Attachments | 🟡 部分 | ＋ 菜单：「图片」(PhotosPicker，P1) 与「拍照」(系统相机，P2，2026-10-04；无相机设备不显示) 可用；「文件」已启用系统文件选择器；PDF/TXT/MD/CSV/DOCX/XLSX、10 MB、单消息一个，设备验收待做 |
@@ -224,12 +238,12 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 - **iOS 与 Web 不对等**：Web SPA 没有迭代 2 的 iOS UI 改动 (权限编辑、协作记录、设置页、TTS)，也没有 2026-10-01 之后的改动 (昵称编辑、照片头像、调试页、通用设置、列表时间 / 搜索、Liquid Glass 视觉、浮动输入栏、富文本 / App 内网页、MCP 服务开关、M2 的同意 / 同步 / 熔断)，只作为 API 验收客户端。`frontend/web` 冻结，落后于 MCP M2。**Web 暂不支持删除单条消息**（iOS 长按「删除」，接口 `DELETE /api/bots/{bot_id}/messages/{message_id}`；Web 只有清空整段对话）。
 - **HEIC**：服务端能认出 HEIC 文件头；未安装 `pillow-heif` 时返回 415。iOS 在上传前把相册图片转成 JPEG，不依赖服务端解 HEIC。
 - **头像存在 SQLite `avatars.data`**：512 JPEG，单张大约几 KB 到几十 KB。备份数据库即包含头像。
-- **提醒不推送**：没有 APNs / 本地通知。设置里的「通知」开关只申请系统授权并保存偏好，目前不会发出任何通知。
+- **提醒通知边界**：已有本地通知和站内通知；尚无 APNs 服务端推送，App 关闭后的远程主动触达未实现。
 - **语言**：App 声明了 zh-Hans 与 en 本地化（仅 `InfoPlist.xcstrings`：显示名与权限文案），系统设置中可按 App 切换语言；但界面文案仍是中文硬编码，切到英文后 App 内界面仍为中文。
 - **列表时间不会自动跨天刷新**：停留在首页跨过午夜时，「HH:mm」不会自己变成「昨天」；回到首页或下拉刷新后更新。「本周」按系统日历的周（中文地区周一开始）计算。
 - **首页搜索暂延期扩展**：搜索入口保留；当前只过滤屏幕上已加载的列表（Bot 名称 + 最后一条消息预览），完整聊天历史搜索、搜索历史等移至后续迭代。
-- **记忆**：长期记忆 M1 已实现但 UI 验收延期；摘要 / 向量检索属于 M2+，尚未开始 (方案见 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md))。
-- **安全**：Token 存 UserDefaults / localStorage (生产应改 Keychain / HttpOnly Cookie)，没有刷新 Token、没有速率限制 (Rate limit)，CORS `*`，ATS 允许本地 HTTP。
+- **记忆**：M1–M5 已实现，M3/M4 已验收；本地向量为可选依赖，不可用时回退关键词；真实向量模型端到端语义效果未单独记录。
+- **部署边界**：iOS Token 已存 Keychain，已有刷新、登录限流与账号锁定；Web 仍为 localStorage。IP 限流为进程内存，多实例共享限流未实现；CORS `*`、开发 HTTP / ATS 配置仍需生产收敛。
 - **云端 TTS**：只是占位 (stub)，设置里置灰。
 - **后端不会开机自启**：Mac 重启后需要重新运行 `backend/start.sh --detach` (或双击 `start.command`)；日志在 `backend/data/server.log`。
 - **Docker 未实测**：`Dockerfile` / `docker-compose.yml` 已提供，`docker compose config` 校验通过；但测试机的 Docker daemon 未运行，镜像没有实际构建 / 运行过。
@@ -241,7 +255,7 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 | 项目 | 状态 |
 |---|---|
 | TC-07 Token 失效处理 | 通过：无效 token 时 `/api/me` 返回 401，App 自动跳转登录页 (iPhone 17 模拟器，2026-10-01) |
-| 真机 (Real device) | iPhone 12 Pro Max 目标构建已通过；尚未安装 / 启动。M3 确认卡片及提醒编辑交互仍待 Boss 在 Xcode 手工验收 |
+| 真机 (Real device) | iPhone 11 已安装并启动当前主线，登录连通；MCP M3 按用户指定标准完成模拟器验收。提醒编辑交互保持原有待验收状态 |
 | 昵称 / 照片头像的 iOS 界面 | Boss 手工验收通过 (2026-10-01) |
 | 首页正圆头像、圆形 X 取消 / 关闭、行时间、首页搜索 (UI-11~14) | Boss 手工验收通过 |
 | iOS 17 / 18 旧系统 | 未测 (`defaultScrollAnchor` 等 iOS 18+ API 已做版本判断) |
@@ -252,9 +266,9 @@ Boss 决定把 MCP (Model Context Protocol) 作为 VeraBot 的一等能力，Gma
 
 ## 4. 下一步 (Next steps)
 
-1. **真机手工验收**：Boss 在 Xcode 将当前 `main` 运行到 iPhone 后，验收 MCP 确认卡片和提醒编辑保存 / 删除 / 时区行为，并记录结果；提醒页视觉修复已通过。
+1. **提醒编辑交互验收**：验收保存 / 删除 / 时区行为并记录结果；提醒页视觉修复已通过。MCP M3 确认卡片已按用户指定的模拟器标准验收通过。
 2. **M4 真实 OAuth 手工验收**：需配置 Google Cloud OAuth 客户端、测试用户和 Workspace Developer Preview；完成授权、取消、重启保持、scope step-up、失效刷新及断开 / 撤销验收后，再推进 Gmail 工具。
 3. **完成剩余手工验收**：记忆 M1、用量、Bot 标签、详情 / 创建页、单条消息删除、MCP / 插件页面，以及尚未覆盖的视觉页面；按 [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md) 的待验收项逐项记录。
 4. **连接器真实冒烟**：CONN-LIVE-01~06 需要 GitHub / Linear 测试令牌与测试仓库；连接器 UI 验收也仍待完成。
-5. **记忆成长验收**：M2–M5 已实现；完成 M3/M4 页面和 M5 语义召回、授权共享、反馈提示的手工验收，按 [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) 记录结果。
+5. **真实向量语义效果**：M3/M4 和 M5 共享 / 反馈已通过；M5-04 服务层降级通过。仅补足真实本地模型语义召回验收记录，避免将已通过项重复列为待测试。
 6. **平台覆盖**：APNs 尚未实现；iOS 17 / 18、Dynamic Type、iPad 等覆盖仍未验证。路线图见 [ROADMAP_NEXT.md](ROADMAP_NEXT.md)。

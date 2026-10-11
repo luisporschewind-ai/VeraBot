@@ -1,0 +1,114 @@
+{
+  "states": {
+    "2": "done",
+    "1": "cancelled"
+  },
+  "remote_calls_before_confirmation": 0,
+  "remote_calls_after_cancel": 0,
+  "remote_calls_after_execution": 1,
+  "duplicate_confirm_http": 409,
+  "remote_calls_after_duplicate_confirm": 1,
+  "remote_request": {
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "delete_item",
+      "arguments": {
+        "id": "iphone-m3-test-001"
+      }
+    },
+    "id": 2
+  },
+  "actions": [
+    {
+      "id": 2,
+      "kind": "mcp_tool_call",
+      "status": "done",
+      "bot_id": 1,
+      "server_id": 1,
+      "server": "Microsoft Learn",
+      "tool": "mcp__learn__delete_item",
+      "label": "delete_item",
+      "risk": "destructive",
+      "result": "已执行（约 154 字）",
+      "created_at": "2026-10-10T16:02:50+00:00",
+      "expires_at": "2026-10-10T16:17:50+00:00",
+      "decided_at": "2026-10-10T16:04:27+00:00",
+      "arguments": {
+        "id": "iphone-m3-test-001"
+      }
+    },
+    {
+      "id": 1,
+      "kind": "mcp_tool_call",
+      "status": "cancelled",
+      "bot_id": 1,
+      "server_id": 1,
+      "server": "Microsoft Learn",
+      "tool": "mcp__learn__delete_item",
+      "label": "delete_item",
+      "risk": "destructive",
+      "result": "用户取消",
+      "created_at": "2026-10-10T16:00:36+00:00",
+      "expires_at": "2026-10-10T16:15:36+00:00",
+      "decided_at": "2026-10-10T16:01:18+00:00",
+      "arguments": {
+        "id": "iphone-m3-test-001"
+      }
+    }
+  ],
+  "tool_calls": {
+    "tool_calls": [
+      {
+        "id": 10,
+        "kind": "mcp_action_confirmed",
+        "created_at": "2026-10-10T16:04:27+00:00",
+        "server": "learn",
+        "tool": "delete_item",
+        "status": "done",
+        "action_id": 2,
+        "duration_ms": null
+      },
+      {
+        "id": 9,
+        "kind": "mcp_tool_call",
+        "created_at": "2026-10-10T16:04:27+00:00",
+        "server": "learn",
+        "tool": "delete_item",
+        "status": "ok",
+        "action_id": null,
+        "duration_ms": 123
+      },
+      {
+        "id": 8,
+        "kind": "mcp_action_requested",
+        "created_at": "2026-10-10T16:02:50+00:00",
+        "server": "learn",
+        "tool": "delete_item",
+        "status": null,
+        "action_id": 2,
+        "duration_ms": null
+      },
+      {
+        "id": 7,
+        "kind": "mcp_action_cancelled",
+        "created_at": "2026-10-10T16:01:18+00:00",
+        "server": 1,
+        "tool": "mcp__learn__delete_item",
+        "status": null,
+        "action_id": 1,
+        "duration_ms": null
+      },
+      {
+        "id": 6,
+        "kind": "mcp_action_requested",
+        "created_at": "2026-10-10T16:00:36+00:00",
+        "server": "learn",
+        "tool": "delete_item",
+        "status": null,
+        "action_id": 1,
+        "duration_ms": null
+      }
+    ]
+  }
+}

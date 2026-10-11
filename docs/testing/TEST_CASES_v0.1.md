@@ -571,7 +571,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | MCP-12 | 确认 | confirm 前工具 `changed`；服务停用 | 409，不调用远程 | ✅ |
 | MCP-13 | 策略 | `PATCH` 发送类工具 `confirm_policy=never` / `auto` | 422；`always` 可接受且仍需确认 | ✅ |
 | MCP-29 | 上限 | `VERABOT_MCP_PENDING_PER_TURN=2` 时连续三次写 | 前两次 pending，第三次 `pending_cap` | ✅ |
-| M3-UI | iOS 真机 | 对话出现确认卡片 → 执行 / 取消；重启后恢复 pending；协作记录「工具调用」 | 待 Boss 在 Xcode 运行后手工验收 | ⏳ |
+| M3-UI | iOS 模拟器（用户指定验收标准） | 对话出现确认卡片 → 执行 / 取消；重启后恢复 pending；协作记录「工具调用」 | 确认前 / 取消后不调用工具；执行一次；重启恢复；记录状态正确 | ✅ 2026-10-11；[验收证据](2026-10-11-mcp-m3-simulator.md)；不验收布局 |
 | M3-KIT | Kit | `PendingActionTests`：REST / SSE / Trace / tool-calls 解码 | 全量 `swift test` 156 项通过（2026-10-07） | ✅ |
 | M3-BUILD | iPhone 12 Pro Max 目标 | Xcode `VeraBot` Debug 真机构建 | 编译与签名成功；未安装 / 启动 | ✅ Build（2026-10-07） |
 
@@ -837,12 +837,12 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 - M3：`cd backend && uv run python scripts/test/memory_m3_test.py`；覆盖用户消息候选抽取、过滤与去重、证据归属、建议冷却与幂等、快捷提问过滤。
 - M4：`cd backend && uv run python scripts/test/memory_m4_test.py`；覆盖 v16→v17 迁移、月度回顾缓存与隐私边界、导出、记忆引用权限。
-- Kit 回归与 iPhone Simulator 构建沿用隔离分支记录；本次合并后尚未重跑。M3/M4 UI 仍待手工验收。
+- Kit 回归与 iPhone Simulator 构建沿用隔离分支记录；本次合并后尚未重跑。M3/M4 UI 已由用户验收通过（见下表）。
 
 ## 记忆成长 M5（2026-10-10 主线整合）
 
 - M5：`cd backend && uv run --extra memory-vector python scripts/test/memory_m5_test.py`；覆盖 v18 向量迁移、混合召回与降级、敏感记忆过滤、委派授权和反馈归因。
-- 委派回归：`cd backend && uv run python scripts/test/multi_agent_test.py`；分支记录为 25/25。M5 的本地模型与实际对话体验仍待主机手工验收。
+- 委派回归：`cd backend && uv run python scripts/test/multi_agent_test.py`；分支记录为 25/25。M5-02/03、两项问题复测及 M5-04 服务层验证通过；真实本地向量模型语义召回没有单独验收记录。
 - M5 定向检查与模拟器构建沿用隔离分支记录；本次合并后尚未重跑。
 
 ## 记忆成长手工验收记录 — 2026-10-10
@@ -853,7 +853,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | M3-02 | ✅ 通过 | 确认 / 拒绝候选 |
 | M3-03 | ✅ 通过 | 敏感信息过滤 |
 | M3-04 | ✅ 通过 | 快捷提问仅填入、不自动发送；设置开关有效 |
-| M3-05 | ❌ 问题 | 已开启测试 Bot 的委派开关并选择其他助手，但对话仍回复「该 Bot 暂未开通委派能力」。尚未复现定位。 |
+| M3-05 | ✅ 用户复测通过 | 用户于 2026-10-10 确认委派能力测试通过。初测曾出现开启委派后仍回复「未开通委派能力」的问题，现已通过复测。 |
 | M4-01 | ✅ 通过 | Bot 成长信息 |
 | M4-02 | ✅ 通过 | 记忆搜索与类型筛选 |
 | M4-03 | ✅ 通过 | 查看回答引用的记忆 |
@@ -863,7 +863,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | M5-03 | ✅ 通过 | 协作反馈提示 |
 | M5-04 | ✅ 服务层通过 | 隔离 SQLite 库中关闭向量召回；关键词问题找回目标记忆，语义相关但无关键词的问题未召回目标。未覆盖 iOS / 真实模型端到端 |
 
-**M3-05 初步排查线索：** 后端只有在发起 Bot 的 `ask_bot` 工具白名单有效时才会向模型暴露委派能力；其目标 Bot 还需单独允许接受委派。当前 System Prompt 在 `ask_bot` 不可用时会给出「这个 Bot 暂未开通该能力，可在 Bot 设置中开启」提示。需核对发起 Bot 设置是否已保存并生效，再确认目标 Bot 的「接受其他 Bot 委派」开关；这条记录尚不能确定根因。若发起端 `ask_bot` 已生效，下一步应查实际运行的 Bot 配置与请求上下文，而不是仅凭界面开关判断。
+**M3-05 历史排查线索（已复测通过）：** 发起 Bot 需启用 `ask_bot` 并保存目标助手；目标 Bot 需允许接受委派。用户已确认该项通过，不再列为待验收问题。
 
 ## M5 主机手工验收问题 — 2026-10-10
 
@@ -872,6 +872,10 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | M5-OBS-01 | ✅ 复测通过 | 初测截图未显示记忆确认卡片；修复合入 Main 后复测，卡片正常出现并可保存。 |
 | M5-OBS-02 | ✅ 复测通过 | 初测中健康助手的列表项目出现省略号；修复合入 Main 后复测，回答内容完整。 |
 
-**初步排查：** iOS 记忆确认卡片由 assistant 消息的 `remember` / `forget_memory` tool trace 渲染；卡片要求工具结果包含 `memory_id` 且 `status=proposed`。单凭助手正文声称「卡片已显示」不会产生卡片。截图没有展示工具 trace 或 SSE 事件，故尚无法判断问题发生在模型工具调用、后端提议结果 / trace、SSE 客户端状态，还是历史消息加载。回答省略号也需对比后端保存的 assistant 正文、SSE `delta` 拼接结果与界面文本，才能定位生成端或展示端。附图路径：`/Users/admin/Desktop/IMG_7079.PNG`、`/Users/admin/Desktop/IMG_7080.PNG`、`/Users/admin/Desktop/IMG_7081.PNG`。
+**初测历史（已关闭，非待定位问题）：** iOS 记忆确认卡片由 assistant 消息的 `remember` / `forget_memory` tool trace 渲染；卡片要求工具结果包含 `memory_id` 且 `status=proposed`。单凭助手正文声称「卡片已显示」不会产生卡片。截图没有展示工具 trace 或 SSE 事件，当时无法判断问题发生在模型工具调用、后端提议结果 / trace、SSE 客户端状态，还是历史消息加载。当时回答省略号也需对比后端保存的 assistant 正文、SSE `delta` 拼接结果与界面文本，才能定位生成端或展示端。附图路径：`/Users/admin/Desktop/IMG_7079.PNG`、`/Users/admin/Desktop/IMG_7080.PNG`、`/Users/admin/Desktop/IMG_7081.PNG`。
 
 **M5-04 服务层验证记录：** 在临时目录的隔离 SQLite 库中设置 `VERABOT_MEMORY_VECTOR=0`，为一个测试 Bot 建立 14 条可见的普通记忆（高于注入上限 12）。关键词查询召回目标记忆；无关键词的语义相关查询没有召回目标记忆。配置开关关闭时 `embeddings.score()` 返回 `None`，本次未加载模型、未访问模型服务，也未覆盖 iOS / 真实 LLM 端到端。若需主机端复测：停止当前后端，再从 `backend` 目录用 `VERABOT_MEMORY_VECTOR=0 ./start.sh` 前台启动（后台模式沿用原启停方式）；确认测试 App 连到该实例后再提问。测试结束停止该实例，并按原方式启动后端；不需要改 `.env`，不要同时启动两个进程共用同一数据库。
+
+## 2026-10-11 进度盘点
+
+完整的实现、已验收、待验收与未实现范围见 [项目盘点](2026-10-11-project-inventory.md)。M5 真实语义召回未单独提供用例编号与结论，保留为未记录；用户此前「测试都通过」对应两项修复复测，不扩大为所有尚未执行的测试。文件附件验收清单见 [FILE_ATTACHMENT_PLAN.md](../design/FILE_ATTACHMENT_PLAN.md) §12。
