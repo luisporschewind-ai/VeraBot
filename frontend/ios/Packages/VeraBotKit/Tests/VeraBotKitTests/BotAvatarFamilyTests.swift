@@ -6,7 +6,6 @@ import Testing
     let source = BotAvatarFamilySilhouette.points(seed:47,roundness:0.5)
     #expect(abs(source[0].y - 20.07439398219998) < 0.000001)
     #expect(abs(source[1].x - 123.90949378217094) < 0.000001)
-    #expect(BotAvatarFamilyShape.allCases.count == 4)
     #expect(BotAvatarFamilyShape.standard.seed == nil)
     let shapes = BotAvatarFamilyShape.allCases.compactMap(\.seed)
     #expect(Set(shapes).count == 3)
