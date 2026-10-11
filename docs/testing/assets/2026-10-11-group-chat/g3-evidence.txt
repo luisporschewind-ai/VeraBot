@@ -1,0 +1,161 @@
+=== group_store ===
+erver/api/groups/21/messages "HTTP/1.1 200 OK"
+ok
+test_validation_and_atomic_creation (__main__.GroupTests.test_validation_and_atomic_creation) ... 2026-10-11 17:14:03,541 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 422 Unprocessable Content"
+2026-10-11 17:14:03,546 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 422 Unprocessable Content"
+2026-10-11 17:14:03,551 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 422 Unprocessable Content"
+2026-10-11 17:14:03,556 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 422 Unprocessable Content"
+2026-10-11 17:14:03,562 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 422 Unprocessable Content"
+2026-10-11 17:14:03,567 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 422 Unprocessable Content"
+2026-10-11 17:14:03,572 INFO httpx2: HTTP Request: GET http://testserver/api/groups "HTTP/1.1 200 OK"
+2026-10-11 17:14:03,579 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 201 Created"
+2026-10-11 17:14:03,586 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 201 Created"
+ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 1.326s
+
+OK
+
+=== group_runtime ===
+"HTTP/1.1 200 OK"
+2026-10-11 17:14:07,062 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/2 "HTTP/1.1 200 OK"
+2026-10-11 17:14:07,076 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/3 "HTTP/1.1 200 OK"
+2026-10-11 17:14:07,086 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 201 Created"
+2026-10-11 17:14:07,198 INFO httpx2: HTTP Request: POST http://testserver/api/groups/6/chat "HTTP/1.1 200 OK"
+2026-10-11 17:14:07,217 INFO httpx2: HTTP Request: POST http://testserver/api/groups/6/chat "HTTP/1.1 409 Conflict"
+ok
+test_budget_is_checked_between_members (__main__.RuntimeTests.test_budget_is_checked_between_members) ... 2026-10-11 17:14:07,240 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/1 "HTTP/1.1 200 OK"
+2026-10-11 17:14:07,256 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/2 "HTTP/1.1 200 OK"
+2026-10-11 17:14:07,277 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/3 "HTTP/1.1 200 OK"
+2026-10-11 17:14:07,291 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 201 Created"
+2026-10-11 17:14:07,499 INFO httpx2: HTTP Request: POST http://testserver/api/groups/7/chat "HTTP/1.1 200 OK"
+ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 2.057s
+
+OK
+
+=== group_lifecycle ===
+vider_and_releases_turn (__main__.LifecycleTests.test_sse_disconnect_closes_provider_and_releases_turn) ... 2026-10-11 17:14:11,089 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/1 "HTTP/1.1 200 OK"
+2026-10-11 17:14:11,102 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/2 "HTTP/1.1 200 OK"
+2026-10-11 17:14:11,116 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/3 "HTTP/1.1 200 OK"
+2026-10-11 17:14:11,125 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 201 Created"
+ok
+test_turn_deadline_finishes_partial_and_releases_turn (__main__.LifecycleTests.test_turn_deadline_finishes_partial_and_releases_turn) ... 2026-10-11 17:14:11,251 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/1 "HTTP/1.1 200 OK"
+2026-10-11 17:14:11,266 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/2 "HTTP/1.1 200 OK"
+2026-10-11 17:14:11,280 INFO httpx2: HTTP Request: PATCH http://testserver/api/bots/3 "HTTP/1.1 200 OK"
+2026-10-11 17:14:11,289 INFO httpx2: HTTP Request: POST http://testserver/api/groups "HTTP/1.1 201 Created"
+2026-10-11 17:14:11,384 INFO httpx2: HTTP Request: POST http://testserver/api/groups/9/chat "HTTP/1.1 200 OK"
+ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 2.077s
+
+OK
+
+=== multi_agent ===
+testserver/api/bots/6/chat "HTTP/1.1 200 OK"
+[PASS] MA-22 BUG-09 首次空回复自动重试一次后成功 ['status', 'delta', 'done']
+2026-10-11 17:14:13,689 INFO verabot.agent: llm round=0 attempt=0 bot=6 finish_reason=stop text_len=0 tool_calls=0
+2026-10-11 17:14:13,689 WARNING verabot.agent: empty LLM reply (finish_reason=stop) bot=6 round=0 attempt=0
+2026-10-11 17:14:13,689 INFO verabot.agent: llm round=0 attempt=1 bot=6 finish_reason=stop text_len=0 tool_calls=0
+2026-10-11 17:14:13,689 WARNING verabot.agent: empty LLM reply (finish_reason=stop) bot=6 round=0 attempt=1
+2026-10-11 17:14:13,696 INFO httpx2: HTTP Request: POST http://testserver/api/bots/6/chat "HTTP/1.1 200 OK"
+[PASS] MA-23 BUG-09 连续空回复 → error 事件(empty_reply)，不再静默「（无回复）」 ['status', 'error', 'done'] stored='⚠️ 模型没有返回内容（已自动重试），请'
+[PASS] MA-24 BUG-08 委派 prompt 要求不透露内部工具
+2026-10-11 17:14:13,707 INFO httpx2: HTTP Request: GET http://testserver/api/quota "HTTP/1.1 200 OK"
+[PASS] MA-25 契约：/api/quota 键 ⊇ iOS Quota / UsageStats CodingKeys；分子分母与预算拦截一致 (today.total_tokens = 今日已用，daily_token_quota = 预算 > 0) missing=[] today={'requests': 4, 'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 527} quota=200000 budget=(527,200000)
+
+SUMMARY 25/25 passed
+RESULTS_JSON /var/folders/gk/04q44v9x7fz055zd0n06ntgm0000gn/T/vb_ma_c1wam09y/results.json
+
+=== status_event ===
+kens': 0, 'total_tokens': 6}, 'memory_ids': []}
+2026-10-11 17:14:15,267 INFO httpx2: HTTP Request: GET http://testserver/api/bots/1/messages "HTTP/1.1 200 OK"
+[PASS] STAT-06 status 不写入 messages.traces (只保存工具 trace) [{'id': 'outer1', 'name': 'ask_bot', 'args': {'bot_name': 'B', 'question': 'q'}, 'result': {'from_bot': 'A', 'to_bot': 'B', 'to_avatar': '🤖', 'question': 'q', 'shared_context': '', 'shared_truncated':
+2026-10-11 17:14:15,295 INFO httpx2: HTTP Request: PATCH http://testserver/api/memory/settings "HTTP/1.1 200 OK"
+2026-10-11 17:14:15,331 INFO verabot.agent: llm round=0 attempt=0 bot=1 finish_reason=stop text_len=2 tool_calls=0
+2026-10-11 17:14:15,337 INFO httpx2: HTTP Request: POST http://testserver/api/bots/1/chat "HTTP/1.1 200 OK"
+[PASS] STAT-07 用户关闭记忆 → 不推送 recalling；无工具时无 status [('delta', {'text': '你好'}), ('done', {'message_id': 4, 'user_message_id': 3, 'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 3}, 'memory_ids': []})]
+2026-10-11 17:14:15,353 INFO httpx2: HTTP Request: PATCH http://testserver/api/memory/settings "HTTP/1.1 200 OK"
+[PASS] STAT-08 契约：status 键 = iOS ChatStatus CodingKeys；phase 取值 = iOS ChatStatus.Phase ios_keys=['bot_name', 'depth', 'parent_id', 'phase', 'tool'] ios_phases=['recalling', 'thinking', 'tool']
+
+SUMMARY 8/8 passed
+
+=== auth_stability ===
+ 409 Conflict"
+2026-10-11 17:14:19,232 INFO httpx2: HTTP Request: POST http://testserver/api/auth/register "HTTP/1.1 409 Conflict"
+2026-10-11 17:14:19,336 INFO httpx2: HTTP Request: POST http://testserver/api/auth/register "HTTP/1.1 409 Conflict"
+2026-10-11 17:14:19,619 WARNING verabot.mail: [DEV MAIL] to=ascii-limit@example.com subject=VeraBot 邮箱验证码 code=514354
+2026-10-11 17:14:19,620 INFO httpx2: HTTP Request: POST http://testserver/api/auth/register "HTTP/1.1 200 OK"
+2026-10-11 17:14:19,902 INFO httpx2: HTTP Request: POST http://testserver/api/auth/login "HTTP/1.1 200 OK"
+2026-10-11 17:14:20,176 WARNING verabot.mail: [DEV MAIL] to=unicode-limit@example.com subject=VeraBot 邮箱验证码 code=440362
+2026-10-11 17:14:20,177 INFO httpx2: HTTP Request: POST http://testserver/api/auth/register "HTTP/1.1 200 OK"
+2026-10-11 17:14:20,456 INFO httpx2: HTTP Request: POST http://testserver/api/auth/login "HTTP/1.1 200 OK"
+PASS AUTH-STABLE-01 oversized password is 422
+PASS AUTH-STABLE-02 concurrent failures lock account
+PASS AUTH-STABLE-03 concurrent refresh has one success
+PASS AUTH-STABLE-04 concurrent registration returns conflict
+PASS AUTH-STABLE-05 password byte limit can register and login
+PASS AUTH-STABLE-06 concurrent valid logins have independent sessions
+AUTH stability tests passed: 6/6
+
+=== llm_body ===
+2026-10-11 17:14:23,798 INFO verabot.attachments: attachments reconcile: {'expired': 0, 'orphans': 0, 'missing': 0}
+2026-10-11 17:14:23,798 INFO httpx2: HTTP Request: GET http://testserver/api/health "HTTP/1.1 200 OK"
+PASS LLM-01 default model is deepseek-flash
+PASS LLM-02 thinking disabled on every request
+PASS LLM-03 tools / stream_options unchanged
+PASS LLM-06 named tool choice is passed through only when requested
+PASS LLM-04 VERABOT_DEEPSEEK_THINKING=1 omits the field
+PASS LLM-05 /api/health reports the configured model
+PASS LLM-07 group output bound leaves private request unchanged
+SUMMARY 7/7 passed
+
+=== swift ===
+efreshedByAnotherRequest() passed after 0.033 seconds.
+✔ Test GroupChatViewModelPreservesHistoryOnReloadFailure() passed after 0.057 seconds.
+✔ Test GroupChatViewModelRejectedSendKeepsDraftAndDoesNotInventMessages() passed after 0.055 seconds.
+✔ Test familyShapesHaveStableDistinctSeedsAndFiniteContours() passed after 0.034 seconds.
+✔ Test quickPromptSettingDefaultsOnAndPersistsPerKey() passed after 0.033 seconds.
+✔ Test sseUsesInjectedSession() passed after 0.043 seconds.
+✔ Test GroupChatViewModelRefreshesUnavailableMembersAndExplainsTurnFailure() passed after 0.058 seconds.
+✔ Test appearanceRejectsInvalidValues() passed after 0.038 seconds.
+✔ Test oldAccountRequestDoesNotRetryWithNewAccountToken() passed after 0.038 seconds.
+✔ Test appearanceSaveOnlyPatchesAppearanceAndVerifiesEcho() passed after 0.042 seconds.
+✔ Test clientNeverServesOrStoresCachedResponses() passed after 0.059 seconds.
+✔ Test appearanceSaveRejectsMissingMismatchedOrWrongTargetReceipt() passed after 0.066 seconds.
+✔ Test sessionNetworkFailureKeepsTokens() passed after 0.067 seconds.
+✔ Test GroupChatNetworkKeepsRequestsInTheirOriginalSession() passed after 0.059 seconds.
+✔ Test GroupChatViewModelIgnoresOldSessionLoad() passed after 0.066 seconds.
+✔ Test run with 211 tests in 0 suites passed after 0.086 seconds.
+
+=== http ===
+PASS create/default A/target B/ordered round/persisted history/UUID duplicate
+PASS concurrent busy/clear busy/stop repeated/no later members
+PASS B failure/C continuation/B-only retry/original question/no duplicate user
+PASS real socket disconnect/re-entry/clear/delete
+ALL HTTP CHECKS PASSED; human demo group 2
+
+=== build ===
+t_group_preview_dd/Build/Products/Debug-iphonesimulator/VeraBot.app/VeraBot.debug.dylib (in target 'VeraBot' from project 'VeraBot')
+    cd /Users/admin/.codex/worktrees/bot-group-chat-preview/VeraBot-v0.1/frontend/ios
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/verabot_group_preview_dd/Build/Products/Debug-iphonesimulator/VeraBot.app/VeraBot.debug.dylib
+
+CodeSign /tmp/verabot_group_preview_dd/Build/Products/Debug-iphonesimulator/VeraBot.app (in target 'VeraBot' from project 'VeraBot')
+    cd /Users/admin/.codex/worktrees/bot-group-chat-preview/VeraBot-v0.1/frontend/ios
+
+    Signing Identity:     "Sign to Run Locally"
+
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/verabot_group_preview_dd/Build/Products/Debug-iphonesimulator/VeraBot.app
+
+Validate /tmp/verabot_group_preview_dd/Build/Products/Debug-iphonesimulator/VeraBot.app (in target 'VeraBot' from project 'VeraBot')
+    cd /Users/admin/.codex/worktrees/bot-group-chat-preview/VeraBot-v0.1/frontend/ios
+    builtin-validationUtility /tmp/verabot_group_preview_dd/Build/Products/Debug-iphonesimulator/VeraBot.app -shallow-bundle -infoplist-subpath Info.plist
+
+** BUILD SUCCEEDED **

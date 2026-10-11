@@ -10,11 +10,13 @@ public struct APIError: LocalizedError, Sendable {
     public let message: String
     /// 后端 {"detail": {"message", "code"}} 里的机器可读原因（如 sensitive_credential / memory_limit）
     public let code: String?
+    public let turnID: Int?
 
-    public init(status: Int, message: String, code: String? = nil) {
+    public init(status: Int, message: String, code: String? = nil, turnID: Int? = nil) {
         self.status = status
         self.message = message
         self.code = code
+        self.turnID = turnID
     }
     public var errorDescription: String? { message }
 }
@@ -646,6 +648,7 @@ public struct APIClient: VeraBotAPI {
     static func apiError(status: Int, data: Data) -> APIError {
         var message = "请求失败（HTTP \(status)）"
         var code: String?
+        var turnID: Int?
         if let body = try? JSONDecoder().decode(ErrorBody.self, from: data), let detail = body.detail {
             switch detail {
             case .string(let s):
@@ -656,10 +659,11 @@ public struct APIClient: VeraBotAPI {
                 // {"detail": {"message": "…", "code": "…"}}（记忆等需要区分原因的接口）
                 message = detail["message"]?.text ?? detail.text
                 code = detail["code"]?.text
+                if case .number(let value) = detail["turn_id"], value > 0, value < Double(Int.max), value.rounded() == value { turnID = Int(value) }
             default:
                 message = detail.text
             }
         }
-        return APIError(status: status, message: message, code: code)
+        return APIError(status: status, message: message, code: code, turnID: turnID)
     }
 }

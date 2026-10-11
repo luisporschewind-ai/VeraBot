@@ -10,6 +10,11 @@
 | product/ | [FEATURES.md](product/FEATURES.md) | 功能清单、API 摘要、SSE 事件格式 |
 | product/ | [2026-10-08-playful-world-discussion.md](product/2026-10-08-playful-world-discussion.md) | Vera Bot 私人小世界、游乐场玩法、三 Tab 与阶段性产品讨论；含 3D 魔方候选方案（未实现） |
 | superpowers/specs/ | [2026-10-09-bot-travel-design.md](superpowers/specs/2026-10-09-bot-travel-design.md) | Bot 旅行第一版：真实地点轻探索、分阶段揭晓、旅行相册与五分钟 iOS 原型范围 |
+| superpowers/specs/ | [2026-10-11-bot-group-chat-design.md](superpowers/specs/2026-10-11-bot-group-chat-design.md) | Bot 群聊第一版设计：伙伴讨论、点名、群历史与执行边界 |
+| superpowers/plans/ | [2026-10-11-bot-group-chat.md](superpowers/plans/2026-10-11-bot-group-chat.md) | 群聊 G0–G3 任务；当前完成 G0/G1/G2，G3 待验收 |
+| testing/ | [2026-10-11-bot-group-chat-g2.md](testing/2026-10-11-bot-group-chat-g2.md) | 顺序执行、停止/恢复/重试、iOS 正式接线与验证 |
+| testing/ | [2026-10-11-bot-group-chat-g1.md](testing/2026-10-11-bot-group-chat-g1.md) | 群管理 API、轮次存储、Swift 协议与验证边界 |
+| testing/ | [2026-10-11-bot-group-chat-preview.md](testing/2026-10-11-bot-group-chat-preview.md) | Debug 群聊预览入口、范围、构建结果和用户验收边界 |
 | superpowers/plans/ | [2026-10-09-bot-travel.md](superpowers/plans/2026-10-09-bot-travel.md) | Bot 旅行第一版实现步骤与核对清单 |
 | design/ | [ARCHITECTURE.md](design/ARCHITECTURE.md) | 两个项目的架构、模块、依赖规则、依赖管理 (SPM / uv)、数据模型 |
 | design/ | [MULTI_AGENT_DESIGN.md](design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限模型、上下文隔离、护栏、审计、迁移、设置页 / TTS 扩展 |
@@ -28,3 +33,5 @@
 
 项目 README：[根目录](../README.md) · [backend](../backend/README.md) · [frontend](../frontend/README.md)
 截图：[assets/screenshots/](../assets/screenshots/) (`web/` Web SPA，`ios/test/` 迭代 1 T*，`ios/regress/` 迭代 2 R*；均早于 2026-10-01 的界面改动)
+
+- [Bot 群聊 G3 验证与验收交付](testing/2026-10-11-bot-group-chat.md)：自动回归、真实 HTTP 模拟提供者联调、GC-01～12 分项状态及隔离模拟器步骤。

@@ -96,7 +96,9 @@ final class AppState {
     }
 
     /// 当前后端 API（依赖协议 VeraBotAPI，实现为 VeraBotNetworking.APIClient）
-    var api: any VeraBotAPI {
+    var api: any VeraBotAPI { groupAPI }
+
+    var groupAPI: APIClient {
         let trimmed = baseURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         let url = URL(string: trimmed) ?? URL(string: AppConfig.defaultBaseURL)!
         return APIClient(baseURL: url, session: authSession)

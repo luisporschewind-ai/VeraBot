@@ -11,7 +11,17 @@ struct VeraBotApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            Group {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--group-chat-preview") {
+                    GroupChatPreviewRoot()
+                } else {
+                    RootView()
+                }
+                #else
+                RootView()
+                #endif
+            }
                 .environment(app)
                 .environment(travelStore)
                 .environment(player)

@@ -1,0 +1,331 @@
+{
+  "turns": [
+    {
+      "id": 17,
+      "group_id": 3,
+      "mode": "single",
+      "target_member_id": 9,
+      "retry_of_message_id": null,
+      "user_message_id": 38,
+      "status": "completed",
+      "cancel_requested": 0
+    },
+    {
+      "id": 18,
+      "group_id": 3,
+      "mode": "single",
+      "target_member_id": 8,
+      "retry_of_message_id": null,
+      "user_message_id": 40,
+      "status": "completed",
+      "cancel_requested": 0
+    },
+    {
+      "id": 19,
+      "group_id": 4,
+      "mode": "round",
+      "target_member_id": null,
+      "retry_of_message_id": null,
+      "user_message_id": 42,
+      "status": "completed",
+      "cancel_requested": 0
+    },
+    {
+      "id": 20,
+      "group_id": 4,
+      "mode": "round",
+      "target_member_id": null,
+      "retry_of_message_id": null,
+      "user_message_id": 46,
+      "status": "stopped",
+      "cancel_requested": 1
+    },
+    {
+      "id": 21,
+      "group_id": 4,
+      "mode": "round",
+      "target_member_id": null,
+      "retry_of_message_id": null,
+      "user_message_id": 48,
+      "status": "partial",
+      "cancel_requested": 0
+    },
+    {
+      "id": 22,
+      "group_id": 4,
+      "mode": "single",
+      "target_member_id": 11,
+      "retry_of_message_id": 50,
+      "user_message_id": 48,
+      "status": "completed",
+      "cancel_requested": 0
+    },
+    {
+      "id": 23,
+      "group_id": 4,
+      "mode": "single",
+      "target_member_id": 10,
+      "retry_of_message_id": null,
+      "user_message_id": 53,
+      "status": "completed",
+      "cancel_requested": 0
+    },
+    {
+      "id": 24,
+      "group_id": 4,
+      "mode": "round",
+      "target_member_id": null,
+      "retry_of_message_id": null,
+      "user_message_id": 55,
+      "status": "completed",
+      "cancel_requested": 0
+    },
+    {
+      "id": 25,
+      "group_id": 4,
+      "mode": "round",
+      "target_member_id": null,
+      "retry_of_message_id": null,
+      "user_message_id": 59,
+      "status": "interrupted",
+      "cancel_requested": 0
+    },
+    {
+      "id": 26,
+      "group_id": 3,
+      "mode": "single",
+      "target_member_id": 9,
+      "retry_of_message_id": null,
+      "user_message_id": 61,
+      "status": "completed",
+      "cancel_requested": 0
+    }
+  ],
+  "messages": [
+    {
+      "id": 38,
+      "group_id": 3,
+      "turn_id": 17,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 1
+    },
+    {
+      "id": 39,
+      "group_id": 3,
+      "turn_id": 17,
+      "role": "bot",
+      "sender_name_snapshot": "C",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 40,
+      "group_id": 3,
+      "turn_id": 18,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 1
+    },
+    {
+      "id": 41,
+      "group_id": 3,
+      "turn_id": 18,
+      "role": "bot",
+      "sender_name_snapshot": "B",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 42,
+      "group_id": 4,
+      "turn_id": 19,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 1
+    },
+    {
+      "id": 43,
+      "group_id": 4,
+      "turn_id": 19,
+      "role": "bot",
+      "sender_name_snapshot": "A",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 44,
+      "group_id": 4,
+      "turn_id": 19,
+      "role": "bot",
+      "sender_name_snapshot": "B",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 45,
+      "group_id": 4,
+      "turn_id": 19,
+      "role": "bot",
+      "sender_name_snapshot": "C",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 46,
+      "group_id": 4,
+      "turn_id": 20,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 1
+    },
+    {
+      "id": 47,
+      "group_id": 4,
+      "turn_id": 20,
+      "role": "bot",
+      "sender_name_snapshot": "A",
+      "status": "stopped",
+      "content_length": 33
+    },
+    {
+      "id": 48,
+      "group_id": 4,
+      "turn_id": 21,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 28
+    },
+    {
+      "id": 49,
+      "group_id": 4,
+      "turn_id": 21,
+      "role": "bot",
+      "sender_name_snapshot": "A",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 50,
+      "group_id": 4,
+      "turn_id": 21,
+      "role": "bot",
+      "sender_name_snapshot": "B",
+      "status": "failed",
+      "content_length": 0
+    },
+    {
+      "id": 51,
+      "group_id": 4,
+      "turn_id": 21,
+      "role": "bot",
+      "sender_name_snapshot": "C",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 52,
+      "group_id": 4,
+      "turn_id": 22,
+      "role": "bot",
+      "sender_name_snapshot": "B",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 53,
+      "group_id": 4,
+      "turn_id": 23,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 1
+    },
+    {
+      "id": 54,
+      "group_id": 4,
+      "turn_id": 23,
+      "role": "bot",
+      "sender_name_snapshot": "A",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 55,
+      "group_id": 4,
+      "turn_id": 24,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 1
+    },
+    {
+      "id": 56,
+      "group_id": 4,
+      "turn_id": 24,
+      "role": "bot",
+      "sender_name_snapshot": "A",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 57,
+      "group_id": 4,
+      "turn_id": 24,
+      "role": "bot",
+      "sender_name_snapshot": "B",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 58,
+      "group_id": 4,
+      "turn_id": 24,
+      "role": "bot",
+      "sender_name_snapshot": "C",
+      "status": "completed",
+      "content_length": 46
+    },
+    {
+      "id": 59,
+      "group_id": 4,
+      "turn_id": 25,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 1
+    },
+    {
+      "id": 60,
+      "group_id": 4,
+      "turn_id": 25,
+      "role": "bot",
+      "sender_name_snapshot": "A",
+      "status": "interrupted",
+      "content_length": 30
+    },
+    {
+      "id": 61,
+      "group_id": 3,
+      "turn_id": 26,
+      "role": "user",
+      "sender_name_snapshot": null,
+      "status": "completed",
+      "content_length": 1
+    },
+    {
+      "id": 62,
+      "group_id": 3,
+      "turn_id": 26,
+      "role": "bot",
+      "sender_name_snapshot": "C",
+      "status": "completed",
+      "content_length": 46
+    }
+  ]
+}

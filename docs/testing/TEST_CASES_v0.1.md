@@ -879,3 +879,7 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 ## 2026-10-11 进度盘点
 
 完整的实现、已验收、待验收与未实现范围见 [项目盘点](2026-10-11-project-inventory.md)。M5 真实语义召回未单独提供用例编号与结论，保留为未记录；用户此前「测试都通过」对应两项修复复测，不扩大为所有尚未执行的测试。文件附件验收清单见 [FILE_ATTACHMENT_PLAN.md](../design/FILE_ATTACHMENT_PLAN.md) §12。
+
+## Bot 群聊 GC-01～12（2026-10-11）
+
+以 [G3验证记录](2026-10-11-bot-group-chat.md)的分项表为当前依据：创建/隔离/幂等/顺序/停止/失败重试/恢复/预算已有自动或HTTP证据；客户端点击、后台/换账号、真实讨论质量及私聊完整设备回归待人工验收。不要把模拟提供者检查标为真实模型验收通过。

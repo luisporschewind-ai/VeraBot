@@ -4,6 +4,8 @@ import VeraBotNetworking
 
 struct BotListView: View {
     @Environment(AppState.self) private var app
+    @State private var showGroups = false
+    @State private var createGroup = false
     @State private var bots: [Bot] = []
     @State private var limit = 20   // 服务端下发的软上限（Soft limit）
     @State private var editing: Bot?
@@ -19,6 +21,9 @@ struct BotListView: View {
     @State private var pinning: Set<Int> = []    // 正在与服务端同步置顶状态的 Bot，避免连点重复提交
     @State private var linkedChat: LinkedChat?
     @State private var linkedPlugin: String?
+    #if DEBUG
+    @State private var showGroupPreview = false
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -78,6 +83,7 @@ struct BotListView: View {
                 }
             }
             // 首页不显示导航标题；inline 保留紧凑导航栏，避免大标题占位。
+            .overlay { if showGroups { GroupListView(creating: $createGroup).environment(app) } }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: Bot.self) { bot in
@@ -101,6 +107,10 @@ struct BotListView: View {
                 open(link)
             }
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker("助理列表", selection: $showGroups) { Text("Bot").tag(false); Text("群聊").tag(true) }
+                        .pickerStyle(.segmented).frame(width: 140)
+                }
                 // iOS 26：系统会给工具栏项套一层 Liquid Glass 共享底（按内容算出的胶囊），
                 // 包在头像外面看起来不是圆的。关掉这层底，只显示与右侧圆形按钮等大的正圆头像。
                 if #available(iOS 26.0, *) {
@@ -120,9 +130,14 @@ struct BotListView: View {
                     ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showCreate = true } label: { Image(systemName: "plus") }   // 原生圆形玻璃按钮
-                        .disabled(bots.count >= limit)
-                        .accessibilityLabel("创建 Bot")
+                    Menu {
+                        Button("创建 Bot", systemImage: "plus") { showCreate = true }.disabled(bots.count >= limit)
+                        Button("创建群聊", systemImage: "person.3") { showGroups = true; createGroup = true }
+                        #if DEBUG
+                        Button("群聊预览", systemImage: "viewfinder") { showGroupPreview = true }
+                        #endif
+                    } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("创建 Bot 或群聊")
                 }
             }
             .sheet(isPresented: $showCreate) {
@@ -136,6 +151,12 @@ struct BotListView: View {
                     .toolbar(.hidden, for: .tabBar)
                     .presentationDetents([.large])
             }
+            #if DEBUG
+            .sheet(isPresented: $showGroupPreview) {
+                GroupChatPreviewRoot()
+                    .presentationDetents([.large])
+            }
+            #endif
             .sheet(item: $editing, onDismiss: { Task { await load() } }) { bot in
                 NavigationStack { BotEditView(bot: bot) { _ in }.toolbar(.hidden, for: .tabBar) }
             }

@@ -114,3 +114,24 @@ uv run python scripts/dev/seed_demo.py --reset   # 重建演示账号 demo / ver
 ### 俄罗斯方块陪玩
 
 `POST /api/bots/{bot_id}/tetris-companion` 接收局面摘要和短对话，返回 `{text}`；采用现有登录鉴权、Bot 归属和每日 Token 预算。服务端调用模型，携带 Bot 人设，不执行工具、不持久化对话或记忆。输入验证、权限、预算和错误用例：`uv run python scripts/test/tetris_companion_test.py`。
+
+## Bot 群聊（schema v20）
+
+文字群聊使用独立 `/api/groups` 存储与接口。本人 2–4 个 Bot、最多 10 个群；群名 1–64、消息 1–2000 字符。成员共享本群文字，不读取私聊/长期记忆，不启用工具、附件或语音。
+
+- `GET/POST /api/groups`：列表/创建（name、bot_ids、default_bot_id）。
+- `GET/PATCH/DELETE /api/groups/{id}`：详情、名称/默认成员、删除。
+- `GET/DELETE /api/groups/{id}/messages`：历史/清空；分页 before_id、limit 最大 100。
+- `POST /api/groups/{id}/chat`：client_request_id UUID、message、mode single/round、可选 target_bot_id；群 SSE。
+- `GET /api/groups/{id}/turns/{turn_id}` 与 `POST .../stop`：查询、持久化取消并停止执行。
+- `POST /api/groups/{id}/messages/{message_id}/retry`：client_request_id UUID，重试原未完成成员。
+
+同群只能一个 running 轮次。相同 UUID 返回 409 request_exists 与原 turn_id，内容冲突返回 idempotency_conflict；不要生成新 UUID 自动重发。查询原轮次快照恢复，不回放 delta。重试 turn_start 引用原问题的消息身份，事件 turn_id 为新轮次。
+
+**当前仅支持单个后端进程/worker。** 模型执行绑定 SSE，请求断开即收尾；启动时遗留轮次变 interrupted，不自动续跑。多 worker 需另补租约与跨进程停止后才能使用。群调用最多 768 输出 tokens，单成员 60 秒、整轮 240 秒；预算检查沿用现有调用前策略，不做跨调用额度预占。
+
+验证记录：[G2](../docs/testing/2026-10-11-bot-group-chat-g2.md)。代码实现与 mock 回归不代表生产部署或真实模型体验已验收。
+
+### 群聊 G3 隔离验收
+
+`python scripts/dev/group_chat_demo.py --port 8093` 使用新临时库与确定性模拟提供者，只监听127.0.0.1，不请求真实模型；可用 `--data-dir` 指定独立测试目录。测试账号 group-demo / group-demo-123，已有A/B/C。服务启动后运行 `python scripts/test/group_http_test.py http://127.0.0.1:8093` 进行真实socket/SSE检查。此服务仅供本地测试；正式群运行仍要求单worker。完整证据及人工步骤见 [G3](../docs/testing/2026-10-11-bot-group-chat.md)。

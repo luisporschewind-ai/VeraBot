@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-11",
+  "backend": {
+    "source": "/Users/admin/.codex/worktrees/bot-group-chat-preview/VeraBot-v0.1/backend",
+    "schema": 20,
+    "pid": 96911,
+    "base_url": "http://192.168.0.104:8000",
+    "private_counts_preserved": true
+  },
+  "devices": [
+    {
+      "role": "primary",
+      "launch_outcome": "success",
+      "processes": [
+        {
+          "executable": "file:///private/var/containers/Bundle/Application/A8FF12F0-848A-4C66-B36D-F80ED3ED6361/VeraBot.app/VeraBot",
+          "processIdentifier": 88067
+        }
+      ],
+      "api_me_and_bots_http_status": 200
+    },
+    {
+      "role": "secondary",
+      "launch_outcome": "success",
+      "processes": [
+        {
+          "executable": "file:///private/var/containers/Bundle/Application/EB34D80C-D06F-4E1D-9BCC-76B480C4B1A0/VeraBot.app/VeraBot",
+          "processIdentifier": 37717
+        }
+      ],
+      "api_me_and_bots_http_status": 200
+    }
+  ]
+}
