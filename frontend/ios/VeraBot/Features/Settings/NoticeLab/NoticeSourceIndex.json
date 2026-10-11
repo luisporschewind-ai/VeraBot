@@ -1,0 +1,4694 @@
+{
+  "scope": "iOS 客户端视图、状态模型、服务与本地 Package；静态匹配索引，动态 API 错误由对应失败场景覆盖。",
+  "records": [
+    {
+      "file": "VeraBot/App/AppState+Reminders.swift",
+      "line": 22,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error = error as? APIError, error.status == 401, isCurrentSession(generation) {"
+    },
+    {
+      "file": "VeraBot/App/AppState+Reminders.swift",
+      "line": 35,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "missingNotice = \"内容已不存在\""
+    },
+    {
+      "file": "VeraBot/App/AppState+Reminders.swift",
+      "line": 88,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if error.code == \"version_conflict\" { dropped += 1 }"
+    },
+    {
+      "file": "VeraBot/App/AppState+Reminders.swift",
+      "line": 100,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "missingNotice = \"有 \\(dropped) 项操作因提醒已在别处修改而未生效\""
+    },
+    {
+      "file": "VeraBot/App/AppState.swift",
+      "line": 179,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let e = error as? APIError, e.status == 401, isCurrentSession(generation) {"
+    },
+    {
+      "file": "VeraBot/App/AppState.swift",
+      "line": 225,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let e = error as? APIError, e.status == 401 {"
+    },
+    {
+      "file": "VeraBot/App/VeraBotApp.swift",
+      "line": 105,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"提示\", isPresented: Binding("
+    },
+    {
+      "file": "VeraBot/App/VeraBotApp.swift",
+      "line": 106,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "get: { app.missingNotice != nil },"
+    },
+    {
+      "file": "VeraBot/App/VeraBotApp.swift",
+      "line": 107,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "set: { if !$0 { app.missingNotice = nil } }"
+    },
+    {
+      "file": "VeraBot/App/VeraBotApp.swift",
+      "line": 109,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Button(\"好\") { app.missingNotice = nil }"
+    },
+    {
+      "file": "VeraBot/Core/UI/AvatarImage.swift",
+      "line": 34,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let ch = trimmed.first else { return \"?\" }"
+    },
+    {
+      "file": "VeraBot/Core/UI/AvatarPicker.swift",
+      "line": 31,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": ".sheet(isPresented: $showPreview, onDismiss: { preview = nil; errorText = nil }) {"
+    },
+    {
+      "file": "VeraBot/Core/UI/AvatarPicker.swift",
+      "line": 41,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText)"
+    },
+    {
+      "file": "VeraBot/Core/UI/AvatarPicker.swift",
+      "line": 72,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"无法读取这张照片\""
+    },
+    {
+      "file": "VeraBot/Core/UI/AvatarPicker.swift",
+      "line": 76,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Core/UI/AvatarPicker.swift",
+      "line": 81,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"无法读取这张照片\""
+    },
+    {
+      "file": "VeraBot/Core/UI/AvatarPicker.swift",
+      "line": 94,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Core/UI/AvatarPicker.swift",
+      "line": 101,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Core/UI/BotConnectionView.swift",
+      "line": 8,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .offline, .timedOut: .warning"
+    },
+    {
+      "file": "VeraBot/Core/UI/BotConnectionView.swift",
+      "line": 31,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(issue.message).font(.caption).foregroundStyle(.secondary)"
+    },
+    {
+      "file": "VeraBot/Core/UI/BotConnectionView.swift",
+      "line": 48,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(issue.message).foregroundStyle(.secondary)"
+    },
+    {
+      "file": "VeraBot/Core/UI/BotConnectionView.swift",
+      "line": 53,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if retrying { ProgressView().tint(.white) }"
+    },
+    {
+      "file": "VeraBot/Core/UI/BotConnectionView.swift",
+      "line": 98,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView()"
+    },
+    {
+      "file": "VeraBot/Core/UI/BotTagViews.swift",
+      "line": 35,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error = BotTagRules.parse(text).error {"
+    },
+    {
+      "file": "VeraBot/Core/UI/BotTagViews.swift",
+      "line": 36,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(error)"
+    },
+    {
+      "file": "VeraBot/Core/UI/MessageContentView.swift",
+      "line": 86,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let n = item.number { return \"\\(n).\" }"
+    },
+    {
+      "file": "VeraBot/Core/UI/MessageContentView.swift",
+      "line": 96,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "Button { UIPasteboard.general.string = text } label: { Label(\"复制\", systemImage: \"doc.on.doc\") }"
+    },
+    {
+      "file": "VeraBot/Core/UI/MessageContentView.swift",
+      "line": 98,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "Button { UIPasteboard.general.string = Self.copyText(url) } label: {"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 62,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "BotConnectionView(issue: connectionIssue, retrying: loading || sendingCode, compact: true) {"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 67,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).font(.footnote).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 152,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if sendingCode { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 169,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if loading { ProgressView().tint(.white) }"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 194,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"暂时无法清除登录信息，请重试\""
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 225,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil; infoText = nil; connectionIssue = nil"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 229,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 230,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "connectionIssue = ConnectionIssue.classify(error)"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 231,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if connectionIssue != nil {"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 233,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 235,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 278,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 284,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "connectionIssue = nil"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 287,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "infoText = \"验证码已发送，\\((sent.expiresIn ?? 600) / 60) 分钟内有效\""
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 301,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Auth/LoginView.swift",
+      "line": 323,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "connectionIssue = nil"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 261,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 270,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"清空与「\\(bot.name)」的全部对话？\", isPresented: $confirmClear, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 310,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"修改昵称\", isPresented: $showNameAlert) {"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 314,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Button(\"确定\") { inputError = draft.rename(nameInput) }"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 317,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"修改标签\", isPresented: $showTagsAlert) {"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 321,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Button(\"确定\") { inputError = draft.setTags(tagsInput) }"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 325,
+      "kinds": [
+        "确认 / 弹窗",
+        "提示 / 错误"
+      ],
+      "excerpt": ".alert(\"无法修改\", isPresented: Binding(get: { inputError != nil }, set: { if !$0 { inputError = nil } })) {"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 357,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"无法读取这张照片\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 362,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 401,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 439,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 451,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if errorText == nil { errorText = app.message(for: error) }"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 469,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/BotEditView.swift",
+      "line": 490,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"其他修改已保存，头像未更新：\\(app.message(for: error))\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 29,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 32,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if loaded && records.isEmpty && toolCalls.isEmpty && errorText == nil {"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 33,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView(\"暂无记录\", systemImage: \"person.2.wave.2\","
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 94,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_tool_call\": return \"工具调用\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 95,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_action_requested\": return \"待确认\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 96,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_action_confirmed\": return \"已确认执行\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 97,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_action_cancelled\": return \"已取消\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 98,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_action_expired\": return \"已过期\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 99,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_action_failed\": return \"执行失败\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 105,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let date = ListTimestamp.parse(iso) else { return \"时间未知\" }"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 111,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"not_in_allowlist\": return \"不在委派白名单\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 112,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"target_refuses\": return \"对方不接受委派\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 113,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"loop\": return \"检测到委派环路\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 114,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"turn_cap\": return \"超过单轮委派次数上限\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 115,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"budget\": return \"今日额度已用完\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 116,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"self\": return \"不能委派给自己\""
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 127,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/BotInfo/DelegationLogView.swift",
+      "line": 129,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 28,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "BotConnectionView(issue: connectionIssue, retrying: loading, compact: true) {"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 49,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red).font(.footnote)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 54,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(pendingDelete.map { BotDeletion.title($0.name) } ?? \"\","
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 62,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(BotDeletion.message(bot.name))"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 67,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "BotConnectionView(issue: connectionIssue, retrying: loading) { Task { await load() } }"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 69,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "BotLoadingView()"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 70,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} else if bots.isEmpty && errorText == nil {"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 71,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView {"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 185,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 186,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "connectionIssue = nil"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 192,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "(error as? URLError)?.code != .cancelled else { return }"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 194,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "connectionIssue = ConnectionIssue.classify(error)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 195,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if connectionIssue != nil {"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 196,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 199,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 225,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 258,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 264,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 319,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView(\"还没有 Bot\", systemImage: \"person.crop.circle\")"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 323,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView.search(text: trimmedQuery)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/CreateBotSheet.swift",
+      "line": 56,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/CreateBotSheet.swift",
+      "line": 81,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let message = cleaned.error {"
+    },
+    {
+      "file": "VeraBot/Features/BotList/CreateBotSheet.swift",
+      "line": 82,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = message"
+    },
+    {
+      "file": "VeraBot/Features/BotList/CreateBotSheet.swift",
+      "line": 91,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Chat/AttachmentViews.swift",
+      "line": 29,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if model.isBusy { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/AttachmentViews.swift",
+      "line": 61,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .failed(let message): Text(message).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Chat/AttachmentViews.swift",
+      "line": 110,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView()"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 117,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"清空与「\\(vm.bot.name)」的全部对话？\", isPresented: $confirmClearConversation, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 125,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(BotDeletion.title(vm.bot.name), isPresented: $confirmDeleteBot, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 131,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(BotDeletion.message(vm.bot.name))"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 158,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"无法使用相机\", isPresented: $cameraDenied) {"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 166,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": ".hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 185,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "vm.errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 190,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "vm.errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 359,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": ".hapticFeedback(.impact(weight: .light), trigger: sendCount)   // 发送消息（受「触感反馈」开关控制）"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 360,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": ".hapticFeedback(.selection, trigger: speech.isRecording)        // 开始 / 结束语音输入"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatView.swift",
+      "line": 371,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"\\(c.year ?? 0)-\\(c.month ?? 0)-\\(c.day ?? 0)\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 34,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "var suggestionErrors: [Int: String] = [:]"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 96,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 132,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "suggestionErrors[id] = nil"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 139,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "suggestionErrors[id] = error.message"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 141,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "suggestionErrors[id] = \"操作失败，请稍后重试。\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 147,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "suggestionErrors[id] = nil"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 153,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "suggestionErrors[id] = error.message"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 155,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "suggestionErrors[id] = \"操作失败，请稍后重试。\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 197,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = e.message"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 199,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = e.message"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 204,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 214,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = e.message"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 219,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 282,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 309,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 322,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 328,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 332,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 351,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ChatViewModel.swift",
+      "line": 359,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 11,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "enum State: Equatable {"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 64,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "discardUploaded(); task?.cancel(); state = .preparing; preview = nil; prepared = nil"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 70,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let size = values.fileSize, size > AttachmentLimits.maxBytes { throw CocoaError(.fileReadTooLarge) }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 72,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard data.count <= AttachmentLimits.maxBytes else { throw CocoaError(.fileReadTooLarge) }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 75,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw NSError(domain: \"VeraBotAttachment\", code: 1, userInfo: [NSLocalizedDescriptionKey: \"支持 PDF、TXT、MD、CSV、DOCX 和 XLSX 文件\"])"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 87,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "state = .preparing"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 137,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "state = .uploading"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 141,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "state = .ready(result)"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 145,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "state = .uploading"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 149,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "state = .ready(attachment)"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ComposerAttachmentModel.swift",
+      "line": 157,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "state = .failed(message)"
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 11,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .routineReminder: return \"规律提醒建议\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 12,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .delegation: return \"委派权限建议\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 13,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .unknown: return \"建议\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 27,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if vm.suggestionBusy.contains(suggestion.id) { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 31,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let message = vm.suggestionErrors[suggestion.id] {"
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 32,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(message).font(.caption).foregroundStyle(.orange)"
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 57,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"删除这条消息？\", isPresented: $confirmDelete, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 134,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView().accessibilityLabel(\"正在回复\")"
+    },
+    {
+      "file": "VeraBot/Features/Chat/MessageRow.swift",
+      "line": 160,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"哪里不满意？\", isPresented: $feedbackReason, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 15,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"pending\":"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 17,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"done\":"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 20,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"cancelled\":"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 22,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"expired\":"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 24,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"failed\", \"unknown\":"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 76,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if busy { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 85,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"\\(server) · \\(tool)\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 90,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .destructive: return \"trash\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 91,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .send: return \"paperplane\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 92,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .write: return \"pencil\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/ToolConfirmationCard.swift",
+      "line": 93,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "default: return \"lock\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 11,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "let error = trace.result?[\"error\"]?.text"
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 13,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard error != nil else { return nil }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 14,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return MCPTraceText.errorText(code: trace.result?[\"code\"]?.text, error: error)"
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 21,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if pending { ProgressView().controlSize(.mini) }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 42,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(\"⚠️ \\(errorText)\").font(.caption).foregroundStyle(.orange) }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 52,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"ask_bot\": return \"🤝 \\(fromBot) → \\(trace.args?[\"bot_name\"]?.text ?? \"?\")\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 53,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"get_weather\": return \"🌤 天气查询\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 54,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"create_reminder\": return \"⏰ 创建提醒\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 55,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"list_reminders\": return \"📋 查看提醒\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 56,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"manage_reminder\": return \"⏰ 管理提醒\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 57,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"remember\": return \"🧠 记忆\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 58,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"forget_memory\": return \"🧠 忘掉记忆\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 64,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let r = trace.result, errorText == nil else { return \"\" }"
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 79,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"已更新提醒\""
+    },
+    {
+      "file": "VeraBot/Features/Chat/TraceView.swift",
+      "line": 81,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"共 \\(r[\"count\"]?.text ?? \"0\") 条提醒\""
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryEditView.swift",
+      "line": 12,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .create: return \"create\""
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryEditView.swift",
+      "line": 13,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .edit(let m): return \"edit-\\(m.id)\""
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryEditView.swift",
+      "line": 59,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryEditView.swift",
+      "line": 79,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"删除这条记忆？\", isPresented: $confirmDelete, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryEditView.swift",
+      "line": 136,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryEditView.swift",
+      "line": 146,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 44,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).font(.footnote).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 48,
+      "kinds": [
+        "加载 / 空状态",
+        "状态 / 反馈"
+      ],
+      "excerpt": "HStack { Label(\"本月记忆回顾\",systemImage:\"calendar\"); Spacer(); if review?.reviewStatus == \"pending\" { ProgressView() } else { Image(systemName:\"chevron.right\").font(.caption).foregroundStyle(.tertiary) } }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 49,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "} } footer: { if review?.reviewStatus == \"pending\" { Text(\"正在整理本月回顾，可稍后打开查看。\") } }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 64,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if busy.contains(m.id) { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 110,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if loaded && memories.isEmpty && errorText == nil {"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 111,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView {"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 143,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(botFilter == nil ? \"清空全部记忆？\" : \"清空「\\(botFilter?.name ?? \"\")」的记忆？\","
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 151,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"关于记忆\", isPresented: $showIntro) {"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 218,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 220,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 232,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "catch { errorText=app.message(for:error) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 237,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "do { _ = try await app.api.confirmMemory(id: m.id, content: nil) } catch { errorText = app.message(for: error) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 243,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "do { _ = try await app.api.rejectMemory(id: m.id) } catch { errorText = app.message(for: error) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 249,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "do { _ = try await app.api.deleteMemory(id: m.id) } catch { errorText = app.message(for: error) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryListView.swift",
+      "line": 261,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 13,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 14,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if loading && review == nil { ProgressView(\"正在整理本月回顾…\") }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 24,
+      "kinds": [
+        "加载 / 空状态",
+        "状态 / 反馈"
+      ],
+      "excerpt": "if review.reviewStatus == \"pending\" { Section { ProgressView(\"回顾生成中\") } }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 25,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "if review.reviewStatus == \"unavailable\" { Section { Button(\"重试生成回顾\") { Task { await load() } } } }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 34,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "do { review=try await app.api.monthlyMemoryReview(month:month); errorText=nil }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 35,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "catch { errorText=app.message(for:error) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 37,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "private func capabilityTitle(_ key:String)->String { switch key {case \"chat\":return \"对话\";case \"delegation\":return \"委派\";case \"memory\":return \"记忆整理\";default:return key} }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 49,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryMonthlyReviewView.swift",
+      "line": 50,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Section { Button(\"删除这条记忆\",role:.destructive) { Task { do {_ = try await app.api.deleteMemory(id:memory.id); dismiss()} catch {errorText=app.message(for:error)} } } }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryProposalCard.swift",
+      "line": 49,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"编辑后记住\", isPresented: $editing) {"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryProposalCard.swift",
+      "line": 62,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "private enum CardState: Equatable { case pending, remembered, done(String) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryProposalCard.swift",
+      "line": 80,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if proposal.type == .style { return \"以后都这样回答吗？\" }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryProposalCard.swift",
+      "line": 82,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .update: return \"要更新这条记忆吗？\""
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryProposalCard.swift",
+      "line": 83,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .delete: return \"要忘掉这条吗？\""
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryProposalCard.swift",
+      "line": 84,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "default: return \"要我记住吗？\""
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryProposalCard.swift",
+      "line": 123,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if busy { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryReferencesView.swift",
+      "line": 11,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryReferencesView.swift",
+      "line": 12,
+      "kinds": [
+        "加载 / 空状态",
+        "提示 / 错误"
+      ],
+      "excerpt": "if memories.isEmpty && errorText == nil { ContentUnavailableView(\"没有可显示的记忆\",systemImage:\"brain\",description:Text(\"这条回答没有引用记忆，或相关记忆已删除或当前不可见。\")) }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemoryReferencesView.swift",
+      "line": 16,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": ".task { do { memories=try await app.api.memoryReferences(messageID:messageID).memories } catch { errorText=app.message(for:error) } }"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemorySettingsSection.swift",
+      "line": 33,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemorySettingsSection.swift",
+      "line": 46,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemorySettingsSection.swift",
+      "line": 48,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemorySettingsSection.swift",
+      "line": 61,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Memory/MemorySettingsSection.swift",
+      "line": 64,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"保存失败：\\(app.message(for: error))\""
+    },
+    {
+      "file": "VeraBot/Features/Playground/BotTravelViews.swift",
+      "line": 78,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView(\"正在找你的伙伴…\").frame(maxWidth: .infinity, minHeight: 76)"
+    },
+    {
+      "file": "VeraBot/Features/Playground/BotTravelViews.swift",
+      "line": 80,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView {"
+    },
+    {
+      "file": "VeraBot/Features/Playground/BotTravelViews.swift",
+      "line": 89,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView(\"还没有 Bot 伙伴\", systemImage: \"person.crop.circle.badge.plus\","
+    },
+    {
+      "file": "VeraBot/Features/Playground/BotTravelViews.swift",
+      "line": 339,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView(value: trip.progress(at: now))"
+    },
+    {
+      "file": "VeraBot/Features/Playground/BotTravelViews.swift",
+      "line": 436,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView().tint(Color.brand)"
+    },
+    {
+      "file": "VeraBot/Features/Playground/BotTravelViews.swift",
+      "line": 446,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"我带着你留的话「\\(trip.note)」一路看看。\\(destination.imagination)\""
+    },
+    {
+      "file": "VeraBot/Features/Playground/BotTravelViews.swift",
+      "line": 466,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView(\"相册还空着\", systemImage: \"books.vertical\","
+    },
+    {
+      "file": "VeraBot/Features/Playground/BotTravelViews.swift",
+      "line": 488,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"删除这段旅行记录？\", isPresented: Binding("
+    },
+    {
+      "file": "VeraBot/Features/Playground/MiniGameViews.swift",
+      "line": 80,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"这一关完成了！\", isPresented: $showingLevelComplete) {"
+    },
+    {
+      "file": "VeraBot/Features/Playground/MiniGameViews.swift",
+      "line": 87,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"全部通关\", isPresented: $showingAllDone) {"
+    },
+    {
+      "file": "VeraBot/Features/Playground/MiniGameViews.swift",
+      "line": 188,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if player == cell { return \"你的位置\" }"
+    },
+    {
+      "file": "VeraBot/Features/Playground/MiniGameViews.swift",
+      "line": 190,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if level.goals.contains(cell) { return \"目标点\" }"
+    },
+    {
+      "file": "VeraBot/Features/Playground/MiniGameViews.swift",
+      "line": 534,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "request.message = message"
+    },
+    {
+      "file": "VeraBot/Features/Playground/TetrisCompanionModel.swift",
+      "line": 125,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "self.error = \"陪玩回应暂时没连上，你仍可以继续玩。\""
+    },
+    {
+      "file": "VeraBot/Features/Playground/TetrisCompanionModel.swift",
+      "line": 152,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "error = nil"
+    },
+    {
+      "file": "VeraBot/Features/Playground/TetrisCompanionViews.swift",
+      "line": 36,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(model.error ?? (model.text.isEmpty ? (model.requesting ? \"正在准备回应…\" : \"点头像说说话，我会先暂停这一局。\") : model.text))"
+    },
+    {
+      "file": "VeraBot/Features/Playground/TetrisCompanionViews.swift",
+      "line": 89,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if model.requesting { ProgressView(\"正在听你说…\").font(.caption) }"
+    },
+    {
+      "file": "VeraBot/Features/Playground/TetrisCompanionViews.swift",
+      "line": 90,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error = model.error { Text(error).font(.caption).foregroundStyle(.secondary) }"
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 81,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"无法打开游戏助手\", isPresented: Binding("
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 153,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch let error as APIError where error.status == 409 {"
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 324,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"完成这一局\", isPresented: $showingCompletion) {"
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 443,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"第\\(row)行第\\(column)列，\\(number)\\(SudokuPuzzle.givens.contains(index) ? \"，题目数字\" : \"\")\""
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 645,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView(\"正在找你的伙伴…\")"
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 648,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView {"
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 651,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText)"
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 657,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView(\"还没有 Bot 伙伴\", systemImage: \"person.2\", description: Text(\"创建一位 Bot，就可以邀请它一起聊天和做事。\"))"
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 702,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Playground/WorldViews.swift",
+      "line": 704,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/ConnectorTokenSheet.swift",
+      "line": 34,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Section { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/ConnectorTokenSheet.swift",
+      "line": 45,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView()"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/ConnectorTokenSheet.swift",
+      "line": 70,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)   // 失败保留暂存，可重试；取消不删除"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginCatalogView.swift",
+      "line": 30,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).font(.footnote).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginCatalogView.swift",
+      "line": 69,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginCatalogView.swift",
+      "line": 71,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginCatalogView.swift",
+      "line": 83,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 127,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 132,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"卸载「\\(plugin?.name ?? \"插件\")」？\", isPresented: $confirmUninstall, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 138,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"需要同意\", isPresented: $showConsentPrompt) {"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 155,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"断开「\\(plugin?.name ?? \"插件\")」？\", isPresented: $confirmDisconnect, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 259,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 262,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 272,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 274,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch { errorText = app.message(for: error) }"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 283,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 285,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 295,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 297,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 345,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 347,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 357,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 359,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 369,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 371,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 382,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 384,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 394,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"每个 Bot 最多开启 \\(MCPToolRules.maxPerBot) 个插件工具\""
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 416,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 418,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 429,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 438,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .cancelled: return \"已取消 Google 登录。\""
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 439,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .invalidCallback: return \"Google 登录返回的信息无效，请重试。\""
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 557,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 569,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 571,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 605,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 616,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginDetailView.swift",
+      "line": 618,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginListView.swift",
+      "line": 54,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).font(.footnote).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginListView.swift",
+      "line": 86,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Plugins/PluginListView.swift",
+      "line": 88,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Quota/QuotaView.swift",
+      "line": 14,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView(value: Double(min(q.today.totalTokens, q.dailyTokenQuota)),"
+    },
+    {
+      "file": "VeraBot/Features/Quota/QuotaView.swift",
+      "line": 59,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Quota/QuotaView.swift",
+      "line": 70,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Quota/QuotaView.swift",
+      "line": 72,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/InboxView.swift",
+      "line": 29,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/InboxView.swift",
+      "line": 32,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if items.isEmpty && errorText == nil {"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/InboxView.swift",
+      "line": 33,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView(\"没有通知\", systemImage: \"bell\", description: Text(\"新的提醒和消息会出现在这里\"))"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/InboxView.swift",
+      "line": 83,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/InboxView.swift",
+      "line": 85,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/InboxView.swift",
+      "line": 115,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let date = ISO8601DateFormatter().date(from: text) else { return \"\" }"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 137,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Task { await app.open(link: \"bot/\\(botID)/chat?message=\\(messageID)\") }"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 149,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 161,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"这条提醒已在别处修改\", isPresented: $conflict) {"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 167,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(loadedReminder?.rrule == nil ? \"删除提醒\" : \"删除重复提醒\","
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 235,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 247,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"日期和时间无效，请重新选择。\""
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 286,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch let error as APIError where error.status == 409 && error.code == \"version_conflict\" {"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 289,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 316,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/ReminderEditorView.swift",
+      "line": 329,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/RemindersView.swift",
+      "line": 50,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"删除重复提醒\", isPresented: Binding(get: { pendingDelete != nil },"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/RemindersView.swift",
+      "line": 61,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": ".hapticFeedback(.success, trigger: completedCount)"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/RemindersView.swift",
+      "line": 110,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/RemindersView.swift",
+      "line": 113,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if reminders.isEmpty && errorText == nil {"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/RemindersView.swift",
+      "line": 114,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ContentUnavailableView {"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/RemindersView.swift",
+      "line": 159,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/RemindersView.swift",
+      "line": 163,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Reminders/RemindersView.swift",
+      "line": 192,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if editing == nil, !reminders.isEmpty { app.missingNotice = \"内容已不存在\" }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabCharacterView.swift",
+      "line": 296,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking, .working, .delegating:"
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabCharacterView.swift",
+      "line": 333,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking:"
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabView.swift",
+      "line": 274,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "enum AvatarLabState: String, CaseIterable, Identifiable {"
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabView.swift",
+      "line": 276,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case thinking"
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabView.swift",
+      "line": 289,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking: \"思考中\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabView.swift",
+      "line": 302,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking: \"ellipsis\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabView.swift",
+      "line": 315,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking: 1.5"
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabView.swift",
+      "line": 353,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking, .working, .delegating, .replying: true"
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabView.swift",
+      "line": 366,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking: self = .thinking"
+    },
+    {
+      "file": "VeraBot/Features/Settings/AvatarLabView.swift",
+      "line": 438,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking: \"思考中\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 24,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Button(\"保存到本机\") { local { try store.save(draft.current); draft.markSaved(); return \"已保存到本机\" } }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 27,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let value = try store.load() else { return \"本机尚未保存外观\" }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 30,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"已加载本机外观\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 33,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Button(\"取消草稿修改\") { draft.cancel(); message = \"已恢复上次载入或保存的外观\" }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 35,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "local { try draft.update(.robotDefault); return \"默认外观已进入草稿，尚未保存\" }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 48,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if busy { ProgressView(\"正在处理…\") }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 54,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let message { Section { Text(message).font(.footnote) } }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 57,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"清除所选 Bot 的外观配置？\",isPresented:$confirmClear,titleVisibility:.visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 61,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": ".onChange(of:selectedID) { _,_ in invalidate(); message = nil }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 62,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": ".onChange(of:sessionKey) { _,_ in invalidate(); selectedID = nil; bots = []; message = nil }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 68,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw BotAppearanceError.invalid(\"此形象暂未安装，已保留原配置\")"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 72,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "do { message = try operation() } catch { message = \"未完成，草稿和原配置已保留：\\(error.localizedDescription)\" }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 89,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = bots.isEmpty ? \"尚无可选择的 Bot\" : nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 91,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard accepts(ticket) else { return }; message = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 102,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "busy = true; message = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 110,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let bot = result.bots.first(where: { $0.id == id }) else { throw BotAppearanceError.invalid(\"目标 Bot 已不存在\") }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 112,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let raw = bot.appearance else { message = \"此 Bot 尚无外观配置，草稿已保留\"; busy = false; return }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 116,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = \"已读取 \\(bot.name) 的外观\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 122,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = \"已确认保存到 \\(bot.name)，正式头像暂未切换\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 126,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = \"已确认清除 \\(bot.name) 的外观配置，当前草稿已保留\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarAppearanceSaveView.swift",
+      "line": 130,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = \"未完成，草稿已保留：\\(error.localizedDescription)\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarLabPlayback.swift",
+      "line": 16,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .transitions: sequence = [.thinking,.working,.delegating,.replying,.awaitingConfirmation,.success,.idle]"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 4,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "enum BotAvatarState: String, CaseIterable, Identifiable {"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 7,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case input, send, success, failure, warning, inspect, blocked, error, surprise, sleep, wake, love, random"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 10,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case thinking, recalling, working, delegating, replying"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 23,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .warning: \"警告\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 32,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking: \"思考\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 52,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .warning: \"近眼放大、远眼收窄，眼睑下压再抬起\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 61,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking: \"向左上思考，天线随头部轻轻抬起\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 76,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking,.delegating,.awaitingConfirmation: 2400"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 83,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .input,.thinking,.delegating,.replying: 1200"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 84,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .send,.warning: 1000"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarState.swift",
+      "line": 104,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking: self = .thinking"
+    },
+    {
+      "file": "VeraBot/Features/Settings/BotAvatarWorkMotion.swift",
+      "line": 37,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking:"
+    },
+    {
+      "file": "VeraBot/Features/Settings/DebugView.swift",
+      "line": 26,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let serverError { Text(serverError).font(.footnote).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/DebugView.swift",
+      "line": 38,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "ProgressView()"
+    },
+    {
+      "file": "VeraBot/Features/Settings/DebugView.swift",
+      "line": 41,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} else if healthError != nil {"
+    },
+    {
+      "file": "VeraBot/Features/Settings/DebugView.swift",
+      "line": 116,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "healthError = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/DebugView.swift",
+      "line": 119,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "healthError = error.localizedDescription"
+    },
+    {
+      "file": "VeraBot/Features/Settings/DebugView.swift",
+      "line": 129,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "serverError = \"请输入有效的 http 或 https 服务器地址\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/DebugView.swift",
+      "line": 135,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "serverError = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/NotificationSettingsView.swift",
+      "line": 77,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let errorText { Text(errorText).foregroundStyle(.red) }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/NotificationSettingsView.swift",
+      "line": 85,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"通知权限已关闭\", isPresented: $showDeniedAlert) {"
+    },
+    {
+      "file": "VeraBot/Features/Settings/NotificationSettingsView.swift",
+      "line": 110,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/NotificationSettingsView.swift",
+      "line": 112,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Settings/NotificationSettingsView.swift",
+      "line": 125,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarLabView.swift",
+      "line": 13,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "do { try draft.update(value) } catch { message = error.localizedDescription }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarLabView.swift",
+      "line": 33,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarLabView.swift",
+      "line": 50,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "catch { message = \"实验选择读取失败，原记录已保留：\\(error.localizedDescription)\" }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarLabView.swift",
+      "line": 55,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw BotAppearanceError.invalid(\"本机配置使用了暂未安装的形象，原文件已保留\")"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarLabView.swift",
+      "line": 59,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch { message = \"本机外观读取失败，原文件已保留：\\(error.localizedDescription)\" }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarMotion.swift",
+      "line": 60,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .idle, .input, .thinking, .recalling, .working, .delegating, .replying, .awaitingConfirmation: return .infinity"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarMotion.swift",
+      "line": 65,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .warning: return 3607"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarMotion.swift",
+      "line": 88,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking,.recalling,.working,.delegating,.replying,.awaitingConfirmation:"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarMotion.swift",
+      "line": 144,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .warning: warning(t - 480, frame: &f)"
+    },
+    {
+      "file": "VeraBot/Features/Settings/RobotAvatarMotion.swift",
+      "line": 234,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .warning: 1100"
+    },
+    {
+      "file": "VeraBot/Features/Settings/SettingsView.swift",
+      "line": 113,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"确定退出登录？\", isPresented: $confirmLogout, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 43,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if saving { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 58,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if sendingVerify { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 65,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(errorText).font(.footnote).foregroundStyle(.red)"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 72,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"修改昵称\", isPresented: $editingNickname) {"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 80,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".alert(\"验证邮箱\", isPresented: $enteringCode) {"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 96,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 101,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 105,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 112,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"请输入 6 位数字验证码\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 120,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 121,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "infoText = \"邮箱已验证\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 123,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 130,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = trimmed.isEmpty ? \"昵称不能为空\" : \"昵称最多 32 个字\""
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 134,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 144,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 146,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = app.message(for: error)"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 152,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw APIError(status: 0, message: \"无法处理这张照片\")"
+    },
+    {
+      "file": "VeraBot/Features/Settings/UserProfileEditor.swift",
+      "line": 159,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Services/Attachments/AttachmentImageStore.swift",
+      "line": 31,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard started == epoch else { throw CancellationError() }"
+    },
+    {
+      "file": "VeraBot/Services/Notifications/NotificationCoordinator.swift",
+      "line": 158,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "return [.banner, .sound, .list]"
+    },
+    {
+      "file": "VeraBot/Services/Speech/SpeechInput.swift",
+      "line": 12,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .unavailable: return \"语音识别当前不可用（zh-CN）\""
+    },
+    {
+      "file": "VeraBot/Services/Speech/SpeechInput.swift",
+      "line": 13,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .noInput: return \"未检测到麦克风输入\""
+    },
+    {
+      "file": "VeraBot/Services/Speech/SpeechInput.swift",
+      "line": 85,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if error != nil || result?.isFinal == true {"
+    },
+    {
+      "file": "VeraBot/Services/Speech/SpeechInput.swift",
+      "line": 87,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error, result == nil, !userStopped {"
+    },
+    {
+      "file": "VeraBot/Services/Speech/SpeechInput.swift",
+      "line": 175,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = nil"
+    },
+    {
+      "file": "VeraBot/Services/Speech/SpeechInput.swift",
+      "line": 177,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = \"请在「设置」中允许 VeraBot 使用麦克风和语音识别\""
+    },
+    {
+      "file": "VeraBot/Services/Speech/SpeechInput.swift",
+      "line": 192,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "self?.errorText = message"
+    },
+    {
+      "file": "VeraBot/Services/Speech/SpeechInput.swift",
+      "line": 198,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorText = error.localizedDescription"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Attachment.swift",
+      "line": 65,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if isGIF(data) { return \"gif\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Attachment.swift",
+      "line": 66,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if data.starts(with: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) { return \"png\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Attachment.swift",
+      "line": 67,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"jpg\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Attachment.swift",
+      "line": 81,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "public init(message: String, attachmentIDs: [String] = []) {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Attachment.swift",
+      "line": 82,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "self.message = message"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Auth.swift",
+      "line": 164,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"+86 \\(String(d[0..<3])) \\(String(d[3..<7])) \\(String(d[7..<11]))\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 5,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "public var errorDescription: String? { if case .invalid(let reason) = self { return \"外观配置无效：\\(reason)\" }; return nil }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 10,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard case .object(let fields) = value, Set(fields.keys) == keys else { throw BotAppearanceError.invalid(\"字段不完整或包含不支持的字段\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 14,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard case .number(let n) = value, n.isFinite else { throw BotAppearanceError.invalid(\"需要有限数值\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 18,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard case .string(let text) = value else { throw BotAppearanceError.invalid(\"需要文字标识\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 34,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let gamut = Space(rawValue: try AppearanceJSON.text(f[\"space\"])) else { throw BotAppearanceError.invalid(\"不支持的颜色空间\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 39,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard [red,green,blue].allSatisfy({ $0.isFinite && (0...1).contains($0) }) else { throw BotAppearanceError.invalid(\"颜色分量应在 0 到 1 之间\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 60,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard (0...1).contains(roundness) else { throw BotAppearanceError.invalid(\"圆角应在 0 到 1 之间\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 78,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard data.count <= 4096 else { throw BotAppearanceError.invalid(\"配置超过 4096 字节\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 82,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard version == 1, template >= 1, template <= Double(Int32.max), template.rounded() == template else { throw BotAppearanceError.invalid(\"不支持的配置或模板版本\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 89,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard schemaVersion == 1, templateVersion >= 1, templateVersion <= Int32.max else { throw BotAppearanceError.invalid(\"不支持的配置或模板版本\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 90,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard templateID.range(of:#\"^[a-z][a-z0-9-]{0,63}$\"#,options:.regularExpression) != nil else { throw BotAppearanceError.invalid(\"模板标识格式不正确\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 92,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard parameters.roundness.isFinite, (0...1).contains(parameters.roundness) else { throw BotAppearanceError.invalid(\"圆角应在 0 到 1 之间\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearance.swift",
+      "line": 93,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard try JSONEncoder().encode(self).count <= 4096 else { throw BotAppearanceError.invalid(\"配置超过 4096 字节\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAppearanceFileStore.swift",
+      "line": 11,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard data.count <= 4096 else { throw BotAppearanceError.invalid(\"配置超过 4096 字节\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAvatarFamily.swift",
+      "line": 59,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw BotAppearanceError.invalid(\"实验形状暂未安装\")"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAvatarFamily.swift",
+      "line": 64,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if skinID != nil && skin == nil { throw BotAppearanceError.invalid(\"实验皮肤暂未安装\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAvatarFigure.swift",
+      "line": 55,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case thinking"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotAvatarFigure.swift",
+      "line": 66,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .recalling, .thinking: self = .thinking"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotProfileDraft.swift",
+      "line": 53,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if trimmed.isEmpty { return \"昵称不能为空\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotProfileDraft.swift",
+      "line": 54,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if trimmed.unicodeScalars.count > Self.maxNameLength { return \"昵称最多 \\(Self.maxNameLength) 个字\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotProfileDraft.swift",
+      "line": 63,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error = parsed.error { return error }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/BotProfileDraft.swift",
+      "line": 93,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "!label.isEmpty, label != name else { return \"未命名工具\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ExecutionState.swift",
+      "line": 11,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case thinking"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ExecutionState.swift",
+      "line": 67,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "public enum ExecutionState: Sendable, Hashable {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ExecutionState.swift",
+      "line": 73,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case thinking"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ExecutionState.swift",
+      "line": 92,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .recalling, .thinking, .callingTool, .delegating, .replying, .blocked: true"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ExecutionState.swift",
+      "line": 196,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case .thinking, .tool:"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ExecutionState.swift",
+      "line": 219,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "state = .failed(message: message)"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ExecutionState.swift",
+      "line": 248,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let r = trace.result, let e = r[\"error\"], e != .null else { return nil }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ExecutionState.swift",
+      "line": 249,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "let message = e.text"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/ListTimestamp.swift",
+      "line": 41,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"昨天\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 62,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if !enabled || status == \"disabled\" { return \"已停用\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 63,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if circuitState == \"open\" { return \"已熔断\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 65,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"syncing\": return \"正在同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 66,
+      "kinds": [
+        "提示 / 错误",
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"pending\": return \"等待同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 67,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"error\": return \"同步失败\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 68,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"ok\" where !consented: return \"未同意\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 72,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"connected\": return \"已连接\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 73,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"error\": return \"异常\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 74,
+      "kinds": [
+        "提示 / 错误",
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"expired\": return \"需要重新连接\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 75,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"needs_scope\": return \"需要追加权限\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 76,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"needs_auth\": return \"未连接\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 83,
+      "kinds": [
+        "提示 / 错误",
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"pending\": return \"等待同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 84,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"syncing\": return \"正在同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 85,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"ok\": return \"已同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 86,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"error\": return \"同步失败\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 93,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"open\": return \"已熔断\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 94,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"half_open\": return \"恢复探测\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 95,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "default: return \"正常\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 181,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"read\": return \"只读\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 182,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"write\": return \"写入\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 183,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"send\": return \"发送\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 184,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"destructive\": return \"破坏性\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 257,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let sep = rest.range(of: \"__\") else { return \"🔌 \\(rest)\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 261,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"🔌 \\(server) · \\(toolLabels[tool] ?? tool)\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 270,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "public static func errorText(code: String?, error: String?) -> String? {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 272,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_tool_error\": return \"外部服务返回了错误\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 273,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_timeout\": return \"外部服务超时\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 274,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_rpc_error\", \"mcp_unavailable\", \"mcp_protocol\", \"mcp_session_expired\": return \"外部服务暂时不可用\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 275,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_consent_required\": return \"尚未同意把工具结果发送给 DeepSeek\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 276,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_circuit_open\": return \"该服务连续失败，已暂时停止连接\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 277,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"result_unknown\": return \"请求结果未知，请到对应服务核实\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 278,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"plugin_uninstalled\": return \"插件已卸载，本次调用已取消\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 279,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_auth_required\": return \"需要在插件页重新连接\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/MCP.swift",
+      "line": 280,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"mcp_permission_denied\": return \"服务拒绝：令牌没有这个资源或这项权限\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 22,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .profile: return \"资料\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 23,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .preference: return \"偏好\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 24,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .fact: return \"事实\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 25,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .style: return \"风格\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 26,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .summary: return \"摘要\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 27,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .routine: return \"习惯\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 28,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .unknown: return \"其他\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 65,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .health: return \"健康信息\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 66,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .finance: return \"财务信息\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 83,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .none: return \"不使用\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 84,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .bot: return \"仅本 Bot 的记忆\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 85,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .botAndGlobal: return \"本 Bot + 共享资料\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 155,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"memory_page\": return \"你手动添加\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 157,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let n = sourceBotName { return \"来自与 \\(n) 的对话\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 158,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"来自对话\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 159,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"summary_job\": return \"对话摘要\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 160,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"feedback\": return \"来自你的反馈\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 161,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"implicit_extraction\": return \"从对话中发现\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 162,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "default: return \"其他来源\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 333,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "public let reviewStatus:String"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 342,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "enum CodingKeys:String,CodingKey { case month,reviewStatus=\"review_status\",assistedCount=\"assisted_count\",assistantMessages=\"assistant_messages\",successfulDelegations=\"successful_delegations\",firstConversationAt=\"first_conversation_at\",capabilities,newMemories=\"new_memories\",candidateCount=\"candidate_count\",suggestion }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 346,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "reviewStatus=try c.decodeIfPresent(String.self,forKey:.reviewStatus) ?? \"unavailable\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 510,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"already_known\": return \"已在记忆中\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 511,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"previously_declined\": return \"你之前选择过不记住这条\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Memory.swift",
+      "line": 512,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "default: return \"\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Models.swift",
+      "line": 21,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"用户名 \\(username)\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Models.swift",
+      "line": 595,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw DecodingError.dataCorruptedError(in: c, debugDescription: \"Unsupported JSON value\")"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Models.swift",
+      "line": 621,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .null: return \"\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Notifications.swift",
+      "line": 310,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if preview == \"none\" { return \"你有一条新通知\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Notifications.swift",
+      "line": 323,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if parts[\"FREQ\"] == \"DAILY\", parts[\"BYDAY\"] == nil, parts[\"BYMONTHDAY\"] == nil { return \"daily\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Notifications.swift",
+      "line": 326,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if days == \"MO,TU,WE,TH,FR\" { return \"weekdays\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Notifications.swift",
+      "line": 327,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if [\"MO\", \"TU\", \"WE\", \"TH\", \"FR\", \"SA\", \"SU\"].contains(days) { return \"weekly\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Notifications.swift",
+      "line": 397,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "let message = query[\"message\"].flatMap(Int.init)"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 14,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .read: return \"只读\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 15,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .write: return \"写入\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 16,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .send: return \"发送\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 17,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .destructive: return \"破坏性\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 18,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .unknown: return \"需确认\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 72,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case id, kind, status, server, tool, label, risk, arguments, warnings, result"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 123,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case kind, server, tool, label, arguments, risk, warnings"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 155,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "if case .array(let arr)? = toolResult[\"warnings\"] {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 237,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .null: return \"null\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/PendingAction.swift",
+      "line": 241,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"…\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 49,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"token_invalid\": return \"令牌无效或已撤销\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 50,
+      "kinds": [
+        "提示 / 错误",
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"expired\": return \"授权已过期\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 51,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"insufficient_scope\": return \"权限不足\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 52,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"network_unreachable\": return \"网络不可达\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 62,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if isBuiltin { return \"内置 · 无需安装\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 64,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"ready\": return \"可用\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 65,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"needs_auth\": return \"需要连接\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 66,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"needs_scope\": return \"需要追加权限\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 67,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"needs_consent\": return \"待同意\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 68,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"syncing\": return \"正在同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 69,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"disabled\": return \"已停用\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 70,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"circuit_open\": return \"已熔断\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 71,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"error\": return \"同步失败\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 72,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"not_installed\": return \"未安装\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 79,
+      "kinds": [
+        "提示 / 错误",
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"pending\": return \"等待同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 80,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"syncing\": return \"正在同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 81,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"ok\": return \"已同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 82,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"error\": return \"同步失败\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 83,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"\": return \"无需同步\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 90,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"open\": return \"已熔断\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 91,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case \"half_open\": return \"恢复探测\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Plugin.swift",
+      "line": 92,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "default: return \"正常\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 208,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if createdBy == \"bot\" || sourceBotId != nil { return \"已删除的 Bot\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 209,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"我\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 294,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .daily: return \"FREQ=DAILY\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 295,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .weekdays: return \"FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 298,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"FREQ=WEEKLY;BYDAY=\\(day)\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 301,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"FREQ=MONTHLY;BYMONTHDAY=\\(day)\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 302,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .yearly: return \"FREQ=YEARLY\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 388,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let date = reminder.scheduleDate else { return \"未设时间\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 404,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if reminder.allDay { return \"\\(day) 全天\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/Reminders.swift",
+      "line": 410,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"\\(day) \\(clock.string(from: date))\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient+Attachments.swift",
+      "line": 38,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard (200..<300).contains(status) else { throw Self.apiError(status: status, data: result) }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient+Attachments.swift",
+      "line": 64,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard (200..<300).contains(status) else { throw Self.apiError(status: status, data: data) }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 14,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "public init(status: Int, message: String, code: String? = nil) {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 16,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "self.message = message"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 484,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw APIError(status: 0, message: \"当前平台不支持流式聊天\")"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 503,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw Self.apiError(status: status, data: data)"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 542,
+      "kinds": [
+        "状态 / 反馈"
+      ],
+      "excerpt": "case \"done\":"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 603,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw Self.apiError(status: status, data: data)"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 628,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard (200..<300).contains(status) else { throw Self.apiError(status: status, data: data) }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 642,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard (200..<300).contains(status) else { throw Self.apiError(status: status, data: data) }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 647,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "var message = \"请求失败（HTTP \\(status)）\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 652,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = s"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 654,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = items.map { ($0[\"msg\"]?.text) ?? $0.text }.joined(separator: \"；\")"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 657,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = detail[\"message\"]?.text ?? detail.text"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
+      "line": 660,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message = detail.text"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/ConnectionIssue.swift",
+      "line": 9,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error = error as? APIError {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/ConnectionIssue.swift",
+      "line": 12,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "let error = error as NSError"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/ConnectionIssue.swift",
+      "line": 13,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard error.domain == NSURLErrorDomain else { return nil }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/TetrisCompanion.swift",
+      "line": 18,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "public var message = \"\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/TetrisCompanion.swift",
+      "line": 33,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw APIError(status: 501, message: \"当前服务暂不支持陪玩回应\")"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotTTS/TTS.swift",
+      "line": 20,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .local: return \"本机 TTS\""
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotTTS/TTS.swift",
+      "line": 21,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "case .cloud: return \"云端 TTS（即将支持）\""
+    }
+  ]
+}

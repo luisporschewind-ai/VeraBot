@@ -84,6 +84,12 @@ struct DebugView: View {
 
             Section("实验") {
                 NavigationLink {
+                    NoticeLabView()
+                        .toolbar(.hidden, for: .tabBar)
+                } label: {
+                    Label("提示组件实验室", systemImage: "bell.badge")
+                }
+                NavigationLink {
                     RobotAvatarLabView()
                         .toolbar(.hidden, for: .tabBar)
                 } label: {

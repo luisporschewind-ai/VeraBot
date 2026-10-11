@@ -31,8 +31,10 @@ struct RobotAvatarView: View {
     var skin: BotAvatarSkin? = nil
     var familyLook = BotAvatarFamilyLook()
     var staticPreview = false
+    /// Optional local reduction for quiet notices; system accessibility always takes precedence.
+    var motionReduced = false
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var visible = false
     @State private var elapsed = 0.0
@@ -48,6 +50,7 @@ struct RobotAvatarView: View {
     @State private var entryPose: RobotAvatarMotion.Frame?
     @GestureState private var fingerDown = false
 
+    private var reduceMotion: Bool { systemReduceMotion || motionReduced }
     private var active: Bool { visible && scenePhase == .active && !reduceMotion && !staticPreview }
     // The antenna extends above the 240-point viewport; its spring needs extra drawing room.
     private var template: BotAvatarTemplate {
