@@ -135,3 +135,17 @@ uv run python scripts/dev/seed_demo.py --reset   # 重建演示账号 demo / ver
 ### 群聊 G3 隔离验收
 
 `python scripts/dev/group_chat_demo.py --port 8093` 使用新临时库与确定性模拟提供者，只监听127.0.0.1，不请求真实模型；可用 `--data-dir` 指定独立测试目录。测试账号 group-demo / group-demo-123，已有A/B/C。服务启动后运行 `python scripts/test/group_http_test.py http://127.0.0.1:8093` 进行真实socket/SSE检查。此服务仅供本地测试；正式群运行仍要求单worker。完整证据及人工步骤见 [G3](../docs/testing/2026-10-11-bot-group-chat.md)。
+
+## Bot 无 key 联网查询
+
+联网搜索通过匿名 Chromium 打开 Google 公开网页/新闻搜索；网站要求验证或暂时不可达时，使用 Bing 公开搜索备用。无需任何搜索 API key，也不读取用户浏览器 Cookie、账号或历史。网页来源以本轮实际结果为准，默认国内新闻优先、国际其次。
+
+部署时运行 `uv sync --frozen`，再运行 `PLAYWRIGHT_SKIP_BROWSER_GC=1 uv run python -m playwright install chromium`；Linux 可用 `playwright install --with-deps chromium` 安装系统浏览器依赖。浏览器缓存应保留在服务运行账户可读的位置。不会在聊天请求中下载浏览器。
+
+服务器 `VERABOT_WEB_ENABLED` 默认 1，可设 0 关闭；Bot 的 `web_search` / `web_read_result` 权限仍逐 Bot 开启。`VERABOT_WEB_DAILY_REQUESTS` 默认 50，是负载保护而非付费额度；每轮搜索2/读取3、累计45秒、单次搜索30秒（正文下载12秒）。缺浏览器、访问验证、超时、无结果均有明确状态。Google 返回验证时冷却5分钟，不重复触发同一个验证，不绕过验证码；Bing备用不支持一年时间范围，保留原错误而不丢弃过滤条件。
+
+正文只读取本轮返回的公开 HTTPS 链接；DNS 全量检查并固定连接 IP，逐跳验证，TLS 保留原域名校验，不执行文章脚本；最多1MiB未压缩响应、4000字正文。
+
+在系统 DNS 把所有解析结果映射到 `198.18.0.0/15` 的环境中，正文读取会对公开主机名改用固定 Google Public DNS over HTTPS 查询；回传的所有地址仍须为公网地址，随后固定目标 IP 并校验原域名 TLS。真实私网或公私混合 DNS 结果不会触发该回退，也不会访问非公开地址。
+
+离线验证：`uv run python scripts/test/web_browser_test.py`、`uv run python scripts/test/web_query_test.py`。真实联网与离线验证结果分别记录在 [无 key 验收记录](../docs/testing/2026-10-11-web-query-no-key.md)。

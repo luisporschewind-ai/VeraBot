@@ -50,6 +50,8 @@ def schemas_for(bot: dict, depth: int, memory_on: bool, user_id: int) -> list[di
 
 
 def trace_meta(user_id: int, name: str) -> dict:
+    if name in {"web_search", "web_read_result"}:
+        return {"source": "web", "server": "网页搜索", "risk": "read"}
     if not name.startswith("mcp__"):
         return {"source": "builtin"}
     tool = mcp_store.get_tool_by_full_name(user_id, name)

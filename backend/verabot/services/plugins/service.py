@@ -153,6 +153,12 @@ def public_plugin(user_id: int, spec: dict, installed: bool | None = None) -> di
     if spec["kind"] == "mcp":
         mcp_spec = mcp_catalog.by_id(spec["catalog_id"] or "")
         available = bool(mcp_spec and mcp_spec.get("url"))   # 需授权插件：地址已配置即可，不要求已连接
+    if spec["plugin_id"] == "builtin_web":
+        from ..web.provider import configured
+        available = configured()
+        runtime["enabled"] = available
+        runtime["state"] = "ready" if available else "error"
+        runtime["last_error"] = None if available else "联网查询服务暂不可用"
     account = _account(user_id, spec, mcp_spec, bool(installed))
     return {
         "plugin_id": spec["plugin_id"],

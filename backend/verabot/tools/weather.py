@@ -3,6 +3,7 @@ Open-Meteo 失败（如 429 限流）时自动降级到 wttr.in（同样免 Key�
 import asyncio
 import logging
 import time
+from datetime import datetime, timezone
 
 import httpx
 
@@ -22,7 +23,7 @@ async def _get_json(client: httpx.AsyncClient, url: str, params: dict) -> dict:
     key = url + "?" + "&".join(f"{k}={v}" for k, v in sorted(params.items()))
     hit = _CACHE.get(key)
     if hit and time.time() - hit[0] < _TTL:
-        return hit[1]
+        return {**hit[1], "_cache_hit": True}
     for attempt in range(3):
         r = await client.get(url, params=params)
         if r.status_code == 429 and attempt < 2 and "Daily" not in r.text:
@@ -30,8 +31,9 @@ async def _get_json(client: httpx.AsyncClient, url: str, params: dict) -> dict:
             continue
         r.raise_for_status()
         data = r.json()
+        data["_fetched_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         _CACHE[key] = (time.time(), data)
-        return data
+        return {**data, "_cache_hit": False}
     raise RuntimeError("unreachable")
 
 
@@ -45,14 +47,16 @@ async def _geocode(client: httpx.AsyncClient, city: str):
     return None
 
 
-@tool("get_weather", "查询某个城市的实时天气和未来 3 天预报。city 用城市名，例如 石家庄 / Beijing。",
+@tool("get_weather", "查询某个城市的当前天气模型数据和未来 3 天预报。city 用城市名，例如 石家庄 / Beijing。",
       {"type": "object", "properties": {"city": {"type": "string", "description": "城市名"}}, "required": ["city"]})
 async def get_weather(ctx: ToolContext, city: str):
     try:
-        return await _weather(city)
+        result = await _weather(city)
+        return {**result, "queried_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     except httpx.HTTPError as primary:
         try:
-            return await _wttr(city)
+            result = await _wttr(city)
+            return {**result, "queried_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         except Exception as fallback:
             logging.getLogger("verabot.tools").warning("weather fallback failed: %r (primary %r)", fallback, primary)
             code = getattr(getattr(primary, "response", None), "status_code", None)
@@ -63,6 +67,8 @@ async def _wttr(city: str):
     """备用数据源 wttr.in（JSON 格式 j1）。"""
     async with httpx.AsyncClient(timeout=12) as client:
         d = await _get_json(client, f"https://wttr.in/{city.strip()}", {"format": "j1", "lang": "zh"})
+    if not d.get("current_condition"):
+        return {"error": "天气服务没有返回当前数据"}
     cur = d["current_condition"][0]
     desc = lambda x: ((x.get("lang_zh") or x.get("weatherDesc") or [{}])[0].get("value", "")).strip()
     labels = ["今天", "明天", "后天"]
@@ -70,13 +76,15 @@ async def _wttr(city: str):
              "max_c": float(w["maxtempC"]), "min_c": float(w["mintempC"]),
              "precip_prob": max(int(h.get("chanceofrain", 0)) for h in w["hourly"])}
             for i, w in enumerate(d.get("weather", []))]
-    area = d.get("nearest_area", [{}])[0]
+    area = (d.get("nearest_area") or [{}])[0]
     region = (area.get("region") or [{}])[0].get("value", "")
     return {"location": f"{region} {city}".strip(), "country": (area.get("country") or [{}])[0].get("value"),
             "current": {"time": cur.get("localObsDateTime"), "temp_c": float(cur["temp_C"]),
                         "feels_like_c": float(cur["FeelsLikeC"]), "humidity": int(cur["humidity"]),
                         "wind_kmh": float(cur["windspeedKmph"]), "weather": desc(cur)},
-            "forecast": days, "source": "wttr.in（Open-Meteo 不可用时的备用源）"}
+            "forecast": days, "source": "wttr.in（Open-Meteo 不可用时的备用源）",
+            "source_url": "https://wttr.in/", "timezone": None,
+            "fetched_at": d["_fetched_at"], "cache_hit": d["_cache_hit"]}
 
 
 async def _weather(city: str):
@@ -90,6 +98,8 @@ async def _weather(city: str):
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
         })
     cur, daily = d.get("current", {}), d.get("daily", {})
+    if not cur or not cur.get("time") or cur.get("temperature_2m") is None:
+        return {"error": "天气服务没有返回当前数据"}
     labels = ["今天", "明天", "后天"]
     days = [{"date": daily["time"][i], "label": labels[i] if i < 3 else "", "weather": WMO.get(daily["weather_code"][i], str(daily["weather_code"][i])),
              "max_c": daily["temperature_2m_max"][i], "min_c": daily["temperature_2m_min"][i],
@@ -101,4 +111,6 @@ async def _weather(city: str):
                         "humidity": cur.get("relative_humidity_2m"),
                         "wind_kmh": cur.get("wind_speed_10m"),
                         "weather": WMO.get(cur.get("weather_code"), str(cur.get("weather_code")))},
-            "forecast": days, "source": "Open-Meteo"}
+            "forecast": days, "source": "Open-Meteo", "source_url": "https://open-meteo.com/en/docs",
+            "timezone": d.get("timezone") or geo.get("timezone"),
+            "fetched_at": d["_fetched_at"], "cache_hit": d["_cache_hit"]}

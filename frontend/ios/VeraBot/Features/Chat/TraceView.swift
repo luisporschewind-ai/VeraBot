@@ -50,6 +50,8 @@ struct TraceView: View {
     private var title: String {
         switch trace.name {
         case "ask_bot": return "🤝 \(fromBot) → \(trace.args?["bot_name"]?.text ?? "?")"
+        case "web_search": return pending ? "🌐 正在查资料" : "🌐 联网查询"
+        case "web_read_result": return pending ? "📖 正在读取资料" : "📖 读取资料"
         case "get_weather": return "🌤 天气查询"
         case "create_reminder": return "⏰ 创建提醒"
         case "list_reminders": return "📋 查看提醒"
@@ -63,11 +65,25 @@ struct TraceView: View {
     private var summary: String {
         guard let r = trace.result, errorText == nil else { return "" }
         switch trace.name {
+        case "web_search", "web_read_result":
+            return r["summary"]?.text ?? ""
         case "get_weather":
             let c = r["current"]
             var s = "\(r["location"]?.text ?? "")：\(c?["weather"]?.text ?? "")，\(c?["temp_c"]?.text ?? "")°C"
             for d in r["forecast"]?.arrayValue ?? [] {
                 s += "\n\(d["label"]?.text ?? d["date"]?.text ?? "") \(d["weather"]?.text ?? "") \(d["min_c"]?.text ?? "")~\(d["max_c"]?.text ?? "")°C"
+            }
+            if let dataTime = c?["time"]?.text, !dataTime.isEmpty {
+                s += "\n数据时间：\(dataTime)"
+                if let zone = r["timezone"]?.text, !zone.isEmpty { s += "（\(zone)）" }
+            }
+            if let source = r["source"]?.text { s += "\n来源：\(source)" }
+            if let queried = r["queried_at"]?.text, let date = ListTimestamp.parse(queried) {
+                s += "\n查询：\(date.formatted(date: .abbreviated, time: .shortened))"
+                if r["cache_hit"]?.text == "true" { s += " · 缓存" }
+            }
+            if r["cache_hit"]?.text == "true", let fetched = r["fetched_at"]?.text, let date = ListTimestamp.parse(fetched) {
+                s += "\n获取：\(date.formatted(date: .abbreviated, time: .shortened))"
             }
             return s
         case "create_reminder":

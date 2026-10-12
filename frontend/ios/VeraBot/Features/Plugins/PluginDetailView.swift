@@ -489,6 +489,7 @@ struct BuiltinPluginDetailView: View {
 
     private var toolRows: [(name: String, label: String)] {
         switch pluginID {
+        case "builtin_web": return [("web_search", "联网查询"), ("web_read_result", "读取查询资料")]
         case "builtin_weather": return [("get_weather", "天气查询")]
         case "builtin_reminder": return [("create_reminder", "创建提醒"), ("list_reminders", "查看提醒"), ("manage_reminder", "管理提醒")]
         default: return []
@@ -513,6 +514,12 @@ struct BuiltinPluginDetailView: View {
                         Image(systemName: plugin.icon)
                     }
                     Text(plugin.description)
+                    if pluginID == "builtin_web" {
+                        Text(plugin.dataNotice).font(.footnote).foregroundStyle(.secondary)
+                        if !plugin.available {
+                            Text("联网查询暂不可用").font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
                     if pluginID == "builtin_weather" {
                         LabeledContent("数据来源", value: "Open-Meteo")
                     }

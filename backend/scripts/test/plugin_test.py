@@ -223,19 +223,21 @@ fresh = migrate("empty", "1", "CREATE TABLE schema_meta (key TEXT PRIMARY KEY, v
 # empty script still needs a users table? init_db CREATE IF NOT EXISTS from SCHEMA. version 1 with only schema_meta is enough
 # if users missing, SCHEMA creates it. Good.
 
-check("PLG-01 empty database reaches v14 twice",
-      fresh["ver"] == "17" and fresh["has_plugins"] and fresh["n1"] == fresh["n2"] == 0 and fresh["tomb"] == 0,
+from verabot.db.migrations import SCHEMA_VERSION
+
+check("PLG-01 empty database reaches current schema twice",
+      fresh["ver"] == str(SCHEMA_VERSION) and fresh["has_plugins"] and fresh["n1"] == fresh["n2"] == 0 and fresh["tomb"] == 0,
       str(fresh))
 
 v8 = migrate("v8", "8", v9("8", LEARN_UNUSED, AWS_UNUSED))
 check("PLG-01 v8 backfills plugin_id and does not add rows on the second start",
-      v8["ver"] == "17" and v8["has_plugins"] and v8["has_plugin_id"]
+      v8["ver"] == str(SCHEMA_VERSION) and v8["has_plugins"] and v8["has_plugin_id"]
       and v8["learn"] and v8["learn"][0] == "microsoft_learn" and v8["n1"] == v8["n2"],
       str(v8))
 
 used = migrate("used", "9", v9("9", LEARN_CONSENT, AWS_UNUSED, tools='["get_weather","mcp__learn__microsoft_docs_search"]', tool_sql=TOOL_SQL))
 check("PLG-02 consented synced Learn stays installed without touching consent or allowlist",
-      used["ver"] == "17"
+      used["ver"] == str(SCHEMA_VERSION)
       and ["1", "microsoft_learn", "installed"] in [list(map(str, p)) for p in used["plugins"]]
       and used["learn"][1] == "2026-10-02T00:00:00+00:00"
       and used["bots"] == ['["get_weather","mcp__learn__microsoft_docs_search"]']
@@ -289,7 +291,8 @@ try:
           f"elapsed={elapsed:.3f} ids={ids} lists={mock.lists} headers={listed.headers.get('cache-control')}")
     check("PLG-11 builtins are listed and not removable",
           {"builtin_weather", "builtin_reminder"} <= set(ids)
-          and all(p["kind"] == "builtin" and p["removable"] is False and p["state"] == "ready"
+          and all(p["removable"] is False and p["installed"] is True
+                  and (p["state"] == "ready" or (p["plugin_id"] == "builtin_web" and not p["available"]))
                   for p in body["plugins"] if p["kind"] == "builtin"),
           str(ids))
     for path, method in (

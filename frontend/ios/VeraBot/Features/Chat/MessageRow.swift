@@ -150,6 +150,9 @@ struct MessageRow: View {
                             }
                         }
                     }
+                    if !item.streaming {
+                        WebSourcesView(sources: WebSource.sources(from: item.traces))
+                    }
                 }
                 // 长按整条回复（气泡与工具卡片）：复制 / 复制链接 / 删除；只有工具卡片、没有正文的回复也能删除。
                 // 卡片里的按钮（记忆确认等）点按照常响应。

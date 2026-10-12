@@ -9,6 +9,7 @@ dependencies = [
     "fastapi==0.142.1",
     "uvicorn[standard]==0.54.0",
     "httpx==0.28.1",
+    "playwright==1.63.0",
     "pyjwt==2.15.1",
     "bcrypt==5.0.0",
     "python-multipart==0.0.32",

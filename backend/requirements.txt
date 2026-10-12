@@ -30,6 +30,8 @@ cryptography==50.0.2
     #   verabot-backend
 fastapi==0.142.1
     # via verabot-backend
+greenlet==3.5.6
+    # via playwright
 h11==0.16.0
     # via
     #   httpcore
@@ -68,6 +70,8 @@ opentelemetry-api==1.45.0
     #   mcp
 pillow==11.3.0
     # via verabot-backend
+playwright==1.63.0
+    # via verabot-backend
 pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.13.5
@@ -77,6 +81,8 @@ pydantic==2.13.5
     #   mcp-types
 pydantic-core==2.46.5
     # via pydantic
+pyee==13.0.1
+    # via playwright
 pyjwt==2.15.1
     # via
     #   mcp
@@ -126,6 +132,7 @@ typing-extensions==4.16.0
     #   opentelemetry-api
     #   pydantic
     #   pydantic-core
+    #   pyee
     #   referencing
     #   starlette
     #   typing-inspection

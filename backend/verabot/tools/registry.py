@@ -20,7 +20,12 @@ class TurnState:
     mcp_calls: int = 0            # 本轮已经打到 MCP 服务器的次数（含只读；待确认不计入）
     pending_created: int = 0      # 本轮创建的待确认操作数，上限 VERABOT_MCP_PENDING_PER_TURN
     mcp_read_servers: set = field(default_factory=set)  # 本轮读过的 MCP 服务显示名（跨服务警告）
-    untrusted_tainted: bool = False  # 本轮已经读过 MCP 结果，不能再 ask_bot
+    untrusted_tainted: bool = False  # 本轮已读外部结果，不能再 ask_bot；内置写操作须在新一轮明确确认
+    web_searches: int = 0
+    web_reads: int = 0
+    web_elapsed: float = 0
+    web_source_number: int = 0
+    web_queries: dict = field(default_factory=dict)  # 当前轮当前 user/bot 的来源引用
     reminder_writes: int = 0      # 本轮提醒写操作次数，上限 5
     reminder_created: dict = field(default_factory=dict)  # (标题, due_utc) → 已创建结果，同一轮去重
     # SSE status 事件（委派内部进度）：外层工具执行期间由 run_chat 设置；None = 不推送（如测试直接调用 run_tool）
@@ -86,8 +91,12 @@ async def run_tool(ctx: ToolContext, name: str, raw_args: str) -> dict:
         msg = {"unknown_tool": f"未知工具: {name}", "tool_not_allowed": "当前 Bot 未被授权使用该能力",
                "max_depth": "已达到最大委派深度，不能继续转交",
                "memory_not_delegable": "被委派时不能读写用户记忆", "memory_disabled": "这个 Bot 未开启记忆",
-               "reminder_not_delegable": "被委派时不能读写提醒"}[reason]
+               "reminder_not_delegable": "被委派时不能读写提醒", "web_not_delegable": "被委派时不能联网查询"}[reason]
         return {"error": msg, "code": reason}
+    if ctx.turn.untrusted_tainted and name in {"create_reminder", "manage_reminder", "remember", "forget_memory"}:
+        db.audit(ctx.user_id, ctx.bot.get("id"), "tool_denied", {"tool": name, "reason": "external_needs_confirmation"})
+        return {"error": "本轮已读取外部资料。请先让用户用聊天文字确认要执行的操作，再在新一轮执行。",
+                "code": "external_needs_confirmation"}
     try:
         args = json.loads(raw_args or "{}")
         if not isinstance(args, dict):

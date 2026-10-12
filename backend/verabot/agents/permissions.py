@@ -12,6 +12,8 @@ def is_permitted(bot: dict, name: str, depth: int) -> tuple[bool, str]:
     t = REGISTRY.get(name)
     if t is None:
         return False, "unknown_tool"
+    if name in {"web_search", "web_read_result"} and depth >= 1:
+        return False, "web_not_delegable"
     if name in REMINDER_TOOLS and depth >= 1:    # 被委派的 Bot 不能读写提醒（与记忆相同）
         return False, "reminder_not_delegable"
     if t.kind == "memory":                       # 记忆工具：不看 allowed_tools，看 memory_access；被委派时一律禁止

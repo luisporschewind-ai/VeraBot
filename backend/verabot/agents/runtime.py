@@ -69,8 +69,10 @@ async def _run_tool_streaming(ctx: ToolContext, tc: dict):
 
 
 def _tool_content(name: str, result: dict) -> str:
-    """工具结果 → tool 消息。内置工具截到 6000 字；MCP 结果已在 sanitize 里截断并包裹，
+    """工具结果 → tool 消息。普通内置工具截到 6000 字；联网结果保留完整 JSON 并标记不可信。MCP 结果已在 sanitize 里截断并包裹，
     不能再按字符截，否则会切掉 </untrusted_tool_result> 结束标记。"""
+    if name in {"web_search", "web_read_result"}:
+        return json.dumps({"untrusted_tool_result": result}, ensure_ascii=False)
     text = json.dumps(result, ensure_ascii=False)
     return text if name.startswith("mcp__") else text[:6000]
 
@@ -99,7 +101,9 @@ def _history(user_id: int, bot_id: int) -> tuple[list[dict], dict | None]:
                     for t in calls]})
                 for t in calls:
                     out.append({"role": "tool", "tool_call_id": t["id"],
-                                "content": json.dumps(t.get("result") or {}, ensure_ascii=False)[:1500]})
+                                "content": (_tool_content(t["name"], t.get("result") or {})
+                                            if t["name"] in {"web_search", "web_read_result"}
+                                            else json.dumps(t.get("result") or {}, ensure_ascii=False)[:1500])})
         content = vision.history_text(m["content"], att_map[m["id"]]) if m["id"] in att_map else m["content"]
         out.append({"role": m["role"], "content": content})
     latest = max((r for rs in att_map.values() for r in rs), key=lambda r: (r["message_id"], r["created_at"]),
