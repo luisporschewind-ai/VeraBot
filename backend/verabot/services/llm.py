@@ -8,7 +8,9 @@ from ..core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, D
 
 
 class LLMError(RuntimeError):
-    pass
+    def __init__(self, message, *, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def _headers():
@@ -69,13 +71,13 @@ async def stream_chat(messages: list, tools: list | None, *, tool_choice=None, m
     yield "finish", finish
 
 
-async def complete(messages: list, tools: list | None) -> tuple[dict, dict]:
+async def complete(messages: list, tools: list | None, *, max_tokens: int | None = None) -> tuple[dict, dict]:
     """非流式调用，返回 (message, usage)。用于被委派的 Bot。"""
     async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
         r = await client.post(f"{DEEPSEEK_BASE_URL}/chat/completions", headers=_headers(),
-                              json=_body(messages, tools, False))
+                              json=_body(messages, tools, False, max_tokens=max_tokens))
     if r.status_code != 200:
-        raise LLMError(f"DeepSeek HTTP {r.status_code}: {r.text[:300]}")
+        raise LLMError(f"DeepSeek HTTP {r.status_code}: {r.text[:300]}", status_code=r.status_code)
     d = r.json()
     choice = d["choices"][0]
     msg = dict(choice["message"])
@@ -92,7 +94,7 @@ async def complete_json(messages: list, *, max_tokens: int = 1024) -> tuple[str,
     async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
         r = await client.post(f"{DEEPSEEK_BASE_URL}/chat/completions", headers=_headers(), json=body)
     if r.status_code != 200:
-        raise LLMError(f"DeepSeek HTTP {r.status_code}: {r.text[:300]}")
+        raise LLMError(f"DeepSeek HTTP {r.status_code}: {r.text[:300]}", status_code=r.status_code)
     d = r.json()
     choice = (d.get("choices") or [{}])[0]
     msg = choice.get("message") or {}

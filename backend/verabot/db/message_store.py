@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 from . import attachment_store
-from .database import row, rows
+from .database import row, rows, tx
+import json
 
 
 def last_message(c, user_id: int, bot_id: int) -> dict | None:
@@ -17,7 +18,7 @@ def last_message(c, user_id: int, bot_id: int) -> dict | None:
 def list_recent(c, user_id: int, bot_id: int, limit: int) -> list[dict]:
     """最近 limit 条消息（新的在前；调用方负责反转）。附带本人对 assistant 消息的反馈（没有则为 NULL）。"""
     return rows(c.execute(
-        "SELECT m.id, m.role, m.content, m.traces, m.created_at, f.rating AS feedback_rating, f.reason AS feedback_reason "
+        "SELECT m.id, m.role, m.content, m.traces, m.created_at, m.source_kind, m.source_id, f.rating AS feedback_rating, f.reason AS feedback_reason "
         "FROM messages m LEFT JOIN message_feedback f ON f.message_id=m.id AND f.user_id=m.user_id "
         "WHERE m.user_id=? AND m.bot_id=? ORDER BY m.id DESC LIMIT ?",
         (user_id, bot_id, limit)).fetchall())
@@ -60,3 +61,54 @@ def clear_conversation(c, user_id: int, bot_id: int) -> None:
     """清空对话：先删该 Bot 的附件行，再删消息（同一事务）。磁盘文件由调用方在提交后删除。"""
     attachment_store.delete_for_bot(c, user_id, bot_id)
     c.execute("DELETE FROM messages WHERE user_id=? AND bot_id=?", (user_id, bot_id))
+
+
+def add_scheduled(c, user_id: int, bot_id: int, run_id: int, content: str, created_at: str) -> int:
+    return c.execute(
+        "INSERT INTO messages(user_id,bot_id,role,content,created_at,source_kind,source_id) "
+        "VALUES(?,?,'assistant',?,?,'scheduled_task',?)",
+        (user_id,bot_id,content,created_at,run_id)).lastrowid
+
+
+class ConversationSyncConflict(Exception):
+    """A revision-pinned page no longer matches the requested snapshot."""
+
+
+def sync_messages(user_id: int, bot_id: int, limit: int = 100,
+                  before_id: int | None = None, expected_revision: int | None = None) -> dict:
+    from ..services.attachments import repo as attachments
+    with tx() as c:
+        c.execute("BEGIN")
+        row = c.execute("SELECT revision FROM conversation_revisions WHERE user_id=? AND kind='private' AND conversation_id=?",
+                        (user_id, bot_id)).fetchone()
+        revision = int(row[0]) if row else 0
+        if expected_revision is not None and expected_revision != revision:
+            raise ConversationSyncConflict()
+        if before_id is None and expected_revision == revision:
+            return {"revision": revision, "messages": [], "next_before_id": None, "unchanged": True}
+        cursor = before_id if before_id is not None else 9223372036854775807
+        found = c.execute("""SELECT m.id,m.role,m.content,m.traces,m.created_at,
+                              f.rating AS feedback_rating,f.reason AS feedback_reason
+                           FROM messages m LEFT JOIN message_feedback f
+                             ON f.message_id=m.id AND f.user_id=m.user_id
+                           WHERE m.user_id=? AND m.bot_id=? AND m.id<?
+                           ORDER BY m.id DESC LIMIT ?""", (user_id, bot_id, cursor, limit + 1)).fetchall()
+        more = len(found) > limit
+        page = list(reversed(found[:limit]))
+        ids = [int(item["id"]) for item in page]
+        att_map = {}
+        if ids:
+            marks = ",".join("?" for _ in ids)
+            for attachment in c.execute(f"SELECT * FROM attachments WHERE user_id=? AND message_id IN ({marks}) ORDER BY created_at,id",
+                                         (user_id, *ids)):
+                att_map.setdefault(int(attachment["message_id"]), []).append(attachments.public(dict(attachment)))
+        messages = []
+        for item in page:
+            rating, reason = item["feedback_rating"], item["feedback_reason"]
+            messages.append({"id": item["id"], "role": item["role"], "content": item["content"],
+                             "traces": json.loads(item["traces"]) if item["traces"] else [],
+                             "created_at": item["created_at"], "attachments": att_map.get(int(item["id"]), []),
+                             "feedback": {"rating": rating, "reason": reason}
+                             if item["role"] == "assistant" and rating is not None else None})
+        next_before_id = int(page[0]["id"]) if more and page else None
+        return {"revision": revision, "messages": messages, "next_before_id": next_before_id, "unchanged": False}

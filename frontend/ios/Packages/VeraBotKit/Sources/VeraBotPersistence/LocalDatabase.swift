@@ -100,6 +100,7 @@ public final class LocalDatabase: @unchecked Sendable {
 
     public func transaction<T>(_ body: (LocalDatabase) throws -> T) throws -> T {
         lock.lock(); defer { lock.unlock() }
+        if handle == nil { try open() }
         try exec("BEGIN IMMEDIATE")
         do {
             let value = try body(self)

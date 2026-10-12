@@ -173,7 +173,7 @@ try:
     con.close()
     db.init_db()
     check("CONN-01 schema v14 keeps v13 connector columns, idempotent",
-          ver == "17" == str(db.SCHEMA_VERSION) and {"kind", "token_hint", "last_verified_at"} <= cred_cols
+          ver == str(db.SCHEMA_VERSION) and {"kind", "token_hint", "last_verified_at"} <= cred_cols
           and "auth_error" in srv_cols and "mcp_oauth_clients" in tables, f"{ver} {cred_cols} {srv_cols}")
 
     cat = {p["plugin_id"]: p for p in local.get("/api/plugins/catalog", headers=A).json()["catalog"]}
@@ -214,7 +214,7 @@ try:
     mock.seen_headers.clear()
     r = local.put("/api/plugins/github/credential", headers=A, json={"token": GOOD})
     body = r.json()
-    hdr = mock.seen_headers[0] if mock.seen_headers else {}
+    hdr = {k.lower(): v for k, v in mock.seen_headers[0].items()} if mock.seen_headers else {}
     tools = local.get("/api/plugins/github/tools", headers=A).json()["tools"]
     names = {t["mcp_name"] for t in tools}
     con = sqlite3.connect(DB)
@@ -224,11 +224,11 @@ try:
           r.status_code == 200 and body["auth_connected"] is True and body["state"] == "needs_consent"
           and body["account_label"] == "luisporschewind-ai" and body["credential_hint"] == "…good"
           and body["credential_expires_at"] == "2026-11-03T12:00:00+00:00"
-          and hdr.get("Authorization") == "Bearer " + GOOD and hdr.get("X-MCP-Readonly") == "true"
-          and hdr.get("X-MCP-Toolsets") == "repos,issues,pull_requests" and hdr.get("X-MCP-Lockdown") == "true"
+          and hdr.get("authorization") == "Bearer " + GOOD and hdr.get("x-mcp-readonly") == "true"
+          and hdr.get("x-mcp-toolsets") == "repos,issues,pull_requests" and hdr.get("x-mcp-lockdown") == "true"
           and names == {"list_issues", "get_file_contents"}
           and any(d.get("name") == "create_pull_request" and d.get("reason") == "allowlist" for d in rejected),
-          f"{r.status_code} {str(body)[:300]} names={names}")
+          f"{r.status_code} {str({k: body.get(k) for k in ["state", "auth_connected", "account_label", "credential_hint", "credential_expires_at"]})} names={names}")
 
     # 同意 + 给 Bot 开工具
     local.post("/api/plugins/github/consent", headers=A, json={"granted": True})

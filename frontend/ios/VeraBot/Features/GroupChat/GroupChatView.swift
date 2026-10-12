@@ -31,9 +31,10 @@ struct GroupChatView: View {
         self.app = app
         let generation = app.sessionGeneration
         let session = app.authSession
+        let endpoint = app.baseURLString
         _model = State(initialValue: GroupChatViewModel(group: group, api: app.groupAPI,
                                                         repository: app.conversationRepository,
-                                                        sessionIsCurrent: { session.isCurrent(generation) }))
+                                                        sessionIsCurrent: { session.isCurrent(generation) && app.baseURLString == endpoint }))
         _attachment = State(initialValue: ComposerAttachmentModel(botID: nil, api: app.api))
         preferenceKey = "groupTarget.\(app.baseURLString).\(app.userID ?? 0).\(group.id)"
     }
@@ -135,7 +136,7 @@ struct GroupChatView: View {
             draftSaveTask = Task {
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
-                try? await app.conversationRepository?.saveDraft(new, kind: .group, id: model.group.id)
+                await model.saveDraft(new)
             }
 
         }
@@ -152,7 +153,8 @@ struct GroupChatView: View {
         .onDisappear {
             inputFocused = false
             draftSaveTask?.cancel()
-            Task { try? await app.conversationRepository?.saveDraft(model.draft, kind: .group, id: model.group.id) }
+            let finalDraft = model.draft
+            Task { await model.saveDraft(finalDraft) }
             model.leave(); speech.cancel()
         }
     }

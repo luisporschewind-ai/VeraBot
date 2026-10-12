@@ -71,10 +71,15 @@ public actor ConversationStore {
         return key
     }
 
-    public func deleteMessage(localID: String, kind: String, conversationID: Int) async throws {
+    public func deleteMessage(localID: String, kind: String, conversationID: Int, remoteID: Int? = nil) async throws {
         try database.transaction { db in
-            try db.execute("DELETE FROM messages WHERE local_id=? AND kind=? AND conversation_id=?",
-                           values: [localID, kind, conversationID])
+            if let remoteID {
+                try db.execute("DELETE FROM messages WHERE remote_id=? AND kind=? AND conversation_id=?",
+                               values: [remoteID, kind, conversationID])
+            } else {
+                try db.execute("DELETE FROM messages WHERE local_id=? AND kind=? AND conversation_id=?",
+                               values: [localID, kind, conversationID])
+            }
             // Invalidate any in-flight snapshot. Its final commit checks this marker.
             try db.execute("DELETE FROM sync_staging WHERE kind=? AND conversation_id=?", values: [kind, conversationID])
             try db.execute("DELETE FROM sync_state WHERE kind=? AND conversation_id=?", values: [kind, conversationID])

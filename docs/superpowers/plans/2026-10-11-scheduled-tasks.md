@@ -34,7 +34,7 @@
 
 新增 `backend/verabot/services/scheduled_tasks/`：`contracts.py`（执行结果类型）、`clock.py`（UTC 时钟）、`schedule.py`（时间规则）、`service.py`（用户操作）、`scheduler.py`（入队）、`worker.py`（领取与恢复）、`executor.py`（模型循环）、`policy.py`（后台权限）、`delivery.py`（结果投递）、`__main__.py`（进程生命周期）、`__init__.py`（公共导出）。
 
-新增 `backend/verabot/db/scheduled_task_store.py`：任务 SQL；`scheduled_run_store.py`：执行、尝试和租约 SQL。迁移暂名 `v021_scheduled_tasks.py`，实施时如主线已新增版本则顺延，不覆盖其他迁移。
+新增 `backend/verabot/db/scheduled_task_store.py`：任务 SQL；`scheduled_run_store.py`：执行、尝试和租约 SQL。集成迁移为 `v023_scheduled_tasks.py`，保留主线 v21 会话同步与 v22 群附件。
 
 新增 `backend/verabot/api/scheduled_task_schemas.py`、`api/routers/scheduled_tasks.py`；修改 `main.py` 仅注册 API。模型客户端 `services/llm.py`、权限上下文 `tools/registry.py`、统一工具入口 `agents/tool_router.py` 仅做此次所需最小扩展。
 

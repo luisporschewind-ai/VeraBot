@@ -19,7 +19,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 2. **Python**：按 `.python-version` (3.12) 由 uv 安装；失败时用 npmmirror 镜像 (`UV_PYTHON_INSTALL_MIRROR`)。
 3. **依赖**：`uv sync --frozen --no-dev`，严格按 `uv.lock` 安装到 `.venv/`；失败 (或 `VERABOT_FORCE_MIRROR=1`) 时改用清华 tuna 镜像 (`UV_INDEX_URL`，可用 `VERABOT_PYPI_MIRROR` 覆盖) 按 `requirements.txt` (同样锁定版本) 安装。
 4. **配置**：没有 `.env` 就从 `.env.example` 复制，并提示输入 DeepSeek Key (不回显，写入 `.env`，权限 600)。已 export 的环境变量优先于 `.env`。
-5. **数据库**：`init_db()` 建表 + 幂等迁移 (当前 schema v8：v3 昵称与头像、v4 长期记忆、v5 Bot 标签、v6 Bot 置顶、v7 MCP 表、v8 MCP 同意 / 同步状态 / 熔断)，数据在 `data/verabot.db`。已有库会在下次启动时自动升级，不用手写 SQL。v7 / v8 不改已有 Bot 的工具白名单。
+5. **数据库**：`init_db()` 建表与幂等迁移，当前 schema v23：v20 群聊、v21 会话修订同步、v22 群附件、v23 定时任务。数据保存在 `data/verabot.db`。升级前先在线备份并在副本演练；已有账号、Bot 和历史保留。
 6. **启动** uvicorn，默认 `0.0.0.0:8000` (`HOST` / `PORT` 可改)。
 
 启动后：API 文档 <http://127.0.0.1:8000/docs>，健康检查 `GET /api/health` → `{"ok":true,...}`。
@@ -149,3 +149,9 @@ uv run python scripts/dev/seed_demo.py --reset   # 重建演示账号 demo / ver
 在系统 DNS 把所有解析结果映射到 `198.18.0.0/15` 的环境中，正文读取会对公开主机名改用固定 Google Public DNS over HTTPS 查询；回传的所有地址仍须为公网地址，随后固定目标 IP 并校验原域名 TLS。真实私网或公私混合 DNS 结果不会触发该回退，也不会访问非公开地址。
 
 离线验证：`uv run python scripts/test/web_browser_test.py`、`uv run python scripts/test/web_query_test.py`。真实联网与离线验证结果分别记录在 [无 key 验收记录](../docs/testing/2026-10-11-web-query-no-key.md)。
+
+## 会话同步与服务端定时任务（schema v23）
+
+`GET /api/bots/{id}/messages/sync` 与 `GET /api/groups/{id}/messages/sync` 提供修订号固定的完整历史分页；冲突返回 `sync_revision_changed`。iOS 使用账号/服务器隔离的 SQLite 本地库先展示内容，再原子对账。
+
+`/api/scheduled-tasks` 提供创建、查询、修改、暂停/恢复、删除、立即执行及历史。API 仅管理任务；后台由独立 `python -m verabot.services.scheduled_tasks` 执行，可用 `--once` 扫描一次。API 和后台必须共享 `VERABOT_DB`，后台启动前由 API 完成 v23 迁移。读工具权限、预算、租约与幂等在后端执行；没有新增 iOS 任务页面或 APNs。运行细节见 [服务说明](verabot/services/scheduled_tasks/README.md)，本轮证据见 [Main 集成交付](../docs/testing/2026-10-12-main-integration.md)。

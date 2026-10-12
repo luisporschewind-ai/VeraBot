@@ -1,3 +1,7 @@
+# 2026-10-12 当前集成回归入口
+
+本轮新增会话快照并发、离线单条删除、首次 SQLite 事务、同步单飞、旧账号草稿与群恢复终态回归；最终结果与设备安装见 [Main 集成交付](2026-10-12-main-integration.md)。群聊 @ 与键盘用户验收通过见 [单项记录](2026-10-12-group-mention-keyboard.md)。以下为既有测试目录与历史快照，不代表本轮全部交互验收已完成。
+
 # VeraBot v0.1 测试用例与执行结果 (Test Cases & Results)
 
 > 截图位置：iOS [`assets/screenshots/ios/test/`](../../assets/screenshots/ios/test/) (T*) 和 [`ios/regress/`](../../assets/screenshots/ios/regress/) (R*)，Web [`assets/screenshots/web/`](../../assets/screenshots/web/)。iOS 截图为 471×1024 JPEG。

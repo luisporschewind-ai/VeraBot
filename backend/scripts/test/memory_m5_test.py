@@ -228,7 +228,7 @@ class MemoryM5Tests(unittest.TestCase):
     def test_v18_vectors_migrate_idempotently_and_cascade_with_memory(self):
         db.init_db()
         with db.tx() as c:
-            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], "18")
+            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], str(db.SCHEMA_VERSION))
             cols = {r[1] for r in c.execute("PRAGMA table_info(memory_vectors)")}
             self.assertTrue({"memory_id", "user_id", "model", "dim", "content_hash", "vector", "updated_at"} <= cols)
             fk = c.execute("PRAGMA foreign_key_list(memory_vectors)").fetchall()

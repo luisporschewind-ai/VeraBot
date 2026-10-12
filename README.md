@@ -58,3 +58,7 @@ open frontend/ios/VeraBot.xcodeproj # Xcode 里选 iPhone 模拟器 ⌘R；演�
 ## 许可证 (License)
 
 本项目以 [MIT License](LICENSE) 开源，Copyright (c) 2026 Luis Porsche。
+
+## 2026-10-12 当前开发主线
+
+全部工作区整合与最新模拟器/备机版本见 [Main 集成交付](docs/testing/2026-10-12-main-integration.md)。后端当前 schema v23；iOS 增加账号/服务器隔离的 SQLite 持久化，构建号 2026101201。定时任务 API 与独立后台源码均纳入主线，后台服务安装与真实模型验收单独跟踪。功能状态以 [STATUS](docs/STATUS.md) 为准。

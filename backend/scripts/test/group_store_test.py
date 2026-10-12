@@ -219,7 +219,7 @@ class GroupTests(unittest.TestCase):
         with old: apply(old)
         with old: apply(old)
         self.assertEqual(old.execute('SELECT content FROM messages WHERE id=?', (mid,)).fetchone()[0], '私聊保留')
-        self.assertEqual(old.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], '22')
+        self.assertEqual(old.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], str(db.SCHEMA_VERSION))
         self.assertEqual(old.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name LIKE 'chat_group%'").fetchone()[0], 5)
         old.close()
 

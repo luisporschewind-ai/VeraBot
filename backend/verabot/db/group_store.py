@@ -129,6 +129,7 @@ def list_messages(user_id, group_id, before_id=None, limit=50):
 def sync_messages(user_id, group_id, before_id=None, limit=100, expected_revision=None):
     """Read a page and its revision from one SQLite snapshot."""
     with tx() as c:
+        c.execute("BEGIN")
         _group(c, user_id, group_id)
         row = c.execute("SELECT revision FROM conversation_revisions WHERE user_id=? AND kind='group' AND conversation_id=?",
                         (user_id, group_id)).fetchone()

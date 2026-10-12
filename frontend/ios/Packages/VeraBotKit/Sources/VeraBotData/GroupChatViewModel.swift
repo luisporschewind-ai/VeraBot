@@ -30,6 +30,24 @@ public final class GroupChatViewModel {
         try Task.checkCancellation()
         guard stamp == epoch, sessionIsCurrent() else { throw CancellationError() }
     }
+    /// Uses the repository belonging to this model, including delayed saves after the view leaves.
+    public func saveDraft(_ text: String) async {
+        guard !Task.isCancelled, sessionIsCurrent() else { return }
+        try? await repository?.saveDraft(text, kind: .group, id: group.id)
+    }
+    private func persistMessages(stamp: Int) async throws {
+        for id in state.messages.map(\.id) {
+            try valid(stamp)
+            // A stop/restore can replace the turn while an earlier write awaits SQLite.
+            guard let message = state.messages.first(where: { $0.id == id }) else { continue }
+            try? await repository?.saveGroupMessage(message, groupID: group.id, status: message.status.rawValue)
+        }
+    }
+    private func restoreAndPersist(_ turn: GroupTurn, stamp: Int) async throws {
+        try valid(stamp)
+        GroupChatReducer.restore(turn, to: &state)
+        try await persistMessages(stamp: stamp)
+    }
     public func load() async {
         let stamp = epoch; loading = true
         defer { if stamp == epoch { loading = false } }
@@ -119,7 +137,7 @@ public final class GroupChatViewModel {
                 for try await event in stream {
                     try valid(stamp)
                     GroupChatReducer.apply(event, to: &state)
-                    for message in state.messages { try? await repository?.saveGroupMessage(message, groupID: group.id, status: message.status.rawValue) }
+                    try await persistMessages(stamp: stamp)
                     // Member-scoped failures already render on their message bubble with a retry action.
                     // Reserve the page-level notice for errors that affect the whole turn.
                     if case .error(_, let message, let messageID) = event.payload, messageID == nil {
@@ -154,14 +172,14 @@ public final class GroupChatViewModel {
         do {
             try valid(stamp)
             var turn = initial
-            GroupChatReducer.restore(turn, to: &state)
+            try await restoreAndPersist(turn, stamp: stamp)
             for _ in 0..<40 {
                 if turn.status != .running { return }
                 try await Task.sleep(for: .milliseconds(250))
                 try valid(stamp)
                 turn = try await api.groupTurn(groupID: group.id, turnID: turn.id)
                 try valid(stamp)
-                GroupChatReducer.restore(turn, to: &state)
+                try await restoreAndPersist(turn, stamp: stamp)
             }
             if turn.status == .running { errorMessage = "讨论仍在进行，请稍后重新加载查看结果。" }
         } catch is CancellationError {} catch {
@@ -181,7 +199,7 @@ public final class GroupChatViewModel {
                 try await Task.sleep(for: .milliseconds(250))
                 turn = try await api.groupTurn(groupID: group.id, turnID: tid)
             }
-            try valid(stamp); GroupChatReducer.restore(turn, to: &state)
+            try await restoreAndPersist(turn, stamp: stamp)
             if turn.status == .running { errorMessage = "正在确认讨论是否已停止，请稍后重新加载。" }
         } catch is CancellationError {} catch { if stamp == epoch && sessionIsCurrent() { errorMessage = "暂时无法确认是否已停止，请恢复连接后重新加载。" } }
     }

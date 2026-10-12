@@ -62,7 +62,7 @@ class SuggestionStoreTests(unittest.TestCase):
             version = c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
             names = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             indexes = {r[1] for r in c.execute("PRAGMA index_list(suggestions)")}
-        self.assertEqual(version, "17")
+        self.assertEqual(version, str(db.SCHEMA_VERSION))
         self.assertIn("suggestions", names)
         self.assertTrue(any("dedupe" in name for name in indexes))
 
@@ -208,7 +208,7 @@ class SuggestionStoreTests(unittest.TestCase):
     def test_accepting_reminder_suggestion_is_atomic_and_idempotent(self):
         item = suggestion_store.create_or_get_active(
             user_id=self.uid, bot_id=self.bot, kind="routine_reminder", dedupe_key="accept:reminder",
-            payload={"title": "周末整理书桌", "due_at": "2026-10-10T09:00:00", "timezone": "Asia/Shanghai",
+            payload={"title": "周末整理书桌", "due_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(), "timezone": "Asia/Shanghai",
                      "rrule": "FREQ=WEEKLY;BYDAY=SA"},
             expires_at=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
         )

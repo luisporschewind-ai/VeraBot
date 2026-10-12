@@ -1,6 +1,13 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-> 能力进度于 2026-10-11 对齐，详细实现与验收边界见 [项目盘点](../testing/2026-10-11-project-inventory.md)。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)。`frontend/web` 冻结，没有 MCP / 确认卡片界面。
+> 能力进度于 2026-10-12 对齐，详细实现与验收边界见 [项目盘点](../testing/2026-10-11-project-inventory.md)。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)。`frontend/web` 冻结，没有 MCP / 确认卡片界面。
+
+## 2026-10-12 当前整合增量
+
+- iOS SQLite 本地库保存 Bot/群列表、完整分页历史、草稿与未确认消息；账号和服务器隔离，网络失败保留缓存，私聊不自动重发。
+- 定时任务由后端 API + 独立 Scheduler/Worker 执行，支持周期、暂停、手动运行、历史、租约、预算与结果投递；当前没有任务管理 iOS 页面或 APNs。
+- 群聊支持正式附件与服务端路由，移除预览页面；@ 和键盘本轮用户验收通过。头像十一种形状已进入创建/编辑，朗读生命周期按已确认规则修复。
+- schema v23；当前构建、设备安装与未验收项见 [Main 集成交付](../testing/2026-10-12-main-integration.md)。
 
 ## 功能 (Features)
 

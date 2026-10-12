@@ -1,5 +1,7 @@
 # 文档索引 (Docs index)
 
+当前整合状态见 [2026-10-12 Main 集成交付](testing/2026-10-12-main-integration.md)。下方设计文档与旧验证记录保留其历史范围；当前功能与验收以 STATUS 和本轮交付为准。
+
 所有文档使用中文，技术术语附英文。代码与文档在同一个 commit 更新 (见 [CONTRIBUTING.md](../CONTRIBUTING.md))。
 
 | 目录 | 文档 | 内容 |
@@ -19,15 +21,15 @@
 | design/ | [CHAT_SPEECH_PLAYBACK.md](design/CHAT_SPEECH_PLAYBACK.md) | **已确认并修复，待设备验收**：对话朗读退出规则、临时弹层例外、音频会话释放、旧回调隔离与回归证据 |
 | design/ | [ARCHITECTURE.md](design/ARCHITECTURE.md) | 两个项目的架构、模块、依赖规则、依赖管理 (SPM / uv)、数据模型 |
 | design/ | [MULTI_AGENT_DESIGN.md](design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限模型、上下文隔离、护栏、审计、迁移、设置页 / TTS 扩展 |
-| design/ | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | **设计 v1.0 已批准；M1 与 M2 已实现**（schema v8：免授权 Learn / AWS、按服务同意、会话复用、审计、后台同步、熔断。字段对照见 §18）。其上的插件 P1 见下一行。M3 起（OAuth、HITL、Gmail、自定义 URL）仍是设计，未实现。`frontend/web` 冻结，没有 MCP 界面 |
+| design/ | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | **设计 v1.0 已批准；M1–M4 已实现，真实 OAuth 待验收**（schema v8：免授权 Learn / AWS、按服务同意、会话复用、审计、后台同步、熔断。字段对照见 §18）。其上的插件 P1 见下一行。M3 确认卡片已按用户指定模拟器标准验收；M4 OAuth 实现与真实授权验收分开跟踪。`frontend/web` 冻结，没有 MCP 界面 |
 | design/ | [PLUGIN_DESIGN.md](design/PLUGIN_DESIGN.md) | **v1.0 已定稿并实现（schema v10）**：插件是用户看到的产品层，MCP 是能力。新账号不预装；内置天气 / 提醒与外部 Learn / AWS。字段对照见 MCP §18.4。`frontend/web` 冻结，插件 P1 没有 Web 对应 |
-| design/ | [MCP_AUTH_CONNECTORS_PLAN.md](design/MCP_AUTH_CONNECTORS_PLAN.md) | **方案 v0.1 草案（未实现）**：需授权 MCP 连接器 — 静态令牌（GitHub fine-grained PAT 只读）与 OAuth 2.1（PKCE + PRM + DCR）统一抽象、iOS Keychain → 后端加密存储、`needs_auth` 流程、主流服务对照（Vercel / Linear / Notion / Sentry / Slack / Figma / Atlassian / Stripe）、CONN-xx 测试、P1–P3 分期与待决定事项 |
+| design/ | [MCP_AUTH_CONNECTORS_PLAN.md](design/MCP_AUTH_CONNECTORS_PLAN.md) | **连接器与 OAuth 已实现，真实授权待验收**：需授权 MCP 连接器 — 静态令牌（GitHub fine-grained PAT 只读）与 OAuth 2.1（PKCE + PRM + DCR）统一抽象、iOS Keychain → 后端加密存储、`needs_auth` 流程、主流服务对照（Vercel / Linear / Notion / Sentry / Slack / Figma / Atlassian / Stripe）、CONN-xx 测试、P1–P3 分期与待决定事项 |
 | design/ | [REMINDER_PUSH_DESIGN.md](design/REMINDER_PUSH_DESIGN.md) | **v1.0 已定稿，R1 已实现（schema v11）**：提醒状态机、本地通知、收件箱与偏好。字段对照见 §8。SQL 在 `db/reminder_store.py`。APNs 未做。`frontend/web` 冻结 |
-| design/ | [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md) | **v1.0 定稿 (P1 未实现)**：聊天图片附件 — DeepSeek 视觉核查、P0 模型迁移 (已完成)、iOS PhotosPicker (每条 1 张、GIF 动画)、两步上传、按需召回 (图片描述 + 回指时重发原图)、委派转发图片、带图轮次写操作确认、schema v12、字段对照、ATT-xx 测试；Q1–Q12 Boss 已全部决定 |
+| design/ | [ATTACHMENTS_DESIGN.md](design/ATTACHMENTS_DESIGN.md) | **v1.0 定稿；图片与文件附件已实现，设备完整验收待完成**：聊天图片附件 — DeepSeek 视觉核查、P0 模型迁移 (已完成)、iOS PhotosPicker (每条 1 张、GIF 动画)、两步上传、按需召回 (图片描述 + 回指时重发原图)、委派转发图片、带图轮次写操作确认、schema v12、字段对照、ATT-xx 测试；Q1–Q12 Boss 已全部决定 |
 | design/ | [ATTACHMENT_STORAGE_RESEARCH.md](design/ATTACHMENT_STORAGE_RESEARCH.md) | **调研 (已采纳)**：附件存储 — 本地磁盘 + SQLite 元数据 + 薄存储接口、鉴权代理 + `no-store`、原子写入、孤儿对账、备份、FileVault + 0700、上云迁移路径 (Sonic) |
 | design/ | [GMAIL_CAPABILITY.md](design/GMAIL_CAPABILITY.md) | **设计稿 (未实现)**：Gmail 能力 — 主路径经 Google 官方 Gmail MCP、候选服务器评估、直连 Gmail API 备用路径、Scope、发送人工确认 (HITL)、权限 / 委派集成、提示注入、里程碑与开放问题 |
 | design/ | [EXECUTION_STATE.md](design/EXECUTION_STATE.md) | **已实现 (iOS Core)**：执行状态机的状态、转移表、SSE 事件映射，以及以后对接头像实验室的状态映射 |
-| design/ | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | **实施方案 v1.0 (Boss 已批准；M1 已实现，schema v4，M2~M5 未开始)**：以记忆为核心的 Bot 成长体系 — 显式记忆与确认卡片、隐式候选、分层作用域 (全局 / Bot / 摘要)、风格校准、主动建议、快捷提问、了解程度与月度回顾；`memories` 表 / schema v4、API、prompt 注入与 Token 预算、权限与委派隔离、隐私与防注入、iOS 界面、MEM-xx 测试、M1~M5 里程碑与估算、开放问题 |
+| design/ | [MEMORY_GROWTH.md](design/MEMORY_GROWTH.md) | **实施方案 v1.0 (Boss 已批准；M1–M5 已实现，M3/M4 与主要 M5 已验收，真实本地向量召回待单独验收)**：以记忆为核心的 Bot 成长体系 — 显式记忆与确认卡片、隐式候选、分层作用域 (全局 / Bot / 摘要)、风格校准、主动建议、快捷提问、了解程度与月度回顾；`memories` 表 / schema v4、API、prompt 注入与 Token 预算、权限与委派隔离、隐私与防注入、iOS 界面、MEM-xx 测试、M1~M5 里程碑与估算、开放问题 |
 | testing/ | [TEST_CASES_v0.1.md](testing/TEST_CASES_v0.1.md) | 全部测试用例与结果 (迭代 1、迭代 2、重构回归)、缺陷列表 |
 | ops/ | [RUN_LOCAL.md](ops/RUN_LOCAL.md) | 本地运行后端 / iOS / 测试 |
 | ops/ | [DELIVERY.md](ops/DELIVERY.md) | 打包与交付、Docker、交付检查清单 |
@@ -37,3 +39,6 @@
 
 - [群聊 @ 输入与键盘回归](testing/2026-10-12-group-mention-keyboard.md)：25 项编辑器回归通过，2026-10-12 用户确认本轮交互修复验收通过。
 - [Bot 群聊 G3 验证与验收交付](testing/2026-10-11-bot-group-chat.md)：自动回归、真实 HTTP 模拟提供者联调、GC-01～12 分项状态及隔离模拟器步骤。
+
+- [移动端 SQLite 持久化](testing/2026-10-12-mobile-persistence.md)：列表、完整分页历史、草稿、修订快照与验收范围。
+- [服务端定时任务](testing/2026-10-11-scheduled-tasks.md)：API、Scheduler/Worker、租约、预算与结果投递；main 集成使用 v23。

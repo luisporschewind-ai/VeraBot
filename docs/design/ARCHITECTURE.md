@@ -26,7 +26,7 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v12：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件)、查询。**全部 SQL 都在这里**：`*_store.py` 的函数第一个参数是调用方的连接 (事务由调用方决定)；迁移一个版本一个模块 | `database.py`、`schema.py` (入口 / 门面：`init_db`、`SCHEMA`、`SCHEMA_VERSION`、`ALL_TOOLS_V2`)、`migrations/` (`v001_base` … `v011_reminders`、`tags_coerce`、`v012_attachments`)、`repository.py` (Bot 读取 / 消息写入 / 用量 / 审计)、`auth_store.py`、`user_store.py`、`bot_store.py`、`message_store.py`、`usage_store.py`、`avatar_store.py`、`memory_store.py`、`attachment_store.py`、`delegation_store.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v23；v13–v23 包括连接器、记忆、文件附件、群聊、会话同步与定时任务。以下 v1–v12 顺序为历史说明：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件)、查询。**全部 SQL 都在这里**：`*_store.py` 的函数第一个参数是调用方的连接 (事务由调用方决定)；迁移一个版本一个模块 | `database.py`、`schema.py` (入口 / 门面：`init_db`、`SCHEMA`、`SCHEMA_VERSION`、`ALL_TOOLS_V2`)、`migrations/` (`v001_base` … `v011_reminders`、`tags_coerce`、`v012_attachments`)、`repository.py` (Bot 读取 / 消息写入 / 用量 / 审计)、`auth_store.py`、`user_store.py`、`bot_store.py`、`message_store.py`、`usage_store.py`、`avatar_store.py`、`memory_store.py`、`attachment_store.py`、`delegation_store.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
 | `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。这里不写 SQL，只调用 `db/*_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/`、`attachments/{store,images,repo,vision}.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
@@ -269,3 +269,9 @@ iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（�
 iOS GroupChatViewModel → APIClient 群 SSE → groups router → group_runtime → llm.stream_chat。chat_groups/members/turns/messages 独立存储，BEGIN IMMEDIATE 与部分唯一索引限制单群一个 running 轮次，UUID负责幂等。回复写入流式占位，256字符/1秒新delta检查点，终态原子保存文字与已知usage。
 
 群运行绑定请求；stop 持久化取消并通知当前进程，断流关闭上游，启动将遗留轮次设为 interrupted，无自动续跑。首版仅单 worker/单进程，不支持多个服务实例共享该取消状态；不得以多worker部署并宣称停止可靠。SSE使用 group_id/turn_id/member_id归属，status不混入正文。重试引用原user_message与上下文边界，新回复关联retry_of_message_id。历史最多24条/12000字符，单回复max_tokens768、成员60秒/轮次240秒，每次调用前预算检查。非严格跨群额度预占。详细 [规格](../superpowers/specs/2026-10-11-bot-group-chat-design.md)与[G3](../testing/2026-10-11-bot-group-chat.md)。
+
+## 2026-10-12 数据访问与后台执行增量
+
+iOS 依赖链为 VeraBotCore → VeraBotNetworking / VeraBotPersistence → VeraBotData → App。VeraBotPersistence 封装 SQLite 连接、事务、快照暂存与本地消息；VeraBotData 协调网络与账号作用域。服务端 v21 修订号与分页一致性支撑完整历史同步，v22 关联群附件，v23 保存 scheduled_tasks/runs/attempts 与任务来源消息。定时任务 API 只管理，独立 Scheduler/Worker 持有持久租约执行并投递，不使用每用户 cron。
+
+当前仓库仍有 API/服务层 SQL 的既有分层违规；本轮私聊同步 SQL 已归入 db/message_store；不能把架构目标“全部 SQL 在 db 层”当成全库现状或已通过检查。当前验证边界见 [Main 集成交付](../testing/2026-10-12-main-integration.md)。

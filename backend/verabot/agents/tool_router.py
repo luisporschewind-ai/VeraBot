@@ -62,6 +62,9 @@ def trace_meta(user_id: int, name: str) -> dict:
 
 
 async def dispatch(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
+    if ctx.execution_mode == "scheduled":
+        from ..services.scheduled_tasks.policy import require_allowed
+        require_allowed(ctx, name)
     if name.startswith("mcp__"):
         return await asyncio.to_thread(_call_mcp, ctx, name, raw_args, call_id)
     denied = image_guard(ctx, name)   # 带图轮次：写工具需要用户确认（MCP 写工具走 pending_actions）

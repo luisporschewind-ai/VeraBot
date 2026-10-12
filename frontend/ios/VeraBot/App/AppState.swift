@@ -54,6 +54,7 @@ final class AppState {
     let avatars = AvatarStore()
     private(set) var conversationRepository: ConversationRepository?
     private var conversationDatabaseURL: URL?
+    private var conversationDatabase: LocalDatabase?
 
     var displayName: String {
         let trimmed = nickname?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -199,11 +200,23 @@ final class AppState {
         let oldDatabaseURL = conversationDatabaseURL
         conversationRepository = nil
         conversationDatabaseURL = nil
-        if let oldRepository, let oldDatabaseURL {
-            Task {
-                await oldRepository.invalidate()
-                await oldRepository.store.database.close()
-                try? FileManager.default.removeItem(at: oldDatabaseURL.deletingLastPathComponent())
+        // Close before yielding, so queued work cannot reopen this account's old connection.
+        conversationDatabase?.close()
+        conversationDatabase = nil
+        if let oldRepository { Task { await oldRepository.invalidate() } }
+        if let oldDatabaseURL {
+            let directory = oldDatabaseURL.deletingLastPathComponent()
+            let retired = directory.deletingLastPathComponent()
+                .appendingPathComponent(".retired-\(UUID().uuidString)", isDirectory: true)
+            if FileManager.default.fileExists(atPath: directory.path) {
+                do {
+                    // A same-account sign-in may recreate directory immediately. Cleanup owns only retired.
+                    try FileManager.default.moveItem(at: directory, to: retired)
+                    Task.detached { try? FileManager.default.removeItem(at: retired) }
+                } catch {
+                    // Never defer deletion of the reusable account path when isolation fails.
+                    try? FileManager.default.removeItem(at: directory)
+                }
             }
         }
         let refresh = authSession.tokens?.refresh
@@ -262,6 +275,7 @@ final class AppState {
         let generation = authSession.generation
         let session = authSession
         let database = LocalDatabase(url: url)
+        conversationDatabase = database
         Task {
             try? database.open()
         }
@@ -273,12 +287,12 @@ final class AppState {
     }
 
     private func invalidatePersistenceScope() {
-        guard let old = conversationRepository else { return }
+        let old = conversationRepository
         conversationRepository = nil
-        Task {
-            await old.invalidate()
-            await old.store.database.close()
-        }
+        conversationDatabaseURL = nil
+        conversationDatabase?.close()
+        conversationDatabase = nil
+        if let old { Task { await old.invalidate() } }
     }
 
     /// 统一错误文案；401 时自动退出登录。

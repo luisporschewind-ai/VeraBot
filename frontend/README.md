@@ -1,5 +1,7 @@
 # VeraBot Frontend (前端) — v0.1.0
 
+2026-10-12：iOS 主线接入 VeraBotPersistence（SQLite）与 VeraBotData（Repository/群模型），列表、历史和草稿按账号/服务器隔离。最新构建安装证据见 [Main 集成交付](../docs/testing/2026-10-12-main-integration.md)。
+
 两个客户端，通过 HTTP / SSE 调用后端 API (见 [backend/README.md](../backend/README.md))，不依赖后端源码。
 
 ```
@@ -18,6 +20,8 @@ frontend/
 │   └── Packages/VeraBotKit/      # 本地 Swift Package (SPM)
 │       ├── Sources/VeraBotCore        # 共享模型 (Codable，含 HealthStatus) + SettingsKeys + ListTimestamp + MessageMarkdown
 │       ├── Sources/VeraBotNetworking  # VeraBotAPI 协议 + APIClient (REST + SSE)
+│       ├── Sources/VeraBotPersistence # SQLite / 本地快照 / 草稿
+│       ├── Sources/VeraBotData        # 账号作用域 Repository / 群会话模型
 │       ├── Sources/VeraBotTTS         # TTSEngine 协议 + 本机 / 云端引擎 + SpeechPlayer
 │       └── Tests/VeraBotKitTests      # swift-testing 单元测试 (ModelsTests 11 + MessageMarkdownTests 10)
 ├── web/                          # Web SPA (index.html / app.js / style.css)，由后端托管在 /
@@ -46,7 +50,7 @@ frontend/
 ### 依赖管理 (SPM)
 
 - 只使用 **Swift Package Manager**，不使用 CocoaPods / Carthage。
-- 可复用、与 UI 无关的代码放在本地包 `Packages/VeraBotKit`：App 通过 `import VeraBotCore / VeraBotNetworking / VeraBotTTS` 使用；App 依赖协议 `VeraBotAPI`、`TTSEngine`，便于测试替身 (mock) 和替换实现。
+- 可复用、与 UI 无关的代码放在本地包 `Packages/VeraBotKit`：App 通过 `import VeraBotCore / VeraBotNetworking / VeraBotPersistence / VeraBotData / VeraBotTTS` 使用；App 依赖协议 `VeraBotAPI`、`TTSEngine`，便于测试替身 (mock) 和替换实现。
 - 目前**没有第三方依赖**。以后添加时：
   - 被 Kit 使用：在 `Package.swift` 的 `dependencies` 加 `.package(url:..., from:...)`，并加到对应 target。
   - 只被 App 使用：Xcode → Project → Package Dependencies → ＋。

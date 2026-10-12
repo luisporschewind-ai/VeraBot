@@ -13,6 +13,7 @@ public actor ConversationRepository {
     private let sessionIsCurrent: @Sendable () -> Bool
     private var invalidated = false
     private var mutationEpochs: [String: Int] = [:]
+    private var syncTasks: [String: Task<Void, Error>] = [:]
 
     public init(store: ConversationStore, api: any VeraBotAPI, groupAPI: any GroupChatAPI,
                 sessionIsCurrent: @escaping @Sendable () -> Bool) {
@@ -25,7 +26,10 @@ public actor ConversationRepository {
         return try await (bots, groups)
     }
 
-    public func invalidate() { invalidated = true }
+    public func invalidate() {
+        invalidated = true
+        for task in syncTasks.values { task.cancel() }
+    }
 
     public func replaceBots(_ bots: [Bot]) async throws {
         guard isCurrent else { throw CancellationError() }
@@ -41,8 +45,14 @@ public actor ConversationRepository {
         async let remoteGroups = groupAPI.groups()
         let (bots, groups) = try await (remoteBots, remoteGroups)
         guard isCurrent else { throw CancellationError() }
-        for bot in bots.bots { try await store.saveConversation(bot, kind: "bot", id: bot.id) }
-        for group in groups.groups { try await store.saveConversation(group, kind: ConversationKind.group.rawValue, id: group.id) }
+        for bot in bots.bots {
+            guard isCurrent else { throw CancellationError() }
+            try await store.saveConversation(bot, kind: "bot", id: bot.id)
+        }
+        for group in groups.groups {
+            guard isCurrent else { throw CancellationError() }
+            try await store.saveConversation(group, kind: ConversationKind.group.rawValue, id: group.id)
+        }
         return (bots.bots, groups.groups)
     }
 
@@ -52,20 +62,24 @@ public actor ConversationRepository {
     }
 
     public func savePrivate(_ message: LocalPrivateMessage, botID: Int, sortKey: Int, status: String) async throws {
+        guard isCurrent else { throw CancellationError() }
         _ = try await store.saveMessage(message, kind: ConversationKind.privateChat.rawValue,
                                         conversationID: botID, localID: message.id.uuidString,
                                         remoteID: message.remoteID, sortKey: sortKey, status: status)
     }
     public func deletePrivate(_ message: LocalPrivateMessage, botID: Int) async throws {
+        guard isCurrent else { throw CancellationError() }
         invalidateSync(kind: .privateChat, id: botID)
         try await store.deleteMessage(localID: message.id.uuidString, kind: ConversationKind.privateChat.rawValue,
-                                      conversationID: botID)
+                                      conversationID: botID, remoteID: message.remoteID)
     }
     public func clearPrivate(botID: Int) async throws {
+        guard isCurrent else { throw CancellationError() }
         invalidateSync(kind: .privateChat, id: botID)
         try await store.clearMessages(kind: ConversationKind.privateChat.rawValue, id: botID)
     }
     public func saveDraft(_ text: String, kind: ConversationKind, id: Int) async throws {
+        guard isCurrent else { throw CancellationError() }
         try await store.saveDraft(text, kind: kind.rawValue, conversationID: id)
     }
     public func draft(kind: ConversationKind, id: Int) async throws -> String {
@@ -83,18 +97,22 @@ public actor ConversationRepository {
         try await store.conversations(ChatGroup.self, kind: ConversationKind.group.rawValue).first { $0.id == id }
     }
     public func saveGroupMessage(_ message: GroupMessage, groupID: Int, status: String) async throws {
+        guard isCurrent else { throw CancellationError() }
         _ = try await store.saveMessage(message, kind: ConversationKind.group.rawValue, conversationID: groupID,
                                         localID: "group-\(groupID)-\(message.id)", remoteID: message.id,
                                         sortKey: message.id, status: status)
     }
     public func clearGroup(groupID: Int) async throws {
+        guard isCurrent else { throw CancellationError() }
         invalidateSync(kind: .group, id: groupID)
         try await store.clearMessages(kind: ConversationKind.group.rawValue, id: groupID)
     }
     public func markGroupHistoryComplete(groupID: Int, revision: Int64) async throws {
+        guard isCurrent else { throw CancellationError() }
         try await store.markComplete(kind: ConversationKind.group.rawValue, conversationID: groupID, revision: revision)
     }
     public func removeGroup(groupID: Int) async throws {
+        guard isCurrent else { throw CancellationError() }
         invalidateSync(kind: .group, id: groupID)
         try await store.deleteConversation(kind: ConversationKind.group.rawValue, id: groupID)
     }
@@ -117,9 +135,38 @@ public actor ConversationRepository {
     }
 
     private func sync<Value: Codable & Sendable>(kind: ConversationKind, conversationID: Int,
-                                                  fetch: (Int?, Int64?) async throws -> Page<Value>,
-                                                  id: @Sendable (Value) -> Int,
-                                                  sort: @Sendable (Value) -> Int) async throws {
+                                                 fetch: @escaping @Sendable (Int?, Int64?) async throws -> Page<Value>,
+                                                 id: @escaping @Sendable (Value) -> Int,
+                                                 sort: @escaping @Sendable (Value) -> Int) async throws {
+        try Task.checkCancellation()
+        guard isCurrent else { throw CancellationError() }
+        let key = "\(kind.rawValue):\(conversationID)"
+        if let task = syncTasks[key] {
+            try await task.value
+        } else {
+            // Actor methods can interleave at every await. Keep one owner of a
+            // conversation's staging rows until the entire snapshot finishes.
+            let task = Task {
+                // Clear the entry before resuming any caller, including on failure.
+                defer { syncTasks.removeValue(forKey: key) }
+                do {
+                    try await performSync(kind: kind, conversationID: conversationID, fetch: fetch, id: id, sort: sort)
+                } catch {
+                    if !isCurrent || Task.isCancelled { throw CancellationError() }
+                    throw error
+                }
+            }
+            syncTasks[key] = task
+            try await task.value
+        }
+        try Task.checkCancellation()
+        guard isCurrent else { throw CancellationError() }
+    }
+
+    private func performSync<Value: Codable & Sendable>(kind: ConversationKind, conversationID: Int,
+                                                        fetch: @Sendable (Int?, Int64?) async throws -> Page<Value>,
+                                                        id: @Sendable (Value) -> Int,
+                                                        sort: @Sendable (Value) -> Int) async throws {
         for _ in 0..<3 {
             guard isCurrent else { throw CancellationError() }
             let runEpoch = mutationEpoch(kind: kind, id: conversationID)
@@ -129,8 +176,10 @@ public actor ConversationRepository {
             var restart = false
             do {
                 while true {
+                    try Task.checkCancellation()
                     guard isCurrent else { throw CancellationError() }
                     let page = try await fetch(cursor, revision)
+                    try Task.checkCancellation()
                     guard isCurrent else { throw CancellationError() }
                     guard mutationEpoch(kind: kind, id: conversationID) == runEpoch else { restart = true; break }
                     if page.unchanged && cursor == nil {
@@ -146,11 +195,14 @@ public actor ConversationRepository {
                     try await store.stagePage(page.messages.map { (id: id($0), value: $0) },
                                               kind: kind.rawValue, conversationID: conversationID,
                                               revision: pinned, nextBeforeID: page.nextBeforeID)
+                    try Task.checkCancellation()
+                    guard isCurrent else { throw CancellationError() }
                     guard mutationEpoch(kind: kind, id: conversationID) == runEpoch else { restart = true; break }
                     cursor = page.nextBeforeID
                     if cursor == nil {
                         let all = try await store.stagedMessages(Value.self, kind: kind.rawValue,
                                                                  conversationID: conversationID, revision: pinned)
+                        try Task.checkCancellation()
                         guard isCurrent else { throw CancellationError() }
                         guard mutationEpoch(kind: kind, id: conversationID) == runEpoch else { restart = true; break }
                         let values = all.map(\.value)
@@ -165,7 +217,12 @@ public actor ConversationRepository {
             } catch let error as APIError where error.status == 409 && error.code == "sync_revision_changed" {
                 restart = true
             }
-            if restart { try await store.restartSync(kind: kind.rawValue, conversationID: conversationID); continue }
+            if restart {
+                try Task.checkCancellation()
+                guard isCurrent else { throw CancellationError() }
+                try await store.restartSync(kind: kind.rawValue, conversationID: conversationID)
+                continue
+            }
             return
         }
         throw APIError(status: 409, message: "对话仍在更新，稍后会继续同步。", code: "sync_revision_changed")
