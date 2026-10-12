@@ -1,5 +1,6 @@
 import SwiftUI
 import VeraBotCore
+import VeraBotData
 import VeraBotNetworking
 
 struct GroupInfoView: View {
@@ -19,8 +20,7 @@ struct GroupInfoView: View {
                 Section("默认回应者") {
                     Picker("伙伴", selection: $target) { ForEach(model.group.members.filter { $0.available }) { Text($0.name).tag($0.botID ?? 0) } }
                 }
-                Section { ForEach(model.group.members) { Text($0.name + ($0.available ? "" : " · 不可用")) } }
-                    footer: { Text("成员共享本群文字记录；群聊不会读取私聊或长期记忆。") }
+                memberSection
                 if model.busy { Section { Button("先停止当前讨论") { Task { await model.stop() } }.disabled(model.confirmingStop) } }
                 Section {
                     Button("清空群历史", role: .destructive) { clearConfirm = true }
@@ -45,8 +45,39 @@ struct GroupInfoView: View {
             } message: { Text("群和全部群历史将一起删除。") }
         }
     }
+    private var memberSection: some View {
+        Section {
+            ForEach(model.group.members) { member in
+                GroupInfoMemberRow(member: member, isDefault: member.botID == model.group.defaultBotID)
+                    .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
+            }
+        } header: {
+            Text("群成员（\(model.group.members.count)）")
+        } footer: {
+            Text("成员共享本群文字记录；群聊不会读取私聊或长期记忆。")
+        }
+    }
+
     private func perform(_ action: () async throws -> Void) async {
         guard !saving else { return }; saving = true; defer { saving = false }
         do { try await action() } catch { self.error = (error as? APIError)?.status == 409 ? "讨论还在进行，请先停止后再操作。" : "暂时没能完成操作，请重新加载后再试。" }
+    }
+}
+
+private struct GroupInfoMemberRow: View {
+    let member: ChatGroupMember
+    let isDefault: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            GroupMemberAvatar(member: member, size: 30).accessibilityHidden(true)
+            Text(member.name).font(.body)
+            Spacer(minLength: 0)
+            if !member.available {
+                Text("不可用").font(.caption2).foregroundStyle(.secondary)
+            } else if isDefault {
+                Text("默认回应者").font(.caption2).foregroundStyle(.secondary)
+            }
+        }
     }
 }

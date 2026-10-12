@@ -1,7 +1,7 @@
 """消息历史与流式对话（SSE）。"""
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from ... import db
@@ -14,6 +14,48 @@ from ..deps import current_user, require_bot
 from ..schemas import ChatIn
 
 router = APIRouter(tags=["chat"])
+
+
+@router.get("/api/bots/{bot_id}/messages/sync")
+def messages_sync(bot_id: int, limit: int = Query(default=100, ge=1, le=100),
+                  before_id: int | None = Query(default=None, gt=0),
+                  expected_revision: int | None = Query(default=None, ge=0), user=Depends(current_user)):
+    """Revision-pinned history page used for local snapshot reconciliation."""
+    require_bot(user, bot_id)
+    with db.tx() as c:
+        row = c.execute("SELECT revision FROM conversation_revisions WHERE user_id=? AND kind='private' AND conversation_id=?",
+                        (user["id"], bot_id)).fetchone()
+        revision = int(row[0]) if row else 0
+        if expected_revision is not None and expected_revision != revision:
+            raise HTTPException(409, {"code": "sync_revision_changed", "message": "对话正在更新，请重新同步"})
+        if before_id is None and expected_revision == revision:
+            return {"revision": revision, "messages": [], "next_before_id": None, "unchanged": True}
+        cursor = before_id if before_id is not None else 9223372036854775807
+        found = c.execute("""SELECT m.id,m.role,m.content,m.traces,m.created_at,
+                              f.rating AS feedback_rating,f.reason AS feedback_reason
+                           FROM messages m LEFT JOIN message_feedback f
+                             ON f.message_id=m.id AND f.user_id=m.user_id
+                           WHERE m.user_id=? AND m.bot_id=? AND m.id<?
+                           ORDER BY m.id DESC LIMIT ?""", (user["id"], bot_id, cursor, limit + 1)).fetchall()
+        more = len(found) > limit
+        page = list(reversed(found[:limit]))
+        ids = [int(item["id"]) for item in page]
+        att_map = {}
+        if ids:
+            marks = ",".join("?" for _ in ids)
+            for attachment in c.execute(f"SELECT * FROM attachments WHERE user_id=? AND message_id IN ({marks}) ORDER BY created_at,id",
+                                         (user["id"], *ids)):
+                att_map.setdefault(int(attachment["message_id"]), []).append(attachments.public(dict(attachment)))
+        messages = []
+        for item in page:
+            rating, reason = item["feedback_rating"], item["feedback_reason"]
+            messages.append({"id": item["id"], "role": item["role"], "content": item["content"],
+                             "traces": json.loads(item["traces"]) if item["traces"] else [],
+                             "created_at": item["created_at"], "attachments": att_map.get(int(item["id"]), []),
+                             "feedback": {"rating": rating, "reason": reason}
+                             if item["role"] == "assistant" and rating is not None else None})
+        next_before_id = int(page[0]["id"]) if more and page else None
+        return {"revision": revision, "messages": messages, "next_before_id": next_before_id, "unchanged": False}
 
 
 @router.get("/api/bots/{bot_id}/messages")

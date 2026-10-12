@@ -1,12 +1,13 @@
 import SwiftUI
 import VeraBotCore
 import VeraBotNetworking
+import VeraBotData
 
 @MainActor
 @Observable
 final class ChatViewModel {
     struct Item: Identifiable {
-        let id = UUID()
+        let id: UUID
         let isUser: Bool
         var text: String
         var traces: [ToolTrace] = []
@@ -14,10 +15,24 @@ final class ChatViewModel {
         var messageID: Int?
         var attachments: [Attachment] = []   // 用户消息里的图片（v12）
         var feedback: MessageFeedback?       // assistant 消息的 👍 / 👎（M2）
+        var sortKey: Int = 0
+        var localStatus = "synced"
+
+        init(id: UUID = UUID(), isUser: Bool, text: String, traces: [ToolTrace] = [], streaming: Bool = false,
+             messageID: Int? = nil, attachments: [Attachment] = [], feedback: MessageFeedback? = nil,
+             sortKey: Int = 0, localStatus: String = "synced") {
+            self.id = id; self.isUser = isUser; self.text = text; self.traces = traces; self.streaming = streaming
+            self.messageID = messageID; self.attachments = attachments; self.feedback = feedback
+            self.sortKey = sortKey; self.localStatus = localStatus
+        }
     }
 
     var bot: Bot
     let api: any VeraBotAPI   // 气泡里的图片也用它下载（鉴权、no-store）
+    let repository: ConversationRepository?
+    var historyIncomplete = false
+    var loadingOlder = false
+    var hasOlderMessages = false
     var items: [Item] = []
     var sending = false
     var errorText: String?
@@ -76,29 +91,97 @@ final class ChatViewModel {
         }
     }
 
-    init(bot: Bot, api: any VeraBotAPI) {
+    init(bot: Bot, api: any VeraBotAPI, repository: ConversationRepository? = nil) {
         self.bot = bot
         self.api = api
+        self.repository = repository
     }
 
     func load() async {
-        do {
-            let r = try await api.messages(botID: bot.id)
-            items = r.messages.map {
-                Item(isUser: $0.role == "user", text: $0.content, traces: $0.traces ?? [], messageID: $0.id,
-                     attachments: $0.attachments, feedback: $0.feedback)
+        await restoreLocal()
+        if let repository {
+            do {
+                try await repository.syncPrivate(botID: bot.id)
+                await restoreLocal()
+                historyIncomplete = false
+            } catch {
+                historyIncomplete = !((try? await repository.isHistoryComplete(kind: .privateChat, id: bot.id)) ?? false)
+                if items.isEmpty && historyIncomplete { errorText = "历史尚未同步到这台设备，请联网后重试。" }
+                else if !items.isEmpty { errorText = "暂时离线，仍可查看已同步的历史。" }
             }
-            if items.isEmpty {
-                items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
-            }
-            scrollTick += 1
-        } catch {
-            errorText = error.localizedDescription
+        } else {
+            do {
+                let response = try await api.messages(botID: bot.id)
+                items = response.messages.map {
+                    Item(isUser: $0.role == "user", text: $0.content, traces: $0.traces ?? [], messageID: $0.id,
+                         attachments: $0.attachments, feedback: $0.feedback, sortKey: $0.id)
+                }
+                historyIncomplete = response.messages.count >= 100
+            } catch { errorText = error.localizedDescription }
         }
+        if items.isEmpty && !historyIncomplete {
+            items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
+        }
+        scrollTick += 1
         await refreshMemoryStates()
         await refreshPendingActions()
         await refreshCandidateMemories()
         await refreshMemorySuggestions()
+    }
+
+    private func restoreLocal() async {
+        guard let repository else { return }
+        do {
+            let stored = try await repository.privateMessages(botID: bot.id, limit: 101)
+            hasOlderMessages = stored.count > 100
+            items = stored.suffix(100).map { row in
+                let message = row.value
+                return Item(id: message.id, isUser: message.role == "user", text: message.content,
+                            traces: message.traces, streaming: false, messageID: message.remoteID,
+                            attachments: message.attachments, feedback: message.feedback,
+                            sortKey: row.sortKey,
+                            localStatus: row.status == "receiving" ? (message.content.isEmpty ? "unconfirmed" : "interrupted") : row.status)
+            }
+            historyIncomplete = !(try await repository.isHistoryComplete(kind: .privateChat, id: bot.id))
+        } catch {
+            historyIncomplete = true
+            errorText = "本地历史暂时无法读取。"
+        }
+    }
+
+    func loadOlder() async {
+        guard let repository, !loadingOlder, let first = items.first else { return }
+        loadingOlder = true
+        defer { loadingOlder = false }
+        do {
+            let page = try await repository.privateMessages(botID: bot.id, before: first.sortKey, limit: 101)
+            hasOlderMessages = page.count > 100
+            let older = page.suffix(100).map { row in
+                Item(id: row.value.id, isUser: row.value.role == "user", text: row.value.content,
+                     traces: row.value.traces, messageID: row.value.remoteID, attachments: row.value.attachments,
+                     feedback: row.value.feedback, sortKey: row.sortKey, localStatus: row.status)
+            }
+            items.insert(contentsOf: older, at: 0)
+        } catch { errorText = "本地历史暂时无法读取。" }
+    }
+
+    func loadDraft() async -> String {
+        (try? await repository?.draft(kind: .privateChat, id: bot.id)) ?? ""
+    }
+
+    func saveDraft(_ text: String) async {
+        try? await repository?.saveDraft(text, kind: .privateChat, id: bot.id)
+    }
+
+    private func persist(_ item: Item, status: String) async {
+        guard let repository else { return }
+        let message = LocalPrivateMessage(id: item.id, remoteID: item.messageID,
+                                          role: item.isUser ? "user" : "assistant", content: item.text,
+                                          traces: item.traces, attachments: item.attachments,
+                                          feedback: item.feedback, localStatus: status)
+        try? await repository.savePrivate(message, botID: bot.id,
+                                          sortKey: item.sortKey,
+                                          status: status)
     }
 
     func refreshCandidateMemories() async {
@@ -332,6 +415,7 @@ final class ChatViewModel {
             errorText = error.localizedDescription
             return
         }
+        try? await repository?.clearPrivate(botID: bot.id)
         memoryStates = [:]
         memoryOutcomes = [:]
         actionStates = [:]
@@ -345,8 +429,14 @@ final class ChatViewModel {
         do {
             _ = try await api.deleteMessage(botID: bot.id, messageID: mid)
             items.removeAll { $0.messageID == mid }
+            try? await repository?.deletePrivate(LocalPrivateMessage(id: item.id, remoteID: mid,
+                                                                      role: item.isUser ? "user" : "assistant",
+                                                                      content: item.text, traces: item.traces,
+                                                                      attachments: item.attachments, feedback: item.feedback), botID: bot.id)
         } catch let e as APIError where e.status == 404 {
             items.removeAll { $0.messageID == mid }   // 服务器上已不存在（如另一台设备已删除），以服务器为准
+            try? await repository?.deletePrivate(LocalPrivateMessage(id: item.id, remoteID: mid,
+                                                                      role: item.isUser ? "user" : "assistant", content: item.text), botID: bot.id)
         } catch {
             errorText = error.localizedDescription
         }
@@ -360,8 +450,15 @@ final class ChatViewModel {
         feed(.sent)
         let images = attachment.map { [$0] } ?? []
         items.append(Item(isUser: true, text: trimmed, attachments: images))
+        items[items.count - 1].sortKey = (items.dropLast().last?.sortKey ?? 0) + 1
+        items[items.count - 1].localStatus = "sending"
         items.append(Item(isUser: false, text: "", streaming: true))
+        items[items.count - 1].sortKey = items[items.count - 2].sortKey + 1
+        items[items.count - 1].localStatus = "receiving"
         let idx = items.count - 1
+        await saveDraft("")
+        await persist(items[idx - 1], status: "sending")
+        await persist(items[idx], status: "receiving")
         scrollTick += 1
         do {
             for try await event in api.chatStream(botID: bot.id, message: trimmed, attachmentIDs: images.map(\.id)) {
@@ -390,12 +487,17 @@ final class ChatViewModel {
                 case .done(let d):
                     // 落库后的 id：刚收到的回复与刚发出的用户消息（idx - 1）都能立即长按删除；旧后端不发 user_message_id
                     items[idx].messageID = d.messageID
-                    if let uid = d.userMessageID { items[idx - 1].messageID = uid }
+                    if let uid = d.userMessageID { items[idx - 1].messageID = uid; items[idx - 1].sortKey = uid }
+                    if let assistantID = d.messageID { items[idx].sortKey = assistantID }
+                    items[idx - 1].localStatus = "synced"
+                    items[idx].localStatus = "synced"
                 case .status:
                     break   // 只驱动导航栏头像；消息正文不显示 status
                 case .notification:
                     NotificationCenter.default.post(name: .verabotRemindersChanged, object: nil)
                 }
+                await persist(items[idx], status: items[idx].localStatus)
+                await persist(items[idx - 1], status: items[idx - 1].localStatus)
                 scrollTick += 1
             }
         } catch let e as APIError where e.status == 429 {
@@ -409,6 +511,9 @@ final class ChatViewModel {
         feed(.streamEnded)
         if items[idx].text.isEmpty && items[idx].traces.isEmpty { items[idx].text = "（无回复）" }
         items[idx].streaming = false
+        if items[idx].localStatus == "receiving" { items[idx].localStatus = items[idx].text.isEmpty ? "unconfirmed" : "interrupted" }
+        await persist(items[idx], status: items[idx].localStatus)
+        await persist(items[idx - 1], status: items[idx - 1].localStatus)
         sending = false
         scrollTick += 1
         if items[idx].traces.contains(where: { $0.memoryProposal?.isCard == true }) {

@@ -16,6 +16,7 @@
 | testing/ | [2026-10-11-bot-group-chat-g1.md](testing/2026-10-11-bot-group-chat-g1.md) | 群管理 API、轮次存储、Swift 协议与验证边界 |
 | testing/ | [2026-10-11-bot-group-chat-preview.md](testing/2026-10-11-bot-group-chat-preview.md) | Debug 群聊预览入口、范围、构建结果和用户验收边界 |
 | superpowers/plans/ | [2026-10-09-bot-travel.md](superpowers/plans/2026-10-09-bot-travel.md) | Bot 旅行第一版实现步骤与核对清单 |
+| design/ | [CHAT_SPEECH_PLAYBACK.md](design/CHAT_SPEECH_PLAYBACK.md) | **已确认并修复，待设备验收**：对话朗读退出规则、临时弹层例外、音频会话释放、旧回调隔离与回归证据 |
 | design/ | [ARCHITECTURE.md](design/ARCHITECTURE.md) | 两个项目的架构、模块、依赖规则、依赖管理 (SPM / uv)、数据模型 |
 | design/ | [MULTI_AGENT_DESIGN.md](design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限模型、上下文隔离、护栏、审计、迁移、设置页 / TTS 扩展 |
 | design/ | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | **设计 v1.0 已批准；M1 与 M2 已实现**（schema v8：免授权 Learn / AWS、按服务同意、会话复用、审计、后台同步、熔断。字段对照见 §18）。其上的插件 P1 见下一行。M3 起（OAuth、HITL、Gmail、自定义 URL）仍是设计，未实现。`frontend/web` 冻结，没有 MCP 界面 |
@@ -34,4 +35,5 @@
 项目 README：[根目录](../README.md) · [backend](../backend/README.md) · [frontend](../frontend/README.md)
 截图：[assets/screenshots/](../assets/screenshots/) (`web/` Web SPA，`ios/test/` 迭代 1 T*，`ios/regress/` 迭代 2 R*；均早于 2026-10-01 的界面改动)
 
+- [群聊 @ 输入与键盘回归](testing/2026-10-12-group-mention-keyboard.md)：25 项编辑器回归通过，2026-10-12 用户确认本轮交互修复验收通过。
 - [Bot 群聊 G3 验证与验收交付](testing/2026-10-11-bot-group-chat.md)：自动回归、真实 HTTP 模拟提供者联调、GC-01～12 分项状态及隔离模拟器步骤。

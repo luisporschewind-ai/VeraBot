@@ -22,6 +22,10 @@ targets:
       - package: VeraBotKit
         product: VeraBotNetworking
       - package: VeraBotKit
+        product: VeraBotPersistence
+      - package: VeraBotKit
+        product: VeraBotData
+      - package: VeraBotKit
         product: VeraBotTTS
     info:
       path: Config/Info.plist

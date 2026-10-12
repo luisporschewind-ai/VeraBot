@@ -39,17 +39,20 @@ class GroupPatchIn(BaseModel):
 
 class GroupChatIn(BaseModel):
     client_request_id: UUID
-    message: str = Field(min_length=1, max_length=2000)
-    mode: Literal["single", "round"] = "single"
+    message: str = Field(default="", max_length=2000)
+    mode: Literal["auto", "single", "round"] = "single"
     target_bot_id: int | None = Field(default=None, gt=0)
+    attachment_ids: list[str] = Field(default_factory=list, max_length=1)
 
     @model_validator(mode="after")
     def validate_message(self):
         self.message = self.message.strip()
-        if not self.message:
-            raise ValueError("消息不能为空")
+        if not self.message and not self.attachment_ids:
+            raise ValueError("消息或附件不能为空")
         if self.mode == "round" and self.target_bot_id is not None:
             raise ValueError("大家讨论时不能指定单个成员")
+        if self.mode == "auto" and self.target_bot_id is not None:
+            raise ValueError("自动回应时不能指定单个成员")
         return self
 
 class GroupRetryIn(BaseModel):

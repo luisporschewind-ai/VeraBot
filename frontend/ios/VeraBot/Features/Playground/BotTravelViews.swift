@@ -97,7 +97,8 @@ struct BotTravelStartView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
-                                              hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 46)
+                                              hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 46,
+                          appearance: bot.supportedAppearance)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(bot.name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                                     Text(traveling ? "还在旅途中" : (bot.persona.isEmpty ? "准备出发" : bot.persona))

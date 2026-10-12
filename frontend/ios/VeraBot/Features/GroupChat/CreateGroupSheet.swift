@@ -26,7 +26,9 @@ struct CreateGroupSheet: View {
                             if !selected.contains(defaultID) { defaultID = bots.first { selected.contains($0.id) }?.id ?? 0 }
                         } label: {
                             HStack {
-                                RobotAvatarView(action: .idle, size: 40, color: Color(hex: bot.color), ambient: false)
+                                LiveBotAvatar(botID:bot.id,emoji:bot.avatar,color:bot.color,
+                                              hasAvatar:bot.hasAvatar,updatedAt:bot.avatarUpdatedAt,size:40,
+                                              appearance:bot.supportedAppearance)
                                 Text(bot.name).foregroundStyle(.primary)
                                 Spacer(); Image(systemName: selected.contains(bot.id) ? "checkmark.circle.fill" : "circle")
                             }
@@ -42,7 +44,9 @@ struct CreateGroupSheet: View {
             }.disabled(saving)
             .navigationTitle("创建群聊").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() }.disabled(saving) }
+                ToolbarItem(placement: .cancellationAction) {
+                    DismissToolbarButton(action: { dismiss() }).disabled(saving)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(saving ? "创建中…" : "创建") { Task { await create() } }
                         .disabled(saving || loading || trimmed.isEmpty || trimmed.count > 64 || !(2...4).contains(selected.count))

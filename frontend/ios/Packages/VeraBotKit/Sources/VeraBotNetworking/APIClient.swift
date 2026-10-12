@@ -294,6 +294,13 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/bots/\(botID)/messages")
     }
 
+    public func syncMessages(botID: Int, beforeID: Int? = nil, expectedRevision: Int64? = nil) async throws -> MessageSyncResponse {
+        var query = [URLQueryItem(name: "limit", value: "100")]
+        if let beforeID { query.append(URLQueryItem(name: "before_id", value: String(beforeID))) }
+        if let expectedRevision { query.append(URLQueryItem(name: "expected_revision", value: String(expectedRevision))) }
+        return try await call("/api/bots/\(botID)/messages/sync", query: query)
+    }
+
     public func clearMessages(botID: Int, includeMemories: Bool) async throws -> ClearMessagesResponse {
         try await call("/api/bots/\(botID)/messages", method: "DELETE",
                        query: includeMemories ? [URLQueryItem(name: "include_memories", value: "true")] : [])

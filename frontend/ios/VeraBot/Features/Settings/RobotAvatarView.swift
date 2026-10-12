@@ -29,7 +29,7 @@ struct RobotAvatarView: View {
     var replay = 0
     var appearance: BotAppearance? = nil
     var skin: BotAvatarSkin? = nil
-    var familyLook = BotAvatarFamilyLook()
+    var familyLook: BotAvatarFamilyLook? = nil
     var staticPreview = false
     /// Optional local reduction for quiet notices; system accessibility always takes precedence.
     var motionReduced = false
@@ -53,18 +53,19 @@ struct RobotAvatarView: View {
     private var reduceMotion: Bool { systemReduceMotion || motionReduced }
     private var active: Bool { visible && scenePhase == .active && !reduceMotion && !staticPreview }
     // The antenna extends above the 240-point viewport; its spring needs extra drawing room.
+    private var familyShape: BotAvatarFamilyShape { familyLook?.shape ?? appearance?.familyShape ?? .standard }
     private var template: BotAvatarTemplate {
         var value = BotAvatarTemplateRegistry.resolve(id:appearance?.templateID ?? "cx-robot",version:appearance?.templateVersion ?? 1) ?? .robot
-        if familyLook.shape != .standard {
-            value.antennaAnchor = RobotAvatarFamilyGeometry.antenna(shape:familyLook.shape,roundness:appearance?.parameters.roundness ?? roundness)
+        if familyShape != .standard {
+            value.antennaAnchor = RobotAvatarFamilyGeometry.antenna(shape:familyShape,roundness:appearance?.parameters.roundness ?? roundness)
         }
         return value
     }
-    private var activeSkin: BotAvatarSkin? { familyLook.skin ?? skin }
+    private var activeSkin: BotAvatarSkin? { familyLook?.skin ?? skin }
     private var bodyColor: Color { appearance?.palette.body.swiftUIColor ?? color }
     private var eyeColor: Color { appearance?.palette.eyes.swiftUIColor ?? Color(red:248.0/255,green:248.0/255,blue:246.0/255) }
     private var drawingOverflow: CGFloat { size / 240 * template.drawingMargin }
-    private var taskKey: String { "\(action.rawValue)|\(replay)|\(tapReplay)|\(active)|\(familyLook.shape.rawValue)" }
+    private var taskKey: String { "\(action.rawValue)|\(replay)|\(tapReplay)|\(active)|\(familyShape.rawValue)" }
 
     var body: some View {
         ZStack {
@@ -74,12 +75,12 @@ struct RobotAvatarView: View {
             context.scaleBy(x: scale, y: scale)
             context.translateBy(x: -120, y: -120)
             let frame = currentFrame()
-            let headPath = BotAvatarTemplateGeometry.head(template:template,parameters:appearance?.parameters ?? .init(roundness:roundness),interaction:interaction,familyShape:familyLook.shape)
+            let headPath = BotAvatarTemplateGeometry.head(template:template,parameters:appearance?.parameters ?? .init(roundness:roundness),interaction:interaction,familyShape:familyShape)
             var head = context
             head.concatenate(headTransform(frame))
             head.clip(to: headPath)
             if let activeSkin {
-                let surface = BotAvatarTemplateGeometry.head(template:template,parameters:appearance?.parameters ?? .init(roundness:roundness),interaction:.init(),familyShape:familyLook.shape)
+                let surface = BotAvatarTemplateGeometry.head(template:template,parameters:appearance?.parameters ?? .init(roundness:roundness),interaction:.init(),familyShape:familyShape)
                 RobotAvatarSkinRendering.draw(activeSkin,surface:surface,interaction:interaction,in:&head)
             }
             else { head.fill(headPath, with:.color(bodyColor)) }
@@ -97,7 +98,7 @@ struct RobotAvatarView: View {
             }
             var adornment = context
             adornment.concatenate(headTransform(frame))
-            RobotAvatarAccessoryRendering.draw(familyLook.accessory,badge:familyLook.badgeStyle,head:headPath,color:eyeColor,bodyColor:bodyColor,in:&adornment)
+            RobotAvatarAccessoryRendering.draw(familyLook?.accessory ?? .none,badge:familyLook?.badgeStyle ?? .spark,head:headPath,color:eyeColor,bodyColor:bodyColor,in:&adornment)
             let point = displayedAntenna
             let stretch = interaction.kind == .antenna ? max(-0.06, min(0.06, interaction.y.velocity * 0.0004)) : 0
             context.opacity = frame.antennaOpacity

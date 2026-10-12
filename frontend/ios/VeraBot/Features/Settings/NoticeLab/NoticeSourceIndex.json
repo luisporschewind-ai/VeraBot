@@ -35,7 +35,7 @@
     },
     {
       "file": "VeraBot/App/AppState.swift",
-      "line": 179,
+      "line": 181,
       "kinds": [
         "提示 / 错误"
       ],
@@ -43,7 +43,7 @@
     },
     {
       "file": "VeraBot/App/AppState.swift",
-      "line": 225,
+      "line": 227,
       "kinds": [
         "提示 / 错误"
       ],
@@ -51,7 +51,7 @@
     },
     {
       "file": "VeraBot/App/VeraBotApp.swift",
-      "line": 105,
+      "line": 115,
       "kinds": [
         "确认 / 弹窗"
       ],
@@ -59,7 +59,7 @@
     },
     {
       "file": "VeraBot/App/VeraBotApp.swift",
-      "line": 106,
+      "line": 116,
       "kinds": [
         "提示 / 错误"
       ],
@@ -67,7 +67,7 @@
     },
     {
       "file": "VeraBot/App/VeraBotApp.swift",
-      "line": 107,
+      "line": 117,
       "kinds": [
         "提示 / 错误"
       ],
@@ -75,7 +75,7 @@
     },
     {
       "file": "VeraBot/App/VeraBotApp.swift",
-      "line": 109,
+      "line": 119,
       "kinds": [
         "提示 / 错误"
       ],
@@ -211,19 +211,11 @@
     },
     {
       "file": "VeraBot/Core/UI/MessageContentView.swift",
-      "line": 96,
+      "line": 106,
       "kinds": [
         "状态 / 反馈"
       ],
-      "excerpt": "Button { UIPasteboard.general.string = text } label: { Label(\"复制\", systemImage: \"doc.on.doc\") }"
-    },
-    {
-      "file": "VeraBot/Core/UI/MessageContentView.swift",
-      "line": 98,
-      "kinds": [
-        "状态 / 反馈"
-      ],
-      "excerpt": "Button { UIPasteboard.general.string = Self.copyText(url) } label: {"
+      "excerpt": "UIPasteboard.general.string = value"
     },
     {
       "file": "VeraBot/Features/Auth/LoginView.swift",
@@ -612,7 +604,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 28,
+      "line": 30,
       "kinds": [
         "加载 / 空状态"
       ],
@@ -620,7 +612,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 49,
+      "line": 51,
       "kinds": [
         "提示 / 错误"
       ],
@@ -628,7 +620,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 54,
+      "line": 56,
       "kinds": [
         "确认 / 弹窗"
       ],
@@ -636,7 +628,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 62,
+      "line": 64,
       "kinds": [
         "提示 / 错误"
       ],
@@ -644,7 +636,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 67,
+      "line": 69,
       "kinds": [
         "加载 / 空状态"
       ],
@@ -652,7 +644,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 69,
+      "line": 71,
       "kinds": [
         "加载 / 空状态"
       ],
@@ -660,7 +652,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 70,
+      "line": 72,
       "kinds": [
         "提示 / 错误"
       ],
@@ -668,7 +660,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 71,
+      "line": 73,
       "kinds": [
         "加载 / 空状态"
       ],
@@ -676,35 +668,11 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 185,
-      "kinds": [
-        "提示 / 错误"
-      ],
-      "excerpt": "errorText = nil"
-    },
-    {
-      "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 186,
-      "kinds": [
-        "提示 / 错误"
-      ],
-      "excerpt": "connectionIssue = nil"
-    },
-    {
-      "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 192,
-      "kinds": [
-        "提示 / 错误"
-      ],
-      "excerpt": "(error as? URLError)?.code != .cancelled else { return }"
-    },
-    {
-      "file": "VeraBot/Features/BotList/BotListView.swift",
       "line": 194,
       "kinds": [
         "提示 / 错误"
       ],
-      "excerpt": "connectionIssue = ConnectionIssue.classify(error)"
+      "excerpt": "errorText = nil"
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
@@ -712,11 +680,35 @@
       "kinds": [
         "提示 / 错误"
       ],
+      "excerpt": "connectionIssue = nil"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 201,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "(error as? URLError)?.code != .cancelled else { return }"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 203,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "connectionIssue = ConnectionIssue.classify(error)"
+    },
+    {
+      "file": "VeraBot/Features/BotList/BotListView.swift",
+      "line": 204,
+      "kinds": [
+        "提示 / 错误"
+      ],
       "excerpt": "if connectionIssue != nil {"
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 196,
+      "line": 205,
       "kinds": [
         "提示 / 错误"
       ],
@@ -724,7 +716,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 199,
+      "line": 208,
       "kinds": [
         "提示 / 错误"
       ],
@@ -732,7 +724,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 225,
+      "line": 234,
       "kinds": [
         "提示 / 错误"
       ],
@@ -740,7 +732,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 258,
+      "line": 267,
       "kinds": [
         "提示 / 错误"
       ],
@@ -748,7 +740,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 264,
+      "line": 273,
       "kinds": [
         "提示 / 错误"
       ],
@@ -756,7 +748,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 319,
+      "line": 328,
       "kinds": [
         "加载 / 空状态"
       ],
@@ -764,7 +756,7 @@
     },
     {
       "file": "VeraBot/Features/BotList/BotListView.swift",
-      "line": 323,
+      "line": 332,
       "kinds": [
         "加载 / 空状态"
       ],
@@ -1433,6 +1425,231 @@
         "提示 / 错误"
       ],
       "excerpt": "return \"共 \\(r[\"count\"]?.text ?? \"0\") 条提醒\""
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/CreateGroupSheet.swift",
+      "line": 21,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if loading { ProgressView() }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/CreateGroupSheet.swift",
+      "line": 41,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error { Section { Text(error).foregroundStyle(.secondary); Button(\"重新加载伙伴\") { Task { await load() } } } }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/CreateGroupSheet.swift",
+      "line": 59,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "bots = result.bots; error = nil"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/CreateGroupSheet.swift",
+      "line": 60,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch { if generation == app.sessionGeneration { self.error = \"暂时无法加载伙伴，请再试一次。\" } }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/CreateGroupSheet.swift",
+      "line": 71,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch { if generation == app.sessionGeneration { self.error = \"暂时无法创建群聊，请检查伙伴和群数量后再试。\" } }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 45,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if model.loading && model.state.messages.isEmpty { BotLoadingView() }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 57,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error = model.errorMessage {"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 58,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "HStack { Image(systemName: \"exclamationmark.bubble\"); Text(error); Button(\"重新加载\") { Task { await model.load() } } }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 88,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if message.role == .user {"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 89,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "HStack { Spacer(minLength: 50); Text(message.content).textSelection(.enabled).padding(13)"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 93,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let member = historicalMember(message) { GroupMemberAvatar(member: member, size: 40, action: message.status == .failed ? .warning : message.status == .streaming ? .replying : .idle) }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 95,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(message.senderName ?? historicalMember(message)?.name ?? \"伙伴\").font(.caption).foregroundStyle(.secondary)"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 96,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if message.retryOfMessageID != nil { Text(\"重试回应\").font(.caption2).foregroundStyle(.secondary) }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 97,
+      "kinds": [
+        "加载 / 空状态",
+        "提示 / 错误"
+      ],
+      "excerpt": "if message.content.isEmpty && message.status == .streaming { ProgressView(\"正在组织想法…\") }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 99,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if message.status != .completed && message.status != .streaming {"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 100,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "Text(message.status == .failed ? \"回应暂未完成\" : message.status == .stopped ? \"已停止 · 回应未完成\" : \"连接中断 · 回应未完成\").font(.caption).foregroundStyle(.secondary)"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupChatView.swift",
+      "line": 110,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let snapshot = message.senderAppearance, let data = try? JSONEncoder().encode(snapshot), let member = try? JSONDecoder().decode(ChatGroupMember.self, from: data) { return member }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupInfoView.swift",
+      "line": 29,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let error { Section { Text(error).foregroundStyle(.secondary) } }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupInfoView.swift",
+      "line": 40,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"清空本群历史？\", isPresented: $clearConfirm, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupInfoView.swift",
+      "line": 42,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} message: { Text(\"仅删除本群聊天记录。\") }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupInfoView.swift",
+      "line": 43,
+      "kinds": [
+        "确认 / 弹窗"
+      ],
+      "excerpt": ".confirmationDialog(\"删除这个群聊？\", isPresented: $deleteConfirm, titleVisibility: .visible) {"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupInfoView.swift",
+      "line": 45,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} message: { Text(\"群和全部群历史将一起删除。\") }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupInfoView.swift",
+      "line": 50,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "do { try await action() } catch { self.error = (error as? APIError)?.status == 409 ? \"讨论还在进行，请先停止后再操作。\" : \"暂时没能完成操作，请重新加载后再试。\" }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupListView.swift",
+      "line": 14,
+      "kinds": [
+        "加载 / 空状态"
+      ],
+      "excerpt": "if loading && groups.isEmpty { BotLoadingView() }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupListView.swift",
+      "line": 15,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "else if groups.isEmpty && error == nil {"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupListView.swift",
+      "line": 43,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "VStack { Text(error); Button(\"重新加载\") { Task { await load() } } }"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupListView.swift",
+      "line": 62,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "groups = response.groups; error = nil"
+    },
+    {
+      "file": "VeraBot/Features/GroupChat/GroupListView.swift",
+      "line": 64,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if generation == app.sessionGeneration { self.error = \"伙伴们暂时没连上，请重新加载。\" }"
     },
     {
       "file": "VeraBot/Features/Memory/MemoryEditView.swift",
@@ -3630,6 +3847,110 @@
       "excerpt": "let message = e.text"
     },
     {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChat.swift",
+      "line": 134,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "public init(clientRequestID: UUID = UUID(), message: String, mode: GroupChatMode = .single, targetBotID: Int? = nil) {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChat.swift",
+      "line": 135,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "self.clientRequestID = clientRequestID; self.message = message; self.mode = mode; self.targetBotID = targetBotID"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChat.swift",
+      "line": 137,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "enum CodingKeys: String, CodingKey { case message, mode; case clientRequestID = \"client_request_id\", targetBotID = \"target_bot_id\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 18,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if case .turnStart(let message, let speakers) = event.payload {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 19,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard message.groupID == state.groupID, message.turnID <= event.turnID, message.turnID > 0, message.role == .user else { return }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 26,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "state.errorMessage = nil; state.activeMemberID = nil; state.phase = nil"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 38,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard message.groupID == state.groupID, message.turnID == event.turnID, message.role == .bot,"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 39,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message.status == .streaming, let member = message.memberID, state.speakerMemberIDs.contains(member),"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 41,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "state.messages.append(message); state.activeMemberID = member; state.phase = nil"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 49,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard message.groupID == state.groupID, message.turnID == event.turnID, message.role == .bot,"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 50,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "message.status != .streaming, let member = message.memberID, state.speakerMemberIDs.contains(member) else { return }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 58,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "state.errorMessage = message"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotCore/GroupChatReducer.swift",
+      "line": 76,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "state.phase = nil; state.errorMessage = nil"
+    },
+    {
       "file": "Packages/VeraBotKit/Sources/VeraBotCore/ListTimestamp.swift",
       "line": 41,
       "kinds": [
@@ -4532,15 +4853,15 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 14,
+      "line": 15,
       "kinds": [
         "提示 / 错误"
       ],
-      "excerpt": "public init(status: Int, message: String, code: String? = nil) {"
+      "excerpt": "public init(status: Int, message: String, code: String? = nil, turnID: Int? = nil) {"
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 16,
+      "line": 17,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4548,7 +4869,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 484,
+      "line": 486,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4556,7 +4877,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 503,
+      "line": 505,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4564,7 +4885,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 542,
+      "line": 544,
       "kinds": [
         "状态 / 反馈"
       ],
@@ -4572,7 +4893,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 603,
+      "line": 605,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4580,7 +4901,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 628,
+      "line": 630,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4588,7 +4909,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 642,
+      "line": 644,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4596,7 +4917,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 647,
+      "line": 649,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4604,7 +4925,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 652,
+      "line": 655,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4612,7 +4933,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 654,
+      "line": 657,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4620,7 +4941,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 657,
+      "line": 660,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4628,7 +4949,7 @@
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/APIClient.swift",
-      "line": 660,
+      "line": 664,
       "kinds": [
         "提示 / 错误"
       ],
@@ -4657,6 +4978,206 @@
         "提示 / 错误"
       ],
       "excerpt": "guard error.domain == NSURLErrorDomain else { return nil }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatAPI.swift",
+      "line": 29,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let generation, let session, !session.isCurrent(generation) { throw CancellationError() }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatAPI.swift",
+      "line": 137,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if line.count > 1_048_576 { throw APIError(status: 0, message: \"群聊事件过大\", code: \"group_event_invalid\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatAPI.swift",
+      "line": 142,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard completed else { throw APIError(status: 0, message: \"讨论连接已中断，请重新加载记录\", code: \"group_stream_interrupted\") }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatAPI.swift",
+      "line": 155,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "let error = Self.apiError(status: status, data: data)"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatAPI.swift",
+      "line": 156,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if status == 409, error.code == \"request_exists\", let turnID = error.turnID {"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatAPI.swift",
+      "line": 159,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "throw GroupRequestExists(turn: turn)"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatEventParser.swift",
+      "line": 24,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard let raw = e.message, let encoded = try? JSONEncoder().encode(raw),"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 27,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "guard stamp == epoch, sessionIsCurrent() else { throw CancellationError() }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 38,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorMessage = nil"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 46,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if previous != nil && !group.readOnly { errorMessage = \"原回应者已不可用，已切换到其他伙伴。\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 48,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch is CancellationError {} catch { if stamp == epoch && sessionIsCurrent() { errorMessage = friendly(error) } }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 60,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch is CancellationError {} catch { if stamp == epoch && sessionIsCurrent() { errorMessage = friendly(error) } }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 66,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "let request = GroupChatRequest(message: text, mode: mode, targetBotID: mode == .round ? nil : targetBotID)"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 74,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "epoch += 1; let stamp = epoch; errorMessage = nil"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 81,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if case .error(_, let message, _) = event.payload { errorMessage = message }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 91,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if errorMessage == nil && !group.readOnly { errorMessage = \"原回应者已不可用，已切换到其他伙伴。\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 98,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "errorMessage = friendly(error)"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 99,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let conflict = error as? APIError, let tid = conflict.turnID,"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 119,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if turn.status == .running { errorMessage = \"讨论仍在进行，请稍后重新加载查看结果。\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 121,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if stamp == epoch && sessionIsCurrent() { errorMessage = friendly(error) }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 138,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if turn.status == .running { errorMessage = \"正在确认讨论是否已停止，请稍后重新加载。\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 139,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "} catch is CancellationError {} catch { if stamp == epoch && sessionIsCurrent() { errorMessage = \"暂时无法确认是否已停止，请恢复连接后重新加载。\" } }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 167,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let api = error as? APIError, api.status == 409 { return \"讨论还在进行，请先停止后再操作。\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 168,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "if let api = error as? APIError, api.status == 429 { return \"今日额度已用完，请稍后继续。\" }"
+    },
+    {
+      "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/GroupChatViewModel.swift",
+      "line": 169,
+      "kinds": [
+        "提示 / 错误"
+      ],
+      "excerpt": "return \"伙伴们暂时没连上，请重新加载后再试。\""
     },
     {
       "file": "Packages/VeraBotKit/Sources/VeraBotNetworking/TetrisCompanion.swift",

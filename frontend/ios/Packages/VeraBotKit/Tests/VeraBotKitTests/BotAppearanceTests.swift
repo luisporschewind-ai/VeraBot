@@ -64,3 +64,36 @@ private func appearanceBot(_ extra: String = "") throws -> Bot {
     let huge = appearanceFixture.replacingOccurrences(of:"cx-robot",with:String(repeating:"a",count:5000))
     #expect(throws: (any Error).self) { try JSONDecoder().decode(BotAppearance.self,from:Data(huge.utf8)) }
 }
+
+@Test func familyShapesPersistThroughBotRequests() throws {
+    #expect(BotAvatarFamilyShape.allCases.count == 11)
+    #expect(Set(BotAvatarFamilyShape.allCases.map(\.templateID)).count == 11)
+    for shape in BotAvatarFamilyShape.allCases {
+        var appearance = BotAppearance.robotDefault
+        appearance.familyShape = shape
+        let raw = try appearance.jsonValue()
+        let restored = try JSONDecoder().decode(BotAppearance.self,from:JSONEncoder().encode(raw))
+        #expect(restored.familyShape == shape)
+        #expect(restored.palette == appearance.palette)
+        let create = BotCreate(name:"Shape",avatar:"veraBean",color:"#000000",persona:"",instructions:"",appearance:raw)
+        let createJSON = try JSONDecoder().decode(JSONValue.self,from:JSONEncoder().encode(create))
+        #expect(createJSON["appearance"] == raw)
+        let patchJSON = try JSONDecoder().decode(JSONValue.self,from:JSONEncoder().encode(BotPatch(appearance:raw)))
+        #expect(patchJSON["appearance"] == raw)
+        let bot = try appearanceBot(",\"appearance\":" + String(decoding:JSONEncoder().encode(raw),as:UTF8.self))
+        #expect(bot.supportedAppearance?.familyShape == shape)
+    }
+}
+
+@Test func familyShapeFallbackAndPalettePreservation() {
+    #expect(BotAppearance.robotDefault.familyShape == .standard)
+    #expect(BotAvatarFamilyShape(templateID:"future-shape",version:1) == nil)
+    #expect(BotAvatarFamilyShape(templateID:"cx-robot-circle",version:2) == nil)
+    var value = BotAppearance.robotDefault
+    value.palette.body = .init(space:.displayP3,red:0.6,green:0.2,blue:0.4)
+    value.parameters.roundness = 0.7
+    let palette = value.palette
+    value.familyShape = .roundedDroplet
+    #expect(value.templateID == "cx-robot-rounded-droplet")
+    #expect(value.palette == palette && value.parameters.roundness == 0.7)
+}

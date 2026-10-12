@@ -36,12 +36,62 @@ public protocol TTSEngine: AnyObject {
 
 /// 本机引擎：AVSpeechSynthesizer，中文语音。
 @MainActor
+protocol SpeechSynthesizing: AnyObject {
+    var delegate: (any AVSpeechSynthesizerDelegate)? { get set }
+    var isSpeaking: Bool { get }
+    func speak(_ utterance: AVSpeechUtterance)
+    func stopSpeaking(at boundary: AVSpeechBoundary) -> Bool
+}
+
+extension AVSpeechSynthesizer: SpeechSynthesizing {}
+
+@MainActor
+protocol SpeechAudioSession {
+    func activate() throws
+    func deactivate() throws
+}
+
+struct SystemSpeechAudioSession: SpeechAudioSession {
+    func activate() throws {
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        try session.setActive(true)
+        #endif
+    }
+
+    func deactivate() throws {
+        #if os(iOS)
+        try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
+    }
+}
+
+// 只跨线程保留对象身份，不读写 AVSpeechUtterance 的可变属性。
+// 保留引用也避免旧对象释放后，地址被新 utterance 重用。
+private struct UtteranceIdentity: @unchecked Sendable {
+    let value: AVSpeechUtterance
+}
+
+@MainActor
 public final class LocalTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDelegate {
     public let kind: TTSEngineKind = .local
-    private let synth = AVSpeechSynthesizer()
+    private let synth: any SpeechSynthesizing
+    private let session: any SpeechAudioSession
     private var onFinish: (@MainActor () -> Void)?
+    private var utterance: AVSpeechUtterance?
+    private var sessionActive = false
 
     public override init() {
+        synth = AVSpeechSynthesizer()
+        session = SystemSpeechAudioSession()
+        super.init()
+        synth.delegate = self
+    }
+
+    init(synth: any SpeechSynthesizing, session: any SpeechAudioSession) {
+        self.synth = synth
+        self.session = session
         super.init()
         synth.delegate = self
     }
@@ -49,33 +99,49 @@ public final class LocalTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDeleg
     public func speak(_ text: String, onFinish: @escaping @MainActor () -> Void) {
         stop()
         self.onFinish = onFinish
-        #if os(iOS)  // AVAudioSession 仅 iOS；macOS 只用于 swift test
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
-        #endif
+        do {
+            try session.activate()
+            sessionActive = true
+        } catch {
+            finish()
+            return
+        }
         let u = AVSpeechUtterance(string: text)
         u.voice = AVSpeechSynthesisVoice(language: "zh-CN")
         u.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance = u
         synth.speak(u)
     }
 
     public func stop() {
-        if synth.isSpeaking { synth.stopSpeaking(at: .immediate) }
+        // 包括已经入队、尚未开始发声的 utterance。
+        if utterance != nil || synth.isSpeaking { _ = synth.stopSpeaking(at: .immediate) }
         finish()
     }
 
-    private func finish() {
+    private func finish(for completed: AVSpeechUtterance? = nil) {
+        // A 的 didCancel / didFinish 可能在 B 启动后才到达。
+        if let completed, completed !== utterance { return }
+        utterance = nil
         let cb = onFinish
         onFinish = nil
+        if sessionActive {
+            do {
+                try session.deactivate()
+                sessionActive = false
+            } catch { /* 保留占用标记，下次 stop 时重试释放。 */ }
+        }
         cb?()
     }
 
     public nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.finish() }
+        let identity = UtteranceIdentity(value: utterance)
+        Task { @MainActor in self.finish(for: identity.value) }
     }
 
     public nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.finish() }
+        let identity = UtteranceIdentity(value: utterance)
+        Task { @MainActor in self.finish(for: identity.value) }
     }
 }
 
@@ -93,24 +159,30 @@ public final class CloudTTSEngine: TTSEngine {
 public final class SpeechPlayer {
     public init() {}
 
+    init(engine: any TTSEngine) { self.engine = engine }
+
     public private(set) var speakingID: String?
     private var engine: TTSEngine?
+    private var generation: UInt64 = 0
 
     public func isSpeaking(_ id: String) -> Bool { speakingID == id }
 
     public func toggle(id: String, text: String) {
         if speakingID == id { stop(); return }
+        stop()
         let kind = TTSEngineKind(rawValue: UserDefaults.standard.string(forKey: SettingsKeys.ttsEngine) ?? "") ?? .local
         let engine = currentEngine(for: kind.isAvailable ? kind : .local)
+        let generation = generation
         speakingID = id
         engine.speak(Self.plainText(text)) { [weak self] in
-            if self?.speakingID == id { self?.speakingID = nil }
+            if self?.generation == generation { self?.speakingID = nil }
         }
     }
 
     public func stop() {
-        engine?.stop()
+        generation &+= 1
         speakingID = nil
+        engine?.stop()
     }
 
     private func currentEngine(for kind: TTSEngineKind) -> TTSEngine {

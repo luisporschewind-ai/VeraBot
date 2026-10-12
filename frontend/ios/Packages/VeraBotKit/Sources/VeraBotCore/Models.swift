@@ -462,6 +462,39 @@ public struct MessagesResponse: Codable, Sendable {
     public let messages: [ChatMessage]
 }
 
+public struct LocalPrivateMessage: Codable, Sendable, Identifiable, Hashable {
+    public let id: UUID
+    public var remoteID: Int?
+    public var role: String
+    public var content: String
+    public var traces: [ToolTrace]
+    public var createdAt: String?
+    public var attachments: [Attachment]
+    public var feedback: MessageFeedback?
+    public var localStatus: String
+
+    public init(id: UUID = UUID(), remoteID: Int? = nil, role: String, content: String,
+                traces: [ToolTrace] = [], createdAt: String? = nil, attachments: [Attachment] = [],
+                feedback: MessageFeedback? = nil, localStatus: String = "synced") {
+        self.id = id; self.remoteID = remoteID; self.role = role; self.content = content
+        self.traces = traces; self.createdAt = createdAt; self.attachments = attachments
+        self.feedback = feedback; self.localStatus = localStatus
+    }
+    public init(_ message: ChatMessage, id: UUID = UUID()) {
+        self.init(id: id, remoteID: message.id, role: message.role, content: message.content,
+                  traces: message.traces ?? [], createdAt: message.createdAt, attachments: message.attachments,
+                  feedback: message.feedback)
+    }
+}
+
+public struct MessageSyncResponse: Codable, Sendable {
+    public let revision: Int64
+    public let messages: [ChatMessage]
+    public let nextBeforeID: Int?
+    public let unchanged: Bool
+    enum CodingKeys: String, CodingKey { case revision, messages, unchanged; case nextBeforeID = "next_before_id" }
+}
+
 public struct UsageStats: Codable, Sendable, Hashable {
     public let requests: Int
     public let promptTokens: Int

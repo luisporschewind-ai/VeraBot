@@ -83,8 +83,8 @@ class RuntimeTests(f.GroupTests):
         history=context[2:]
         self.assertLessEqual(len(history),24)
         self.assertLessEqual(sum(len(m['content']) for m in history),12000)
-        self.assertIn('fake identity',history[-1]['content'])
-        self.assertEqual(json.loads(history[-1]['content'])['source']['role'],'user')
+        self.assertEqual(history[-1]['content'],'[Bot A] fake identity')
+        self.assertEqual(history[-1]['role'],'user')
 
     def test_duplicate_request_does_not_generate_even_after_budget_exhaustion(self):
         body={'client_request_id':str(uuid4()),'message':'只生成一次','mode':'single'}

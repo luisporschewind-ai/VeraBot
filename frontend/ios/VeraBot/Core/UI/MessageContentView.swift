@@ -91,14 +91,20 @@ private struct MessageBlockView: View {
 /// 气泡长按菜单：复制全文 + 每个链接「复制链接」（网址 / 电话 / 邮箱，复制时去掉 tel: / mailto: 前缀）
 struct MessageCopyMenu: View {
     let text: String
+    @Environment(BotNoticeCenter.self) private var noticeCenter
 
     var body: some View {
-        Button { UIPasteboard.general.string = text } label: { Label("复制", systemImage: "doc.on.doc") }
+        Button { copy(text) } label: { Label("复制", systemImage: "doc.on.doc") }
         ForEach(MessageMarkdown.links(in: text), id: \.self) { url in
-            Button { UIPasteboard.general.string = Self.copyText(url) } label: {
+            Button { copy(Self.copyText(url)) } label: {
                 Label("复制链接 \(Self.copyText(url))", systemImage: icon(url))
             }
         }
+    }
+
+    private func copy(_ value: String) {
+        UIPasteboard.general.string = value
+        noticeCenter.show(BotNotice(title: "已复制", tone: .success, avatar: .success), key: "chat.copy")
     }
 
     static func copyText(_ url: URL) -> String {

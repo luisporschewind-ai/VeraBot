@@ -23,7 +23,7 @@ struct RobotAvatarLabView: View {
                     entry("状态演示",detail:"全部 \(BotAvatarState.allCases.count) 种 · 完整演示与循环",icon:"play.circle")
                 }
                 NavigationLink { BotAvatarAppearanceLabView(appearance:appearance,size:$size,familyLook:$familyLook) } label: {
-                    entry("家族形象与配色",detail:"四种形状 · 原色与皮肤 · 耳机与徽章",icon:"paintpalette")
+                    entry("家族形象与配色",detail:"十一种形状 · 原色与皮肤 · 耳机与徽章",icon:"paintpalette")
                 }
                 NavigationLink { BotAvatarAppearanceSaveView(draft:$draft) } label: {
                     entry("外观配置",detail:"本机保存与加载 · 指定 Bot 外观配置",icon:"square.and.arrow.down")
@@ -31,7 +31,7 @@ struct RobotAvatarLabView: View {
                 Text(draft.isDirty ? "当前有未保存的外观草稿" : "当前外观已载入")
                     .font(.caption).foregroundStyle(.secondary)
                 if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
-                Text("家族形状、皮肤和配饰仅在实验室预览，并在本机记住。正式 Bot 继续使用已保存的外观与执行状态；实验室可手动演示全部表情。")
+                Text("十一种家族形状已支持在创建、编辑 Bot 时选择和保存。此处的皮肤、配饰与组合仍是本机实验；实验室可手动演示全部表情。")
                     .font(.footnote).foregroundStyle(.secondary)
                 Link("参考项目：Agent Robot Avatar · CX ArtLab",destination:URL(string:"https://github.com/CX-ArtLab/agent-robot-avatar")!)
                     .font(.footnote)

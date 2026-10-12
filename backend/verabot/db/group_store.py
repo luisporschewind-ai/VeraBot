@@ -87,23 +87,35 @@ def change_group(user_id: int, group_id: int, patch: dict) -> Group:
         return _group(c, user_id, group_id)
 
 def delete_group(user_id, group_id, *, clear_only=False):
+    removed = []
     with tx(immediate=True) as c:
         _group(c, user_id, group_id); _not_busy(c, user_id, group_id)
+        removed = [dict(r) for r in c.execute("SELECT a.* FROM chat_group_attachments ga JOIN attachments a "
+            "ON a.id=ga.attachment_id WHERE ga.user_id=? AND ga.group_id=?", (user_id,group_id)).fetchall()]
         if clear_only:
             c.execute("DELETE FROM chat_group_turns WHERE user_id=? AND group_id=?", (user_id, group_id))
+            c.executemany("DELETE FROM attachments WHERE id=? AND user_id=?", [(r["id"],user_id) for r in removed])
             c.execute("UPDATE chat_groups SET updated_at=? WHERE id=? AND user_id=?", (now_iso(), group_id, user_id))
         else:
             c.execute("DELETE FROM chat_groups WHERE user_id=? AND id=?", (user_id, group_id))
+            c.executemany("DELETE FROM attachments WHERE id=? AND user_id=?", [(r["id"],user_id) for r in removed])
+    if removed:
+        from ..services.attachments.repo import file_keys, delete_files
+        delete_files(key for row in removed for key in file_keys(row))
 
 def _message(r, c) -> GroupMessage:
     m = dict(r)
     turn=c.execute('SELECT retry_of_message_id FROM chat_group_turns WHERE id=? AND user_id=?',(m['turn_id'],m['user_id'])).fetchone()
+    linked = c.execute("SELECT a.* FROM chat_group_attachments ga JOIN attachments a ON a.id=ga.attachment_id "
+                       "WHERE ga.user_id=? AND ga.group_id=? AND ga.message_id=? ORDER BY ga.created_at",
+                       (m['user_id'],m['group_id'],m['id'])).fetchall()
+    from ..services.attachments.repo import public as public_attachment
     return {"id": m["id"], "retry_of_message_id": turn[0] if turn else None, "group_id": m["group_id"], "turn_id": m["turn_id"], "member_id": m["member_id"],
             "role": m["role"], "content": m["content"], "status": m["status"],
             "sender_name": m["sender_name_snapshot"], "sender_appearance": json.loads(m["sender_appearance_snapshot"])
             if m["sender_appearance_snapshot"] else None,
             "usage": json.loads(m["usage_json"]) if m["usage_json"] else None, "created_at": m["created_at"],
-            "finished_at": m["finished_at"]}
+            "finished_at": m["finished_at"], "attachments": [public_attachment(dict(a)) for a in linked]}
 
 def list_messages(user_id, group_id, before_id=None, limit=50):
     with tx() as c:
@@ -113,6 +125,26 @@ def list_messages(user_id, group_id, before_id=None, limit=50):
         more = len(rs) > min(limit, 100)
         page = list(reversed(rs[:min(limit, 100)]))
         return {"messages": [_message(r,c) for r in page], "next_before_id": page[0]["id"] if more and page else None}
+
+def sync_messages(user_id, group_id, before_id=None, limit=100, expected_revision=None):
+    """Read a page and its revision from one SQLite snapshot."""
+    with tx() as c:
+        _group(c, user_id, group_id)
+        row = c.execute("SELECT revision FROM conversation_revisions WHERE user_id=? AND kind='group' AND conversation_id=?",
+                        (user_id, group_id)).fetchone()
+        revision = int(row[0]) if row else 0
+        if expected_revision is not None and expected_revision != revision:
+            raise GroupStoreError(409, "sync_revision_changed", "对话正在更新，请重新同步")
+        if before_id is None and expected_revision == revision:
+            return {"revision": revision, "messages": [], "next_before_id": None, "unchanged": True}
+        cursor = before_id if before_id is not None else 9223372036854775807
+        found = c.execute("SELECT * FROM chat_group_messages WHERE user_id=? AND group_id=? AND id<? ORDER BY id DESC LIMIT ?",
+                          (user_id, group_id, cursor, min(max(limit, 1), 100)+1)).fetchall()
+        size = min(max(limit, 1), 100)
+        more = len(found) > size
+        page = list(reversed(found[:size]))
+        return {"revision": revision, "messages": [_message(r,c) for r in page],
+                "next_before_id": int(page[0]["id"]) if more and page else None, "unchanged": False}
 
 def _turn(c, user_id: int, group_id: int, turn_id: int) -> GroupTurn:
     _group(c, user_id, group_id)
@@ -130,10 +162,11 @@ def _turn(c, user_id: int, group_id: int, turn_id: int) -> GroupTurn:
 def get_turn(user_id: int, group_id: int, turn_id: int) -> GroupTurn:
     with tx() as c: return _turn(c, user_id, group_id, turn_id)
 
-def claim_turn(user_id: int, group_id: int, request: GroupChatInput, *, retry_of_message_id: int | None = None) -> GroupTurn:
+def claim_turn(user_id: int, group_id: int, request: GroupChatInput, *, retry_of_message_id: int | None = None,
+               request_hash_payload: dict | None = None) -> GroupTurn:
     from ..api.group_schemas import GroupChatIn
     body = GroupChatIn.model_validate(request).model_dump(mode="json")
-    digest = hashlib.sha256(json.dumps({**body, "retry_of_message_id": retry_of_message_id},
+    digest = hashlib.sha256(json.dumps({**(request_hash_payload or body), "retry_of_message_id": retry_of_message_id},
                                       sort_keys=True).encode()).hexdigest()
     with tx(immediate=True) as c:
         group = _group(c, user_id, group_id)
@@ -163,8 +196,29 @@ def claim_turn(user_id: int, group_id: int, request: GroupChatInput, *, retry_of
                         "status,created_at) VALUES (?,?,?,?,?,?,'running',?)",
                         (user_id, group_id, body["client_request_id"], digest, body["mode"], target["id"] if target else None, now)).lastrowid
         if original is None:
+            attachment_rows = []
+            if body.get("attachment_ids"):
+                from ..services.attachments import repo as attachments
+                now_check = now_iso()
+                for att_id in body["attachment_ids"]:
+                    row = c.execute("SELECT * FROM attachments WHERE id=? AND user_id=?", (att_id,user_id)).fetchone()
+                    if row is None: raise GroupStoreError(404,"attachment_not_found","附件不存在")
+                    if row["status"] != "pending": raise GroupStoreError(409,"attachment_already_sent","附件已经发送")
+                    if row["expires_at"] and row["expires_at"] < now_check:
+                        raise GroupStoreError(410,"attachment_expired","附件已过期，请重新选择")
+                    if row["bot_id"] is not None:
+                        raise GroupStoreError(422,"attachment_wrong_conversation","附件不属于群聊")
+                    if not attachments.get_store().exists(row["storage_key"]):
+                        raise GroupStoreError(410,"attachment_gone",attachments.GONE_MESSAGE)
+                    attachment_rows.append(row)
             mid = c.execute("INSERT INTO chat_group_messages(user_id,group_id,turn_id,role,content,status,created_at,finished_at)"
                             " VALUES (?,?,?,'user',?,'completed',?,?)", (user_id, group_id, tid, body["message"], now, now)).lastrowid
+            for row in attachment_rows:
+                updated = c.execute("UPDATE attachments SET status='attached',expires_at=NULL WHERE id=? AND user_id=? AND status='pending'",
+                                    (row["id"],user_id)).rowcount
+                if updated != 1: raise GroupStoreError(409,"attachment_already_sent","附件已经发送")
+                c.execute("INSERT INTO chat_group_attachments(attachment_id,user_id,group_id,message_id,created_at) VALUES (?,?,?,?,?)",
+                          (row["id"],user_id,group_id,mid,now))
             context_end = mid
         else:
             if target['id'] != original['member_id']:
@@ -258,6 +312,14 @@ def context_messages(user_id: int, group_id: int, turn: GroupTurn) -> list[Group
         return result
 
 
+def attachments_for_message(user_id: int, group_id: int, message_id: int) -> list[dict]:
+    with tx() as c:
+        _group(c,user_id,group_id)
+        return [dict(r) for r in c.execute("SELECT a.* FROM chat_group_attachments ga JOIN attachments a "
+            "ON a.id=ga.attachment_id WHERE ga.user_id=? AND ga.group_id=? AND ga.message_id=?",
+            (user_id,group_id,message_id)).fetchall()]
+
+
 def recover_interrupted_turns() -> int:
     with tx(immediate=True) as c:
         count=c.execute("SELECT COUNT(*) FROM chat_group_turns WHERE status='running'").fetchone()[0]
@@ -278,8 +340,14 @@ def recover_interrupted_turns() -> int:
         return count
 
 
-def existing_request(user_id,group_id,request_id):
+def existing_request(user_id,group_id,request_id, request_payload=None):
     with tx() as c:
         _group(c,user_id,group_id)
-        return c.execute('SELECT id FROM chat_group_turns WHERE user_id=? AND group_id=? AND client_request_id=?',
-                         (user_id,group_id,str(request_id))).fetchone() is not None
+        row = c.execute('SELECT id,request_hash FROM chat_group_turns WHERE user_id=? AND group_id=? AND client_request_id=?',
+                        (user_id,group_id,str(request_id))).fetchone()
+        if row is None: return None
+        if request_payload is not None:
+            digest = hashlib.sha256(json.dumps({**request_payload, "retry_of_message_id": None}, sort_keys=True).encode()).hexdigest()
+            if row["request_hash"] != digest:
+                raise GroupStoreError(409,"idempotency_conflict","请求 ID 对应不同内容",row["id"])
+        return int(row["id"])

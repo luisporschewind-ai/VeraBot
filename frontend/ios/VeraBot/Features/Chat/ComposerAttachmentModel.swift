@@ -23,10 +23,10 @@ final class ComposerAttachmentModel {
     private var preparedFile: Data?
     private var preparedFilename: String?
     private var task: Task<Void, Never>?
-    private let botID: Int
+    private let botID: Int?
     private let api: any VeraBotAPI
 
-    init(botID: Int, api: any VeraBotAPI) {
+    init(botID: Int?, api: any VeraBotAPI) {
         self.botID = botID
         self.api = api
     }

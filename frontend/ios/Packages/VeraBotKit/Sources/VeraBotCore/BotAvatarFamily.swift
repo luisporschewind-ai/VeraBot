@@ -5,6 +5,26 @@ public enum BotAvatarFamilyShape: String, CaseIterable, Codable, Sendable, Ident
     case standard, soft, tilted, rounded
     case circle, droplet, roundedTriangle, capsule, pentagon, pumpkin, roundedDroplet
     public var id: String { rawValue }
+    /// Stable production identifiers use the existing appearance document contract.
+    public var templateID: String {
+        switch self {
+        case .standard: "cx-robot"
+        case .soft: "cx-robot-soft"
+        case .tilted: "cx-robot-tilted"
+        case .rounded: "cx-robot-rounded"
+        case .circle: "cx-robot-circle"
+        case .droplet: "cx-robot-flower"
+        case .roundedTriangle: "cx-robot-rounded-triangle"
+        case .capsule: "cx-robot-capsule"
+        case .pentagon: "cx-robot-pentagon"
+        case .pumpkin: "cx-robot-pumpkin"
+        case .roundedDroplet: "cx-robot-rounded-droplet"
+        }
+    }
+    public init?(templateID: String, version: Int) {
+        guard version == 1, let shape = Self.allCases.first(where: { $0.templateID == templateID }) else { return nil }
+        self = shape
+    }
     public var title: String {
         switch self {
         case .standard: "标准"; case .soft: "微鼓"; case .tilted: "轻偏"; case .rounded: "饱满"

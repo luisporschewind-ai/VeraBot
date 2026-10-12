@@ -1,4 +1,5 @@
 import Foundation
+import VeraBotCore
 
 struct BotAvatarTemplate: Sendable {
     enum Geometry: Sendable { case cxRobot }
@@ -34,7 +35,15 @@ struct BotAvatarTemplate: Sendable {
 }
 
 enum BotAvatarTemplateRegistry {
-    static let templates = [BotAvatarTemplate.robot]
+    static let templates = BotAvatarFamilyShape.allCases.map { shape in
+        BotAvatarTemplate(id:shape.templateID,version:1,title:shape.title,geometry:.cxRobot,
+                          leftEyeAnchor:BotAvatarTemplate.robot.leftEyeAnchor,
+                          rightEyeAnchor:BotAvatarTemplate.robot.rightEyeAnchor,
+                          antennaAnchor:BotAvatarTemplate.robot.antennaAnchor,
+                          antennaRadius:BotAvatarTemplate.robot.antennaRadius,
+                          drawingMargin:BotAvatarTemplate.robot.drawingMargin,
+                          capabilities:BotAvatarTemplate.robot.capabilities)
+    }
     static func resolve(id: String, version: Int) -> BotAvatarTemplate? {
         templates.first { $0.id == id && $0.version == version }
     }

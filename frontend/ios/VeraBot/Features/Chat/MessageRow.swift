@@ -93,6 +93,9 @@ struct MessageRow: View {
                             .foregroundStyle(Color.userBubbleText)
                             .background(Color.userBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
+                    if ["sending", "unconfirmed"].contains(item.localStatus) {
+                        Text("发送结果尚未确认").font(.caption2).foregroundStyle(.secondary)
+                    }
                     if ttsEnabled && !item.text.isEmpty {
                         SpeakButton(key: item.id.uuidString, text: item.text)
                     }
@@ -138,6 +141,9 @@ struct MessageRow: View {
                             }
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            if ["interrupted", "receiving", "unconfirmed"].contains(item.localStatus) && !item.streaming {
+                                Text("回复已中断 · 已保留收到的内容").font(.caption2).foregroundStyle(.secondary)
+                            }
                             if !item.streaming && (item.messageID != nil || (ttsEnabled && !item.text.isEmpty)) {
                                 HStack(spacing: 0) {
                                     if ttsEnabled && !item.text.isEmpty {

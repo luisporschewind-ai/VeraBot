@@ -11,17 +11,7 @@ struct VeraBotApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains("--group-chat-preview") {
-                    GroupChatPreviewRoot()
-                } else {
-                    RootView()
-                }
-                #else
-                RootView()
-                #endif
-            }
+            RootView()
                 .environment(app)
                 .environment(travelStore)
                 .environment(player)
@@ -35,7 +25,10 @@ struct VeraBotApp: App {
 
 struct RootView: View {
     @Environment(AppState.self) private var app
+    @Environment(SpeechPlayer.self) private var player
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var noticeCenter = BotNoticeCenter()
     @State private var welcoming = true
 
     var body: some View {
@@ -47,6 +40,8 @@ struct RootView: View {
             .accessibilityHidden(welcoming)
             if welcoming { BotLaunchView().transition(.opacity).zIndex(1) }
         }
+        .environment(noticeCenter)
+        .botNoticeHost(noticeCenter)
         .task {
             do {
                 // Three greetings stagger over 0.8s; each existing .send action lasts about 1.46s.
@@ -55,6 +50,20 @@ struct RootView: View {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { welcoming = false }
             } catch { /* Root dismissal cancels the welcome. */ }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { player.stop() }
+        }
+        .onChange(of: app.token) { _, token in
+            if token == nil {
+                player.stop()
+                noticeCenter.clear()
+            }
+        }
+        .onChange(of: app.userID) { _, _ in
+            player.stop()
+            noticeCenter.clear()
+        }
+        .onChange(of: app.selectedTab) { _, _ in noticeCenter.clear() }
     }
 }
 

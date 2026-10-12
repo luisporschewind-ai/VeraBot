@@ -219,8 +219,25 @@ class GroupTests(unittest.TestCase):
         with old: apply(old)
         with old: apply(old)
         self.assertEqual(old.execute('SELECT content FROM messages WHERE id=?', (mid,)).fetchone()[0], '私聊保留')
-        self.assertEqual(old.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], '20')
-        self.assertEqual(old.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name LIKE 'chat_group%'").fetchone()[0], 4)
+        self.assertEqual(old.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], '22')
+        self.assertEqual(old.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name LIKE 'chat_group%'").fetchone()[0], 5)
         old.close()
+
+    def test_group_attachment_is_visible_in_context_and_removed_with_history(self):
+        from verabot.db import group_store
+        from verabot.services.attachments import repo
+        from verabot.agents import group_context
+        group = self.group()
+        attachment = repo.create_file(UID, None, b"Group attachment note", "brief.txt")
+        row = repo.get(UID, attachment["id"])
+        turn = group_store.claim_turn(UID, group["id"], {
+            "client_request_id": str(uuid4()), "message": "请读一下", "attachment_ids": [attachment["id"]]})
+        self.assertEqual(turn["messages"][0]["attachments"][0]["id"], attachment["id"])
+        prompt = group_context.build(UID, group, group["members"][0], turn)
+        self.assertIn("Group attachment note", json.dumps(prompt, ensure_ascii=False))
+        group_store.finish_turn(UID, group["id"], turn["id"], 'completed')
+        group_store.delete_group(UID, group["id"], clear_only=True)
+        self.assertIsNone(repo.get(UID, attachment["id"]))
+        self.assertFalse(repo.get_store().exists(row["storage_key"]))
 
 if __name__ == '__main__': unittest.main(verbosity=2)

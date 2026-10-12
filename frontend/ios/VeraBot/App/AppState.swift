@@ -1,8 +1,11 @@
 import Foundation
 import SwiftUI
 import UIKit
+import CryptoKit
 import VeraBotCore
 import VeraBotNetworking
+import VeraBotPersistence
+import VeraBotData
 
 /// 全局登录态与资料（昵称、头像、邮箱 / 手机号）。首页和对话直接读这里，不在每个页面单独重拉。
 /// 令牌（访问 7 天 + 刷新 60 天）存 Keychain，由共享的 AuthSession 持有：任何请求 401 时透明刷新一次；
@@ -49,6 +52,8 @@ final class AppState {
     /// Last transport failure for the debug page; never rendered in product copy.
     var connectionDiagnostic: String?
     let avatars = AvatarStore()
+    private(set) var conversationRepository: ConversationRepository?
+    private var conversationDatabaseURL: URL?
 
     var displayName: String {
         let trimmed = nickname?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -93,6 +98,7 @@ final class AppState {
             avatars.loadCachedUser()
             if avatars.userImage != nil { avatars.noteUserStamp(avatarUpdatedAt) }
         }
+        activatePersistenceScope()
     }
 
     /// 当前后端 API（依赖协议 VeraBotAPI，实现为 VeraBotNetworking.APIClient）
@@ -114,11 +120,14 @@ final class AppState {
     func isCurrentAuthAttempt(_ generation: UInt64) -> Bool { authSession.isCurrentAuthAttempt(generation) }
 
     func saveBaseURL() {
+        invalidatePersistenceScope()
         UserDefaults.standard.set(baseURLString, forKey: Keys.baseURL)
+        activatePersistenceScope()
     }
 
     func signIn(_ auth: AuthResponse) {
         let previous = username
+        invalidatePersistenceScope()
         HTTPCachePurge.purgeAppCaches()
         token = auth.token
         authSession.set(AuthTokens(access: auth.token, refresh: auth.refreshToken))
@@ -127,6 +136,7 @@ final class AppState {
             AttachmentImageStore.shared.clearAll()
         }
         applyUser(auth.user)
+        activatePersistenceScope()
     }
 
     func applyUser(_ user: User) {
@@ -185,6 +195,17 @@ final class AppState {
     }
 
     func signOut() {
+        let oldRepository = conversationRepository
+        let oldDatabaseURL = conversationDatabaseURL
+        conversationRepository = nil
+        conversationDatabaseURL = nil
+        if let oldRepository, let oldDatabaseURL {
+            Task {
+                await oldRepository.invalidate()
+                await oldRepository.store.database.close()
+                try? FileManager.default.removeItem(at: oldDatabaseURL.deletingLastPathComponent())
+            }
+        }
         let refresh = authSession.tokens?.refresh
         let device = DeviceIdentity.current()
         let uid = userID
@@ -220,6 +241,44 @@ final class AppState {
         unreadCount = 0
         pendingLink = nil
         d.removeObject(forKey: Keys.userID)
+    }
+
+    private func activatePersistenceScope() {
+        guard token != nil, let userID else { conversationRepository = nil; return }
+        let endpoint = (URL(string: baseURLString)?.absoluteString ?? baseURLString)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let scope = Data("\(endpoint)|\(userID)".utf8)
+        let name = SHA256.hash(data: scope).map { String(format: "%02x", $0) }.joined()
+        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("VeraBot/Accounts/\(name)", isDirectory: true)
+        let url = root.appendingPathComponent("conversation.sqlite")
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var protectedURL = root
+        try? protectedURL.setResourceValues(values)
+        try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                                               ofItemAtPath: root.path)
+        let generation = authSession.generation
+        let session = authSession
+        let database = LocalDatabase(url: url)
+        Task {
+            try? database.open()
+        }
+        let store = ConversationStore(database: database)
+        let api = groupAPI
+        conversationRepository = ConversationRepository(store: store, api: api, groupAPI: api,
+                                                        sessionIsCurrent: { session.isCurrent(generation) })
+        conversationDatabaseURL = url
+    }
+
+    private func invalidatePersistenceScope() {
+        guard let old = conversationRepository else { return }
+        conversationRepository = nil
+        Task {
+            await old.invalidate()
+            await old.store.database.close()
+        }
     }
 
     /// 统一错误文案；401 时自动退出登录。

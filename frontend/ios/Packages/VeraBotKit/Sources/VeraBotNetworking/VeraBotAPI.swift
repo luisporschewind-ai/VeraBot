@@ -55,6 +55,7 @@ public protocol VeraBotAPI: Sendable {
     func acceptPluginToolChanges(id: String) async throws -> PluginAcceptChangesResult
     func delegations(botID: Int) async throws -> DelegationsResponse
     func messages(botID: Int) async throws -> MessagesResponse
+    func syncMessages(botID: Int, beforeID: Int?, expectedRevision: Int64?) async throws -> MessageSyncResponse
     /// includeMemories：同时删除该 Bot 的「本 Bot 记忆」与对话摘要（默认 false，记忆保留）
     func clearMessages(botID: Int, includeMemories: Bool) async throws -> ClearMessagesResponse
     /// 删除单条消息（物理删除，只删这一条；已提取的记忆保留）。他人 / 不存在的消息 → 404

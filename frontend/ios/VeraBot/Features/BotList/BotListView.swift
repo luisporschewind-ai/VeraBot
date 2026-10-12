@@ -4,7 +4,9 @@ import VeraBotNetworking
 
 struct BotListView: View {
     @Environment(AppState.self) private var app
-    @State private var showGroups = false
+    @State private var groups: [ChatGroup] = []
+    @State private var selectedGroup: ChatGroup?
+    @State private var groupError: String?
     @State private var createGroup = false
     @State private var bots: [Bot] = []
     @State private var limit = 20   // 服务端下发的软上限（Soft limit）
@@ -21,21 +23,22 @@ struct BotListView: View {
     @State private var pinning: Set<Int> = []    // 正在与服务端同步置顶状态的 Bot，避免连点重复提交
     @State private var linkedChat: LinkedChat?
     @State private var linkedPlugin: String?
-    #if DEBUG
-    @State private var showGroupPreview = false
-    #endif
+
+    private var conversations: [ConversationItem] { ConversationItem.sorted(bots: bots, groups: groups) }
 
     var body: some View {
         NavigationStack {
             // 沉浸式平铺列表：白底、无圆角分组、无分隔线（plainListRow 见 Theme）
             List {
-                if !bots.isEmpty, let connectionIssue {
+                if !conversations.isEmpty, let connectionIssue {
                     BotConnectionView(issue: connectionIssue, retrying: loading, compact: true) {
                         Task { await load() }
                     }
                     .plainListRow()
                 }
-                ForEach(bots) { bot in
+                ForEach(conversations) { item in
+                    switch item {
+                    case .bot(let bot):
                     NavigationLink(value: bot) { BotRow(bot: bot) }
                         .contextMenu {
                             pinButton(for: bot)
@@ -49,6 +52,16 @@ struct BotListView: View {
                         }
                         .plainListRow()
                         .listRowBackground(bot.isPinned ? Color.sectionFill : Color.appBackground)
+                    case .group(let group):
+                        Button { selectedGroup = group } label: { GroupConversationRow(group: group) }
+                            .buttonStyle(.plain).plainListRow()
+                    }
+                }
+                if let groupError {
+                    VStack(alignment: .leading) {
+                        Text(groupError)
+                        Button("重新加载") { Task { await load() } }
+                    }.font(.footnote).plainListRow()
                 }
                 if let errorText {
                     Text(errorText).foregroundStyle(.red).font(.footnote)
@@ -68,11 +81,11 @@ struct BotListView: View {
             }
             .themedPageBackground()
             .overlay {
-                if bots.isEmpty, let connectionIssue {
+                if conversations.isEmpty, let connectionIssue {
                     BotConnectionView(issue: connectionIssue, retrying: loading) { Task { await load() } }
-                } else if bots.isEmpty && (!loaded || loading) {
+                } else if conversations.isEmpty && (!loaded || loading) {
                     BotLoadingView()
-                } else if bots.isEmpty && errorText == nil {
+                } else if conversations.isEmpty && errorText == nil && groupError == nil {
                     ContentUnavailableView {
                         Label("还没有 Bot", systemImage: "person.crop.circle.badge.plus")
                     } description: {
@@ -83,15 +96,17 @@ struct BotListView: View {
                 }
             }
             // 首页不显示导航标题；inline 保留紧凑导航栏，避免大标题占位。
-            .overlay { if showGroups { GroupListView(creating: $createGroup).environment(app) } }
+            .navigationDestination(item: $selectedGroup) { group in
+                GroupChatView(group: group, app: app).toolbar(.hidden, for: .tabBar)
+            }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: Bot.self) { bot in
-                ChatView(bot: bot, api: app.api)
+                ChatView(bot: bot, api: app.api, repository: app.conversationRepository)
                     .toolbar(.hidden, for: .tabBar)   // 二级页面隐藏底部 Tab 栏，返回根页面时自动恢复
             }
             .navigationDestination(item: $linkedChat) { route in
-                ChatView(bot: route.bot, api: app.api, highlightMessageID: route.messageID)
+                ChatView(bot: route.bot, api: app.api, repository: app.conversationRepository, highlightMessageID: route.messageID)
                     .toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: Binding(
@@ -107,10 +122,6 @@ struct BotListView: View {
                 open(link)
             }
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("助理列表", selection: $showGroups) { Text("Bot").tag(false); Text("群聊").tag(true) }
-                        .pickerStyle(.segmented).frame(width: 140)
-                }
                 // iOS 26：系统会给工具栏项套一层 Liquid Glass 共享底（按内容算出的胶囊），
                 // 包在头像外面看起来不是圆的。关掉这层底，只显示与右侧圆形按钮等大的正圆头像。
                 if #available(iOS 26.0, *) {
@@ -132,12 +143,16 @@ struct BotListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("创建 Bot", systemImage: "plus") { showCreate = true }.disabled(bots.count >= limit)
-                        Button("创建群聊", systemImage: "person.3") { showGroups = true; createGroup = true }
-                        #if DEBUG
-                        Button("群聊预览", systemImage: "viewfinder") { showGroupPreview = true }
-                        #endif
+                        Button("创建群聊", systemImage: "person.3") { createGroup = true }
                     } label: { Image(systemName: "plus") }
                     .accessibilityLabel("创建 Bot 或群聊")
+                }
+            }
+            .sheet(isPresented: $createGroup) {
+                CreateGroupSheet { group in
+                    createGroup = false
+                    selectedGroup = group
+                    Task { await load() }
                 }
             }
             .sheet(isPresented: $showCreate) {
@@ -146,17 +161,11 @@ struct BotListView: View {
                     .presentationDetents([.large])
             }
             .sheet(isPresented: $showSearch) {
-                BotSearchSheet(bots: bots)
+                BotSearchSheet(bots: bots, groups: groups)
                     .environment(app)
                     .toolbar(.hidden, for: .tabBar)
                     .presentationDetents([.large])
             }
-            #if DEBUG
-            .sheet(isPresented: $showGroupPreview) {
-                GroupChatPreviewRoot()
-                    .presentationDetents([.large])
-            }
-            #endif
             .sheet(item: $editing, onDismiss: { Task { await load() } }) { bot in
                 NavigationStack { BotEditView(bot: bot) { _ in }.toolbar(.hidden, for: .tabBar) }
             }
@@ -188,6 +197,13 @@ struct BotListView: View {
         loading = true
         let generation = app.sessionGeneration
         let endpoint = app.baseURLString
+        if !loaded, let repository = app.conversationRepository {
+            if let cached = try? await repository.cacheLists(), app.isCurrentSession(generation), app.baseURLString == endpoint {
+                bots = BotOrdering.sorted(cached.bots)
+                groups = cached.groups
+                if !bots.isEmpty || !groups.isEmpty { loaded = true }
+            }
+        }
         defer {
             loading = false
             if reloadRequested {
@@ -195,10 +211,12 @@ struct BotListView: View {
                 if !Task.isCancelled { Task { await load() } }
             }
         }
+        async let groupLoad: Void = loadGroups(generation: generation, endpoint: endpoint)
         do {
             let r = try await app.api.bots()
             guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
             bots = BotOrdering.sorted(r.bots)
+            try? await app.conversationRepository?.replaceBots(r.bots)
             limit = r.limit
             for bot in r.bots {
                 app.avatars.reconcileBot(id: bot.id, hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
@@ -219,6 +237,19 @@ struct BotListView: View {
             } else {
                 errorText = app.message(for: error)
             }
+        }
+        await groupLoad
+    }
+
+    private func loadGroups(generation: UInt64, endpoint: String) async {
+        do {
+            let response = try await app.groupAPI.groups()
+            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
+            groups = response.groups; groupError = nil
+            try? await app.conversationRepository?.replaceGroups(response.groups)
+        } catch {
+            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
+            groupError = "群聊暂时没连上，请重新加载。"
         }
     }
 
@@ -293,16 +324,16 @@ private struct BotSearchSheet: View {
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
     let bots: [Bot]
+    let groups: [ChatGroup]
 
     @State private var query = ""
     @FocusState private var searchFocused: Bool
 
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var results: [Bot] {
-        guard !trimmedQuery.isEmpty else { return bots }
-        return bots.filter { bot in
-            bot.name.localizedStandardContains(trimmedQuery)
-                || (bot.lastMessage?.content.localizedStandardContains(trimmedQuery) ?? false)
+    private var results: [ConversationItem] {
+        ConversationItem.sorted(bots: bots, groups: groups).filter { item in
+            trimmedQuery.isEmpty || item.name.localizedStandardContains(trimmedQuery)
+                || item.preview.localizedStandardContains(trimmedQuery)
         }
     }
 
@@ -312,10 +343,10 @@ private struct BotSearchSheet: View {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
-                    TextField("搜索 Bot 或消息", text: $query)
+                    TextField("搜索 Bot、群聊或消息", text: $query)
                         .focused($searchFocused)
                         .submitLabel(.search)
-                        .accessibilityLabel("搜索 Bot 或消息")
+                        .accessibilityLabel("搜索 Bot、群聊或消息")
                     if !query.isEmpty {
                         Button {
                             query = ""
@@ -336,7 +367,7 @@ private struct BotSearchSheet: View {
                 .padding(.bottom, 4)
 
                 List {
-                    if bots.isEmpty {
+                    if bots.isEmpty && groups.isEmpty {
                         ContentUnavailableView("还没有 Bot", systemImage: "person.crop.circle")
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
@@ -345,10 +376,15 @@ private struct BotSearchSheet: View {
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
                     } else {
-                        ForEach(results) { bot in
-                            NavigationLink(value: bot) { BotRow(bot: bot) }
-                                .plainListRow()
-                                .listRowBackground(bot.isPinned ? Color.sectionFill : Color.appBackground)
+                        ForEach(results) { item in
+                            switch item {
+                            case .bot(let bot):
+                                NavigationLink(value: bot) { BotRow(bot: bot) }
+                                    .plainListRow()
+                                    .listRowBackground(bot.isPinned ? Color.sectionFill : Color.appBackground)
+                            case .group(let group):
+                                NavigationLink(value: group) { GroupConversationRow(group: group) }.plainListRow()
+                            }
                         }
                     }
                 }
@@ -364,8 +400,11 @@ private struct BotSearchSheet: View {
                 }
             }
             .navigationDestination(for: Bot.self) { bot in
-                ChatView(bot: bot, api: app.api)
+                ChatView(bot: bot, api: app.api, repository: app.conversationRepository)
                     .toolbar(.hidden, for: .tabBar)
+            }
+            .navigationDestination(for: ChatGroup.self) { group in
+                GroupChatView(group: group, app: app).toolbar(.hidden, for: .tabBar)
             }
             .task {
                 await Task.yield()
@@ -389,8 +428,9 @@ struct BotRow: View {
             LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
                            hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt,
                            animated: true, appearance: bot.supportedAppearance)
+                .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .center, spacing: 6) {
                     Text(bot.name).font(.headline).lineLimit(1).layoutPriority(1)
                     if bot.isPinned {
                         Image(systemName: "pin.fill")
@@ -418,5 +458,54 @@ struct BotRow: View {
     private var preview: String {
         let raw = bot.lastMessage?.content ?? (bot.persona.isEmpty ? "点击开始私聊" : bot.persona)
         return raw.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "\n", with: " ")
+    }
+}
+
+private enum ConversationItem: Identifiable {
+    case bot(Bot), group(ChatGroup)
+    var id: String { switch self { case .bot(let bot): "bot-\(bot.id)"; case .group(let group): "group-\(group.id)" } }
+    var name: String { switch self { case .bot(let bot): bot.name; case .group(let group): group.name } }
+    var preview: String { switch self { case .bot(let bot): bot.lastMessage?.content ?? ""; case .group(let group): group.lastMessage?.content ?? "" } }
+    var pinnedAt: String? { if case .bot(let bot) = self { bot.pinnedAt } else { nil } }
+    var date: Date? {
+        switch self {
+        case .bot(let bot): ListTimestamp.rowDate(for: bot)
+        case .group(let group): ListTimestamp.parse(group.lastMessage?.createdAt) ?? ListTimestamp.parse(group.updatedAt) ?? ListTimestamp.parse(group.createdAt)
+        }
+    }
+    static func sorted(bots: [Bot], groups: [ChatGroup]) -> [Self] {
+        (bots.map(Self.bot) + groups.map(Self.group)).sorted {
+            if $0.pinnedAt != $1.pinnedAt { return ($0.pinnedAt ?? "") > ($1.pinnedAt ?? "") }
+            if $0.date != $1.date { return ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
+            return $0.id < $1.id
+        }
+    }
+}
+
+struct GroupConversationRow: View {
+    let group: ChatGroup
+    var body: some View {
+        HStack(spacing: 12) {
+            GroupConversationAvatar(members: group.members)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .center, spacing: 6) {
+                    Text(group.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+                    Text("群聊").font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                        .padding(.horizontal, 6).padding(.vertical, 2).background(Color.sectionFill, in: Capsule())
+                    Spacer(minLength: 8)
+                    if let date = ListTimestamp.parse(group.lastMessage?.createdAt) ?? ListTimestamp.parse(group.updatedAt) {
+                        Text(ListTimestamp.label(for: date)).font(.footnote).foregroundStyle(.secondary).monospacedDigit().layoutPriority(1)
+                    }
+                }
+                Text(preview)
+                    .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }.padding(.vertical, 2)
+    }
+
+    private var preview: String {
+        if let message = group.lastMessage, !message.content.isEmpty { return message.content }
+        if let attachment = group.lastMessage?.attachments.first { return attachment.isFile ? "发送了一个文件" : "发送了一张图片" }
+        return "从一句话开始讨论"
     }
 }

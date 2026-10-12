@@ -132,9 +132,9 @@ uv run python scripts/dev/seed_demo.py --reset   # 重建演示账号 demo / ver
 
 验证记录：[G2](../docs/testing/2026-10-11-bot-group-chat-g2.md)。代码实现与 mock 回归不代表生产部署或真实模型体验已验收。
 
-### 群聊 G3 隔离验收
+### 群聊开发回归夹具（产品外）
 
-`python scripts/dev/group_chat_demo.py --port 8093` 使用新临时库与确定性模拟提供者，只监听127.0.0.1，不请求真实模型；可用 `--data-dir` 指定独立测试目录。测试账号 group-demo / group-demo-123，已有A/B/C。服务启动后运行 `python scripts/test/group_http_test.py http://127.0.0.1:8093` 进行真实socket/SSE检查。此服务仅供本地测试；正式群运行仍要求单worker。完整证据及人工步骤见 [G3](../docs/testing/2026-10-11-bot-group-chat.md)。
+`python scripts/dev/group_chat_demo.py --port 8093` 使用新临时库与确定性模拟提供者，只监听127.0.0.1，不请求真实模型；可用 `--data-dir` 指定独立测试目录。测试账号 group-demo / group-demo-123，已有A/B/C。服务启动后运行 `python scripts/test/group_http_test.py http://127.0.0.1:8093` 进行真实socket/SSE检查。此服务仅供开发自动回归，不是 App 功能或正式启动路径；正式群运行仍要求单worker。完整证据及人工步骤见 [G3](../docs/testing/2026-10-11-bot-group-chat.md)。
 
 ## Bot 无 key 联网查询
 

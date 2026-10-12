@@ -163,21 +163,22 @@ final class SpeechInput {
 
     private let engine = SpeechEngine()
 
-    func toggle() async {
+    func toggle(beforeRecording: @MainActor () -> Void = {}) async {
         if isRecording {
             stop()
         } else {
-            await start()
+            await start(beforeRecording: beforeRecording)
         }
     }
 
-    func start() async {
+    func start(beforeRecording: @MainActor () -> Void = {}) async {
         errorText = nil
         guard await SpeechEngine.requestPermissions() else {
             errorText = "请在「设置」中允许 VeraBot 使用麦克风和语音识别"
             return
         }
         transcript = ""
+        beforeRecording()
         do {
             try engine.start(
                 onResult: { [weak self] text, isFinal in

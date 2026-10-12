@@ -145,7 +145,7 @@ enum NoticeScenarioCatalog {
             Item("回复 / 流式连接失败", "这次回复未能完成", .failure, .inline, "消息错误文字 / Bot 终态", "Features/Chat/ChatViewModel.swift", avatar: .error),
             Item("额度不足 / 请求受限", "暂时无法继续对话", .warning, .inline, "429 错误文字", "Features/Chat/ChatViewModel.swift", detail: "请查看用量，或稍后再试"),
             Item("停止生成", "已停止本次回复", .information, .banner, "停止按钮 / 消息状态", "Features/Chat/ChatViewModel.swift"),
-            Item("复制消息 / 链接", "已复制", .success, .banner, "写入剪贴板，无统一成功提示", "Core/UI/MessageContentView.swift"),
+            Item("复制消息 / 链接", "已复制", .success, .banner, "写入剪贴板后显示 Bot 横幅", "Core/UI/MessageContentView.swift"),
             Item("删除消息确认", "确定删除这条消息？", .confirmation, .confirmation, "系统确认面板", "Features/Chat/MessageRow.swift", detail: "已记住的内容不受影响"),
             Item("消息删除成功", "消息已删除", .success, .banner, "消息列表更新", "Features/Chat/ChatViewModel.swift"),
             Item("消息删除失败", "消息未能删除", .failure, .inline, "页面错误文字", "Features/Chat/ChatViewModel.swift"),

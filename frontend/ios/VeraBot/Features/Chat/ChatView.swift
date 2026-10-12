@@ -3,11 +3,14 @@ import SwiftUI
 import UniformTypeIdentifiers
 import VeraBotCore
 import VeraBotNetworking
+import VeraBotTTS
+import VeraBotData
 
 struct ChatView: View {
     @State private var vm: ChatViewModel
     @State private var speech = SpeechInput()
     @State private var input = ""
+    @State private var draftSaveTask: Task<Void, Never>?
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
     @FocusState private var focused: Bool
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
@@ -23,6 +26,7 @@ struct ChatView: View {
     @State private var showFiles = false
     @State private var cameraDenied = false
     @Environment(AppState.self) private var app
+    @Environment(SpeechPlayer.self) private var player
     @Environment(\.dismiss) private var dismiss
     @Environment(BotTravelStore.self) private var travelStore
     @Environment(\.scenePhase) private var scenePhase
@@ -30,9 +34,9 @@ struct ChatView: View {
     let highlightMessageID: Int?
     @State private var travelTripToShow: BotTravelTrip?
 
-    init(bot: Bot, api: any VeraBotAPI, highlightMessageID: Int? = nil) {
+    init(bot: Bot, api: any VeraBotAPI, repository: ConversationRepository? = nil, highlightMessageID: Int? = nil) {
         self.highlightMessageID = highlightMessageID
-        _vm = State(initialValue: ChatViewModel(bot: bot, api: api))
+        _vm = State(initialValue: ChatViewModel(bot: bot, api: api, repository: repository))
         _attachment = State(initialValue: ComposerAttachmentModel(botID: bot.id, api: api))
     }
 
@@ -40,6 +44,14 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
+                    if vm.hasOlderMessages {
+                        Button(vm.loadingOlder ? "正在加载…" : "加载更早的消息") { Task { await vm.loadOlder() } }
+                            .disabled(vm.loadingOlder).font(.footnote)
+                    }
+                    if vm.historyIncomplete {
+                        Text("部分历史尚未同步；联网后会继续下载。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     ForEach(vm.items) { item in
                         MessageRow(item: item, bot: vm.bot, vm: vm)
                             .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
@@ -129,6 +141,7 @@ struct ChatView: View {
             Text(BotDeletion.message(vm.bot.name))
         }
         .task {
+            input = await vm.loadDraft()
             await vm.load()
             if quickPromptsEnabled { await vm.refreshQuickPrompts() }
         }
@@ -162,7 +175,11 @@ struct ChatView: View {
             Text("请在「设置」中允许 VeraBot 使用相机。")
         }
         .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）
-        .onDisappear { focused = false }   // 返回 / 离开页面时收起键盘
+        .onDisappear {
+            focused = false
+            // 全屏相机临时遮盖对话，仍属于当前对话；返回列表才结束朗读。
+            if !showCamera { player.stop() }
+        }
     }
 
     /// 先查相机权限：未决定时系统弹窗；已拒绝则提示前往设置
@@ -333,6 +350,12 @@ struct ChatView: View {
         .padding(.top, 4)
         .padding(.bottom, 8)
         .onChange(of: input) { old, new in
+            draftSaveTask?.cancel()
+            draftSaveTask = Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                await vm.saveDraft(new)
+            }
             // 多行输入框（axis: .vertical）里 return 会插入换行：把「只多了一个换行」视为按下发送键，
             // 恢复原文并发送；粘贴的多行文本（一次多于一个字符）保留换行
             if new.count == old.count + 1,
@@ -346,7 +369,11 @@ struct ChatView: View {
                 input = speechBase + speech.transcript   // 实时写入部分识别结果，由用户确认后发送
             }
         }
-        .onDisappear { speech.cancel() }
+        .onDisappear {
+            draftSaveTask?.cancel()
+            Task { await vm.saveDraft(input) }
+            speech.cancel()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { speech.cancel() }   // 进入后台立即释放麦克风 / 音频会话
         }
@@ -391,8 +418,10 @@ struct ChatView: View {
 
     private func toggleSpeech() {
         if !speech.isRecording {
+            player.stop()
             speechBase = input.isEmpty ? "" : input + " "
         }
-        Task { await speech.toggle() }
+        // 权限弹窗可能等待很久，真正开启麦克风前再次停止朗读。
+        Task { await speech.toggle(beforeRecording: { player.stop() }) }
     }
 }

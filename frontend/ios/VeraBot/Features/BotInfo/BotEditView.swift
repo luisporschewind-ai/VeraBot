@@ -23,6 +23,8 @@ struct BotEditView: View {
     @State private var draft: BotProfileDraft
     @State private var avatar = ""
     @State private var color = ""
+    @State private var shape: BotAvatarFamilyShape
+    @State private var shapeChanged = false
     @State private var persona = ""
     @State private var instructions = ""
     @State private var tools: [ToolInfo] = []
@@ -64,6 +66,7 @@ struct BotEditView: View {
         self.clearDisabled = clearDisabled
         self.onClear = onClear
         _draft = State(initialValue: BotProfileDraft(bot: bot))
+        _shape = State(initialValue:bot.supportedAppearance?.familyShape ?? .standard)
     }
 
     var body: some View {
@@ -107,7 +110,12 @@ struct BotEditView: View {
             }
 
             Section {
+                BotAvatarShapePicker(selection:Binding(get:{ shape },set:{ shape = $0; shapeChanged = true }),color:color)
                 BotAvatarColorPicker(selection: $color)
+                if savedBot.hasAvatar && draft.photo != .remove {
+                    Text("照片头像优先显示；切换为默认形象后使用所选形状。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             }
 
             Section {
@@ -376,13 +384,13 @@ struct BotEditView: View {
         return s
     }
 
-    private var avatarPreviewAppearance: BotAppearance? {
-        guard var appearance = savedBot.supportedAppearance,
-              let selected = BotAvatarColorPalette.appearanceColor(for: color) else {
-            return savedBot.supportedAppearance
+    private var avatarPreviewAppearance: BotAppearance {
+        var value = savedBot.supportedAppearance ?? .robotDefault
+        if shapeChanged || BotAvatarFamilyShape(templateID:value.templateID,version:value.templateVersion) != nil {
+            value.familyShape = shape
         }
-        appearance.palette.body = selected
-        return appearance
+        if let selected = BotAvatarColorPalette.appearanceColor(for:color) { value.palette.body = selected }
+        return value
     }
 
     private func setMuted(_ on: Bool) async {
@@ -432,6 +440,7 @@ struct BotEditView: View {
                 allowedTools = Set(fresh.allowedTools); delegateTo = Set(fresh.delegateTo); acceptDelegation = fresh.acceptDelegation
                 memoryAccess = fresh.memoryAccess; memoryCount = fresh.memoryCount
                 if !draft.isDirty { draft = BotProfileDraft(bot: fresh) }   // 以服务端最新数据为基线
+                if !shapeChanged { shape = fresh.supportedAppearance?.familyShape ?? .standard }
                 freshBot = fresh
             }
             loaded = true
@@ -455,7 +464,7 @@ struct BotEditView: View {
     private func save() async {
         saving = true
         defer { saving = false }
-        let patch = BotPatch(name: draft.name, avatar: avatar, color: color,
+        var patch = BotPatch(name: draft.name, avatar: avatar, color: color,
                              persona: persona, instructions: instructions,
                              allowedTools: allowedTools.sorted(),
                              delegateTo: canDelegate ? delegateTo.sorted() : [],
@@ -464,6 +473,9 @@ struct BotEditView: View {
                              tags: draft.tags)
         let updated: Bot
         do {
+            if shapeChanged || (savedBot.supportedAppearance != nil && color != savedBot.color) {
+                patch.appearance = try avatarPreviewAppearance.jsonValue()
+            }
             updated = try await app.api.updateBot(bot.id, patch)
         } catch {
             errorText = app.message(for: error)

@@ -10,6 +10,8 @@ let package = Package(
     products: [
         .library(name: "VeraBotCore", targets: ["VeraBotCore"]),
         .library(name: "VeraBotNetworking", targets: ["VeraBotNetworking"]),
+        .library(name: "VeraBotPersistence", targets: ["VeraBotPersistence"]),
+        .library(name: "VeraBotData", targets: ["VeraBotData"]),
         .library(name: "VeraBotTTS", targets: ["VeraBotTTS"]),
     ],
     dependencies: [],
@@ -18,8 +20,11 @@ let package = Package(
         .target(name: "VeraBotCore"),
         // REST + SSE 客户端（VeraBotAPI 协议 + APIClient 实现）
         .target(name: "VeraBotNetworking", dependencies: ["VeraBotCore"]),
+        .systemLibrary(name: "CSQLite", path: "Sources/CSQLite"),
+        .target(name: "VeraBotPersistence", dependencies: ["VeraBotCore", "CSQLite"]),
+        .target(name: "VeraBotData", dependencies: ["VeraBotCore", "VeraBotNetworking", "VeraBotPersistence"]),
         // 语音播放（TTSEngine 协议 + 本机 / 云端引擎 + SpeechPlayer）
         .target(name: "VeraBotTTS", dependencies: ["VeraBotCore"]),
-        .testTarget(name: "VeraBotKitTests", dependencies: ["VeraBotCore", "VeraBotNetworking", "VeraBotTTS"]),
+        .testTarget(name: "VeraBotKitTests", dependencies: ["VeraBotCore", "VeraBotNetworking", "VeraBotData", "VeraBotTTS"]),
     ]
 )

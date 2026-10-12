@@ -10,6 +10,8 @@
 		BB0000000000000000000001 /* VeraBotCore in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000001 /* VeraBotCore */; };
 		BB0000000000000000000002 /* VeraBotNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000002 /* VeraBotNetworking */; };
 		BB0000000000000000000003 /* VeraBotTTS in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000003 /* VeraBotTTS */; };
+		BB0000000000000000000004 /* VeraBotPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000004 /* VeraBotPersistence */; };
+		BB0000000000000000000005 /* VeraBotData in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000005 /* VeraBotData */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +35,8 @@
 				BB0000000000000000000001 /* VeraBotCore in Frameworks */,
 				BB0000000000000000000002 /* VeraBotNetworking in Frameworks */,
 				BB0000000000000000000003 /* VeraBotTTS in Frameworks */,
+				BB0000000000000000000004 /* VeraBotPersistence in Frameworks */,
+				BB0000000000000000000005 /* VeraBotData in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -87,6 +91,8 @@
 				CC0000000000000000000001 /* VeraBotCore */,
 				CC0000000000000000000002 /* VeraBotNetworking */,
 				CC0000000000000000000003 /* VeraBotTTS */,
+				CC0000000000000000000004 /* VeraBotPersistence */,
+				CC0000000000000000000005 /* VeraBotData */,
 			);
 			productName = VeraBot;
 			productReference = AA0000000000000000000001 /* VeraBot.app */;
@@ -313,6 +319,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */;
 			productName = VeraBotTTS;
+		};
+		CC0000000000000000000004 /* VeraBotPersistence */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */;
+			productName = VeraBotPersistence;
+		};
+		CC0000000000000000000005 /* VeraBotData */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */;
+			productName = VeraBotData;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

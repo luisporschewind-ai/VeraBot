@@ -100,3 +100,10 @@ public struct BotAppearance: Codable, Hashable, Sendable {
         body:.init(space:.sRGB,red:0.031,green:0.035,blue:0.043),
         eyes:.init(space:.sRGB,red:248.0/255,green:248.0/255,blue:246.0/255)))
 }
+
+extension BotAppearance {
+    public var familyShape: BotAvatarFamilyShape {
+        get { BotAvatarFamilyShape(templateID:templateID,version:templateVersion) ?? .standard }
+        set { templateID = newValue.templateID; templateVersion = 1 }
+    }
+}

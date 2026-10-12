@@ -11,11 +11,18 @@ public protocol GroupChatAPI: Sendable {
     func updateGroup(id: Int, request: GroupUpdateRequest) async throws -> ChatGroup
     func deleteGroup(id: Int) async throws -> OKResponse
     func groupMessages(groupID: Int, beforeID: Int?) async throws -> GroupMessagesResponse
+    func syncGroupMessages(groupID: Int, beforeID: Int?, expectedRevision: Int64?) async throws -> GroupMessagesSyncResponse
     func clearGroupMessages(groupID: Int) async throws -> OKResponse
     func groupTurn(groupID: Int, turnID: Int) async throws -> GroupTurn
     func stopGroupTurn(groupID: Int, turnID: Int) async throws -> GroupTurn
     func groupChatStream(groupID: Int, request: GroupChatRequest) -> AsyncThrowingStream<GroupChatEvent, Error>
     func retryGroupMessage(groupID: Int, messageID: Int, requestID: UUID) -> AsyncThrowingStream<GroupChatEvent, Error>
+}
+
+public extension GroupChatAPI {
+    func syncGroupMessages(groupID: Int, beforeID: Int?, expectedRevision: Int64?) async throws -> GroupMessagesSyncResponse {
+        throw APIError(status: 501, message: "当前服务不支持离线历史同步")
+    }
 }
 
 /// The caller restores this authoritative snapshot instead of resending a new UUID.
@@ -52,6 +59,12 @@ extension APIClient: GroupChatAPI {
     public func deleteGroup(id: Int) async throws -> OKResponse { try await groupCall("/api/groups/\(id)", method: "DELETE") }
     public func groupMessages(groupID: Int, beforeID: Int? = nil) async throws -> GroupMessagesResponse {
         try await groupCall("/api/groups/\(groupID)/messages", query: beforeID.map { [URLQueryItem(name: "before_id", value: String($0))] } ?? [])
+    }
+    public func syncGroupMessages(groupID: Int, beforeID: Int? = nil, expectedRevision: Int64? = nil) async throws -> GroupMessagesSyncResponse {
+        var query = [URLQueryItem(name: "limit", value: "100")]
+        if let beforeID { query.append(URLQueryItem(name: "before_id", value: String(beforeID))) }
+        if let expectedRevision { query.append(URLQueryItem(name: "expected_revision", value: String(expectedRevision))) }
+        return try await groupCall("/api/groups/\(groupID)/messages/sync", query: query)
     }
     public func clearGroupMessages(groupID: Int) async throws -> OKResponse { try await groupCall("/api/groups/\(groupID)/messages", method: "DELETE") }
     public func groupTurn(groupID: Int, turnID: Int) async throws -> GroupTurn { try await groupCall("/api/groups/\(groupID)/turns/\(turnID)") }

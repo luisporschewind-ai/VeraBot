@@ -55,6 +55,24 @@ with tempfile.TemporaryDirectory(prefix="vera_appearance_") as tmp:
     assert client.patch(url,headers=bob,json={'appearance':config}).status_code==404
     assert client.get(url,headers=bob).status_code==404
     assert client.patch(url,headers=alice,json={'appearance':None}).json()['appearance'] is None
+    # Production family shapes reuse the template contract and preserve unrelated Bot fields.
+    family_ids = ['cx-robot', 'cx-robot-soft', 'cx-robot-tilted', 'cx-robot-rounded',
+                  'cx-robot-circle', 'cx-robot-flower', 'cx-robot-rounded-triangle',
+                  'cx-robot-capsule', 'cx-robot-pentagon', 'cx-robot-pumpkin',
+                  'cx-robot-rounded-droplet']
+    for index, template_id in enumerate(family_ids):
+        shape = copy.deepcopy(config)
+        shape['template_id'] = template_id
+        created = client.post('/api/bots', headers=alice, json={'name':f'Shape {index}', 'appearance':shape})
+        assert created.status_code == 201, created.text
+        shape_id = created.json()['id']
+        assert client.get(f'/api/bots/{shape_id}', headers=alice).json()['appearance'] == shape
+        response = client.patch(url, headers=alice, json={'appearance':shape})
+        assert response.status_code == 200, response.text
+        assert response.json()['appearance'] == shape
+        assert all(response.json()[k] == v for k,v in invariant.items())
+        assert client.get(url, headers=alice).json()['appearance'] == shape
+        assert next(b for b in client.get('/api/bots', headers=alice).json()['bots'] if b['id'] == bid)['appearance'] == shape
     future=copy.deepcopy(config);future['template_id']='future-shape'
     assert client.patch(url,headers=alice,json={'appearance':future}).json()['appearance']==future
     bad=[]

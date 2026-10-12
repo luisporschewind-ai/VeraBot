@@ -7,6 +7,7 @@ struct CreateBotSheet: View {
     let onCreated: @MainActor () -> Void
 
     @State private var draft = BotCreate(name: "", avatar: BotAvatarFigure.default.rawValue, color: BotAvatarColorPalette.defaultColor, persona: "", instructions: "")
+    @State private var shape: BotAvatarFamilyShape = .standard
     @State private var saving = false
     @State private var errorText: String?
     @State private var tagsText = ""   // 「搜索, 查询, 调研」；保存时 BotTagRules.parse
@@ -17,7 +18,8 @@ struct CreateBotSheet: View {
         NavigationStack {
             ThemedForm {
                 RobotAvatarView(action: .idle, size: 88,
-                                color: BotAvatarColorPalette.appearanceColor(for: draft.color)?.swiftUIColor ?? Color(hex: draft.color))
+                                color: BotAvatarColorPalette.appearanceColor(for: draft.color)?.swiftUIColor ?? Color(hex: draft.color),
+                                appearance: avatarAppearance)
                     .frame(maxWidth: .infinity).frame(height: 88)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
@@ -32,6 +34,7 @@ struct CreateBotSheet: View {
                 }
 
                 Section {
+                    BotAvatarShapePicker(selection:$shape,color:draft.color)
                     BotAvatarColorPicker(selection: $draft.color)
                 }
                 Section {
@@ -72,6 +75,13 @@ struct CreateBotSheet: View {
         }
     }
 
+    private var avatarAppearance: BotAppearance {
+        var value = BotAppearance.robotDefault
+        value.familyShape = shape
+        if let selected = BotAvatarColorPalette.appearanceColor(for:draft.color) { value.palette.body = selected }
+        return value
+    }
+
     private func save() async {
         saving = true
         defer { saving = false }
@@ -84,6 +94,7 @@ struct CreateBotSheet: View {
         }
         body.tags = cleaned.tags
         do {
+            body.appearance = try avatarAppearance.jsonValue()
             _ = try await app.api.createBot(body)
             onCreated()
             dismiss()

@@ -41,6 +41,12 @@ def messages(group_id: int, before_id: int | None = Query(default=None, gt=0),
              limit: int = Query(default=50, ge=1, le=100), user=Depends(current_user)):
     return call(group_store.list_messages, user["id"], group_id, before_id, limit)
 
+@router.get("/{group_id}/messages/sync")
+def sync_messages(group_id: int, before_id: int | None = Query(default=None, gt=0),
+                  limit: int = Query(default=100, ge=1, le=100),
+                  expected_revision: int | None = Query(default=None, ge=0), user=Depends(current_user)):
+    return call(group_store.sync_messages, user["id"], group_id, before_id, limit, expected_revision)
+
 @router.delete("/{group_id}/messages")
 def clear(group_id: int, user=Depends(current_user)):
     call(group_store.delete_group, user["id"], group_id, clear_only=True)
@@ -58,7 +64,7 @@ def stop(group_id: int, turn_id: int, user=Depends(current_user)):
 from fastapi.responses import StreamingResponse
 from ..group_schemas import GroupChatIn, GroupRetryIn
 from ...agents import group_runtime
-from ...services import groups as group_service
+from ...services import groups as group_service, group_routing
 import json
 
 
@@ -84,8 +90,16 @@ def stream_turn(user_id, group, turn):
 @router.post('/{group_id}/chat')
 def chat(group_id: int, body: GroupChatIn, user=Depends(current_user)):
     group=call(group_store.get_group,user['id'],group_id)
-    if not call(group_store.existing_request,user['id'],group_id,body.client_request_id): budget(user['id'])
-    turn=call(group_store.claim_turn,user['id'],group_id,body.model_dump(mode='json'))
+    original=body.model_dump(mode='json')
+    existing=call(group_store.existing_request,user['id'],group_id,body.client_request_id,original)
+    if existing:
+        raise HTTPException(409, {'code':'request_exists','message':'请求已存在','turn_id':existing})
+    budget(user['id'])
+    resolved=original
+    if body.mode == 'auto':
+        route=anyio.run(group_routing.resolve,user['id'],group,body.message)
+        resolved={**original,**route}
+    turn=call(group_store.claim_turn,user['id'],group_id,resolved,request_hash_payload=original)
     return stream_turn(user['id'],group,turn)
 
 

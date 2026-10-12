@@ -75,7 +75,7 @@ struct PlaygroundView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(item: $assistantChat) { bot in
-                ChatView(bot: bot, api: app.api)
+                ChatView(bot: bot, api: app.api, repository: app.conversationRepository)
                     .toolbar(.hidden, for: .tabBar)
             }
             .alert("无法打开游戏助手", isPresented: Binding(
@@ -659,7 +659,7 @@ struct IslandView: View {
                             LazyVGrid(columns: columns, spacing: 12) {
                                 ForEach(bots) { bot in
                                     NavigationLink {
-                                        ChatView(bot: bot, api: app.api)
+                                        ChatView(bot: bot, api: app.api, repository: app.conversationRepository)
                                             .toolbar(.hidden, for: .tabBar)
                                     } label: {
                                         IslandBotCard(bot: bot)
@@ -744,7 +744,8 @@ private struct IslandBotCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
-                          hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 54)
+                          hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 54,
+                          appearance: bot.supportedAppearance)
             VStack(alignment: .leading, spacing: 3) {
                 Text(bot.name)
                     .font(.headline)
