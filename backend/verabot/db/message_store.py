@@ -17,7 +17,7 @@ def last_message(c, user_id: int, bot_id: int) -> dict | None:
 def list_recent(c, user_id: int, bot_id: int, limit: int) -> list[dict]:
     """最近 limit 条消息（新的在前；调用方负责反转）。附带本人对 assistant 消息的反馈（没有则为 NULL）。"""
     return rows(c.execute(
-        "SELECT m.id, m.role, m.content, m.traces, m.created_at, f.rating AS feedback_rating, f.reason AS feedback_reason "
+        "SELECT m.id, m.role, m.content, m.traces, m.created_at, m.source_kind, m.source_id, f.rating AS feedback_rating, f.reason AS feedback_reason "
         "FROM messages m LEFT JOIN message_feedback f ON f.message_id=m.id AND f.user_id=m.user_id "
         "WHERE m.user_id=? AND m.bot_id=? ORDER BY m.id DESC LIMIT ?",
         (user_id, bot_id, limit)).fetchall())
@@ -60,3 +60,10 @@ def clear_conversation(c, user_id: int, bot_id: int) -> None:
     """清空对话：先删该 Bot 的附件行，再删消息（同一事务）。磁盘文件由调用方在提交后删除。"""
     attachment_store.delete_for_bot(c, user_id, bot_id)
     c.execute("DELETE FROM messages WHERE user_id=? AND bot_id=?", (user_id, bot_id))
+
+
+def add_scheduled(c, user_id: int, bot_id: int, run_id: int, content: str, created_at: str) -> int:
+    return c.execute(
+        "INSERT INTO messages(user_id,bot_id,role,content,created_at,source_kind,source_id) "
+        "VALUES(?,?,'assistant',?,?,'scheduled_task',?)",
+        (user_id,bot_id,content,created_at,run_id)).lastrowid
