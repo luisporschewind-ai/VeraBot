@@ -35,3 +35,16 @@
 ## 部署
 
 见 [后端安装说明](../../backend/README.md)。安装浏览器时使用 `PLAYWRIGHT_SKIP_BROWSER_GC=1 uv run python -m playwright install chromium`，避免安装时清理已有的其他 Playwright 浏览器版本。本机旧版 Chromium 缓存已恢复。
+
+## 合入 Main 后的模拟器交接（2026-10-12）
+
+提交 `bacc251` 已快进合入本地 `main`。XcodeBuildMCP 的整体构建运行请求等待超时，但生成的 App 产物随后由独立安装步骤成功安装，并在 iPhone 17「VeraBot Web Query」模拟器成功启动（UDID `5E471A64-9062-4E6F-8D34-E5D7D99BCA44`）；截图确认停在登录页。真实登录、查询和引用交互留给用户手动验收。
+
+### 手动测试步骤
+
+1. 确认后端运行在 App 配置的地址；若是本地新环境，先在 `backend/` 执行 `uv sync --frozen` 和 `PLAYWRIGHT_SKIP_BROWSER_GC=1 uv run python -m playwright install chromium`，再按现有部署配置启动后端。联网搜索本身不需要搜索 API key，模型调用仍沿用现有服务端模型配置。
+2. 在已启动的模拟器登录 VeraBot 测试账号，打开一个 Bot 的工具权限，把「联网查询」和「读取查询资料」设为允许。
+3. 发送“查今天中国国内新闻，优先国内来源，列 3 条并附来源”。检查回答来源来自本轮查询、国内新闻优先、来源卡片可见。
+4. 点开一条来源读取正文，检查正文预览、标题和来源链接；返回对话后再查“Python asyncio 官方文档”，确认普通资料查询也显示真实来源。
+5. 如需覆盖天气，给 Bot 开启天气工具并查询“上海今天的天气”，检查数据时间和来源说明。
+6. 访问验证或网络超时时，确认 Bot 如实提示失败，不显示编造的新闻或引用。
