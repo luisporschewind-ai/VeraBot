@@ -33,7 +33,7 @@ def tools_list(user=Depends(current_user)):
               "delegation": t.delegation, "source": "builtin", "server": None, "server_id": None,
               "risk": None, "requires_confirmation": False, "delegable": not t.delegation and t.name not in {"web_search", "web_read_result"}, "status": "active",
               "plugin_id": builtin_plugin.get(t.name)}
-             for t in REGISTRY.values() if t.kind != "memory"]
+             for t in REGISTRY.values() if t.kind == "builtin"]
     for tool, server in mcp_service.connected_tool_rows(user["id"]):
         tools.append({**mcp_service.public_tool(tool), "name": tool["full_name"],
                       "delegation": False, "source": "mcp", "server": server["name"],
