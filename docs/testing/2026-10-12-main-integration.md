@@ -27,7 +27,7 @@ Swift 包完整测试；后端离线脚本分别独立进程运行，使用临�
 
 ## 最终结果
 
-整合回归已完成：Swift Testing 241 项 + XCTest 1 项全部通过（/tmp/verabot-final-swift.log），33 个后端离线脚本分别独立运行并全部退出 0（/tmp/verabot-integration-backend-results.json），定时任务 36 项另行通过（/tmp/verabot-merged-scheduled-tests.log）。限定范围独立复审无剩余 Critical/Important。模拟器和备机的构建、安装均完成。模拟器已启动并展示保留账号的助理/群聊列表；备机因锁屏自动启动被系统拒绝，安装完成且数据保留。本记录是本轮当前状态入口，既有日期记录是当时快照。
+整合回归已完成：Swift Testing 241 项 + XCTest 1 项全部通过（/tmp/verabot-final-swift.log），33 个后端离线脚本分别独立运行并全部退出 0（/tmp/verabot-integration-backend-results.json），定时任务 36 项另行通过（/tmp/verabot-merged-scheduled-tests.log）。限定范围独立复审无剩余 Critical/Important。模拟器和备机的构建、安装均完成。模拟器已启动并展示保留账号的助理/群聊列表；备机首次因锁屏自动启动被系统拒绝；用户解锁后于 22:54 启动成功，进程查询确认当前安装路径，数据保留。本记录是本轮当前状态入口，既有日期记录是当时快照。
 
 ## 回归检查补充
 
@@ -50,7 +50,7 @@ SQL 分层静态检查仍失败：基线 b0c48ca 与整合结果均 100 条，�
 - 集成合并提交：`eb67ff9`，父提交 `a99bbc0` / `9869e92`。设备包源码与此提交一致；后续记录提交仅更新文档。未推送远端。
 - iPhone 17 / iOS 26.0：完整构建成功，原地安装并启动，进程 74288；UI snapshot 确认助理列表与正式群聊入口，保留原登录与内容。
 - 模拟器 MCP 构建调用等待 300 秒超时，但构建已产生包；随后使用同一 DerivedData 增量构建明确 `BUILD SUCCEEDED`，再经 MCP 安装/启动成功。日志 /tmp/verabot-main-simulator-build.log。
-- iPhone 11 备机：Debug arm64 签名构建成功，codesign 校验通过；安装结果 `success`，bundle com.verabot.app，build 2026101201。安装后自动启动被系统锁屏拒绝（Locked），等待解锁后查看/确认；未卸载 App 或清除其登录数据。
+- iPhone 11 备机：Debug arm64 签名构建成功，codesign 校验通过；安装结果 `success`，bundle com.verabot.app，build 2026101201。首次自动启动被系统锁屏拒绝（Locked）；用户解锁后，2026-10-12 22:54 再次启动成功（进程 38962），进程列表确认当前安装路径。未卸载 App 或清除其登录数据。
 - 备机安装路径 `/private/var/containers/Bundle/Application/E128E6E1-8E66-47C8-A4A6-E7E49124F7B1/VeraBot.app/`；dylib SHA256 `9f5ede0857a02683bdf660311bef126e62a716a33c93b40784af63113db74521`。
 - 模拟器 dylib SHA256 `9b53c4e30a800665d709f6ef926a1a4a0e092f2bba2c764c7e41f8a1e8d14d4c`。
 - 证据：/tmp/verabot-main-device-build.log、/tmp/verabot-main-secondary-{install,launch,processes}.json、/tmp/verabot-main-simulator-running.jpg。截图保留本机，不把账号页面作为源码提交。
@@ -58,7 +58,7 @@ SQL 分层静态检查仍失败：基线 b0c48ca 与整合结果均 100 条，�
 ## 本轮验收清单
 
 - Pass：全部代码保存与 main 集成、迁移副本演练/幂等/存量数量、现有后端健康和完整性、Swift/后端离线回归、独立复审。
-- Pass：模拟器构建/安装/启动/实际页面；备机签名构建/原地安装。
-- Problem：备机自动启动被锁屏拒绝，待解锁；SQL 分层 100 条既有问题，新增 0。
+- Pass：模拟器构建/安装/启动/实际页面；备机签名构建/原地安装/解锁后启动和进程确认。
+- Problem：SQL 分层 100 条既有问题，新增 0。
 - Not-triggered：备机本轮实际页面与真实模型；断网冷启动/完整大历史/账号服务器切换/快速重登等设备交互；设备音频/锁屏/TTS。
 - Not-triggered：真实 OAuth、真实 MCP 与定时任务模型执行、后台进程/系统服务部署；保持既有专题验收状态。
