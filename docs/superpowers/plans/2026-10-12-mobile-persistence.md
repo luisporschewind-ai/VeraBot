@@ -1,5 +1,7 @@
 # 移动端 SQLite 持久化实施计划
 
+2026-10-12 状态：实现已保存并整合到本地 main，当前验证与设备边界见 [Main 集成交付](../../testing/2026-10-12-main-integration.md)。下方为原实施步骤，原先不提交/合并限制已由本轮用户明确授权覆盖；未触发的真实服务与设备交互不标记通过。
+
 > **For agentic workers:** Execute this plan task-by-task in the current session. Keep unrelated working-tree changes intact.
 
 **Goal:** 让 Bot/群列表及已同步的完整私聊、群聊历史可在 iOS 断网和重启后读取，并保留草稿与中断中的消息内容。

@@ -1,5 +1,7 @@
 # 服务端定时任务第一版 Implementation Plan
 
+2026-10-12 状态：实现已保存并整合到本地 main，当前验证与设备边界见 [Main 集成交付](../../testing/2026-10-12-main-integration.md)。下方为原实施步骤，原先不提交/合并限制已由本轮用户明确授权覆盖；未触发的真实服务与设备交互不标记通过。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 实现用户指定 Bot 的服务端定时执行闭环，包含任务 API、持久队列、独立后台进程、用量与结果投递。
