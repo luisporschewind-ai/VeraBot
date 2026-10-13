@@ -54,7 +54,7 @@ class GroupExecutionMigrationTests(unittest.TestCase):
                 apply(c)
             with c:
                 apply(c)
-            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], "25")
+            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], str(db.SCHEMA_VERSION))
             self.assertIsNone(c.execute("SELECT default_bot_id FROM chat_groups WHERE id=?", (self.group_id,)).fetchone()[0])
             self.assertEqual(tuple(c.execute("SELECT id,content FROM chat_group_messages").fetchone()), (message_id, "history"))
             self.assertEqual(c.execute("SELECT COUNT(*) FROM chat_group_members WHERE id=?", (self.member_id,)).fetchone()[0], 1)

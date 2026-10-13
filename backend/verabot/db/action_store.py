@@ -108,6 +108,9 @@ def claim_for_execution(user_id: int, action_id: int) -> tuple[str, dict | None]
         if owned and dict(owned).get('owned_task_id'):
             from .owned_task_store import action_current
             if not action_current(c, dict(owned)): return ('task_changed', None)
+        if owned and dict(owned).get("chat_task_id"):
+            from ..services.chat_tasks.approvals import current
+            if not current(c,dict(owned)):return ("task_changed",None)
         claimed = c.execute(
             """UPDATE pending_actions
                SET status='done', result='执行中…', decided_at=?

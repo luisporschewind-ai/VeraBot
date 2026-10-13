@@ -42,6 +42,9 @@ async def _validation_error(request, exc: RequestValidationError):
 @app.on_event("startup")
 async def _startup():
     db.init_db()
+    from .db import chat_reply_store
+    with db.tx(immediate=True) as c:
+        chat_reply_store.recover_legacy(c)
     from .db.group_store import recover_interrupted_turns
     recover_interrupted_turns()  # Single-worker only; never resume model calls.
     from .db import group_execution_store
@@ -103,3 +106,7 @@ app.include_router(primary_bot.router)
 
 from .api.routers import owned_tasks
 app.include_router(owned_tasks.router)
+
+from .api.routers import chat_tasks, conversation_activity
+app.include_router(chat_tasks.router)
+app.include_router(conversation_activity.router)
