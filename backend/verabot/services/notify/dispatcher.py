@@ -25,7 +25,7 @@ PLUGIN_PER_HOUR = 5
 PLUGIN_PER_DAY = 20
 APNS_PER_HOUR = 30
 RANK = {
-    "queued": 0, "scheduled_local": 1, "sent": 2, "delivered": 3, "opened": 4,
+    "queued": 0, "scheduled": 1, "presented_in_app": 3, "scheduled_local": 1, "sent": 2, "delivered": 3, "opened": 4,
     "dismissed": 5, "suppressed": 5, "failed": 5, "expired": 5, "cancelled": 5,
 }
 
@@ -106,8 +106,8 @@ def _suppress_reason(prefs, category: str, *, bot_id, created_by, now, rate_reas
 def notify(user_id: int, *, category: str, title: str, body: str | None = None, sensitive: bool = False,
            bot_id: int | None = None, reminder_id: int | None = None, message_id: int | None = None,
            plugin_id: str | None = None, link: str | None = None, thread_id: str | None = None,
-           dedupe_key: str, created_by: str | None = None, conn=None) -> dict:
-    if category not in {"reminder", "bot_message", "delegation", "plugin", "system"}:
+           dedupe_key: str, created_by: str | None = None, source_kind: str | None = None, source_id: str | None = None, conn=None) -> dict:
+    if category not in {"reminder", "bot_message", "task_result", "delegation", "plugin", "system"}:
         raise ValueError("未知通知分类")
 
     def work(c):
@@ -119,13 +119,14 @@ def notify(user_id: int, *, category: str, title: str, body: str | None = None, 
         bot_name = store.bot_name(c, user_id, bot_id) if bot_id else None
         shown_title, shown_body, force_sensitive = apply_preview(
             category, title, body, prefs["preview"], sensitive, bot_name)
-        rate = _limited(c, user_id, category, bot_id, plugin_id, now, prefs["quiet_timezone"])
+        rate = None if source_kind == "chat_reply" else _limited(c, user_id, category, bot_id, plugin_id, now, prefs["quiet_timezone"])
         reason = _suppress_reason(prefs, category, bot_id=bot_id, created_by=created_by, now=now, rate_reason=rate)
         created = clock.iso_utc(now)
         expires = clock.iso_utc(now + timedelta(days=30))
         nid = store.insert_notification(c, (
-            user_id, category, shown_title, shown_body, 1 if (sensitive or force_sensitive) else 0,
+            user_id, "bot_message" if category == "task_result" else category, shown_title, shown_body, 1 if (sensitive or force_sensitive) else 0,
             bot_id, reminder_id, message_id, plugin_id, link, thread_id, dedupe_key, created, expires,
+            "task_result" if category == "task_result" else None, source_kind, source_id, reason,
         ))
         store.insert_inbox_delivery(c, nid, user_id, created)
         # R1 不发 APNs。本地提醒由设备自己排；这里只预置投递状态。提醒不限流。
@@ -134,9 +135,11 @@ def notify(user_id: int, *, category: str, title: str, body: str | None = None, 
                 state, error = "scheduled_local", None
             elif category == "reminder" and device.get("local_reminders") and reason:
                 state, error = "suppressed", reason
+            elif category != "reminder" and device.get("local_events"):
+                state, error = ("suppressed", reason) if reason else ("queued", None)
             else:
                 state, error = ("suppressed", reason or "no_apns")
-            if category != "reminder" and not device.get("local_reminders"):
+            if category != "reminder" and not device.get("local_events") and not device.get("local_reminders"):
                 state, error = "suppressed", reason or "local_off"
             store.insert_local_delivery(c, nid, user_id, device["device_id"], state, error, created)
             if device.get("apns_token"):
@@ -149,7 +152,7 @@ def notify(user_id: int, *, category: str, title: str, body: str | None = None, 
     else:
         with db.tx() as c:
             public, created = work(c)
-    if created:
+    if created and conn is None:
         hub.publish(user_id, {"id": public["id"], "category": public["category"], "title": public["title"],
                                "link": public.get("link")})
     return public
@@ -158,7 +161,10 @@ def notify(user_id: int, *, category: str, title: str, body: str | None = None, 
 def _public(row: dict) -> dict:
     return {
         "id": row["id"],
-        "category": row["category"],
+        "category": row.get("kind") or row["category"],
+        "logical_key": row["dedupe_key"],
+        "source_kind": row.get("source_kind"), "source_id": row.get("source_id"),
+        "suppression_reason": row.get("suppression_reason"), "expires_at": row.get("expires_at"),
         "title": row["title"],
         "body": row.get("body"),
         "sensitive": bool(row.get("sensitive")),
@@ -214,7 +220,7 @@ def delete_notification(user_id: int, nid: int) -> bool:
 
 
 def report_event(user_id: int, nid: int, *, event: str, channel: str, device_id: str | None, at: str | None) -> dict:
-    if event not in {"delivered", "opened", "dismissed"}:
+    if event not in {"scheduled", "presented_in_app", "failed", "delivered", "opened", "dismissed"}:
         raise ValueError("事件无效")
     if channel not in {"inbox", "local", "apns"}:
         raise ValueError("渠道无效")

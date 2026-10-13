@@ -177,6 +177,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
     answer = ""
     errored = False
     style_trace = None
+    finished = False
     try:
         initial = user_text
         for file_row in new_files:
@@ -244,6 +245,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
                 messages.append(vision.recall_message(turn.pending_images))
                 turn.image_ids += [r["id"] for r in turn.pending_images]
                 turn.image_tainted, turn.pending_images = True, []
+        finished = True
         if not answer.strip():
             errored = True
             yield {"event": "error", "data": {"message": EMPTY_REPLY_MSG, "code": "empty_reply"}}
@@ -267,7 +269,14 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
                     style_trace = memory_style.trace_for(proposal)
                     traces.append(style_trace)
         stored = answer if answer.strip() else ("⚠️ " + EMPTY_REPLY_MSG if errored else "（无回复）")
-        mid = db.add_message(user_id, bot["id"], "assistant", stored, traces or None, memory_ids=rec.ids or None)
+        with db.tx(immediate=True) as notification_tx:
+            mid = db.add_message(user_id, bot["id"], "assistant", stored, traces or None, memory_ids=rec.ids or None, conn=notification_tx)
+            if finished and not errored:
+                from ..services.notify.dispatcher import notify
+                notify(user_id, category="bot_message", title=f"「{bot['name']}」有新消息", body=stored[:160],
+                       bot_id=bot['id'], message_id=mid, link=f"bot/{bot['id']}/chat?message={mid}",
+                       thread_id=f"bot:{bot['id']}", dedupe_key=f"chat_reply:{mid}",
+                       source_kind="chat_reply", source_id=str(mid), conn=notification_tx)
         memory.mark_used(user_id, rec.ids)
         if memory_tools:
             memory_jobs.enqueue(user_id, bot["id"], kind="summarize", after_message_id=mid)

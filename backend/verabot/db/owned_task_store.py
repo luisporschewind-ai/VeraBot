@@ -129,7 +129,7 @@ def count_tool(c,step):
 def pending_delivery(c):
  return [r[0] for r in c.execute("SELECT s.id FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.delivered_at IS NULL AND s.result_json IS NOT NULL AND s.status NOT IN ('running','retry_wait','cancelled') AND s.kind='owner' AND t.owner_bot_id IS NOT NULL AND s.version=t.version")]
 def delivery_item(c,sid):
- return row(c.execute("SELECT s.*,t.user_id,t.owner_bot_id,t.goal FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.id=? AND s.delivered_at IS NULL AND s.version=t.version AND t.owner_bot_id IS NOT NULL",(sid,)).fetchone())
+ return row(c.execute("SELECT s.*,t.user_id,t.owner_bot_id,t.goal,t.state AS task_state FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.id=? AND s.delivered_at IS NULL AND s.version=t.version AND t.owner_bot_id IS NOT NULL",(sid,)).fetchone())
 def deliver_message(c,item,text):
  return c.execute("INSERT INTO messages(user_id,bot_id,role,content,created_at,source_kind,source_id) VALUES (?,?,'assistant',?,?,'owned_task',?)",(item['user_id'],item['owner_bot_id'],text,now_iso(),item['id'])).lastrowid
 def mark_delivered(c,sid,mid):c.execute('UPDATE owned_steps SET delivered_at=?,message_id=? WHERE id=?',(now_iso(),mid,sid))
