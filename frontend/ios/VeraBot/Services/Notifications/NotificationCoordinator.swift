@@ -53,6 +53,9 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
     static let shared = NotificationCoordinator()
 
     private weak var app: AppState?
+    private var revision = 0
+    private var schedulingTail: Task<Void, Never>?
+    private(set) var lastScheduleError: String?
 
     func start(app: AppState) {
         self.app = app
@@ -66,6 +69,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
     }
 
     func clearAll() {
+        revision += 1
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
         center.removeAllDeliveredNotifications()
@@ -73,30 +77,41 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
     }
 
     func apply(planned: [PlannedNotification], userID: Int) async {
-        let center = UNUserNotificationCenter.current()
-        let pending = await center.pendingNotificationRequests()
-        let existing = pending.map {
-            ScheduledLocalNotification(identifier: $0.identifier, title: $0.content.title, repeats: $0.trigger?.repeats ?? false)
-        }
-        let diff = NotificationPlanner.reconcile(userID: userID, desired: planned, existing: existing)
-        if !diff.remove.isEmpty {
+        let previous = schedulingTail
+        let revision = revision
+        let generation = app?.sessionGeneration
+        let work = Task { @MainActor [weak self] in
+            await previous?.value
+            guard let self, self.revision == revision, self.app?.userID == userID,
+                  self.app?.sessionGeneration == generation else { return }
+            let center = UNUserNotificationCenter.current()
+            let pending = await center.pendingNotificationRequests()
+            guard self.revision == revision, self.app?.sessionGeneration == generation else { return }
+            let existing = pending.map {
+                ScheduledLocalNotification(identifier: $0.identifier, title: $0.content.title,
+                    repeats: $0.trigger?.repeats ?? false, signature: $0.content.userInfo["signature"] as? String)
+            }
+            let diff = NotificationPlanner.reconcile(userID: userID, desired: planned, existing: existing)
             center.removePendingNotificationRequests(withIdentifiers: diff.remove)
+            self.lastScheduleError = nil
+            for item in diff.add {
+                guard self.revision == revision, self.app?.sessionGeneration == generation else { return }
+                let content = UNMutableNotificationContent()
+                content.title = item.title
+                content.sound = .default
+                content.categoryIdentifier = "VB_REMINDER"
+                content.userInfo = ["uid": item.userID, "link": "reminder/\(item.reminderID)",
+                                    "reminder_id": item.reminderID, "signature": item.signature]
+                guard let trigger = self.trigger(for: item, calendar: Calendar.current) else { continue }
+                do { try await center.add(UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger)) }
+                catch { self.lastScheduleError = error.localizedDescription }
+                if self.revision != revision || self.app?.sessionGeneration != generation {
+                    center.removePendingNotificationRequests(withIdentifiers: [item.identifier]); return
+                }
+            }
         }
-        let calendar = Calendar.current
-        for item in diff.add {
-            let content = UNMutableNotificationContent()
-            content.title = item.title
-            content.sound = .default
-            content.categoryIdentifier = "VB_REMINDER"
-            content.userInfo = [
-                "uid": item.userID,
-                "link": "reminder/\(item.reminderID)",
-                "reminder_id": item.reminderID,
-            ]
-            guard let trigger = trigger(for: item, calendar: calendar) else { continue }
-            let request = UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger)
-            try? await center.add(request)
-        }
+        schedulingTail = work
+        await work.value
     }
 
     func scheduleSnooze(userID: Int, reminderID: Int, title: String) async {
@@ -104,7 +119,17 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         let epoch = Int(fire.timeIntervalSince1970)
         let item = PlannedNotification(identifier: "vb.\(userID).rem.\(reminderID).\(epoch)", reminderID: reminderID,
                                        userID: userID, title: title, fireDate: fire, repeats: false)
-        await apply(planned: [item], userID: userID)
+        // A snooze is a targeted update, never a full desired set.
+        await removeReminder(reminderID, userID: userID)
+        guard app?.userID == userID else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title; content.sound = .default; content.categoryIdentifier = "VB_REMINDER"
+        content.userInfo = ["uid": userID, "reminder_id": reminderID, "link": "reminder/\(reminderID)", "signature": item.signature]
+        guard let trigger = trigger(for: item, calendar: .current) else { return }
+        let generation = app?.sessionGeneration
+        do { try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger)) }
+        catch { lastScheduleError = error.localizedDescription }
+        if app?.sessionGeneration != generation { UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [item.identifier]) }
     }
 
     func removeReminder(_ id: Int, userID: Int) async {
@@ -171,14 +196,11 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         switch tap.actionIdentifier {
         case "VB_DONE":
             if let reminderID {
-                await removeReminder(reminderID, userID: app.userID ?? uid ?? 0)
                 await app.performReminderAction(reminderID: reminderID, action: "complete", minutes: nil,
                                                 idempotencyKey: identifier + ":done")
             }
         case "VB_SNOOZE_10":
             if let reminderID {
-                await scheduleSnooze(userID: app.userID ?? uid ?? 0, reminderID: reminderID,
-                                     title: tap.title)
                 await app.performReminderAction(reminderID: reminderID, action: "snooze", minutes: 10,
                                                 idempotencyKey: identifier + ":snooze")
             }
@@ -198,7 +220,11 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
 
     private func trigger(for item: PlannedNotification, calendar: Calendar) -> UNNotificationTrigger? {
         if item.repeats {
+            var calendar = calendar
+            calendar.timeZone = TimeZone(identifier: item.timeZone) ?? .gmt
             var parts = DateComponents()
+            parts.calendar = calendar
+            parts.timeZone = calendar.timeZone
             parts.hour = calendar.component(.hour, from: item.fireDate)
             parts.minute = calendar.component(.minute, from: item.fireDate)
             if let weekday = item.weekday {

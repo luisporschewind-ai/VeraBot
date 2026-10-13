@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 import VeraBotCore
 import VeraBotNetworking
 
@@ -15,9 +16,16 @@ extension AppState {
             let (reminders, badge, prefs) = try await (list, summary, settings)
             guard isCurrentSession(generation) else { return }
             unreadCount = badge.unreadCount
-            let planned = NotificationPlanner.plan(userID: userID, reminders: reminders.reminders, preview: prefs.preview)
+            let permission = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+            guard isCurrentSession(generation) else { return }
+            let allowed = [.authorized, .provisional, .ephemeral].contains(permission)
+            var localPrefs = prefs; localPrefs.enabled = prefs.enabled && allowed
+            let overrides = ReminderOutboxStore.load(userID: userID).map(ReminderLocalOverride.init)
+            let planned = NotificationPlanner.plan(userID: userID, reminders: reminders.reminders, preview: prefs.preview,
+                settings: localPrefs, overrides: overrides)
             await NotificationCoordinator.shared.apply(planned: planned, userID: userID)
-            _ = try? await api.registerDevice(currentDevice())
+            guard isCurrentSession(generation) else { return }
+            _ = try? await api.registerDevice(currentDevice(localReminders: allowed && prefs.enabled && prefs.categories["reminder"] == true))
         } catch {
             if let error = error as? APIError, error.status == 401, isCurrentSession(generation) {
                 signOut()
@@ -50,21 +58,15 @@ extension AppState {
 
     func performReminderAction(reminderID: Int, action: String, minutes: Int?, idempotencyKey: String) async {
         guard let userID else { return }
-        do {
-            if action == "snooze" {
-                _ = try await api.snoozeReminder(reminderID, minutes: minutes, until: nil, idempotencyKey: idempotencyKey)
-            } else {
-                _ = try await api.completeReminder(reminderID, idempotencyKey: idempotencyKey)
-            }
-        } catch let error as APIError where ReminderOutbox.shouldDrop(status: error.status, code: error.code) {
-            return
-        } catch {
-            var items = ReminderOutboxStore.load(userID: userID)
-            items = ReminderOutbox.appending(
-                ReminderOutboxItem(idempotencyKey: idempotencyKey, reminderID: reminderID, action: action, minutes: minutes),
-                to: items)
-            ReminderOutboxStore.save(userID: userID, items: items)
-        }
+        let generation = sessionGeneration
+        let until = action == "snooze" ? VeraBotDate.format(Date().addingTimeInterval(Double(minutes ?? 10) * 60)) : nil
+        let item = ReminderOutboxItem(idempotencyKey: idempotencyKey, reminderID: reminderID, action: action, minutes: nil, until: until)
+        ReminderOutboxStore.save(userID: userID, items: ReminderOutbox.appending(item, to: ReminderOutboxStore.load(userID: userID)))
+        if action == "snooze" {
+            await NotificationCoordinator.shared.scheduleSnooze(userID: userID, reminderID: reminderID, title: "稍后提醒")
+        } else { await NotificationCoordinator.shared.removeReminder(reminderID, userID: userID) }
+        guard isCurrentSession(generation) else { return }
+        await syncReminders()
     }
 
     func report(notificationID: Int, event: String, channel: String) async {
@@ -73,13 +75,14 @@ extension AppState {
 
     func replayOutbox() async {
         guard let userID else { return }
+        let generation = sessionGeneration
         var items = ReminderOutboxStore.load(userID: userID)
         var dropped = 0
         var kept: [ReminderOutboxItem] = []
         for item in items {
             do {
                 if item.action == "snooze" {
-                    _ = try await api.snoozeReminder(item.reminderID, minutes: item.minutes, until: item.until,
+                    _ = try await api.snoozeReminder(item.reminderID, minutes: item.until == nil ? item.minutes : nil, until: item.until,
                                                     idempotencyKey: item.idempotencyKey)
                 } else {
                     _ = try await api.completeReminder(item.reminderID, idempotencyKey: item.idempotencyKey)
@@ -90,6 +93,9 @@ extension AppState {
                 kept.append(item)
             }
         }
+        guard isCurrentSession(generation) else { return }
+        let attempted = Set(items.map(\.idempotencyKey))
+        kept += ReminderOutboxStore.load(userID: userID).filter { !attempted.contains($0.idempotencyKey) }
         items = kept
         if items.isEmpty {
             ReminderOutboxStore.remove(userID: userID)
@@ -101,10 +107,10 @@ extension AppState {
         }
     }
 
-    private func currentDevice() -> DeviceRegistration {
+    private func currentDevice(localReminders: Bool) -> DeviceRegistration {
         DeviceRegistration(deviceId: DeviceIdentity.current(), platform: "ios", apnsToken: nil, apnsEnv: nil,
                            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
-                           timezone: TimeZone.current.identifier, localReminders: true)
+                           timezone: TimeZone.current.identifier, localReminders: localReminders)
     }
 }

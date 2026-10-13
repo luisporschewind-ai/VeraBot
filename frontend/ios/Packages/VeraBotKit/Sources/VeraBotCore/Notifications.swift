@@ -225,8 +225,15 @@ public struct PlannedNotification: Equatable, Sendable {
     public var fireDate: Date
     public var repeats: Bool
     public var weekday: Int?
+    public var timeZone: String
+    public var signature: String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: timeZone) ?? .gmt
+        let timing = repeats ? "\(calendar.component(.hour, from: fireDate)):\(calendar.component(.minute, from: fireDate)):\(weekday ?? 0):\(timeZone)" : "\(Int(fireDate.timeIntervalSince1970))"
+        return "\(title)|\(repeats)|\(timing)|reminder/\(reminderID)"
+    }
 
-    public init(identifier: String, reminderID: Int, userID: Int, title: String, fireDate: Date, repeats: Bool, weekday: Int? = nil) {
+    public init(identifier: String, reminderID: Int, userID: Int, title: String, fireDate: Date, repeats: Bool, weekday: Int? = nil, timeZone: String = "Asia/Shanghai") {
         self.identifier = identifier
         self.reminderID = reminderID
         self.userID = userID
@@ -234,6 +241,7 @@ public struct PlannedNotification: Equatable, Sendable {
         self.fireDate = fireDate
         self.repeats = repeats
         self.weekday = weekday
+        self.timeZone = timeZone
     }
 }
 
@@ -241,11 +249,13 @@ public struct ScheduledLocalNotification: Equatable, Sendable {
     public var identifier: String
     public var title: String
     public var repeats: Bool
+    public var signature: String?
 
-    public init(identifier: String, title: String, repeats: Bool) {
+    public init(identifier: String, title: String, repeats: Bool, signature: String? = nil) {
         self.identifier = identifier
         self.title = title
         self.repeats = repeats
+        self.signature = signature
     }
 }
 
@@ -253,38 +263,64 @@ public enum NotificationPlanner {
     public static let maxPending = 60
     public static let horizon: TimeInterval = 14 * 24 * 3600
 
-    public static func plan(userID: Int, reminders: [Reminder], now: Date = Date(), preview: String = "title") -> [PlannedNotification] {
+    public static func plan(userID: Int, reminders: [Reminder], now: Date = Date(), preview: String = "title",
+                            settings: NotificationSettings = NotificationSettings(), overrides: [ReminderLocalOverride] = []) -> [PlannedNotification] {
+        guard settings.enabled, settings.categories["reminder"] == true else { return [] }
         var items: [PlannedNotification] = []
         for reminder in reminders where reminder.notify && [.scheduled, .due, .snoozed].contains(reminder.status) {
+            let botID = reminder.assigneeBotId ?? reminder.sourceBotId
+            if reminder.createdBy != "user", let botID, settings.mutedBots.contains(botID) { continue }
             let title = displayTitle(reminder, preview: preview)
+            if let local = overrides.last(where: { $0.reminderID == reminder.id }) {
+                if local.action == "snooze", let until = local.until, until > now {
+                    items.append(oneShot(userID: userID, reminder: reminder, title: title, fire: until))
+                }
+                continue
+            }
             if reminder.status == .snoozed, let until = reminder.snoozedUntil, until > now {
                 items.append(oneShot(userID: userID, reminder: reminder, title: title, fire: until))
                 continue
             }
+            let offsets = Array(Set(reminder.alertOffsets)).sorted()
             if let kind = simpleKind(reminder.rrule), let anchor = reminder.dueUTC ?? reminder.nextFires.first {
-                switch kind {
-                case "daily":
-                    items.append(repeating(userID: userID, reminder: reminder, title: title, fire: next(anchor, after: now), suffix: "daily", weekday: nil))
-                case "weekly":
-                    items.append(repeating(userID: userID, reminder: reminder, title: title, fire: next(anchor, after: now), suffix: "weekly", weekday: nil))
-                case "weekdays":
-                    for day in 1...5 {
-                        let fire = nextWeekday(day, hour: anchor, after: now)
-                        items.append(repeating(userID: userID, reminder: reminder, title: title, fire: fire, suffix: "wd.\(day)", weekday: day))
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = TimeZone(identifier: reminder.timeZone) ?? .gmt
+                let days: [Int?] = kind == "weekdays" ? (1...5).map { Optional($0) } : [nil]
+                for day in days {
+                    for offset in offsets {
+                        var base = anchor
+                        if let day {
+                            let weekday = calendar.component(.weekday, from: anchor)
+                            let mondayBased = weekday == 1 ? 7 : weekday - 1
+                            base = calendar.date(byAdding: .day, value: day - mondayBased, to: anchor) ?? anchor
+                        }
+                        let shifted = base.addingTimeInterval(-Double(offset) * 60)
+                        var parts = calendar.dateComponents([.hour, .minute], from: shifted)
+                        let targetWeekday = kind == "daily" ? nil : calendar.component(.weekday, from: shifted)
+                        if let targetWeekday { parts.weekday = targetWeekday }
+                        guard let fire = calendar.nextDate(after: now, matching: parts, matchingPolicy: .nextTime, repeatedTimePolicy: .first) else { continue }
+                        let suffix = day.map { "wd.\($0)" } ?? kind
+                        let extra = offset == 0 ? "" : ".pre.\(offset)"
+                        let mondayDay = targetWeekday.map { $0 == 1 ? 7 : $0 - 1 }
+                        items.append(PlannedNotification(identifier: "vb.\(userID).rem.\(reminder.id).\(suffix)\(extra)",
+                            reminderID: reminder.id, userID: userID, title: title, fireDate: fire, repeats: true,
+                            weekday: mondayDay, timeZone: reminder.timeZone))
                     }
-                default:
-                    break
                 }
             } else {
-                for fire in reminder.nextFires where fire > now && fire <= now.addingTimeInterval(horizon) {
-                    items.append(oneShot(userID: userID, reminder: reminder, title: title, fire: fire))
+                for occurrence in reminder.nextFires {
+                    for offset in offsets {
+                        let fire = occurrence.addingTimeInterval(-Double(offset) * 60)
+                        if fire > now && fire <= now.addingTimeInterval(horizon) {
+                            items.append(oneShot(userID: userID, reminder: reminder, title: title, fire: fire))
+                        }
+                    }
                 }
             }
         }
-        return Array(items.sorted { lhs, rhs in
-            if lhs.fireDate != rhs.fireDate { return lhs.fireDate < rhs.fireDate }
-            return lhs.identifier < rhs.identifier
-        }.prefix(maxPending))
+        var seen = Set<String>()
+        return Array(items.sorted { $0.fireDate == $1.fireDate ? $0.identifier < $1.identifier : $0.fireDate < $1.fireDate }
+            .filter { seen.insert($0.identifier).inserted }.prefix(maxPending))
     }
 
     public static func reconcile(userID: Int, desired: [PlannedNotification], existing: [ScheduledLocalNotification]) -> (remove: [String], add: [PlannedNotification]) {
@@ -293,7 +329,7 @@ public enum NotificationPlanner {
         var remove: [String] = []
         for item in existing where item.identifier.hasPrefix(prefix) {
             if let match = wanted[item.identifier] {
-                if match.title != item.title || match.repeats != item.repeats {
+                if match.title != item.title || match.repeats != item.repeats || match.signature != item.signature {
                     remove.append(item.identifier)
                 }
             } else {

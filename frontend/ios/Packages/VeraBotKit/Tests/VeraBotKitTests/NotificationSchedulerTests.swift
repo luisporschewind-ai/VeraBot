@@ -75,3 +75,44 @@ import Testing
     let rotated = DeviceIdentity.rotate(defaults: defaults)
     #expect(rotated != created)
 }
+
+@Test func notificationReminderPreferencesAndOverrides() {
+    let now = Date(timeIntervalSince1970: 1_759_000_000)
+    let rows = [Reminder(id: 1, title: "我", dueUTC: now.addingTimeInterval(600), nextFires: [now.addingTimeInterval(600)]),
+                Reminder(id: 2, title: "Bot", dueUTC: now.addingTimeInterval(900), nextFires: [now.addingTimeInterval(900)], createdBy: "bot", sourceBotId: 8)]
+    #expect(NotificationPlanner.plan(userID: 1, reminders: rows, now: now, settings: NotificationSettings(enabled: false)).isEmpty)
+    #expect(NotificationPlanner.plan(userID: 1, reminders: rows, now: now, settings: NotificationSettings(categories: ["reminder": false])).isEmpty)
+    let muted = NotificationPlanner.plan(userID: 1, reminders: rows, now: now, settings: NotificationSettings(mutedBots: [8]))
+    #expect(muted.map(\.reminderID) == [1])
+    let complete = ReminderLocalOverride(reminderID: 1, action: "complete", until: nil)
+    #expect(NotificationPlanner.plan(userID: 1, reminders: rows, now: now, overrides: [complete]).map(\.reminderID) == [2])
+    let snooze = ReminderLocalOverride(reminderID: 1, action: "snooze", until: now.addingTimeInterval(1200))
+    let planned = NotificationPlanner.plan(userID: 1, reminders: rows, now: now, overrides: [snooze])
+    #expect(planned.count == 2)
+    #expect(planned.first { $0.reminderID == 1 }?.fireDate == snooze.until)
+    #expect(NotificationPlanner.plan(userID: 1, reminders: rows, now: now.addingTimeInterval(1300), overrides: [snooze]).allSatisfy { $0.reminderID != 1 })
+}
+
+@Test func notificationRepeatedTimeAndTimezoneAreReconciled() {
+    let now = Date(timeIntervalSince1970: 1_759_000_000)
+    let a = Reminder(id: 1, title: "每天", dueUTC: now.addingTimeInterval(3600), timeZone: "America/New_York", rrule: "FREQ=DAILY", alertOffsets: [0, 15])
+    var b = a; b.dueUTC = a.dueUTC?.addingTimeInterval(3600)
+    let old = NotificationPlanner.plan(userID: 1, reminders: [a], now: now)
+    let new = NotificationPlanner.plan(userID: 1, reminders: [b], now: now)
+    #expect(old.count == 2)
+    #expect(old.allSatisfy { $0.timeZone == "America/New_York" })
+    let existing = old.map { ScheduledLocalNotification(identifier: $0.identifier, title: $0.title, repeats: $0.repeats, signature: $0.signature) }
+    let diff = NotificationPlanner.reconcile(userID: 1, desired: new, existing: existing)
+    #expect(diff.add.count == 2)
+    #expect(diff.remove.count == 2)
+}
+
+@Test func notificationWeekdayAdvanceUsesReminderTimezone() {
+    let now = VeraBotDate.parse("2026-10-12T15:00:00Z")!
+    let anchor = VeraBotDate.parse("2026-10-12T01:00:00Z")! // Shanghai Monday 09:00
+    let reminder = Reminder(id: 1, title: "工作日", dueUTC: anchor, timeZone: "Asia/Shanghai", rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR")
+    let planned = NotificationPlanner.plan(userID: 1, reminders: [reminder], now: now)
+    var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+    #expect(planned.count == 5)
+    #expect(planned.allSatisfy { $0.fireDate > now && calendar.component(.hour, from: $0.fireDate) == 9 })
+}
