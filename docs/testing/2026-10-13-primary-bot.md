@@ -1,6 +1,6 @@
 # 主 Bot 第一版实施与验收交付
 
-日期：2026-10-13。分支`codex/primary-bot`，隔离工作树`/Users/admin/.codex/worktrees/primary-bot/VeraBot-v0.1`，基线`b81caed`。按用户确认的P0–P3计划实施；2026-10-14用户授权提交并集成本地main，main原有UI/文档保留；未授权推送。当前代码schema v29；原开发库和原8000/8094服务未升级/替换。
+日期：2026-10-13。分支`codex/primary-bot`，隔离工作树`/Users/admin/.codex/worktrees/primary-bot/VeraBot-v0.1`，基线`b81caed`。按用户确认的P0–P3计划实施；2026-10-14已提交并合入本地main（b68dfc4），main原有UI/文档保留；未授权推送。当前代码schema v29；原开发库和原8000/8094服务未升级/替换。
 
 ## 实现内容
 
@@ -58,3 +58,9 @@
 2026-10-13 模拟器启动交付：新建独立 iPhone 17 模拟器 `VeraBot Primary Bot`（CA8927CD-1453-4545-AE01-1FFA8E8C3C23），安装本分支构建并以 `-vb_base_url http://127.0.0.1:8096` 启动。隔离验收服务健康检查返回 ok=true；截图确认 App 停在登录页。未操作功能验收，原 iPhone 17 模拟器与8094环境保留。启动时修正验收脚本注册生命周期事件的兼容问题，改用 app.router.add_event_handler，服务启动成功。当前启动参数指定测试地址；后续不带参数重启时需重新配置测试地址。
 
 本机持续运行需要API与独立owned Worker；周期还需要既有Scheduler。没有自动安装launchd/systemd、修改开发者签名、安装真机或接入APNs。App关闭后服务端可继续，求助在任务/对话/收件箱中查看，锁屏即时推送尚未交付。
+
+## 2026-10-14 · 本地 Main 与现有 iPhone 17 交付
+
+产品提交 b68dfc4 已快进合入本地 main，未推送。Main 原有四处 SwiftUI 修改和文档/方案恢复为未提交状态；备份 /tmp/verabot-main-before-primary-20261014 和恢复 stash 保留。合入前后主 Bot 40项通过；合入前定时36项及MCP M3/登录/群回归通过，合入后Swift Testing260 + XCTest1通过。Main工作区构建成功（包含保留的未提交界面修改）。
+
+App 已安装启动在现有 iPhone 17（6FD1E62D-DA65-42B1-81F5-554042006671），没有新建模拟器或清除数据。8096隔离假模型服务从main启动，健康检查通过；旧服务令牌失效后，已登录合成账号 primary-test 并确认两位测试Bot列表正常加载。未启用主动任务或代替用户验收功能，未调用真实模型，原服务数据保持不变。当前以启动参数指定8096，后续无参数重启需重新配置地址。

@@ -1,10 +1,10 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
-## 主 Bot 第一版（2026-10-13，codex/primary-bot 隔离分支）
+## 主 Bot 第一版（2026-10-14，本地main）
 
 每账号可选零或一个主Bot，身份不自动启用主动任务；统一头像右下角徽章与助理页快捷入口，不改变置顶或群路由。Bot详情可设置身份，详情/对话更多菜单进入任务。用户确认目标、完成标准和预算后交办，可安排周期、查看历史/状态、补充回答、批准写操作、停止/继续或移交。已有排程默认只读，新模式owned使用独立业务Worker；后台需要常驻，APNs未接入。
 
-新增API：GET/PATCH `/api/primary-bot`；POST/GET `/api/owned-tasks`，详情/inputs/stop/continue/transfer/events/events/stream；scheduled-tasks创建可选execution_mode。JSON字段与Swift PrimaryBotSettings/OwnedTask/ScheduledTask各自CodingKeys一致，requestKey由Idempotency-Key头传递，修改/回答均带expected_version；旧User缺primary_bot_id仍可解码。源码schema v29，新增能力已实现、2026-10-14用户授权集成本地main，真实验收待完成，见[交付](../testing/2026-10-13-primary-bot.md)。
+新增API：GET/PATCH `/api/primary-bot`；POST/GET `/api/owned-tasks`，详情/inputs/stop/continue/transfer/events/events/stream；scheduled-tasks创建可选execution_mode。JSON字段与Swift PrimaryBotSettings/OwnedTask/ScheduledTask各自CodingKeys一致，requestKey由Idempotency-Key头传递，修改/回答均带expected_version；旧User缺primary_bot_id仍可解码。源码schema v29，新增能力已实现、2026-10-14已合入本地main（b68dfc4），真实验收待完成，见[交付](../testing/2026-10-13-primary-bot.md)。
 
 
 > 能力进度于 2026-10-12 对齐，详细实现与验收边界见 [项目盘点](../testing/2026-10-11-project-inventory.md)。标注「待 Boss 验收」的界面效果见 [STATUS.md](../STATUS.md)。`frontend/web` 冻结，没有 MCP / 确认卡片界面。
