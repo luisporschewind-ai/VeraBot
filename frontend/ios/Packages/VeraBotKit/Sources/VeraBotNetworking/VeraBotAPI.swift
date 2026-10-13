@@ -94,6 +94,7 @@ public protocol VeraBotAPI: Sendable {
     func restoreReminder(_ id: Int) async throws -> Reminder
     func deleteReminder(_ id: Int, scope: String) async throws -> Reminder
     func notifications(unread: Bool, category: String?) async throws -> NotificationsResponse
+    func notificationEvents(after: Int?, through: Int?) async throws -> NotificationEventPage
     func notificationSummary() async throws -> NotificationSummary
     func markNotificationRead(_ id: Int) async throws -> InboxNotification
     func markNotificationUnread(_ id: Int) async throws -> InboxNotification
@@ -204,5 +205,11 @@ struct DeliveryEventBody: Encodable {
     enum CodingKeys: String, CodingKey {
         case event, channel
         case deviceId = "device_id"
+    }
+}
+
+public extension VeraBotAPI {
+    func notificationEvents(after: Int?, through: Int?) async throws -> NotificationEventPage {
+        throw APIError(status: 501, message: "通知同步暂不可用")
     }
 }

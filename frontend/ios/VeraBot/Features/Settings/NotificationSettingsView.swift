@@ -31,9 +31,14 @@ struct NotificationSettingsView: View {
             } footer: {
                 Text("系统不允许时，通知只会留在收件箱。")
             }
+            Section {
+                Toggle("通知声音", isOn: $settings.soundEnabled)
+                    .onChange(of: settings.soundEnabled) { _, _ in Task { await save() } }
+            }
             Section("分类") {
                 categoryToggle("提醒", key: "reminder")
                 categoryToggle("Bot 消息", key: "bot_message")
+                categoryToggle("任务结果", key: "task_result")
                 categoryToggle("协作完成", key: "delegation")
                 categoryToggle("插件", key: "plugin")
                 LabeledContent("系统") { Text("安全通知不能关闭").font(.footnote).foregroundStyle(.secondary) }
@@ -70,6 +75,16 @@ struct NotificationSettingsView: View {
                 ForEach(muted) { bot in
                     Button("取消静音 \(bot.name)") { Task { await unmute(bot.id) } }
                 }
+            }
+            Section("本机提醒") {
+                LabeledContent("已排程", value: "\(app.notificationEvents.pendingReminderCount) 条")
+                if let end = app.notificationEvents.reminderCoverageEnd {
+                    LabeledContent("一次性排程覆盖至", value: end.formatted(date: .abbreviated, time: .shortened))
+                }
+                Text("复杂重复提醒会在打开 App 时补排。新消息与任务结果在 App 关闭期间暂不支持即时通知。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                if let error = app.notificationEvents.scheduleErrorText { Text(error).font(.footnote) }
+                if let error = app.notificationEvents.errorText { Text(error).font(.footnote) }
             }
             if let errorText { Text(errorText).foregroundStyle(.red) }
         }

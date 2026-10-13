@@ -34,6 +34,7 @@ struct BotNotice: Equatable {
     var avatar: BotAvatarState = .idle
     var actionTitle: String? = nil
     var duration: Double? = 3
+    var link: String? = nil
 }
 
 @MainActor @Observable

@@ -19,6 +19,7 @@ backend/scripts/test/results/
 
 # ---- Xcode / Swift ----
 DerivedData/
+.derivedData/
 build/
 .build/
 .swiftpm/

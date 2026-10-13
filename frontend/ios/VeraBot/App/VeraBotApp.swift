@@ -4,7 +4,12 @@ import VeraBotTTS
 
 @main
 struct VeraBotApp: App {
-    @State private var app = AppState()
+    @State private var app: AppState
+    init() {
+        let state = AppState()
+        _app = State(initialValue: state)
+        NotificationCoordinator.shared.start(app: state)
+    }
     @State private var travelStore = BotTravelStore()
     @State private var player = SpeechPlayer()   // 全局语音播放（TTS）
     @AppStorage(SettingsKeys.appearance) private var appearanceRaw = AppearanceMode.system.rawValue
@@ -41,7 +46,17 @@ struct RootView: View {
             if welcoming { BotLaunchView().transition(.opacity).zIndex(1) }
         }
         .environment(noticeCenter)
-        .botNoticeHost(noticeCenter)
+        .botNoticeHost(noticeCenter) { entry in
+            if let link = entry.message.link { Task { await app.open(link: link) } }
+            noticeCenter.dismiss(id: entry.id)
+        }
+        .task(id: "\(app.userID ?? 0)|\(scenePhase == .active)|\(app.baseURLString)") {
+            app.notificationEvents.attach(noticeCenter)
+            app.notificationEvents.isForeground = scenePhase == .active
+            guard scenePhase == .active, app.token != nil else { return }
+            await NotificationCoordinator.shared.resumePendingTap()
+            await app.notificationEvents.run()
+        }
         .task {
             do {
                 // Three greetings stagger over 0.8s; each existing .send action lasts about 1.46s.

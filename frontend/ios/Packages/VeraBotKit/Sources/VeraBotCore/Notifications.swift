@@ -1,7 +1,7 @@
 import Foundation
 
 public enum NotificationCategory: String, Codable, Sendable, Hashable {
-    case reminder, bot_message, delegation, plugin, system, unknown
+    case reminder, bot_message, task_result, delegation, plugin, system, unknown
 
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
@@ -12,6 +12,7 @@ public enum NotificationCategory: String, Codable, Sendable, Hashable {
         switch self {
         case .reminder: "提醒"
         case .bot_message: "Bot 消息"
+        case .task_result: "任务结果"
         case .delegation: "协作完成"
         case .plugin: "插件"
         case .system: "系统"
@@ -23,6 +24,7 @@ public enum NotificationCategory: String, Codable, Sendable, Hashable {
         switch self {
         case .reminder: "alarm"
         case .bot_message: "person.crop.circle"
+        case .task_result: "checklist"
         case .delegation: "person.2"
         case .plugin: "puzzlepiece"
         case .system, .unknown: "gearshape"
@@ -46,9 +48,19 @@ public struct InboxNotification: Codable, Sendable, Hashable, Identifiable {
     public var readAt: String?
     public var openedAt: String?
 
+    public var logicalKey: String?
+    public var sourceKind: String?
+    public var sourceState: String?
+    public var sourceID: String?
+    public var suppressionReason: String?
+    public var expiresAt: String?
+
     public var isUnread: Bool { readAt == nil }
 
     enum CodingKeys: String, CodingKey {
+        case logicalKey = "logical_key", sourceKind = "source_kind", sourceID = "source_id"
+        case sourceState = "source_state"
+        case suppressionReason = "suppression_reason", expiresAt = "expires_at"
         case body, sensitive, link
         case id = "id"
         case category = "category"
@@ -83,6 +95,12 @@ public struct InboxNotification: Codable, Sendable, Hashable, Identifiable {
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
         readAt = try c.decodeIfPresent(String.self, forKey: .readAt)
         openedAt = try c.decodeIfPresent(String.self, forKey: .openedAt)
+        logicalKey = try c.decodeIfPresent(String.self, forKey: .logicalKey)
+        sourceKind = try c.decodeIfPresent(String.self, forKey: .sourceKind)
+        sourceState = try c.decodeIfPresent(String.self, forKey: .sourceState)
+        sourceID = try c.decodeIfPresent(String.self, forKey: .sourceID)
+        suppressionReason = try c.decodeIfPresent(String.self, forKey: .suppressionReason)
+        expiresAt = try c.decodeIfPresent(String.self, forKey: .expiresAt)
     }
 }
 
@@ -120,6 +138,7 @@ public struct NotificationSummary: Codable, Sendable {
 
 public struct NotificationSettings: Codable, Sendable, Hashable {
     public var enabled: Bool
+    public var soundEnabled: Bool
     public var categories: [String: Bool]
     public var mutedBots: [Int]
     public var quietEnabled: Bool
@@ -129,6 +148,7 @@ public struct NotificationSettings: Codable, Sendable, Hashable {
     public var preview: String
 
     enum CodingKeys: String, CodingKey {
+        case soundEnabled = "sound_enabled"
         case enabled = "enabled"
         case categories = "categories"
         case preview = "preview"
@@ -139,10 +159,11 @@ public struct NotificationSettings: Codable, Sendable, Hashable {
         case quietTimeZone = "quiet_timezone"
     }
 
-    public init(enabled: Bool = true, categories: [String: Bool] = ["reminder": true, "bot_message": true, "delegation": true, "plugin": false, "system": true],
+    public init(enabled: Bool = true, categories: [String: Bool] = ["reminder": true, "bot_message": true, "task_result": true, "delegation": true, "plugin": false, "system": true],
                 mutedBots: [Int] = [], quietEnabled: Bool = false, quietStart: String = "23:00", quietEnd: String = "08:00",
-                quietTimeZone: String = "Asia/Shanghai", preview: String = "title") {
+                quietTimeZone: String = "Asia/Shanghai", preview: String = "title", soundEnabled: Bool = true) {
         self.enabled = enabled
+        self.soundEnabled = soundEnabled
         self.categories = categories
         self.mutedBots = mutedBots
         self.quietEnabled = quietEnabled
@@ -155,6 +176,7 @@ public struct NotificationSettings: Codable, Sendable, Hashable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let fallback = NotificationSettings()
+        soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? fallback.enabled
         categories = try c.decodeIfPresent([String: Bool].self, forKey: .categories) ?? fallback.categories
         mutedBots = try c.decodeIfPresent([Int].self, forKey: .mutedBots) ?? []
@@ -175,6 +197,7 @@ public struct DeviceRegistration: Codable, Sendable, Hashable {
     public var osVersion: String?
     public var timezone: String?
     public var localReminders: Bool
+    public var localEvents: Bool?
 
     enum CodingKeys: String, CodingKey {
         case platform = "platform"
@@ -185,10 +208,11 @@ public struct DeviceRegistration: Codable, Sendable, Hashable {
         case appVersion = "app_version"
         case osVersion = "os_version"
         case localReminders = "local_reminders"
+        case localEvents = "local_events"
     }
 
     public init(deviceId: String, platform: String = "ios", apnsToken: String? = nil, apnsEnv: String? = nil,
-                appVersion: String? = nil, osVersion: String? = nil, timezone: String? = nil, localReminders: Bool = true) {
+                appVersion: String? = nil, osVersion: String? = nil, timezone: String? = nil, localReminders: Bool = true, localEvents: Bool = false) {
         self.deviceId = deviceId
         self.platform = platform
         self.apnsToken = apnsToken
@@ -197,6 +221,7 @@ public struct DeviceRegistration: Codable, Sendable, Hashable {
         self.osVersion = osVersion
         self.timezone = timezone
         self.localReminders = localReminders
+        self.localEvents = localEvents
     }
 }
 
@@ -226,11 +251,12 @@ public struct PlannedNotification: Equatable, Sendable {
     public var repeats: Bool
     public var weekday: Int?
     public var timeZone: String
+    public var soundEnabled = true
     public var signature: String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: timeZone) ?? .gmt
         let timing = repeats ? "\(calendar.component(.hour, from: fireDate)):\(calendar.component(.minute, from: fireDate)):\(weekday ?? 0):\(timeZone)" : "\(Int(fireDate.timeIntervalSince1970))"
-        return "\(title)|\(repeats)|\(timing)|reminder/\(reminderID)"
+        return "\(title)|\(repeats)|\(timing)|reminder/\(reminderID)|sound:\(soundEnabled)"
     }
 
     public init(identifier: String, reminderID: Int, userID: Int, title: String, fireDate: Date, repeats: Bool, weekday: Int? = nil, timeZone: String = "Asia/Shanghai") {
@@ -287,7 +313,7 @@ public enum NotificationPlanner {
                 calendar.timeZone = TimeZone(identifier: reminder.timeZone) ?? .gmt
                 let days: [Int?] = kind == "weekdays" ? (1...5).map { Optional($0) } : [nil]
                 for day in days {
-                    for offset in offsets {
+                    for offset in offsets where offset == 0 {
                         var base = anchor
                         if let day {
                             let weekday = calendar.component(.weekday, from: anchor)
@@ -298,13 +324,22 @@ public enum NotificationPlanner {
                         var parts = calendar.dateComponents([.hour, .minute], from: shifted)
                         let targetWeekday = kind == "daily" ? nil : calendar.component(.weekday, from: shifted)
                         if let targetWeekday { parts.weekday = targetWeekday }
-                        guard let fire = calendar.nextDate(after: now, matching: parts, matchingPolicy: .nextTime, repeatedTimePolicy: .first) else { continue }
+                        guard let fire = calendar.nextDate(after: now, matching: parts, matchingPolicy: .nextTimePreservingSmallerComponents, repeatedTimePolicy: .first) else { continue }
                         let suffix = day.map { "wd.\($0)" } ?? kind
                         let extra = offset == 0 ? "" : ".pre.\(offset)"
                         let mondayDay = targetWeekday.map { $0 == 1 ? 7 : $0 - 1 }
                         items.append(PlannedNotification(identifier: "vb.\(userID).rem.\(reminder.id).\(suffix)\(extra)",
                             reminderID: reminder.id, userID: userID, title: title, fireDate: fire, repeats: true,
                             weekday: mondayDay, timeZone: reminder.timeZone))
+                    }
+                }
+                // Advance alerts use server occurrence instants so DST transitions cannot shift their offset.
+                for occurrence in reminder.nextFires.isEmpty ? [anchor] : reminder.nextFires {
+                    for offset in offsets where offset != 0 {
+                        let fire = occurrence.addingTimeInterval(-Double(offset) * 60)
+                        if fire > now && fire <= now.addingTimeInterval(horizon) {
+                            items.append(oneShot(userID: userID, reminder: reminder, title: title, fire: fire))
+                        }
                     }
                 }
             } else {
@@ -320,11 +355,13 @@ public enum NotificationPlanner {
         }
         var seen = Set<String>()
         return Array(items.sorted { $0.fireDate == $1.fireDate ? $0.identifier < $1.identifier : $0.fireDate < $1.fireDate }
-            .filter { seen.insert($0.identifier).inserted }.prefix(maxPending))
+            .filter { seen.insert($0.identifier).inserted }.prefix(maxPending)).map {
+                var item = $0; item.soundEnabled = settings.soundEnabled; return item
+            }
     }
 
     public static func reconcile(userID: Int, desired: [PlannedNotification], existing: [ScheduledLocalNotification]) -> (remove: [String], add: [PlannedNotification]) {
-        let prefix = "vb.\(userID)."
+        let prefix = "vb.\(userID).rem."
         let wanted = Dictionary(uniqueKeysWithValues: desired.map { ($0.identifier, $0) })
         var remove: [String] = []
         for item in existing where item.identifier.hasPrefix(prefix) {
@@ -355,6 +392,7 @@ public enum NotificationPlanner {
             let pair = piece.split(separator: "=", maxSplits: 1)
             if pair.count == 2 { parts[String(pair[0])] = String(pair[1]) }
         }
+        guard Set(parts.keys).isSubset(of: ["FREQ", "INTERVAL", "BYDAY"]) else { return nil }
         if let interval = parts["INTERVAL"], interval != "1" { return nil }
         if parts["FREQ"] == "DAILY", parts["BYDAY"] == nil, parts["BYMONTHDAY"] == nil { return "daily" }
         if parts["FREQ"] == "WEEKLY" {
@@ -368,37 +406,10 @@ public enum NotificationPlanner {
     private static func oneShot(userID: Int, reminder: Reminder, title: String, fire: Date) -> PlannedNotification {
         let epoch = Int(fire.timeIntervalSince1970)
         return PlannedNotification(identifier: "vb.\(userID).rem.\(reminder.id).\(epoch)", reminderID: reminder.id,
-                                   userID: userID, title: title, fireDate: fire, repeats: false)
+                                   userID: userID, title: title, fireDate: fire, repeats: false, timeZone: reminder.timeZone)
     }
 
-    private static func repeating(userID: Int, reminder: Reminder, title: String, fire: Date, suffix: String, weekday: Int?) -> PlannedNotification {
-        PlannedNotification(identifier: "vb.\(userID).rem.\(reminder.id).\(suffix)", reminderID: reminder.id,
-                            userID: userID, title: title, fireDate: fire, repeats: true, weekday: weekday)
-    }
 
-    private static func next(_ anchor: Date, after now: Date) -> Date {
-        anchor > now ? anchor : anchor.addingTimeInterval(24 * 3600)
-    }
-
-    private static func nextWeekday(_ day: Int, hour anchor: Date, after now: Date) -> Date {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
-        let hour = calendar.component(.hour, from: anchor)
-        let minute = calendar.component(.minute, from: anchor)
-        var cursor = calendar.startOfDay(for: now)
-        for _ in 0..<8 {
-            let weekday = calendar.component(.weekday, from: cursor)
-            let mondayBased = weekday == 1 ? 7 : weekday - 1
-            if mondayBased == day {
-                var parts = calendar.dateComponents([.year, .month, .day], from: cursor)
-                parts.hour = hour
-                parts.minute = minute
-                if let date = calendar.date(from: parts), date > now { return date }
-            }
-            cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? cursor
-        }
-        return now.addingTimeInterval(3600)
-    }
 }
 
 public enum DeepLink: Equatable, Sendable {
@@ -498,7 +509,7 @@ public enum ReminderOutbox {
 
     /// 409 视为已经处理（状态不允许，或别处改过），不再重放。
     public static func shouldDrop(status: Int, code: String?) -> Bool {
-        status == 409 && (code == "invalid_transition" || code == "version_conflict")
+        status == 404 || status == 409 && (code == "invalid_transition" || code == "version_conflict")
     }
 }
 

@@ -281,6 +281,9 @@ struct ReminderEditorView: View {
             } else {
                 _ = try await app.api.createReminder(body)
             }
+            if hasDate && NotificationCoordinator.shared.preferences.enabled {
+                await NotificationCoordinator.shared.requestReminderAuthorizationIfNeeded()
+            }
             await onSaved()
             dismiss()
         } catch let error as APIError where error.status == 409 && error.code == "version_conflict" {

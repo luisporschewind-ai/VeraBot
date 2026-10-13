@@ -106,7 +106,7 @@ def _suppress_reason(prefs, category: str, *, bot_id, created_by, now, rate_reas
 def notify(user_id: int, *, category: str, title: str, body: str | None = None, sensitive: bool = False,
            bot_id: int | None = None, reminder_id: int | None = None, message_id: int | None = None,
            plugin_id: str | None = None, link: str | None = None, thread_id: str | None = None,
-           dedupe_key: str, created_by: str | None = None, source_kind: str | None = None, source_id: str | None = None, conn=None) -> dict:
+           dedupe_key: str, created_by: str | None = None, source_kind: str | None = None, source_id: str | None = None, source_state: str | None = None, conn=None) -> dict:
     if category not in {"reminder", "bot_message", "task_result", "delegation", "plugin", "system"}:
         raise ValueError("未知通知分类")
 
@@ -126,7 +126,7 @@ def notify(user_id: int, *, category: str, title: str, body: str | None = None, 
         nid = store.insert_notification(c, (
             user_id, "bot_message" if category == "task_result" else category, shown_title, shown_body, 1 if (sensitive or force_sensitive) else 0,
             bot_id, reminder_id, message_id, plugin_id, link, thread_id, dedupe_key, created, expires,
-            "task_result" if category == "task_result" else None, source_kind, source_id, reason,
+            "task_result" if category == "task_result" else None, source_kind, source_id, source_state, reason,
         ))
         store.insert_inbox_delivery(c, nid, user_id, created)
         # R1 不发 APNs。本地提醒由设备自己排；这里只预置投递状态。提醒不限流。
@@ -163,7 +163,7 @@ def _public(row: dict) -> dict:
         "id": row["id"],
         "category": row.get("kind") or row["category"],
         "logical_key": row["dedupe_key"],
-        "source_kind": row.get("source_kind"), "source_id": row.get("source_id"),
+        "source_kind": row.get("source_kind"), "source_id": row.get("source_id"), "source_state": row.get("source_state"),
         "suppression_reason": row.get("suppression_reason"), "expires_at": row.get("expires_at"),
         "title": row["title"],
         "body": row.get("body"),

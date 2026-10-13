@@ -116,3 +116,23 @@ import Testing
     #expect(planned.count == 5)
     #expect(planned.allSatisfy { $0.fireDate > now && calendar.component(.hour, from: $0.fireDate) == 9 })
 }
+
+@Test func notificationChangedSoundReplacesPendingAndDeletedActionDrops() {
+    let now = Date()
+    let row = Reminder(id: 1, title: "提醒", nextFires: [now.addingTimeInterval(600)])
+    let old = NotificationPlanner.plan(userID: 1, reminders: [row], now: now)
+    let silent = NotificationPlanner.plan(userID: 1, reminders: [row], now: now, settings: .init(soundEnabled: false))
+    let existing = old.map { ScheduledLocalNotification(identifier: $0.identifier, title: $0.title, repeats: $0.repeats, signature: $0.signature) }
+    #expect(NotificationPlanner.reconcile(userID: 1, desired: silent, existing: existing).add.count == 1)
+    #expect(ReminderOutbox.shouldDrop(status: 404, code: nil))
+}
+
+@Test func notificationComplexRuleAndDSTOffsetsUseConcreteOccurrences() {
+    let now = VeraBotDate.parse("2027-03-13T12:00:00Z")!
+    let anchor = VeraBotDate.parse("2027-03-14T07:15:00Z")! // 03:15 after spring transition
+    let reminder = Reminder(id: 4, title: "提前一小时", dueUTC: anchor, timeZone: "America/New_York", rrule: "FREQ=DAILY", nextFires: [anchor], alertOffsets: [0, 60])
+    let planned = NotificationPlanner.plan(userID: 1, reminders: [reminder], now: now)
+    #expect(planned.contains { !$0.repeats && $0.fireDate == anchor.addingTimeInterval(-3600) })
+    let complex = Reminder(id: 5, title: "仅三月", dueUTC: anchor, rrule: "FREQ=DAILY;BYMONTH=3", nextFires: [anchor])
+    #expect(NotificationPlanner.plan(userID: 1, reminders: [complex], now: now).allSatisfy { !$0.repeats })
+}

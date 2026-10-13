@@ -7,6 +7,8 @@ import VeraBotTTS
 import VeraBotData
 
 struct ChatView: View {
+    @State private var notificationViewport: CGSize = .zero
+    @State private var notificationFrames: [Int: CGRect] = [:]
     @State private var vm: ChatViewModel
     @State private var speech = SpeechInput()
     @State private var input = ""
@@ -55,6 +57,12 @@ struct ChatView: View {
                     }
                     ForEach(vm.items) { item in
                         MessageRow(item: item, bot: vm.bot, vm: vm)
+                            .background {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(key: ChatNotificationFrames.self,
+                                        value: item.messageID.map { [$0: geometry.frame(in: .named("notificationChatViewport"))] } ?? [:])
+                                }
+                            }
                             .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
                     }
                     ForEach(vm.memorySuggestions) { suggestion in
@@ -66,6 +74,16 @@ struct ChatView: View {
                     Color.clear.frame(height: 1).id("bottom")
                 }
                 .padding()
+            }
+            .coordinateSpace(name: "notificationChatViewport")
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.onAppear { notificationViewport = geometry.size; updateNotificationVisibility() }
+                        .onChange(of: geometry.size) { _, size in notificationViewport = size; updateNotificationVisibility() }
+                }
+            }
+            .onPreferenceChange(ChatNotificationFrames.self) { frames in
+                notificationFrames = frames; updateNotificationVisibility()
             }
             .bottomAnchoredScrolling()                    // 初次进入 & 键盘弹出时保持贴底（iOS 18+；17 由 keyboardDidShow 滚动兜底）
             .scrollDismissesKeyboard(.interactively)      // 下拉消息列表可交互式收起键盘
@@ -148,6 +166,13 @@ struct ChatView: View {
             await vm.load()
             if quickPromptsEnabled { await vm.refreshQuickPrompts() }
         }
+        .onChange(of: notificationModalShown) { _, _ in updateNotificationVisibility() }
+        .onChange(of: scenePhase) { _, _ in updateNotificationVisibility() }
+        .onDisappear {
+            if app.notificationEvents.visibleBotID == vm.bot.id {
+                app.notificationEvents.visibleBotID = nil; app.notificationEvents.visibleMessageIDs = []
+            }
+        }
         .onChange(of: quickPromptsEnabled) { _, enabled in
             if enabled { Task { await vm.refreshQuickPrompts() } }
             else { vm.quickPrompts = [] }
@@ -217,6 +242,16 @@ struct ChatView: View {
             }
         }
         .accessibilityLabel("\(vm.bot.name)，\(action.title)，查看 Bot 详情")
+    }
+
+    private var notificationModalShown: Bool {
+        showInfo || showTasks || showMemoryList || showPhotos || showCamera || showFiles || travelTripToShow != nil
+    }
+    private func updateNotificationVisibility() {
+        app.notificationEvents.visibleBotID = vm.bot.id
+        guard scenePhase == .active, !notificationModalShown else { app.notificationEvents.visibleMessageIDs = []; return }
+        let viewport = CGRect(origin: .zero, size: notificationViewport)
+        app.notificationEvents.visibleMessageIDs = Set(notificationFrames.filter { $0.value.intersects(viewport) }.keys)
     }
 
     /// 底部浮动输入栏（Liquid Glass）：[＋ 圆形玻璃按钮] [胶囊玻璃：输入框 … 🎙]。
@@ -427,4 +462,9 @@ struct ChatView: View {
         // 权限弹窗可能等待很久，真正开启麦克风前再次停止朗读。
         Task { await speech.toggle(beforeRecording: { player.stop() }) }
     }
+}
+
+private struct ChatNotificationFrames: PreferenceKey {
+    static let defaultValue: [Int: CGRect] = [:]
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) { value.merge(nextValue(), uniquingKeysWith: { _, new in new }) }
 }

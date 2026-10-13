@@ -48,6 +48,7 @@ final class AppState {
     private(set) var primaryBotRepository: PrimaryBotRepository?
     private(set) var ownedTaskRepository: OwnedTaskRepository?
     private(set) var scheduledTaskRepository: ScheduledTaskRepository?
+    @ObservationIgnored lazy var notificationEvents = NotificationEventSync(app: self)
     var unreadCount = 0
     var selectedTab = 0
     var pendingLink: DeepLink?
@@ -126,6 +127,8 @@ final class AppState {
     func isCurrentAuthAttempt(_ generation: UInt64) -> Bool { authSession.isCurrentAuthAttempt(generation) }
 
     func saveBaseURL() {
+        notificationEvents.invalidate()
+        NotificationCoordinator.shared.clearAll()
         invalidatePersistenceScope()
         UserDefaults.standard.set(baseURLString, forKey: Keys.baseURL)
         activatePersistenceScope()
@@ -227,6 +230,7 @@ final class AppState {
     }
 
     func signOut() {
+        notificationEvents.invalidate()
         let oldRepository = conversationRepository
         let oldDatabaseURL = conversationDatabaseURL
         primaryBotRepository?.close(); ownedTaskRepository?.close(); scheduledTaskRepository?.close()

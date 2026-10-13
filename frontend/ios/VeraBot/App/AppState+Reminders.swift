@@ -23,9 +23,12 @@ extension AppState {
             let overrides = ReminderOutboxStore.load(userID: userID).map(ReminderLocalOverride.init)
             let planned = NotificationPlanner.plan(userID: userID, reminders: reminders.reminders, preview: prefs.preview,
                 settings: localPrefs, overrides: overrides)
+            NotificationCoordinator.shared.preferences = prefs
             await NotificationCoordinator.shared.apply(planned: planned, userID: userID)
+            let (count, end) = await NotificationCoordinator.shared.reminderCoverage(userID: userID)
             guard isCurrentSession(generation) else { return }
-            _ = try? await api.registerDevice(currentDevice(localReminders: allowed && prefs.enabled && prefs.categories["reminder"] == true))
+            notificationEvents.updateReminderCoverage(count: count, end: end, error: NotificationCoordinator.shared.lastScheduleError)
+            _ = try? await api.registerDevice(currentDevice(localReminders: allowed && prefs.enabled && prefs.categories["reminder"] == true, localEvents: allowed))
         } catch {
             if let error = error as? APIError, error.status == 401, isCurrentSession(generation) {
                 signOut()
@@ -35,9 +38,12 @@ extension AppState {
 
     func open(link: String) async {
         guard token != nil else { return }
+        let generation = sessionGeneration
+        let sourceURL = baseURLString
         let reminders = (try? await api.reminders().reminders.map(\.id)) ?? []
         let bots = (try? await api.bots().bots.map(\.id)) ?? []
         let plugins = (try? await api.plugins().plugins.map(\.pluginId)) ?? []
+        guard isCurrentSession(generation), baseURLString == sourceURL else { return }
         switch DeepLinkRouter.resolve(link, reminderIDs: Set(reminders), botIDs: Set(bots), pluginIDs: Set(plugins)) {
         case .missing:
             missingNotice = "内容已不存在"
@@ -63,10 +69,13 @@ extension AppState {
         let item = ReminderOutboxItem(idempotencyKey: idempotencyKey, reminderID: reminderID, action: action, minutes: nil, until: until)
         ReminderOutboxStore.save(userID: userID, items: ReminderOutbox.appending(item, to: ReminderOutboxStore.load(userID: userID)))
         if action == "snooze" {
-            await NotificationCoordinator.shared.scheduleSnooze(userID: userID, reminderID: reminderID, title: "稍后提醒")
+            await NotificationCoordinator.shared.scheduleSnooze(userID: userID, reminderID: reminderID, title: "稍后提醒", until: VeraBotDate.parse(until) ?? Date().addingTimeInterval(600))
         } else { await NotificationCoordinator.shared.removeReminder(reminderID, userID: userID) }
         guard isCurrentSession(generation) else { return }
-        await syncReminders()
+        Task { [weak self] in
+            guard let self, self.isCurrentSession(generation) else { return }
+            await self.syncReminders()
+        }
     }
 
     func report(notificationID: Int, event: String, channel: String) async {
@@ -80,6 +89,8 @@ extension AppState {
         var dropped = 0
         var kept: [ReminderOutboxItem] = []
         for item in items {
+            guard isCurrentSession(generation) else { return }
+            if item.action == "snooze", let until = VeraBotDate.parse(item.until), until <= Date() { dropped += 1; continue }
             do {
                 if item.action == "snooze" {
                     _ = try await api.snoozeReminder(item.reminderID, minutes: item.until == nil ? item.minutes : nil, until: item.until,
@@ -107,10 +118,10 @@ extension AppState {
         }
     }
 
-    private func currentDevice(localReminders: Bool) -> DeviceRegistration {
+    private func currentDevice(localReminders: Bool, localEvents: Bool) -> DeviceRegistration {
         DeviceRegistration(deviceId: DeviceIdentity.current(), platform: "ios", apnsToken: nil, apnsEnv: nil,
                            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
                            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
-                           timezone: TimeZone.current.identifier, localReminders: localReminders)
+                           timezone: TimeZone.current.identifier, localReminders: localReminders, localEvents: localEvents)
     }
 }

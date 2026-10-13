@@ -4,7 +4,7 @@ from ._util import _add_column
 def migrate(c, ver):
     _add_column(c, "push_devices", "local_events", "INTEGER NOT NULL DEFAULT 0")
     _add_column(c, "notification_prefs", "sound_enabled", "INTEGER NOT NULL DEFAULT 1")
-    for name in ('kind', 'source_kind', 'source_id', 'suppression_reason'):
+    for name in ('kind', 'source_kind', 'source_id', 'source_state', 'suppression_reason'):
         _add_column(c, 'notifications', name, 'TEXT')
     c.execute('''CREATE TABLE IF NOT EXISTS notification_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

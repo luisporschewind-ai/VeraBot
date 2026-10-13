@@ -225,8 +225,8 @@ def count_notifications(conn, user_id: int, category: str, since: str, *, bot_id
 def insert_notification(conn, values: tuple) -> int:
     cur = conn.execute(
         """INSERT INTO notifications(user_id, category, title, body, sensitive, bot_id, reminder_id, message_id,
-               plugin_id, link, thread_id, dedupe_key, created_at, expires_at, kind, source_kind, source_id, suppression_reason)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               plugin_id, link, thread_id, dedupe_key, created_at, expires_at, kind, source_kind, source_id, source_state, suppression_reason)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         values,
     )
     return cur.lastrowid
