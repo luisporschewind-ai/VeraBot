@@ -36,6 +36,9 @@ struct BotListView: View {
                     }
                     .plainListRow()
                 }
+                if let primary=bots.first(where:{$0.id==app.primaryBotID}) {
+                    NavigationLink(value:primary){Label("主 Bot："+primary.name,systemImage:"star.circle")}
+                }
                 ForEach(conversations) { item in
                     switch item {
                     case .bot(let bot):

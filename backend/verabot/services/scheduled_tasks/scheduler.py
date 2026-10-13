@@ -44,7 +44,10 @@ def _process(tid,now,stats):
                 if now-when>timedelta(hours=24): error='missed'
             else: error='missed'
         if not runs.occurrence_exists(c,tid,t['schedule_revision'],when):
-            runs.insert(c,t,when,now,state='skipped' if error else 'queued',error=error)
+            rid=runs.insert(c,t,when,now,state='skipped' if error else 'queued',error=error)
+            if not error and t.get('execution_mode')=='owned':
+                from ..owned_tasks.schedules import enqueue_occurrence
+                enqueue_occurrence(c,t,rid)
             stats['skipped' if error else 'enqueued']+=1
         high_water=runs.high_water(c,tid,t['schedule_revision'])
         after=max(now,high_water) if high_water else now

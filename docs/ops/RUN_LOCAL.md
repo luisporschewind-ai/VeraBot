@@ -1,5 +1,10 @@
 # 当前 Main 运行入口 · 2026-10-12
 
+## 主 Bot 隔离验收
+
+主 Bot需要schema v29和独立owned任务Worker；不以API启动等同后台部署，也不使用手机后台定时。纯本地假模型/合成账号验收脚本、生产进程共享配置要求及限制见[后台说明](../../backend/verabot/services/owned_tasks/README.md)。本轮未替换已有8000/8094服务、升级原库或安装设备。
+
+
 正式主工作区的当前运行状态见 [STATUS](../STATUS.md)。本隔离 worktree 的群任务代码目标 schema 为 v24；迁移前先备份数据库，在副本执行 `init_db()` 两次并对比用户、Bot、群及消息数量，再按后端说明切换到 v2 客户端。v24 仅清除旧群默认成员值并增加任务表，不删除群成员或历史。首版群任务 worker 托管在 API 进程内，正式服务只能运行一个 API 进程；定时任务 Scheduler/Worker 仍按独立方式运行。群任务完整升级和回滚注意见 [实现记录](../testing/2026-10-12-group-intent-and-handoff.md)。
 
 以下为既有版本的专题运行说明。

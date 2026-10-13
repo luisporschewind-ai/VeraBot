@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class CreateTask(BaseModel):
     model_config=ConfigDict(extra='forbid')
     bot_id: int = Field(gt=0)
+    execution_mode: Literal['read_only','owned']='read_only'
     title: str = Field(min_length=1,max_length=200)
     instruction: str = Field(min_length=1,max_length=8000)
     start_at: str

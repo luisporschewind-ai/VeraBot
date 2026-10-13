@@ -20,9 +20,13 @@ def insert(
     tool_def_hash: str | None,
     expires_at: str,
     created_at: str | None = None,
+    owned_step: dict | None = None,
 ) -> int:
     stamp = created_at or now_iso()
-    with tx() as c:
+    with tx(immediate=True) as c:
+        if owned_step:
+            from . import owned_task_store
+            if not owned_task_store.live(c, owned_step): raise ValueError("任务已停止")
         cur = c.execute(
             """INSERT INTO pending_actions(
                  user_id, bot_id, kind, server_id, tool_full_name,
@@ -32,7 +36,9 @@ def insert(
             (user_id, bot_id, kind, server_id, tool_full_name,
              payload_enc, payload_hash, tool_def_hash, stamp, expires_at),
         )
-        return int(cur.lastrowid)
+        action_id = int(cur.lastrowid)
+        if owned_step: owned_task_store.bind_action(c, owned_step, action_id)
+        return action_id
 
 
 def get(user_id: int, action_id: int) -> dict | None:
@@ -98,6 +104,10 @@ def claim_for_execution(user_id: int, action_id: int) -> tuple[str, dict | None]
         # cannot make the expiry timestamp stale before the conditional update.
         c.execute("BEGIN IMMEDIATE")
         stamp = now_iso()
+        owned = c.execute('SELECT * FROM pending_actions WHERE id=? AND user_id=?',(action_id,user_id)).fetchone()
+        if owned and dict(owned).get('owned_task_id'):
+            from .owned_task_store import action_current
+            if not action_current(c, dict(owned)): return ('task_changed', None)
         claimed = c.execute(
             """UPDATE pending_actions
                SET status='done', result='执行中…', decided_at=?

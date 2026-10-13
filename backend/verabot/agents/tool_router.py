@@ -62,6 +62,9 @@ def trace_meta(user_id: int, name: str) -> dict:
 
 
 async def dispatch(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
+    if ctx.execution_mode == "owned":
+        from ..services.owned_tasks.policy import require
+        require(ctx, name)
     if ctx.execution_mode == "scheduled":
         from ..services.scheduled_tasks.policy import require_allowed
         require_allowed(ctx, name)

@@ -1,5 +1,8 @@
 # 文档索引 (Docs index)
 
+主 Bot第一版已在隔离分支实现，当前自动验证与手动入口见[交付记录](testing/2026-10-13-primary-bot.md)，运行说明见[后台模块](../backend/verabot/services/owned_tasks/README.md)。它不是main已部署能力。
+
+
 当前整合状态见 [2026-10-12 Main 集成交付](testing/2026-10-12-main-integration.md)。下方设计文档与旧验证记录保留其历史范围；当前功能与验收以 STATUS 和本轮交付为准。
 
 所有文档使用中文，技术术语附英文。代码与文档在同一个 commit 更新 (见 [CONTRIBUTING.md](../CONTRIBUTING.md))。

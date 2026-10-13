@@ -93,6 +93,16 @@ def create_mcp_pending(
             "code": "pending_cap",
         }
     payload_hash = _hash_payload(arguments)
+    if getattr(ctx, "owned_step", None):
+        from ...db import owned_task_store
+        with db.tx() as c:
+            previous = owned_task_store.previous_action(c, ctx.owned_step['task_id'], ctx.owned_step['version'], tool['full_name'], payload_hash)
+        if previous:
+            if previous['status'] == 'done' and previous['result'] != '执行中…':
+                checkpoint = _decrypt(previous.get('owned_result_enc'))
+                if not checkpoint: return {'error': '已执行操作的结果无法读取，请核实', 'code': 'checkpoint_unavailable'}
+                return {'content': checkpoint.get('content', ''), 'already_executed': True}
+            return {'error': '此操作已请求或结果不确定，请核实任务中的确认记录', 'code': 'operation_unresolved'}
     expires = _expires_at()
     action_id = action_store.insert(
         ctx.user_id,
@@ -104,6 +114,7 @@ def create_mcp_pending(
         payload_hash=payload_hash,
         tool_def_hash=tool.get("def_hash") or tool.get("accepted_hash"),
         expires_at=expires,
+        owned_step=getattr(ctx, "owned_step", None),
     )
     ctx.turn.pending_created = getattr(ctx.turn, "pending_created", 0) + 1
     db.audit(ctx.user_id, ctx.bot.get("id"), "mcp_action_requested", {
@@ -246,10 +257,15 @@ def cancel(user_id: int, action_id: int) -> dict:
         "server_id": row.get("server_id"),
         "tool": row.get("tool_full_name"),
     })
+    from ..owned_tasks import approvals
+    approvals.resolve(user_id, action_id)
     return public_action(updated)
 
 
 def confirm(user_id: int, action_id: int) -> dict:
+    from ..owned_tasks import approvals
+    try: approvals.preflight(user_id, action_id)
+    except ValueError as exc: raise ActionError(409, str(exc), "task_changed") from exc
     row = action_store.get(user_id, action_id)
     if row is None:
         raise ActionError(404, "待确认操作不存在")
@@ -303,7 +319,7 @@ def confirm(user_id: int, action_id: int) -> dict:
         with db.tx() as c:
             c.execute(
                 "UPDATE pending_actions SET status=?, result=?, decided_at=? WHERE id=? AND user_id=?",
-                ("failed", summary, db.now_iso(), action_id, user_id),
+                ("unknown" if row.get("owned_task_id") else "failed", summary, db.now_iso(), action_id, user_id),
             )
         db.audit(user_id, row.get("bot_id"), "mcp_action_failed", {
             "action_id": action_id, "server": server.get("slug"),
@@ -311,6 +327,10 @@ def confirm(user_id: int, action_id: int) -> dict:
         })
         raise ActionError(502, summary, "mcp_invoke_failed") from exc
 
+    if row.get('owned_task_id'):
+        from ...db import owned_task_store
+        encoded = _encrypt({'content': str(result.get('content') or '')[:12000]})
+        with db.tx(immediate=True) as c: owned_task_store.checkpoint_action(c, user_id, action_id, encoded)
     summary = _result_summary(result)
     final_status = _status_from_result(result)
     with db.tx() as c:
@@ -327,8 +347,9 @@ def confirm(user_id: int, action_id: int) -> dict:
         "code": result.get("code"),
     })
     note = f"用户已确认并执行 {tool.get('title') or tool.get('mcp_name') or tool['full_name']}：{summary}"
-    if row.get("bot_id"):
+    if row.get("bot_id") and not row.get("owned_task_id"):
         db.add_message(user_id, row["bot_id"], "assistant", note, traces=None)
+    approvals.resolve(user_id, action_id)
     fresh = action_store.get(user_id, action_id)
     out = public_action(fresh)
     out["execution"] = {

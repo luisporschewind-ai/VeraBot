@@ -25,6 +25,11 @@ public actor ConversationStore {
                                    values: [kind, id, data, Date().timeIntervalSince1970])
     }
 
+    public func conversation<Value: Codable & Sendable>(_ type:Value.Type,kind:String,id:Int) async throws -> Value? {
+        guard let first=try database.rows("SELECT snapshot FROM conversations WHERE kind=? AND remote_id=?",values:[kind,id]).first, let data=first["snapshot"] as? Data else{return nil}
+        return try decoder.decode(type,from:data)
+    }
+
     public func conversations<Value: Codable & Sendable>(_ type: Value.Type, kind: String) async throws -> [Value] {
         try database.rows("SELECT snapshot FROM conversations WHERE kind=? ORDER BY updated_at DESC,remote_id DESC", values: [kind]).compactMap {
             guard let data = $0["snapshot"] as? Data else { return nil }

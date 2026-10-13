@@ -1,5 +1,10 @@
 # VeraBot — 私人 AI 助理团队 (Personal AI Agent Team)
 
+## 主 Bot 第一版
+
+`codex/primary-bot`基于本地main `b81caed`实现日常负责人、明确交办/周期任务、持久求助与MCP确认续跑；schema v29。2026-10-14用户授权提交并集成本地main；真实UI/模型与后台部署仍需验收。见[交付记录](docs/testing/2026-10-13-primary-bot.md)及[后台运行说明](backend/verabot/services/owned_tasks/README.md)。
+
+
 > **v0.1.0 · 原型验证完成 (Prototype validated, feasible)** — 2026-09-30
 > 91 条用例：通过 90 / 失败 0 / 跳过 1。之后的未发布改动 (设置页重排、头像 / 昵称、Liquid Glass 视觉、富文本等) 与当前进度见 [docs/STATUS.md](docs/STATUS.md)。
 

@@ -35,6 +35,11 @@ struct LiveBotAvatar: View {
                     .accessibilityLabel("Bot，\(action.title)")
             }
         }
+        .overlay(alignment:.bottomTrailing) {
+            if app.primaryBotID == botID {
+                Image(systemName:"star.circle.fill").font(.system(size:max(14,size*0.3))).foregroundStyle(Color.accentColor,Color.appBackground).accessibilityLabel("主 Bot")
+            }
+        }
         .task(id: "\(botID)|\(hasAvatar)|\(updatedAt ?? "")") {
             await app.avatars.ensureBot(id: botID, hasAvatar: hasAvatar, updatedAt: updatedAt, api: app.api)
         }

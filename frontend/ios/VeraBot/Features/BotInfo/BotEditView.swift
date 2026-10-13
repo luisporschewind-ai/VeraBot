@@ -71,6 +71,10 @@ struct BotEditView: View {
 
     var body: some View {
         ThemedForm {
+            Section {
+                Button(app.primaryBotID == bot.id ? "取消主 Bot":"设为主 Bot") {Task{await app.setPrimaryBot(app.primaryBotID == bot.id ? nil:bot.id)}}
+                NavigationLink("任务"){TaskListView(botID:bot.id,botName:bot.name)}
+            }
             Menu {
                 Button { endEditing(); showPhotoPicker = true } label: {
                     Label("从相册选择", systemImage: "photo")

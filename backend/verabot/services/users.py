@@ -32,7 +32,10 @@ def public_user(u: dict | None) -> dict | None:
         nick = None
     email = u.get("email") or None
     phone = u.get("phone") or None
+    from .primary_bot import get
+    primary = get(u["id"])
     return {
+        "primary_bot_id": primary["primary_bot_id"],
         "id": u["id"],
         "username": u["username"],
         "created_at": u.get("created_at"),

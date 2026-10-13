@@ -42,6 +42,11 @@ def create(user_id,payload,idempotency_key):
     if not bot: raise TaskError('not_found','Bot 不存在',404)
     when=schedule.validate(payload,now)
     tools=authorized(user_id,bot)
+    if payload.get('execution_mode')=='owned':
+        from ..primary_bot import get
+        from ..owned_tasks.policy import snapshot
+        if not get(user_id)['active_enabled']: raise TaskError('active_disabled','请先开启主动任务',409)
+        tools=json.dumps(snapshot(user_id,bot),sort_keys=True)
     with db.tx(immediate=True) as c:
         old=tasks.by_key(c,user_id,idempotency_key)
         if old:
@@ -50,7 +55,7 @@ def create(user_id,payload,idempotency_key):
         if not tasks.bot_exists(c,user_id,bot['id']):
             raise TaskError('not_found','Bot 不存在',404)
         tid=tasks.insert(c,dict(user_id=user_id,bot_id=bot['id'],title=payload['title'].strip(),
-            instruction=payload['instruction'].strip(),state='active',**when,misfire_policy=payload.get('misfire_policy','skip'),
+            instruction=payload['instruction'].strip(),execution_mode=payload.get('execution_mode','read_only'),state='active',**when,misfire_policy=payload.get('misfire_policy','skip'),
             authorized_tools_json=tools,idempotency_key=idempotency_key,request_hash=hashed,created_at=clock.iso(now),updated_at=clock.iso(now)))
         return public(tasks.fetch(c,user_id,tid))
 
@@ -114,4 +119,7 @@ def run_now(user_id,task_id,idempotency_key):
         if runs.active(c,task_id): raise TaskError('task_busy','该任务已有一次执行进行中',409)
         now=clock.now()
         rid=runs.insert(c,t,now,now,trigger='manual',key=idempotency_key)
+        if t.get('execution_mode')=='owned':
+            from ..owned_tasks.schedules import enqueue_occurrence
+            enqueue_occurrence(c,t,rid)
         return runs.fetch(c,user_id,task_id,rid)

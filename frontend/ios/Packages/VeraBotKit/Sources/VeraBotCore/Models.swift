@@ -13,6 +13,7 @@ public struct User: Codable, Sendable, Hashable {
     public let email: String?
     public let emailVerified: Bool
     public let phone: String?
+    public let primaryBotID: Int?
 
     /// 设置页名称下面那一行：邮箱 / 手机号账号显示邮箱或手机号，老的用户名账号显示「用户名 xxx」。
     public var accountLabel: String {
@@ -26,10 +27,11 @@ public struct User: Codable, Sendable, Hashable {
 
     public init(id: Int, username: String, nickname: String? = nil, displayName: String? = nil,
                 hasAvatar: Bool = false, avatarUpdatedAt: String? = nil,
-                email: String? = nil, emailVerified: Bool = false, phone: String? = nil) {
+                email: String? = nil, emailVerified: Bool = false, phone: String? = nil, primaryBotID: Int? = nil) {
         self.email = email
         self.emailVerified = emailVerified
         self.phone = phone
+        self.primaryBotID = primaryBotID
         self.id = id
         self.username = username
         let trimmed = nickname?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -53,6 +55,7 @@ public struct User: Codable, Sendable, Hashable {
         case email
         case emailVerified = "email_verified"
         case phone
+        case primaryBotID = "primary_bot_id"
     }
 
     public init(from decoder: Decoder) throws {
@@ -66,7 +69,8 @@ public struct User: Codable, Sendable, Hashable {
             avatarUpdatedAt: try c.decodeIfPresent(String.self, forKey: .avatarUpdatedAt),
             email: try c.decodeIfPresent(String.self, forKey: .email),
             emailVerified: try c.decodeIfPresent(Bool.self, forKey: .emailVerified) ?? false,
-            phone: try c.decodeIfPresent(String.self, forKey: .phone)
+            phone: try c.decodeIfPresent(String.self, forKey: .phone),
+            primaryBotID: try c.decodeIfPresent(Int.self, forKey: .primaryBotID)
         )
     }
 
@@ -81,6 +85,7 @@ public struct User: Codable, Sendable, Hashable {
         try c.encodeIfPresent(email, forKey: .email)
         try c.encode(emailVerified, forKey: .emailVerified)
         try c.encodeIfPresent(phone, forKey: .phone)
+        try c.encodeIfPresent(primaryBotID, forKey: .primaryBotID)
     }
 }
 

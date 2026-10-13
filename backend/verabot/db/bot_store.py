@@ -31,6 +31,10 @@ def update_fields(c, user_id: int, bot_id: int, fields: dict, pin_at: str | None
 
 
 def delete(c, user_id: int, bot_id: int) -> None:
+    from .primary_bot_store import clear_bot
+    clear_bot(c, user_id, bot_id)
+    from . import owned_task_store
+    owned_task_store.delete_bot(c, user_id, bot_id)
     c.execute("DELETE FROM bots WHERE id=? AND user_id=?", (bot_id, user_id))
 
 

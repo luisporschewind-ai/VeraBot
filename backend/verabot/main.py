@@ -97,3 +97,9 @@ else:
     @app.get("/")
     def index():
         return {"name": "VeraBot API", "version": __version__, "docs": "/docs", "health": "/api/health"}
+
+from .api.routers import primary_bot
+app.include_router(primary_bot.router)
+
+from .api.routers import owned_tasks
+app.include_router(owned_tasks.router)

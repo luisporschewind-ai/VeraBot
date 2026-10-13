@@ -13,6 +13,7 @@ struct ChatView: View {
     @State private var draftSaveTask: Task<Void, Never>?
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
     @FocusState private var focused: Bool
+    @State private var showTasks = false
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
     @State private var confirmClearConversation = false
     @State private var confirmDeleteBot = false
@@ -96,6 +97,7 @@ struct ChatView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button("任务"){showTasks=true}
                     Button(role: .destructive) {
                         confirmClearConversation = true
                     } label: {
@@ -140,6 +142,7 @@ struct ChatView: View {
         } message: {
             Text(BotDeletion.message(vm.bot.name))
         }
+        .sheet(isPresented:$showTasks){NavigationStack{TaskListView(botID:vm.bot.id,botName:vm.bot.name)}}
         .task {
             input = await vm.loadDraft()
             await vm.load()

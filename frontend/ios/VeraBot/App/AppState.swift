@@ -43,6 +43,11 @@ final class AppState {
     private(set) var hasAvatar = false
     private(set) var avatarUpdatedAt: String?
     private(set) var userID: Int?
+    var primaryBotID: Int?
+    var primarySettings: PrimaryBotSettings?
+    private(set) var primaryBotRepository: PrimaryBotRepository?
+    private(set) var ownedTaskRepository: OwnedTaskRepository?
+    private(set) var scheduledTaskRepository: ScheduledTaskRepository?
     var unreadCount = 0
     var selectedTab = 0
     var pendingLink: DeepLink?
@@ -141,6 +146,7 @@ final class AppState {
     }
 
     func applyUser(_ user: User) {
+        primaryBotID = user.primaryBotID
         username = user.username
         nickname = user.nickname
         hasAvatar = user.hasAvatar
@@ -178,6 +184,7 @@ final class AppState {
             let user = try await api.me()
             guard isCurrentSession(generation) else { return }   // 期间退出 / 换了账号：丢掉
             applyUser(user)
+            await refreshPrimarySettings()
             if user.hasAvatar {
                 if avatars.needsUserDownload(updatedAt: user.avatarUpdatedAt) {
                     let data = try await api.myAvatarData()
@@ -195,9 +202,36 @@ final class AppState {
         }
     }
 
+    func refreshPrimarySettings() async {
+        let g=sessionGeneration
+        if let repo=primaryBotRepository {
+            if let cached=try? await repo.cached(),isCurrentSession(g){primarySettings=cached;primaryBotID=cached.primaryBotID}
+            try? await repo.load()
+            guard isCurrentSession(g) else{return}
+            primarySettings=repo.settings;primaryBotID=repo.settings?.primaryBotID
+        }
+    }
+    func setPrimaryBot(_ id:Int?) async {
+        await refreshPrimarySettings()
+        guard let s=primarySettings,let repo=primaryBotRepository else{return}
+        let g=sessionGeneration
+        do {try await repo.update(botID:id,activeEnabled:id != nil && s.activeEnabled,expectedVersion:s.version);guard isCurrentSession(g) else{return};primarySettings=repo.settings;primaryBotID=repo.settings?.primaryBotID}
+        catch {guard isCurrentSession(g) else{return};primarySettings=repo.settings;primaryBotID=repo.settings?.primaryBotID;missingNotice=message(for:error)}
+    }
+    func setActiveTasks(_ enabled:Bool) async {
+        await refreshPrimarySettings()
+        guard let s=primarySettings,let repo=primaryBotRepository else{return}
+        let g=sessionGeneration
+        do {try await repo.update(botID:s.primaryBotID,activeEnabled:enabled,expectedVersion:s.version);guard isCurrentSession(g) else{return};primarySettings=repo.settings}
+        catch {if isCurrentSession(g){missingNotice=message(for:error)}}
+    }
+
     func signOut() {
         let oldRepository = conversationRepository
         let oldDatabaseURL = conversationDatabaseURL
+        primaryBotRepository?.close(); ownedTaskRepository?.close(); scheduledTaskRepository?.close()
+        primaryBotRepository = nil; ownedTaskRepository = nil; scheduledTaskRepository = nil
+        primaryBotID = nil; primarySettings = nil
         conversationRepository = nil
         conversationDatabaseURL = nil
         // Close before yielding, so queued work cannot reopen this account's old connection.
@@ -281,6 +315,10 @@ final class AppState {
         }
         let store = ConversationStore(database: database)
         let api = groupAPI
+        primaryBotRepository = PrimaryBotRepository(api:api,store:store)
+        Task {await refreshPrimarySettings()}
+        ownedTaskRepository = OwnedTaskRepository(api:api,store:store)
+        scheduledTaskRepository = ScheduledTaskRepository(api:api,store:store)
         conversationRepository = ConversationRepository(store: store, api: api, groupAPI: api,
                                                         sessionIsCurrent: { session.isCurrent(generation) })
         conversationDatabaseURL = url
@@ -288,6 +326,9 @@ final class AppState {
 
     private func invalidatePersistenceScope() {
         let old = conversationRepository
+        primaryBotRepository?.close(); ownedTaskRepository?.close(); scheduledTaskRepository?.close()
+        primaryBotRepository = nil; ownedTaskRepository = nil; scheduledTaskRepository = nil
+        primaryBotID = nil; primarySettings = nil
         conversationRepository = nil
         conversationDatabaseURL = nil
         conversationDatabase?.close()

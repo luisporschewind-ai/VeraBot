@@ -1,5 +1,12 @@
 # VeraBot 架构说明 (Architecture) — v0.1.0
 
+## 主 Bot 持续工作增量（隔离分支）
+
+v26账号设置、v27业务任务/步骤/输入/等待/事件/调用账目、v28周期桥接、v29确认关联及加密结果。API只提交和观察，owned Worker单独运行；群表/worker保持原作用域。SQL写入集中在db，owner/version/lease及当前权限共同约束实际调用，已知usage只记一次。
+
+iOS Core模型→Networking API→Data账号作用域仓库→现有SQLite快照，界面从Bot详情/对话进入。稳定创建/回答/运行请求载荷持久化，确定回执后更新标识；旧仓库close后拒绝所有读取/请求。任务SSE输出完整快照，等待用户不占用Worker。实现/验收边界见[交付](../testing/2026-10-13-primary-bot.md)。
+
+
 ## 1. 总览：两个可独立交付的项目
 
 ```
