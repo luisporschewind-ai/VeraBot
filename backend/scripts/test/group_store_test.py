@@ -27,6 +27,7 @@ def account(name):
     return r['user']['id'], {'Authorization': 'Bearer ' + r['token']}
 UID, H = account('group-owner')
 OTHER, H2 = account('group-other')
+GH = {'X-VeraBot-Group-Protocol': '2'}
 BOTS = [cli.post('/api/bots', headers=H, json={'name': n, 'persona': '测试伙伴'}).json()['id']
         for n in ['A', 'B', 'C', 'D', 'E']]
 FOREIGN = cli.post('/api/bots', headers=H2, json={'name': 'Other'}).json()['id']
@@ -39,8 +40,8 @@ class GroupTests(unittest.TestCase):
 
     def create(self, ids=None, name='测试群'):
         ids = BOTS[:3] if ids is None else ids
-        return cli.post('/api/groups', headers=H,
-                        json={'name': name, 'bot_ids': ids, 'default_bot_id': ids[0] if ids else None})
+        return cli.post('/api/groups', headers={**H, **GH},
+                        json={'name': name, 'bot_ids': ids})
 
     def group(self):
         r = self.create()
@@ -55,7 +56,7 @@ class GroupTests(unittest.TestCase):
     def test_create_group(self):
         g = self.group()
         self.assertEqual([m['bot_id'] for m in g['members']], BOTS[:3])
-        self.assertEqual(g['default_bot_id'], BOTS[0])
+        self.assertNotIn('default_bot_id', g)
         self.assertEqual(g['members'][0]['name'], 'A')
         self.assertEqual(cli.get('/api/groups', headers=H).json()['groups'][0]['id'], g['id'])
 
@@ -76,24 +77,23 @@ class GroupTests(unittest.TestCase):
         g = self.group()
         for method, suffix, body in [('GET', '', None), ('PATCH', '', {'name': 'wrong'}),
                                     ('DELETE', '', None), ('GET', '/messages', None), ('DELETE', '/messages', None)]:
-            r = cli.request(method, f"/api/groups/{g['id']}{suffix}", headers=H2, json=body)
+            r = cli.request(method, f"/api/groups/{g['id']}{suffix}", headers={**H2, **GH}, json=body)
             self.assertEqual(r.status_code, 404, r.text)
         self.assertEqual(cli.get('/api/groups', headers=H2).json()['groups'], [])
 
     def test_patch_and_delete(self):
         g = self.group(); path = f"/api/groups/{g['id']}"
-        r = cli.patch(path, headers=H, json={'name': ' 新群 ', 'default_bot_id': BOTS[1]})
+        r = cli.patch(path, headers={**H, **GH}, json={'name': ' 新群 '})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()['name'], '新群')
-        self.assertEqual(r.json()['default_bot_id'], BOTS[1])
-        self.assertEqual(cli.patch(path, headers=H, json={'default_bot_id': BOTS[4]}).status_code, 422)
-        self.assertEqual(cli.delete(path, headers=H).status_code, 200)
+        self.assertNotIn('default_bot_id', r.json())
+        self.assertEqual(cli.delete(path, headers={**H, **GH}).status_code, 200)
         self.assertEqual(cli.get(path, headers=H).status_code, 404)
 
     def test_idempotency_and_busy(self):
         from verabot.db import group_store
         g = self.group()
-        request = {'client_request_id': str(uuid4()), 'message': '问题', 'mode': 'single'}
+        request = {'client_request_id': str(uuid4()), 'message': '问题', 'mode': 'single', 'target_bot_id': BOTS[0]}
         t = self.claim(g, request)
         for changed, code in [(False, 'request_exists'), (True, 'idempotency_conflict')]:
             with self.assertRaises(group_store.GroupStoreError) as error:
@@ -117,16 +117,13 @@ class GroupTests(unittest.TestCase):
 
     def test_active_management_and_stop_isolation(self):
         g = self.group(); t = self.claim(g); path = f"/api/groups/{g['id']}"
-        self.assertEqual(cli.patch(path, headers=H, json={'name': '忙'}).status_code, 409)
-        self.assertEqual(cli.delete(path, headers=H).status_code, 409)
-        self.assertEqual(cli.delete(path + '/messages', headers=H).status_code, 409)
+        self.assertEqual(cli.patch(path, headers={**H, **GH}, json={'name': '忙'}).status_code, 409)
+        self.assertEqual(cli.delete(path, headers={**H, **GH}).status_code, 409)
         for suffix in [f"/turns/{t['id']}", f"/turns/{t['id']}/stop"]:
             method = 'POST' if suffix.endswith('stop') else 'GET'
-            self.assertEqual(cli.request(method, path + suffix, headers=H2).status_code, 404)
-        stop = cli.post(path + f"/turns/{t['id']}/stop", headers=H)
-        self.assertEqual(stop.status_code, 200)
-        self.assertTrue(stop.json()['cancel_requested'])
-        self.assertEqual(cli.post(path + f"/turns/{t['id']}/stop", headers=H).json(), stop.json())
+            self.assertEqual(cli.request(method, path + suffix, headers={**H2, **GH}).status_code, 404)
+        self.assertEqual(cli.post(path + f"/turns/{t['id']}/stop", headers={**H, **GH}).status_code, 426)
+        self.assertEqual(cli.delete(path + '/messages', headers={**H, **GH}).status_code, 200)
 
     def test_usage_finalize_once_and_pagination(self):
         from verabot.db import group_store
@@ -145,7 +142,7 @@ class GroupTests(unittest.TestCase):
         self.assertTrue(max(m['id'] for m in older['messages']) < min(m['id'] for m in newest['messages']))
         with db.tx() as c:
             self.assertEqual(c.execute("SELECT COUNT(*) FROM usage_log WHERE user_id=? AND kind='group_chat'", (UID,)).fetchone()[0], 4)
-        self.assertEqual(cli.delete(path, headers=H).status_code, 200)
+        self.assertEqual(cli.delete(path, headers={**H, **GH}).status_code, 200)
         self.assertEqual(cli.get(path, headers=H).json()['messages'], [])
 
     def test_pagination_cap_and_full_walk(self):
@@ -176,7 +173,7 @@ class GroupTests(unittest.TestCase):
         # Dedicated disposable Bot, so other tests keep their fixtures.
         deleted = cli.post('/api/bots', headers=H, json={'name': 'Disposable'}).json()['id']
         g2 = self.create([deleted, BOTS[1]]).json()
-        t2 = self.claim(g2, {'client_request_id': str(uuid4()), 'message': '问题', 'mode': 'single'})
+        t2 = self.claim(g2, {'client_request_id': str(uuid4()), 'message': '问题', 'mode': 'single', 'target_bot_id': deleted})
         historical = group_store.start_reply(UID, g2['id'], t2['id'], g2['members'][0]['id'])
         group_store.save_reply(UID, historical['id'], '旧伙伴的答案', 'completed', None, finalize=True)
         group_store.finish_turn(UID, g2['id'], t2['id'], 'completed')
@@ -189,7 +186,7 @@ class GroupTests(unittest.TestCase):
         self.assertIsNone(restored['members'][0]['bot_id'])
         self.assertEqual(restored['members'][0]['name'], 'Disposable')
         self.assertFalse(restored['members'][0]['available'])
-        self.assertEqual(restored['default_bot_id'], BOTS[1])
+        self.assertNotIn('default_bot_id', restored)
 
     def test_no_active_members_is_read_only(self):
         from verabot.db import group_store
@@ -198,7 +195,7 @@ class GroupTests(unittest.TestCase):
         for bid in ids: cli.delete(f'/api/bots/{bid}', headers=H)
         restored = cli.get(f"/api/groups/{g['id']}", headers=H).json()
         self.assertTrue(restored['read_only'])
-        self.assertIsNone(restored['default_bot_id'])
+        self.assertNotIn('default_bot_id', restored)
         with self.assertRaises(group_store.GroupStoreError) as error:
             self.claim(g)
         self.assertEqual(error.exception.code, 'group_read_only')
@@ -220,7 +217,7 @@ class GroupTests(unittest.TestCase):
         with old: apply(old)
         self.assertEqual(old.execute('SELECT content FROM messages WHERE id=?', (mid,)).fetchone()[0], '私聊保留')
         self.assertEqual(old.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], str(db.SCHEMA_VERSION))
-        self.assertEqual(old.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name LIKE 'chat_group%'").fetchone()[0], 5)
+        self.assertEqual(old.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name LIKE 'chat_group%'").fetchone()[0], 11)
         old.close()
 
     def test_group_attachment_is_visible_in_context_and_removed_with_history(self):
@@ -231,7 +228,8 @@ class GroupTests(unittest.TestCase):
         attachment = repo.create_file(UID, None, b"Group attachment note", "brief.txt")
         row = repo.get(UID, attachment["id"])
         turn = group_store.claim_turn(UID, group["id"], {
-            "client_request_id": str(uuid4()), "message": "请读一下", "attachment_ids": [attachment["id"]]})
+            "client_request_id": str(uuid4()), "message": "请读一下", "attachment_ids": [attachment["id"]],
+            "mode": "single", "target_bot_id": BOTS[0]})
         self.assertEqual(turn["messages"][0]["attachments"][0]["id"], attachment["id"])
         prompt = group_context.build(UID, group, group["members"][0], turn)
         self.assertIn("Group attachment note", json.dumps(prompt, ensure_ascii=False))

@@ -17,12 +17,28 @@ public protocol GroupChatAPI: Sendable {
     func stopGroupTurn(groupID: Int, turnID: Int) async throws -> GroupTurn
     func groupChatStream(groupID: Int, request: GroupChatRequest) -> AsyncThrowingStream<GroupChatEvent, Error>
     func retryGroupMessage(groupID: Int, messageID: Int, requestID: UUID) -> AsyncThrowingStream<GroupChatEvent, Error>
+    func submitGroupInput(groupID: Int, request: GroupInputRequest) async throws -> GroupInputReceipt
+    func groupInputReceipt(groupID: Int, requestID: UUID) async throws -> GroupInputReceipt
+    func groupExecution(groupID: Int) async throws -> GroupExecutionSnapshot
+    func observeGroupExecution(groupID: Int, afterID: Int) -> AsyncThrowingStream<GroupExecutionEvent, Error>
+    func stopGroupTask(groupID: Int, taskID: Int, expectedVersion: Int, requestID: UUID) async throws -> GroupTask
+    func resumeGroupTask(groupID: Int, taskID: Int, expectedVersion: Int, message: String, requestID: UUID) async throws -> GroupTask
+    func retryGroupTaskMessage(groupID: Int, messageID: Int, expectedVersion: Int, requestID: UUID) async throws -> GroupTask
 }
 
 public extension GroupChatAPI {
     func syncGroupMessages(groupID: Int, beforeID: Int?, expectedRevision: Int64?) async throws -> GroupMessagesSyncResponse {
         throw APIError(status: 501, message: "当前服务不支持离线历史同步")
     }
+    func submitGroupInput(groupID: Int, request: GroupInputRequest) async throws -> GroupInputReceipt { throw APIError(status: 501, message: "群任务协议未实现") }
+    func groupInputReceipt(groupID: Int, requestID: UUID) async throws -> GroupInputReceipt { throw APIError(status: 501, message: "群任务协议未实现") }
+    func groupExecution(groupID: Int) async throws -> GroupExecutionSnapshot { throw APIError(status: 501, message: "群任务协议未实现") }
+    func observeGroupExecution(groupID: Int, afterID: Int) -> AsyncThrowingStream<GroupExecutionEvent, Error> {
+        AsyncThrowingStream { $0.finish(throwing: APIError(status: 501, message: "群任务协议未实现")) }
+    }
+    func stopGroupTask(groupID: Int, taskID: Int, expectedVersion: Int, requestID: UUID) async throws -> GroupTask { throw APIError(status: 501, message: "群任务协议未实现") }
+    func resumeGroupTask(groupID: Int, taskID: Int, expectedVersion: Int, message: String, requestID: UUID) async throws -> GroupTask { throw APIError(status: 501, message: "群任务协议未实现") }
+    func retryGroupTaskMessage(groupID: Int, messageID: Int, expectedVersion: Int, requestID: UUID) async throws -> GroupTask { throw APIError(status: 501, message: "群任务协议未实现") }
 }
 
 /// The caller restores this authoritative snapshot instead of resending a new UUID.
@@ -36,11 +52,13 @@ extension APIClient: GroupChatAPI {
         if let generation, let session, !session.isCurrent(generation) { throw CancellationError() }
     }
     private func groupCall<T: Decodable & Sendable>(_ path: String, method: String = "GET", body: Data? = nil,
-                                                   query: [URLQueryItem] = [], generation expected: UInt64? = nil) async throws -> T {
+                                                   query: [URLQueryItem] = [], headers: [String: String] = [:], generation expected: UInt64? = nil) async throws -> T {
         let generation = expected ?? session?.generation
         try checkGroupSession(generation)
         do {
-            let value: T = try await call(path, method: method, body: body, query: query)
+            var requestHeaders = headers
+            if method != "GET" { requestHeaders["X-VeraBot-Group-Protocol"] = "2" }
+            let value: T = try await call(path, method: method, body: body, query: query, headers: requestHeaders)
             try checkGroupSession(generation)
             return value
         } catch {
@@ -78,6 +96,89 @@ extension APIClient: GroupChatAPI {
                            body: Result { try encode(RetryRequest(client_request_id: requestID)) })
     }
 
+    public func submitGroupInput(groupID: Int, request: GroupInputRequest) async throws -> GroupInputReceipt {
+        try await groupCall("/api/groups/\(groupID)/inputs", method: "POST", body: try encode(request))
+    }
+    public func groupInputReceipt(groupID: Int, requestID: UUID) async throws -> GroupInputReceipt {
+        try await groupCall("/api/groups/\(groupID)/inputs/\(requestID.uuidString.lowercased())")
+    }
+    public func groupExecution(groupID: Int) async throws -> GroupExecutionSnapshot {
+        try await groupCall("/api/groups/\(groupID)/execution")
+    }
+    public func stopGroupTask(groupID: Int, taskID: Int, expectedVersion: Int, requestID: UUID = UUID()) async throws -> GroupTask {
+        try await groupCall("/api/groups/\(groupID)/tasks/\(taskID)/stop", method: "POST",
+                            body: try encode(GroupTaskCommand(clientRequestID: requestID, expectedVersion: expectedVersion)))
+    }
+    public func resumeGroupTask(groupID: Int, taskID: Int, expectedVersion: Int, message: String = "", requestID: UUID = UUID()) async throws -> GroupTask {
+        try await groupCall("/api/groups/\(groupID)/tasks/\(taskID)/resume", method: "POST",
+                            body: try encode(GroupTaskCommand(clientRequestID: requestID, expectedVersion: expectedVersion, message: message)))
+    }
+    public func retryGroupTaskMessage(groupID: Int, messageID: Int, expectedVersion: Int, requestID: UUID = UUID()) async throws -> GroupTask {
+        try await groupCall("/api/groups/\(groupID)/messages/\(messageID)/retry-v2", method: "POST",
+                            body: try encode(GroupTaskCommand(clientRequestID: requestID, expectedVersion: expectedVersion)))
+    }
+
+    public func observeGroupExecution(groupID: Int, afterID: Int = 0) -> AsyncThrowingStream<GroupExecutionEvent, Error> {
+        let generation = session?.generation
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let path = "/api/groups/\(groupID)/events"
+                    let query = [URLQueryItem(name:"after_id",value:String(afterID))]
+                    func build(_ token: String?) -> URLRequest {
+                        var request = makeRequest(path,method:"GET",body:nil,query:query,token:token,headers:["Accept":"text/event-stream"])
+                        request.timeoutInterval = 300
+                        return request
+                    }
+                    var dataLines: [String] = []
+                    func consume(_ raw: String) throws {
+                        try checkGroupSession(generation)
+                        let line = raw.hasSuffix("\r") ? String(raw.dropLast()) : raw
+                        if line.hasPrefix("data:") {dataLines.append(String(line.dropFirst(5)).trimmingCharacters(in:.whitespaces))}
+                        if line.isEmpty && !dataLines.isEmpty {
+                            let event = try JSONDecoder().decode(GroupExecutionEvent.self,from:Data(dataLines.joined(separator:"\n").utf8))
+                            if event.groupID == groupID {continuation.yield(event)}
+                            dataLines.removeAll(keepingCapacity:true)
+                        }
+                    }
+                    try checkGroupSession(generation)
+                    let sent = token
+                    #if canImport(FoundationNetworking)
+                    var (data,response) = try await urlSession.data(for:build(sent))
+                    var status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    if status == 401, let fresh = await refreshedToken(after:sent,path:path,generation:generation) {
+                        try checkGroupSession(generation)
+                        (data,response) = try await urlSession.data(for:build(fresh));status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    }
+                    guard (200..<300).contains(status) else {throw Self.apiError(status:status,data:data)}
+                    for line in String(decoding:data,as:UTF8.self).components(separatedBy:"\n") {try consume(line)}
+                    #else
+                    var (bytes,response) = try await urlSession.bytes(for:build(sent))
+                    var status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    if status == 401, let fresh = await refreshedToken(after:sent,path:path,generation:generation) {
+                        try checkGroupSession(generation)
+                        (bytes,response) = try await urlSession.bytes(for:build(fresh));status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    }
+                    if !(200..<300).contains(status) {
+                        var data = Data()
+                        for try await byte in bytes {data.append(byte);if data.count >= 65536 {break}}
+                        throw Self.apiError(status:status,data:data)
+                    }
+                    var line = Data()
+                    for try await byte in bytes {
+                        try checkGroupSession(generation)
+                        if byte == 10 {
+                            try consume(String(decoding:line,as:UTF8.self));line.removeAll(keepingCapacity:true)
+                        } else {line.append(byte)}
+                    }
+                    #endif
+                    try checkGroupSession(generation);continuation.finish()
+                } catch {continuation.finish(throwing:error)}
+            }
+            continuation.onTermination = {_ in task.cancel()}
+        }
+    }
+
     private func groupStream(groupID: Int, path: String, body: Result<Data, Error>) -> AsyncThrowingStream<GroupChatEvent, Error> {
         let generation = session?.generation
         return AsyncThrowingStream { continuation in
@@ -86,7 +187,7 @@ extension APIClient: GroupChatAPI {
                     try checkGroupSession(generation)
                     let payload = try body.get()
                     func build(_ token: String?) -> URLRequest {
-                        var r = makeRequest(path, method: "POST", body: payload, token: token, headers: ["Accept": "text/event-stream"])
+                        var r = makeRequest(path, method: "POST", body: payload, token: token, headers: ["Accept": "text/event-stream", "X-VeraBot-Group-Protocol": "2"])
                         r.timeoutInterval = 300
                         return r
                     }

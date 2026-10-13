@@ -17,7 +17,7 @@ private actor RecoveryAPI: GroupChatAPI {
     }
     func emit(_ event: GroupChatEvent) { continuation.yield(event) }
     func finishStream() { continuation.finish() }
-    nonisolated static let group = ChatGroup(id: 7, name: "Recovery", members: [ChatGroupMember(id: 21, botID: 1, name: "A", color: "gray", detail: "")], defaultMemberID: 21)
+    nonisolated static let group = ChatGroup(id: 7, name: "Recovery", members: [ChatGroupMember(id: 21, botID: 1, name: "A", color: "gray", detail: "")])
     nonisolated static let partial = GroupMessage(id: 101, memberID: 21, content: "partial", status: .streaming, groupID: 7, turnID: 9, role: .bot)
     nonisolated static func turn(status: String, content: String) throws -> GroupTurn {
         let body = """
@@ -51,89 +51,6 @@ private actor RecoveryAPI: GroupChatAPI {
     func updateGroup(id: Int, request: GroupUpdateRequest) async throws -> ChatGroup { throw APIError(status: 501, message: "unused") }
     func deleteGroup(id: Int) async throws -> OKResponse { throw APIError(status: 501, message: "unused") }
     func clearGroupMessages(groupID: Int) async throws -> OKResponse { throw APIError(status: 501, message: "unused") }
-}
-
-@MainActor @Test func stoppingWhileStreamPersistenceIsSuspendedCannotOverwriteTerminalAnswer() async throws {
-    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: directory) }
-    let database = LocalDatabase(url: directory.appendingPathComponent("conversation.sqlite"))
-    defer { database.close() }
-    let api = RecoveryAPI(manualStream: true)
-    let repository = ConversationRepository(store: ConversationStore(database: database), api: APIClient(baseURL: URL(string: "https://example.invalid")!, token: nil), groupAPI: api, sessionIsCurrent: { true })
-    let model = GroupChatViewModel(group: RecoveryAPI.group, api: api, repository: repository)
-    model.send(text: "question")
-    let question = GroupMessage(id: 100, memberID: nil, content: "question", groupID: 7, turnID: 9)
-    await api.emit(GroupChatEvent(groupID: 7, turnID: 9, payload: .turnStart(userMessage: question, speakerMemberIDs: [21])))
-    while try await repository.groupMessages(groupID: 7).isEmpty { await Task.yield() }
-    // Suspend the real SQLite connection during the next SSE persistence pass.
-    let locked = DispatchSemaphore(value: 0)
-    let release = DispatchSemaphore(value: 0)
-    let holder = Task.detached {
-        try database.transaction { _ in
-            locked.signal()
-            release.wait()
-        }
-    }
-    await Task.detached { waitForDatabaseLock(locked) }.value
-    await api.emit(GroupChatEvent(groupID: 7, turnID: 9, payload: .messageStart(RecoveryAPI.partial)))
-    while model.state.messages.count < 2 { await Task.yield() }
-    let stop = Task { await model.stop() }
-    while model.state.status != .stopped { await Task.yield() }
-    release.signal()
-    try await holder.value
-    await stop.value
-    await api.finishStream()
-    while model.busy { await Task.yield() }
-    let history = try await repository.groupMessages(groupID: 7)
-    #expect(model.state.messages.last?.content == "stopped answer")
-    #expect(history.last?.value.content == "stopped answer")
-    #expect(history.last?.value.status == .stopped)
-}
-
-private func waitForDatabaseLock(_ semaphore: DispatchSemaphore) { semaphore.wait() }
-
-@MainActor @Test(arguments: [false, true]) func restoredGroupTerminalAnswerSurvivesDatabaseReopen(polls: Bool) async throws {
-    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: directory) }
-    let url = directory.appendingPathComponent("conversation.sqlite")
-    let database = LocalDatabase(url: url)
-    let api = RecoveryAPI(polls: polls)
-    let repository = ConversationRepository(store: ConversationStore(database: database), api: APIClient(baseURL: URL(string: "https://example.invalid")!, token: nil), groupAPI: api, sessionIsCurrent: { true })
-    let model = GroupChatViewModel(group: RecoveryAPI.group, api: api, repository: repository)
-    await model.load()
-    #expect(model.state.messages.first?.content == "complete answer")
-    #expect(model.state.messages.first?.status == .completed)
-    database.close()
-    let reopened = LocalDatabase(url: url)
-    defer { reopened.close() }
-    let history = try await ConversationStore(database: reopened).messages(GroupMessage.self, kind: "group", conversationID: 7)
-    #expect(history.first?.value.content == "complete answer")
-    #expect(history.first?.value.status == .completed)
-}
-
-@MainActor @Test func stoppedGroupAnswerSurvivesDatabaseReopen() async throws {
-    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: directory) }
-    let url = directory.appendingPathComponent("conversation.sqlite")
-    let database = LocalDatabase(url: url)
-    let api = RecoveryAPI()
-    let repository = ConversationRepository(store: ConversationStore(database: database), api: APIClient(baseURL: URL(string: "https://example.invalid")!, token: nil), groupAPI: api, sessionIsCurrent: { true })
-    let model = GroupChatViewModel(group: RecoveryAPI.group, api: api, repository: repository)
-    model.send(text: "question")
-    for _ in 0..<200 {
-        if try await repository.groupMessages(groupID: 7).contains(where: { $0.value.id == 101 }) { break }
-        try await Task.sleep(for: .milliseconds(1))
-    }
-    #expect(model.state.status == .running)
-    await model.stop()
-    #expect(model.state.messages.last?.status == .stopped)
-    model.leave()
-    database.close()
-    let reopened = LocalDatabase(url: url)
-    defer { reopened.close() }
-    let history = try await ConversationStore(database: reopened).messages(GroupMessage.self, kind: "group", conversationID: 7)
-    #expect(history.last?.value.content == "stopped answer")
-    #expect(history.last?.value.status == .stopped)
 }
 
 @MainActor @Test func retiredGroupModelCannotSaveDelayedDraftAfterAccountChange() async throws {

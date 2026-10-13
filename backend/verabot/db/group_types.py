@@ -15,7 +15,6 @@ class Group(TypedDict):
     id: int
     name: str
     members: list[GroupMember]
-    default_bot_id: int | None
     read_only: bool
     active_turn_id: int | None
     last_message: "GroupMessage | None"

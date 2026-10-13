@@ -8,7 +8,6 @@ struct CreateGroupSheet: View {
     @State private var name = ""
     @State private var bots: [Bot] = []
     @State private var selected: Set<Int> = []
-    @State private var defaultID = 0
     @State private var loading = true
     @State private var saving = false
     @State private var error: String?
@@ -23,7 +22,6 @@ struct CreateGroupSheet: View {
                         Button {
                             if selected.contains(bot.id) { selected.remove(bot.id) }
                             else if selected.count < 4 { selected.insert(bot.id) }
-                            if !selected.contains(defaultID) { defaultID = bots.first { selected.contains($0.id) }?.id ?? 0 }
                         } label: {
                             HStack {
                                 LiveBotAvatar(botID:bot.id,emoji:bot.avatar,color:bot.color,
@@ -35,11 +33,7 @@ struct CreateGroupSheet: View {
                         }.buttonStyle(.plain)
                     }
                 }
-                Section {
-                    Picker("默认回应者", selection: $defaultID) {
-                        ForEach(bots.filter { selected.contains($0.id) }) { Text($0.name).tag($0.id) }
-                    }
-                } footer: { Text("选择 2–4 位伙伴。成员共享本群聊天记录；本版支持文字讨论。") }
+                Section { Text("选择 2–4 位伙伴。系统会根据每条消息的意图分配回应者；成员共享本群聊天记录。") }
                 if let error { Section { Text(error).foregroundStyle(.secondary); Button("重新加载伙伴") { Task { await load() } } } }
             }.disabled(saving)
             .navigationTitle("创建群聊").navigationBarTitleDisplayMode(.inline)
@@ -69,7 +63,7 @@ struct CreateGroupSheet: View {
         defer { if generation == app.sessionGeneration { saving = false } }
         do {
             let ids = bots.filter { selected.contains($0.id) }.map(\.id)
-            let group = try await app.groupAPI.createGroup(GroupCreateRequest(name: trimmed, botIDs: ids, defaultBotID: defaultID))
+            let group = try await app.groupAPI.createGroup(GroupCreateRequest(name: trimmed, botIDs: ids))
             guard generation == app.sessionGeneration, !Task.isCancelled else { return }
             dismiss(); onCreated(group)
         } catch { if generation == app.sessionGeneration { self.error = "暂时无法创建群聊，请检查伙伴和群数量后再试。" } }

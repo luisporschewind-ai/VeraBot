@@ -1,5 +1,17 @@
 # 2026-10-12 当前集成回归入口
 
+## 群聊协议 v2、意图路由与任务接力（2026-10-13）
+
+本用例与旧群聊 GC-01～12 分开：旧 `/chat`、`/retry`、`/turns/{id}/stop` 写入口应返回 426；历史只读保留。新的提交、持久事件、澄清、咨询/交接和单进程 worker 回归记录见 [群聊意图与交接](2026-10-12-group-intent-and-handoff.md)。
+
+- `group_execution_migration_test.py`：v23→v24 保留旧群数据且重复迁移幂等。
+- `group_execution_store_test.py` / `group_clarification_test.py` / `group_routing_test.py`：UUID 幂等、版本竞争、负责人持续性、动态澄清与公平选择、上下文隔离。
+- `group_handoff_test.py` / `group_worker_test.py`：结构化动作、咨询返回、正式交接、断开观察、停止 fencing、恢复与同群领取互斥。
+- `group_execution_api_test.py` / `group_execution_http_test.py`：回执查重、426、游标事件、澄清答案、断线后工作继续、咨询 A→B→A、交接和等待澄清时停止。
+- `GroupExecutionTests` / `GroupChat` / `GroupPersistence`：Swift 请求编码、旧群 JSON 兼容、版本/cursor reducer、同 UUID 不确定提交重试、离开与显式停止、SQLite 执行快照持久化。
+
+自动用例与 localhost fake provider 不验证真实模型选择质量、实际账户数据迁移或真实设备交互。
+
 本轮新增会话快照并发、离线单条删除、首次 SQLite 事务、同步单飞、旧账号草稿与群恢复终态回归；最终结果与设备安装见 [Main 集成交付](2026-10-12-main-integration.md)。群聊 @ 与键盘用户验收通过见 [单项记录](2026-10-12-group-mention-keyboard.md)。以下为既有测试目录与历史快照，不代表本轮全部交互验收已完成。
 
 # VeraBot v0.1 测试用例与执行结果 (Test Cases & Results)

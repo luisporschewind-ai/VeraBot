@@ -49,3 +49,8 @@ def tools_list(user=Depends(current_user)):
 @router.get("/api/health")
 def health():
     return {"ok": True, "model": DEEPSEEK_MODEL}
+
+
+@router.get("/api/meta")
+def api_meta():
+    return {"group_protocol_version": 2}

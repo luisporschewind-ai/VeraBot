@@ -102,6 +102,23 @@ public actor ConversationRepository {
                                         localID: "group-\(groupID)-\(message.id)", remoteID: message.id,
                                         sortKey: message.id, status: status)
     }
+    public func pendingGroupInput(groupID: Int) async throws -> GroupInputRequest? {
+        guard isCurrent else {throw CancellationError()}
+        return try await store.pendingGroupInput(GroupInputRequest.self,conversationID:groupID)
+    }
+    public func savePendingGroupInput(_ input: GroupInputRequest?, groupID: Int) async throws {
+        guard isCurrent else {throw CancellationError()}
+        try await store.savePendingGroupInput(input,conversationID:groupID)
+    }
+    public func groupExecutionSnapshot(groupID: Int) async throws -> GroupExecutionSnapshot? {
+        guard isCurrent else { throw CancellationError() }
+        return try await store.groupExecutionSnapshot(GroupExecutionSnapshot.self, conversationID: groupID)
+    }
+    public func saveGroupExecution(_ snapshot: GroupExecutionSnapshot, messages: [GroupMessage], groupID: Int) async throws {
+        guard isCurrent else { throw CancellationError() }
+        try await store.saveGroupExecution(snapshot, messages: messages, id: \.id,
+                                           status: { $0.status.rawValue }, conversationID: groupID)
+    }
     public func clearGroup(groupID: Int) async throws {
         guard isCurrent else { throw CancellationError() }
         invalidateSync(kind: .group, id: groupID)

@@ -8,7 +8,6 @@ struct GroupInfoView: View {
     let onDeleted: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
-    @State private var target = 0
     @State private var clearConfirm = false
     @State private var deleteConfirm = false
     @State private var saving = false
@@ -17,9 +16,6 @@ struct GroupInfoView: View {
         NavigationStack {
             Form {
                 Section("群聊名称") { TextField("名称", text: $name) }
-                Section("默认回应者") {
-                    Picker("伙伴", selection: $target) { ForEach(model.group.members.filter { $0.available }) { Text($0.name).tag($0.botID ?? 0) } }
-                }
                 memberSection
                 if model.busy { Section { Button("先停止当前讨论") { Task { await model.stop() } }.disabled(model.confirmingStop) } }
                 Section {
@@ -32,11 +28,11 @@ struct GroupInfoView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { Task { await perform {
-                        try await model.update(name: name.trimmingCharacters(in: .whitespacesAndNewlines), defaultBotID: target > 0 ? target : nil)
+                        try await model.update(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
                         dismiss()
                     } } }.disabled(saving || model.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 64)
                 }
-            }.onAppear { name = model.group.name; target = model.group.defaultBotID ?? 0 }
+            }.onAppear { name = model.group.name }
             .confirmationDialog("清空本群历史？", isPresented: $clearConfirm, titleVisibility: .visible) {
                 Button("清空", role: .destructive) { Task { await perform { try await model.clear(); dismiss() } } }
             } message: { Text("仅删除本群聊天记录。") }
@@ -48,7 +44,7 @@ struct GroupInfoView: View {
     private var memberSection: some View {
         Section {
             ForEach(model.group.members) { member in
-                GroupInfoMemberRow(member: member, isDefault: member.botID == model.group.defaultBotID)
+                GroupInfoMemberRow(member: member)
                     .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
             }
         } header: {
@@ -66,7 +62,6 @@ struct GroupInfoView: View {
 
 private struct GroupInfoMemberRow: View {
     let member: ChatGroupMember
-    let isDefault: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -75,8 +70,6 @@ private struct GroupInfoMemberRow: View {
             Spacer(minLength: 0)
             if !member.available {
                 Text("不可用").font(.caption2).foregroundStyle(.secondary)
-            } else if isDefault {
-                Text("默认回应者").font(.caption2).foregroundStyle(.secondary)
             }
         }
     }

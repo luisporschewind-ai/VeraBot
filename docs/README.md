@@ -13,6 +13,8 @@
 | product/ | [2026-10-08-playful-world-discussion.md](product/2026-10-08-playful-world-discussion.md) | Vera Bot 私人小世界、游乐场玩法、三 Tab 与阶段性产品讨论；含 3D 魔方候选方案（未实现） |
 | superpowers/specs/ | [2026-10-09-bot-travel-design.md](superpowers/specs/2026-10-09-bot-travel-design.md) | Bot 旅行第一版：真实地点轻探索、分阶段揭晓、旅行相册与五分钟 iOS 原型范围 |
 | superpowers/specs/ | [2026-10-11-bot-group-chat-design.md](superpowers/specs/2026-10-11-bot-group-chat-design.md) | Bot 群聊第一版设计：伙伴讨论、点名、群历史与执行边界 |
+| superpowers/specs/ | [2026-10-12-group-intent-and-handoff-design.md](superpowers/specs/2026-10-12-group-intent-and-handoff-design.md) | 群聊意图分配、动态澄清与任务交接；已确认并在隔离 worktree 实施，尚未合入/部署 |
+| superpowers/plans/ | [2026-10-12-group-intent-and-handoff.md](superpowers/plans/2026-10-12-group-intent-and-handoff.md) | 群聊意图与接力实施计划：迁移、澄清、结构化协作、服务端执行、v2 API 与 iOS；待评审和选择执行方式 |
 | superpowers/plans/ | [2026-10-11-bot-group-chat.md](superpowers/plans/2026-10-11-bot-group-chat.md) | 群聊 G0–G3 任务；当前完成 G0/G1/G2，G3 待验收 |
 | testing/ | [2026-10-11-bot-group-chat-g2.md](testing/2026-10-11-bot-group-chat-g2.md) | 顺序执行、停止/恢复/重试、iOS 正式接线与验证 |
 | testing/ | [2026-10-11-bot-group-chat-g1.md](testing/2026-10-11-bot-group-chat-g1.md) | 群管理 API、轮次存储、Swift 协议与验证边界 |
@@ -39,6 +41,7 @@
 
 - [群聊 @ 输入与键盘回归](testing/2026-10-12-group-mention-keyboard.md)：25 项编辑器回归通过，2026-10-12 用户确认本轮交互修复验收通过。
 - [Bot 群聊 G3 验证与验收交付](testing/2026-10-11-bot-group-chat.md)：自动回归、真实 HTTP 模拟提供者联调、GC-01～12 分项状态及隔离模拟器步骤。
+- [群聊意图分配与任务交接](testing/2026-10-12-group-intent-and-handoff.md)：协议 v2、schema v24、离线/HTTP/Swift/模拟器构建证据及部署与人工验收边界。
 
 - [移动端 SQLite 持久化](testing/2026-10-12-mobile-persistence.md)：列表、完整分页历史、草稿、修订快照与验收范围。
 - [服务端定时任务](testing/2026-10-11-scheduled-tasks.md)：API、Scheduler/Worker、租约、预算与结果投递；main 集成使用 v23。

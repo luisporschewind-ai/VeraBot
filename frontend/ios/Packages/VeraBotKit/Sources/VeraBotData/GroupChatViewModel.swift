@@ -13,227 +13,297 @@ public final class GroupChatViewModel {
     public private(set) var historyIncomplete = false
     public private(set) var nextBeforeID: Int?
     public private(set) var confirmingStop = false
-    public var preferredBotID: Int?
-    public var busy: Bool { task != nil || state.status == .running }
+    public private(set) var execution = GroupExecutionViewState()
+    public private(set) var executionSyncPending = false
+    public private(set) var sending = false
+    public private(set) var pendingInput: GroupInputRequest?
+    public var hasUnconfirmedInput: Bool {pendingInput != nil}
+    public var busy: Bool {sending || execution.snapshot.task.map {$0.state == .queued || $0.state == .running} == true}
+    public var canStop: Bool {execution.snapshot.task?.state.canStop == true}
     @ObservationIgnored public let api: any GroupChatAPI
     @ObservationIgnored private let repository: ConversationRepository?
     @ObservationIgnored private let sessionIsCurrent: @MainActor @Sendable () -> Bool
-    @ObservationIgnored private var task: Task<Void, Never>?
+    @ObservationIgnored private var task: Task<Void,Never>?
+    @ObservationIgnored private var observerTask: Task<Void,Never>?
     @ObservationIgnored private var epoch = 0
 
     public init(group: ChatGroup, api: any GroupChatAPI, repository: ConversationRepository? = nil,
-                sessionIsCurrent: @escaping @MainActor @Sendable () -> Bool = { true }) {
+                sessionIsCurrent: @escaping @MainActor @Sendable () -> Bool = {true}) {
         self.group = group; self.api = api; self.repository = repository; self.sessionIsCurrent = sessionIsCurrent
-        state = GroupChatState(groupID: group.id)
+        state = GroupChatState(groupID:group.id)
     }
     private func valid(_ stamp: Int) throws {
         try Task.checkCancellation()
-        guard stamp == epoch, sessionIsCurrent() else { throw CancellationError() }
+        guard stamp == epoch,sessionIsCurrent() else {throw CancellationError()}
     }
-    /// Uses the repository belonging to this model, including delayed saves after the view leaves.
     public func saveDraft(_ text: String) async {
-        guard !Task.isCancelled, sessionIsCurrent() else { return }
-        try? await repository?.saveDraft(text, kind: .group, id: group.id)
+        guard !Task.isCancelled,sessionIsCurrent() else {return}
+        try? await repository?.saveDraft(text,kind:.group,id:group.id)
     }
-    private func persistMessages(stamp: Int) async throws {
-        for id in state.messages.map(\.id) {
-            try valid(stamp)
-            // A stop/restore can replace the turn while an earlier write awaits SQLite.
-            guard let message = state.messages.first(where: { $0.id == id }) else { continue }
-            try? await repository?.saveGroupMessage(message, groupID: group.id, status: message.status.rawValue)
+    private func displayExecution() {
+        state.messages = execution.messages
+        switch execution.snapshot.task?.state {
+        case .running,.queued:state.status = .running
+        case .awaitingUser:state.status = .partial
+        case .completed:state.status = .completed
+        case .stopped:state.status = .stopped
+        case .failed:state.status = .failed
+        case .interrupted:state.status = .interrupted
+        case nil:state.status = nil
         }
+        state.activeTurnID = state.messages.last(where:{$0.status == .streaming})?.turnID
     }
-    private func restoreAndPersist(_ turn: GroupTurn, stamp: Int) async throws {
+    private func acceptSnapshot(_ snapshot: GroupExecutionSnapshot) {
+        var messages = state.messages
+        for message in snapshot.messages ?? [] {
+            if let index = messages.firstIndex(where:{$0.id == message.id}) {messages[index] = message}
+            else {messages.append(message)}
+        }
+        execution.snapshot = snapshot
+        execution.snapshot.messages = nil
+        execution.messages = messages.sorted {$0.id < $1.id}
+        executionSyncPending = false
+        displayExecution()
+    }
+    private func persistExecution(_ stamp: Int) async throws {
         try valid(stamp)
-        GroupChatReducer.restore(turn, to: &state)
-        try await persistMessages(stamp: stamp)
+        try await repository?.saveGroupExecution(execution.snapshot,messages:execution.messages,groupID:group.id)
+        try valid(stamp)
     }
     public func load() async {
-        let stamp = epoch; loading = true
-        defer { if stamp == epoch { loading = false } }
-        if let repository {
-            do {
-                if let cached = try await repository.cachedGroup(id: group.id) { group = cached }
-                let local = try await repository.groupMessages(groupID: group.id, limit: 101)
-                state.messages = local.suffix(100).map(\.value)
-                for index in state.messages.indices where state.messages[index].status == .streaming {
-                    state.messages[index].status = .interrupted
-                    try? await repository.saveGroupMessage(state.messages[index], groupID: group.id, status: "interrupted")
-                }
-                nextBeforeID = local.count > 100 ? state.messages.first?.id : nil
-                draft = try await repository.draft(kind: .group, id: group.id)
-                historyIncomplete = !((try? await repository.isHistoryComplete(kind: .group, id: group.id)) ?? false)
-            } catch { errorMessage = "本地群聊历史暂时无法读取。" }
-        }
+        let stamp = epoch;loading = true
+        defer {if stamp == epoch {loading = false}}
         do {
-            try valid(stamp)
-            let updated = try await api.group(id: group.id)
-            let page = try await api.groupMessages(groupID: group.id, beforeID: nil)
-            try valid(stamp)
-            group = updated
-            if repository == nil { state.messages = page.messages; nextBeforeID = page.nextBeforeID }
             if let repository {
-                for message in page.messages { try? await repository.saveGroupMessage(message, groupID: group.id, status: message.status.rawValue) }
-                try? await repository.syncGroup(groupID: group.id)
-                let local = try await repository.groupMessages(groupID: group.id, limit: 101)
-                state.messages = local.suffix(100).map(\.value)
+                let cached = try await repository.cachedGroup(id:group.id)
+                try valid(stamp);if let cached {group = cached}
+                let local = try await repository.groupMessages(groupID:group.id,limit:101)
+                try valid(stamp);state.messages = local.suffix(100).map(\.value)
                 nextBeforeID = local.count > 100 ? state.messages.first?.id : nil
-                historyIncomplete = !((try? await repository.isHistoryComplete(kind: .group, id: group.id)) ?? false)
+                let savedDraft = try await repository.draft(kind:.group,id:group.id)
+                try valid(stamp);draft = savedDraft
+                let pending = try await repository.pendingGroupInput(groupID:group.id)
+                try valid(stamp);pendingInput = pending
+                if let cached = try await repository.groupExecutionSnapshot(groupID:group.id) {
+                    try valid(stamp);execution.snapshot = cached;executionSyncPending = true
+                }
             }
+            execution.messages = state.messages
+            try valid(stamp)
+            let updated = try await api.group(id:group.id)
+            let page = try await api.groupMessages(groupID:group.id,beforeID:nil)
+            try valid(stamp);group = updated
+            if let repository {
+                try await repository.syncGroup(groupID:group.id)
+                let local = try await repository.groupMessages(groupID:group.id,limit:101)
+                try valid(stamp);state.messages = local.suffix(100).map(\.value)
+                nextBeforeID = local.count > 100 ? state.messages.first?.id : nil
+                historyIncomplete = !((try? await repository.isHistoryComplete(kind:.group,id:group.id)) ?? false)
+            } else {state.messages = page.messages;nextBeforeID = page.nextBeforeID}
+            let snapshot = try await api.groupExecution(groupID:group.id)
+            try valid(stamp);acceptSnapshot(snapshot);try await persistExecution(stamp)
             errorMessage = nil
-            if let tid = updated.activeTurnID ?? page.messages.last?.turnID {
-                let turn = try await api.groupTurn(groupID: group.id, turnID: tid)
-                try valid(stamp); await reconcileRestoredTurn(turn, stamp: stamp)
-                try valid(stamp)
-            } else if repository == nil { state = GroupChatState(groupID: group.id) }
-            if !group.members.contains(where: { $0.available && $0.botID == preferredBotID }) {
-                let previous = preferredBotID; preferredBotID = group.defaultBotID
-                if previous != nil && !group.readOnly { errorMessage = "原回应者已不可用，已切换到其他伙伴。" }
+            if pendingInput != nil {
+                sending = true
+                defer {if stamp == epoch {sending = false}}
+                try await reconcilePending(stamp:stamp,lookupFirst:true)
             }
-        } catch is CancellationError {} catch { if stamp == epoch && sessionIsCurrent() { errorMessage = friendly(error) } }
+            observeExecution(stamp:stamp)
+        } catch is CancellationError {} catch {if stamp == epoch && sessionIsCurrent() {errorMessage = friendly(error)}}
     }
     public func loadOlder() async {
-        guard let cursor = nextBeforeID, !loading else { return }
-        let stamp = epoch; loading = true
-        defer { if stamp == epoch { loading = false } }
+        guard let cursor = nextBeforeID,!loading else {return}
+        let stamp = epoch;loading = true
+        defer {if stamp == epoch {loading = false}}
         do {
+            let older: [GroupMessage]
             if let repository {
-                let page = try await repository.groupMessages(groupID: group.id, before: cursor, limit: 101)
-                try valid(stamp)
-                let older = page.suffix(100).map(\.value)
-                state.messages.insert(contentsOf: older.filter { message in !state.messages.contains(where: { $0.id == message.id }) }, at: 0)
-                nextBeforeID = page.count > 100 ? state.messages.first?.id : nil
-                return
+                let page = try await repository.groupMessages(groupID:group.id,before:cursor,limit:101)
+                older = page.suffix(100).map(\.value)
+                try valid(stamp);nextBeforeID = page.count > 100 ? older.first?.id : nil
+            } else {
+                let page = try await api.groupMessages(groupID:group.id,beforeID:cursor)
+                older = page.messages;try valid(stamp);nextBeforeID = page.nextBeforeID
             }
-            let page = try await api.groupMessages(groupID: group.id, beforeID: cursor)
-            try valid(stamp)
             let ids = Set(state.messages.map(\.id))
-            state.messages.insert(contentsOf: page.messages.filter { !ids.contains($0.id) }, at: 0)
-            nextBeforeID = page.nextBeforeID
-        } catch is CancellationError {} catch { if stamp == epoch && sessionIsCurrent() { errorMessage = friendly(error) } }
+            state.messages.insert(contentsOf:older.filter {!ids.contains($0.id)},at:0)
+            execution.messages = state.messages
+        } catch is CancellationError {} catch {if stamp == epoch && sessionIsCurrent() {errorMessage = friendly(error)}}
     }
-    public func send(text: String, mode: GroupChatMode = .auto, targetBotID: Int? = nil, attachmentIDs: [String] = []) {
-        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !busy, !loading, !group.readOnly, (!text.isEmpty || !attachmentIDs.isEmpty), text.count <= 2000, sessionIsCurrent() else { return }
+    public func send(text: String,targetMemberIDs: [Int] = [],everyone: Bool = false,replyToMessageID: Int? = nil,attachmentIDs: [String] = []) {
+        let text = text.trimmingCharacters(in:.whitespacesAndNewlines)
+        guard !loading,!sending,!group.readOnly,(!text.isEmpty || !attachmentIDs.isEmpty),text.count <= 2000,sessionIsCurrent() else {return}
+        if pendingInput != nil {recoverPendingSubmission();return}
+        let active = execution.snapshot.task.flatMap {$0.state.canStop ? $0 : nil}
+        pendingInput = .init(message:text,targetMemberIDs:targetMemberIDs,everyone:everyone,replyToMessageID:replyToMessageID,
+                             attachmentIDs:attachmentIDs,expectedTaskID:active?.id,expectedVersion:active?.version,
+                             clarificationID:active?.state == .awaitingUser ? execution.snapshot.clarification?.id : nil)
         draft = text
-        let request = GroupChatRequest(message: text, mode: mode, targetBotID: mode == .round || mode == .auto ? nil : targetBotID,
-                                       attachmentIDs: attachmentIDs)
-        start(api.groupChatStream(groupID: group.id, request: request), preferred: mode == .single ? targetBotID : nil,
-              clearDraft: true, persistDraftBeforeStream: text)
+        beginSubmission(lookupFirst:false)
     }
-    public func retry(messageID: Int) {
-        guard !busy, sessionIsCurrent() else { return }
-        start(api.retryGroupMessage(groupID: group.id, messageID: messageID, requestID: UUID()), preferred: nil, clearDraft: false)
+    public func recoverPendingSubmission() {
+        guard !sending,pendingInput != nil,sessionIsCurrent() else {return}
+        beginSubmission(lookupFirst:true)
     }
-    private func start(_ stream: AsyncThrowingStream<GroupChatEvent, Error>, preferred: Int?, clearDraft: Bool,
-                       persistDraftBeforeStream: String? = nil) {
-        epoch += 1; let stamp = epoch; errorMessage = nil
+    private func beginSubmission(lookupFirst: Bool) {
+        let stamp = epoch;sending = true;errorMessage = nil
         task = Task {
-            defer { if stamp == epoch { task = nil } }
+            defer {if stamp == epoch {task = nil;sending = false}}
             do {
-                if let persistDraftBeforeStream {
-                    try? await repository?.saveDraft(persistDraftBeforeStream, kind: .group, id: group.id)
-                }
-                for try await event in stream {
-                    try valid(stamp)
-                    GroupChatReducer.apply(event, to: &state)
-                    try await persistMessages(stamp: stamp)
-                    // Member-scoped failures already render on their message bubble with a retry action.
-                    // Reserve the page-level notice for errors that affect the whole turn.
-                    if case .error(_, let message, let messageID) = event.payload, messageID == nil {
-                        errorMessage = message
-                    }
-                    if case .turnStart = event.payload {
-                        if clearDraft { draft = ""; try? await repository?.saveDraft("", kind: .group, id: group.id) }
-                        if let preferred { preferredBotID = preferred }
-                    }
-                }
-                if let updated = try? await api.group(id: group.id) {
-                    try valid(stamp); group = updated
-                    if let preferredBotID,
-                       !group.members.contains(where: { $0.available && $0.botID == preferredBotID }) {
-                        self.preferredBotID = group.defaultBotID
-                        if errorMessage == nil && !group.readOnly { errorMessage = "原回应者已不可用，已切换到其他伙伴。" }
-                    }
-                }
-            } catch let existing as GroupRequestExists {
-                await reconcileRestoredTurn(existing.turn, stamp: stamp)
-            } catch is CancellationError {} catch {
-                guard stamp == epoch, sessionIsCurrent() else { return }
-                errorMessage = friendly(error)
-                if let conflict = error as? APIError, let tid = conflict.turnID,
-                   let turn = try? await api.groupTurn(groupID: group.id, turnID: tid) {
-                    await reconcileRestoredTurn(turn, stamp: stamp)
-                } else if state.activeTurnID != nil { await stop() }
-            }
+                guard let request = pendingInput else {return}
+                try await repository?.savePendingGroupInput(request,groupID:group.id)
+                try await repository?.saveDraft(request.message,kind:.group,id:group.id)
+                try valid(stamp)
+                try await reconcilePending(stamp:stamp,lookupFirst:lookupFirst)
+                observeExecution(stamp:stamp)
+            } catch is CancellationError {} catch {if stamp == epoch && sessionIsCurrent() {errorMessage = friendly(error)}}
         }
     }
-    private func reconcileRestoredTurn(_ initial: GroupTurn, stamp: Int) async {
+    private func reconcilePending(stamp: Int,lookupFirst: Bool) async throws {
+        guard let request = pendingInput else {return}
+        var receipt: GroupInputReceipt
         do {
-            try valid(stamp)
-            var turn = initial
-            try await restoreAndPersist(turn, stamp: stamp)
-            for _ in 0..<40 {
-                if turn.status != .running { return }
-                try await Task.sleep(for: .milliseconds(250))
-                try valid(stamp)
-                turn = try await api.groupTurn(groupID: group.id, turnID: turn.id)
-                try valid(stamp)
-                try await restoreAndPersist(turn, stamp: stamp)
+            if lookupFirst {
+                do {receipt = try await api.groupInputReceipt(groupID:group.id,requestID:request.clientRequestID)}
+                catch let error as APIError where error.status == 404 {
+                    try valid(stamp);receipt = try await api.submitGroupInput(groupID:group.id,request:request)
+                }
+            } else {
+                do {receipt = try await api.submitGroupInput(groupID:group.id,request:request)}
+                catch let error as APIError where error.status >= 400 && error.status < 500 {throw error}
+                catch {
+                    try valid(stamp)
+                    do {receipt = try await api.groupInputReceipt(groupID:group.id,requestID:request.clientRequestID)}
+                    catch let error as APIError where error.status == 404 {
+                        try valid(stamp);receipt = try await api.submitGroupInput(groupID:group.id,request:request)
+                    }
+                }
             }
-            if turn.status == .running { errorMessage = "讨论仍在进行，请稍后重新加载查看结果。" }
-        } catch is CancellationError {} catch {
-            if stamp == epoch && sessionIsCurrent() { errorMessage = friendly(error) }
+            try valid(stamp)
+            execution.snapshot.task = receipt.task
+            // Receipt points before acceptance: replay every message not yet applied.
+            execution.snapshot.eventCursor = max(execution.snapshot.eventCursor,receipt.eventCursor)
+            pendingInput = nil
+            if draft.trimmingCharacters(in:.whitespacesAndNewlines) == request.message {draft = ""}
+            try await repository?.savePendingGroupInput(nil,groupID:group.id)
+            try await repository?.saveDraft(draft,kind:.group,id:group.id)
+            try await persistExecution(stamp)
+        } catch let error as APIError where error.status >= 400 && error.status < 500 {
+            try valid(stamp)
+            pendingInput = nil
+            try await repository?.savePendingGroupInput(nil,groupID:group.id)
+            if error.status == 409 {
+                let snapshot = try await api.groupExecution(groupID:group.id)
+                try valid(stamp);acceptSnapshot(snapshot);try await persistExecution(stamp)
+                errorMessage = "任务已在另一处更新，已同步最新进度。请根据当前问题继续。"
+                observeExecution(stamp:stamp)
+                return
+            }
+            throw error
         }
     }
     public func stop() async {
-        guard let tid = state.activeTurnID, state.status == .running, sessionIsCurrent() else { return }
-        let stamp = epoch; confirmingStop = true
-        defer { if stamp == epoch { confirmingStop = false } }
+        guard let active = execution.snapshot.task,active.state.canStop,sessionIsCurrent() else {return}
+        let stamp = epoch;confirmingStop = true
+        defer {if stamp == epoch {confirmingStop = false}}
         do {
-            try valid(stamp)
-            var turn = try await api.stopGroupTurn(groupID: group.id, turnID: tid)
-            for _ in 0..<40 {
-                try valid(stamp)
-                if turn.status != .running { break }
-                try await Task.sleep(for: .milliseconds(250))
-                turn = try await api.groupTurn(groupID: group.id, turnID: tid)
-            }
-            try await restoreAndPersist(turn, stamp: stamp)
-            if turn.status == .running { errorMessage = "正在确认讨论是否已停止，请稍后重新加载。" }
-        } catch is CancellationError {} catch { if stamp == epoch && sessionIsCurrent() { errorMessage = "暂时无法确认是否已停止，请恢复连接后重新加载。" } }
+            let updated = try await api.stopGroupTask(groupID:group.id,taskID:active.id,expectedVersion:active.version,requestID:UUID())
+            try valid(stamp);execution.snapshot.task = updated;execution.snapshot.clarification = nil
+            displayExecution();try await persistExecution(stamp);observeExecution(stamp:stamp)
+        } catch is CancellationError {} catch {if stamp == epoch && sessionIsCurrent() {errorMessage = friendly(error)}}
+    }
+    public func canRetry(messageID: Int) -> Bool {
+        guard !busy,!hasUnconfirmedInput,let message=state.messages.first(where:{$0.id == messageID}),
+              [.failed,.interrupted].contains(message.status),message.taskID != nil,message.taskVersion != nil else {return false}
+        return true
+    }
+    public func resume() {command(messageID:nil)}
+    public func retry(messageID: Int) {command(messageID:messageID)}
+    private func command(messageID: Int?) {
+        guard !busy,!hasUnconfirmedInput,sessionIsCurrent() else {return}
+        let active = execution.snapshot.task
+        let message = messageID.flatMap {id in state.messages.first(where:{$0.id == id})}
+        if let messageID {guard canRetry(messageID:messageID) else {return}}
+        else {guard active?.state.canResume == true else {return}}
+        let stamp = epoch;sending = true
+        task = Task {
+            defer {if stamp == epoch {task = nil;sending = false}}
+            do {
+                let updated: GroupTask
+                if let messageID {updated = try await api.retryGroupTaskMessage(groupID:group.id,messageID:messageID,expectedVersion:message?.taskID == active?.id ? active!.version : message!.taskVersion!,requestID:UUID())}
+                else {updated = try await api.resumeGroupTask(groupID:group.id,taskID:active!.id,expectedVersion:active!.version,message:"",requestID:UUID())}
+                try valid(stamp);execution.snapshot.task = updated;observeExecution(stamp:stamp)
+            } catch is CancellationError {} catch {if stamp == epoch && sessionIsCurrent() {errorMessage = friendly(error)}}
+        }
     }
     public func leave() {
-        let tid = state.status == .running ? state.activeTurnID : nil
-        epoch += 1; task?.cancel(); task = nil; loading = false
-        if let tid, sessionIsCurrent() {
-            Task { if sessionIsCurrent() { _ = try? await api.stopGroupTurn(groupID: group.id, turnID: tid) } }
-        }
+        epoch += 1;task?.cancel();task = nil;observerTask?.cancel();observerTask = nil
+        loading = false;sending = false
     }
-    public func update(name: String? = nil, defaultBotID: Int? = nil) async throws {
-        let stamp = epoch; try valid(stamp)
-        let updated = try await api.updateGroup(id: group.id, request: GroupUpdateRequest(name: name, defaultBotID: defaultBotID))
-        try valid(stamp)
-        group = updated
-        if defaultBotID != nil {
-            preferredBotID = updated.defaultBotID
-        }
+    public func update(name: String? = nil) async throws {
+        let stamp = epoch;let updated = try await api.updateGroup(id:group.id,request:.init(name:name))
+        try valid(stamp);group = updated
     }
     public func clear() async throws {
-        let stamp = epoch; try valid(stamp)
-        _ = try await api.clearGroupMessages(groupID: group.id)
-        try valid(stamp)
-        try? await repository?.clearGroup(groupID: group.id)
-        try valid(stamp); state = GroupChatState(groupID: group.id); nextBeforeID = nil
+        leave();let stamp = epoch
+        _ = try await api.clearGroupMessages(groupID:group.id);try valid(stamp)
+        try await repository?.clearGroup(groupID:group.id);try valid(stamp)
+        execution = .init();state = .init(groupID:group.id);pendingInput = nil;draft = "";nextBeforeID = nil
+        executionSyncPending = false;errorMessage = nil
     }
     public func delete() async throws {
-        let stamp = epoch; try valid(stamp)
-        _ = try await api.deleteGroup(id: group.id); try valid(stamp)
-        try? await repository?.removeGroup(groupID: group.id)
+        leave();let stamp = epoch
+        _ = try await api.deleteGroup(id:group.id);try valid(stamp)
+        try await repository?.removeGroup(groupID:group.id)
     }
     private func friendly(_ error: Error) -> String {
-        if let api = error as? APIError, api.status == 409 { return "讨论还在进行，请先停止后再操作。" }
-        if let api = error as? APIError, api.status == 429 { return "今日额度已用完，请稍后继续。" }
-        return "伙伴们暂时没连上，请重新加载后再试。"
+        if let error = error as? APIError {
+            if error.status == 429 {return "今日额度已用完，请稍后继续。"}
+            if error.status == 426 {return "群聊需要更新后端服务后才能继续。"}
+            if error.status == 409 {return "群聊状态已更新，请同步最新进度后继续。"}
+        }
+        return pendingInput == nil ? "伙伴们暂时没连上，请重新加载后再试。" : "发送结果暂未确认，请恢复连接后确认发送状态。"
+    }
+    private func observeExecution(stamp: Int) {
+        observerTask?.cancel()
+        observerTask = Task {
+            var failures = 0
+            while true {
+                do {
+                    try valid(stamp)
+                    for try await event in api.observeGroupExecution(groupID:group.id,afterID:execution.snapshot.eventCursor) {
+                        try valid(stamp)
+                        guard GroupExecutionReducer.apply(event,to:&execution,groupID:group.id) else {continue}
+                        if event.kind == "group_cleared" {
+                            task?.cancel();task = nil;sending = false;pendingInput = nil;draft = ""
+                            try await repository?.clearGroup(groupID:group.id)
+                            try valid(stamp)
+                        }
+                        executionSyncPending = false;displayExecution();try await persistExecution(stamp)
+                    }
+                    try valid(stamp)
+                    let latest = try await api.groupExecution(groupID:group.id)
+                    try valid(stamp)
+                    // Old servers omit atomic messages; fetch history and replay from the previous cursor.
+                    if latest.messages == nil {
+                        let page = try await api.groupMessages(groupID:group.id,beforeID:nil)
+                        try valid(stamp)
+                        for message in page.messages {
+                            if let index = state.messages.firstIndex(where:{$0.id == message.id}) {state.messages[index] = message}
+                            else {state.messages.append(message)}
+                        }
+                    }
+                    acceptSnapshot(latest);try await persistExecution(stamp)
+                    if latest.task?.state == .running || latest.task?.state == .queued {try await Task.sleep(for:.milliseconds(250));continue}
+                    return
+                } catch is CancellationError {return}
+                catch {
+                    guard stamp == epoch,sessionIsCurrent() else {return}
+                    executionSyncPending = true;failures += 1
+                    if failures >= 3 {errorMessage = friendly(error);return}
+                    do {try await Task.sleep(for:.milliseconds(250*failures));try valid(stamp)} catch {return}
+                }
+            }
+        }
     }
 }

@@ -2,6 +2,8 @@
 import asyncio
 import anyio
 import contextlib
+import inspect
+import json
 import logging
 import time
 from .. import db
@@ -18,6 +20,90 @@ log=logging.getLogger(__name__)
 class Stopped(Exception): pass
 class MemberGone(Exception): pass
 class BudgetExhausted(Exception): pass
+
+GROUP_NEXT_STEP = [{"type": "function", "function": {
+    "name": "group_next_step", "description": "提交唯一的群内协作动作；只允许在用户目标需要成员接力时调用。",
+    "parameters": {"type": "object", "additionalProperties": False, "required": ["kind"], "properties": {
+        "kind": {"type": "string", "enum": ["completed", "consult", "handoff", "await_user"]},
+        "target_member_id": {"type": ["integer", "null"]}, "goal": {"type": "string"},
+        "result": {"type": "string"}, "context_message_ids": {"type": "array", "items": {"type": "integer"}},
+        "attachment_ids": {"type": "array", "items": {"type": "string"}},
+        "completion_criteria": {"type": "string"}, "issue_key": {"type": ["string", "null"]},
+        "missing_information": {"type": "array", "items": {"type": "string"}},
+    }},
+}}]
+
+
+async def run_step(step: dict, should_stop, *, user_id: int, group: dict, task: dict, member: dict,
+                   save_snapshot=None) -> dict:
+    """One step, with every provider attempt counted and accounted independently."""
+    from ..services import group_actions
+    from ..db import group_execution_store as execution_store
+    content, usage, raw_action = "", None, None
+    unknown, accounted = False, False
+    managed = "lease_token" in step and "input_id" in step
+    status, error = "completed", None
+    async def next_event(generator):
+        pending = asyncio.create_task(anext(generator))
+        try:
+            while not pending.done():
+                if should_stop():
+                    raise Stopped()
+                await asyncio.wait({pending},timeout=POLL_INTERVAL)
+            return pending.result()
+        finally:
+            if not pending.done():
+                pending.cancel()
+            with contextlib.suppress(asyncio.CancelledError, StopAsyncIteration, Exception):
+                await pending
+    try:
+        remaining = max(0.001,(TURN_TIMEOUT*1000-int(step.get("elapsed_ms",0)))/1000)
+        async with asyncio.timeout(min(MEMBER_TIMEOUT,remaining)):
+            for attempt in range(2):
+                if should_stop(): raise Stopped()
+                check_budget(user_id)
+                call_id = execution_store.begin_member_call(step["id"],step["lease_token"],step["version"]) if managed else None
+                current_usage = None
+                generator = llm.stream_chat(step["context"], GROUP_NEXT_STEP, tool_choice="auto", max_tokens=768)
+                try:
+                    while True:
+                        try: kind,value = await next_event(generator)
+                        except StopAsyncIteration: break
+                        if kind == "delta":
+                            content += value
+                            if save_snapshot is not None:
+                                saved = save_snapshot(content)
+                                if inspect.isawaitable(saved): await saved
+                        elif kind == "usage": current_usage = value
+                        elif kind == "tool_calls":
+                            if raw_action is not None or len(value)!=1 or value[0].get("name")!="group_next_step":
+                                raise ValueError("invalid_action")
+                            raw_action = json.loads(value[0].get("arguments") or "{}")
+                finally:
+                    with contextlib.suppress(Exception): await generator.aclose()
+                    unknown = unknown or current_usage is None
+                    if current_usage is not None:
+                        usage = {key:int((usage or {}).get(key,0))+int(current_usage.get(key,0)) for key in ("prompt_tokens","completion_tokens","total_tokens")}
+                    if call_id:
+                        execution_store.record_call(call_id,user_id,group["id"],task["id"],step["id"],"group_chat",current_usage,current_usage is None)
+                        accounted = True
+                if content.strip() or raw_action is not None: break
+                if attempt==1: raise ValueError("empty_response")
+        action = group_actions.validate(user_id,group,task,step,raw_action)
+    except Stopped:
+        status,action="stopped",None
+    except asyncio.CancelledError:
+        status,action="interrupted",None
+    except TimeoutError:
+        status,action,error="failed",None,"member_timeout"
+    except BudgetExhausted:
+        status,action,error="failed",None,"daily_budget_exhausted"
+    except execution_store.GroupExecutionError as exc:
+        status,action,error="failed",None,exc.code
+    except Exception as exc:
+        status,action,error="failed",None,str(exc) if isinstance(exc,ValueError) else "member_failed"
+    return {"content":content,"status":status,"action":action,"usage":usage,
+            "usage_unknown":unknown,"usage_recorded":accounted,"error":error}
 
 def signal_stop(user_id,group_id,turn_id):
     event=_signals.get((user_id,group_id,turn_id))

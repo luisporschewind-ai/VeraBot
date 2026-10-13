@@ -9,7 +9,9 @@ def speakers(user_id: int, group: Group, request: GroupChatInput) -> list[GroupM
     current = require_group(user_id, group["id"])
     active = [m for m in current["members"] if m["available"]]
     if request.get("mode", "single") == "round": return active
-    target = request.get("target_bot_id") or current["default_bot_id"]
+    target = request.get("target_bot_id")
+    if target is None:
+        raise group_store.GroupStoreError(426, "group_upgrade_required", "群聊需要升级到意图路由协议")
     selected = [m for m in active if m["bot_id"] == target]
     if not selected: raise group_store.GroupStoreError(422, "invalid_member", "回应者不可用")
     return selected

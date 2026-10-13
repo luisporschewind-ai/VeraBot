@@ -20,15 +20,17 @@ struct GroupChatView: View {
     @State private var speechBase = ""
     @State private var draftSaveTask: Task<Void, Never>?
     @State private var mentionTokens: [GroupMentionToken] = []
+    @State private var replyToMessageID: Int?
     @State private var draftSelection = NSRange(location: 0, length: 0)
     @State private var inputFocused = false
     @State private var isComposingMention = false
     @Environment(SpeechPlayer.self) private var player
     @State private var info = false
     private let app: AppState
-    private let preferenceKey: String
+    private let legacyPreferenceKey: String
     init(group: ChatGroup, app: AppState) {
         self.app = app
+        legacyPreferenceKey = "groupTarget.\(app.baseURLString).\(app.userID ?? 0).\(group.id)"
         let generation = app.sessionGeneration
         let session = app.authSession
         let endpoint = app.baseURLString
@@ -36,7 +38,6 @@ struct GroupChatView: View {
                                                         repository: app.conversationRepository,
                                                         sessionIsCurrent: { session.isCurrent(generation) && app.baseURLString == endpoint }))
         _attachment = State(initialValue: ComposerAttachmentModel(botID: nil, api: app.api))
-        preferenceKey = "groupTarget.\(app.baseURLString).\(app.userID ?? 0).\(group.id)"
     }
     var body: some View {
         @Bindable var model = model
@@ -44,6 +45,7 @@ struct GroupChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 16) {
+                        GroupExecutionStatusView(model: model)
                         if model.nextBeforeID != nil { Button("加载更早的消息") { Task { await model.loadOlder() } }.disabled(model.loading) }
                         if model.loading && model.state.messages.isEmpty { BotLoadingView() }
                         if model.historyIncomplete {
@@ -126,10 +128,11 @@ struct GroupChatView: View {
             Button("前往设置") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
             Button("取消", role: .cancel) {}
         } message: { Text("请在「设置」中允许 VeraBot 使用相机。") }
-        .task { let stored = UserDefaults.standard.integer(forKey: preferenceKey); if stored > 0 { model.preferredBotID = stored }; await model.load() }
+        .task { UserDefaults.standard.removeObject(forKey: legacyPreferenceKey); await model.load() }
         .onChange(of: model.draft) { _, new in
             if new.isEmpty {
                 mentionTokens = []
+                replyToMessageID = nil
                 draftSelection = NSRange(location: 0, length: 0)
             }
             draftSaveTask?.cancel()
@@ -145,7 +148,6 @@ struct GroupChatView: View {
             model.draft = speechBase + transcript
             draftSelection = NSRange(location: (model.draft as NSString).length, length: 0)
         }
-        .onChange(of: model.preferredBotID) { _, value in if let value { UserDefaults.standard.set(value, forKey: preferenceKey) } }
         .onChange(of: phase) { _, value in
             if value != .active { inputFocused = false; model.leave(); speech.cancel() } else { Task { await model.load() } }
         }
@@ -175,6 +177,15 @@ struct GroupChatView: View {
                     .glassSurface(in: Capsule(), interactive: false)
             }
             if !attachment.isEmpty { ComposerAttachmentChip(model: attachment) }
+            if let replyToMessageID, let quoted = model.state.messages.first(where: { $0.id == replyToMessageID }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrowshape.turn.up.left").foregroundStyle(.secondary)
+                    Text("回复：\(quoted.senderName ?? (quoted.role == .user ? "你" : "伙伴")) · \(quoted.content)")
+                        .font(.caption).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                    Button { self.replyToMessageID = nil } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                        .accessibilityLabel("取消回复")
+                }.padding(.horizontal, 14)
+            }
             GlassGroup(spacing: 10) {
                 HStack(alignment: .bottom, spacing: 10) {
                     Menu {
@@ -206,7 +217,7 @@ struct GroupChatView: View {
                                     .padding(.leading, 0).allowsHitTesting(false)
                             }
                         }
-                        if model.busy {
+                        if model.canStop {
                             Button { Task { await model.stop() } } label: {
                                 Image(systemName: "stop.circle.fill").font(.title3).foregroundStyle(.red)
                                     .frame(width: 36, height: Self.barHeight).contentShape(Rectangle())
@@ -368,18 +379,20 @@ struct GroupChatView: View {
         inputFocused = true
     }
 
-    private func selectedRoute(for text: String) -> (mode: GroupChatMode, targetBotID: Int?)? {
+    private func selectedRoute(for text: String) -> (memberIDs: [Int], everyone: Bool) {
         let source = text as NSString
+        var memberIDs: [Int] = []
+        var everyone = false
         for mention in mentionTokens where NSMaxRange(mention.range) <= source.length {
             guard source.substring(with: mention.range) == mention.text else { continue }
             switch mention.target {
             case .everyone:
-                return (.round, nil)
+                everyone = true
             case .bot(let botID):
-                return (.single, botID)
+                if let memberID = model.group.members.first(where: { $0.botID == botID })?.id { memberIDs.append(memberID) }
             }
         }
-        return nil
+        return (memberIDs, everyone)
     }
 
     private var groupTitleButton: some View {
@@ -393,7 +406,8 @@ struct GroupChatView: View {
     }
 
     private func send() {
-        guard !model.busy, !model.loading else { return }
+        guard !model.loading,!model.sending else { return }
+        if model.hasUnconfirmedInput {model.recoverPendingSubmission();return}
         let text = model.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (!text.isEmpty || attachment.ready != nil), text.count <= 2000, !attachment.blocksSend else { return }
         if speech.isRecording { speech.stop() }
@@ -405,7 +419,7 @@ struct GroupChatView: View {
         let leading = text.isEmpty ? 0 : (model.draft as NSString).range(of: text).location
         mentionTokens = mentionTokens.compactMap { $0.adjustedForTrimmedDraft(text, leading: leading) }
         draftSelection = NSRange(location: min(trimmedSource.length, max(0, draftSelection.location - leading)), length: 0)
-        model.send(text: text, mode: route?.mode ?? .auto, targetBotID: route?.targetBotID,
+        model.send(text: text, targetMemberIDs: route.memberIDs, everyone: route.everyone, replyToMessageID: replyToMessageID,
                    attachmentIDs: selected.map { [$0.id] } ?? [])
         inputFocused = true
     }
@@ -436,7 +450,7 @@ struct GroupChatView: View {
                             .foregroundStyle(Color.userBubbleText).background(Color.userBubble, in: RoundedRectangle(cornerRadius: 18))
                     }
                 }
-            }
+            }.contextMenu { Button("回复", systemImage: "arrowshape.turn.up.left") { replyToMessageID = message.id; inputFocused = true } }
         } else {
             HStack(alignment: .top, spacing: 10) {
                 if let member = historicalMember(message) { GroupMemberAvatar(member: member, size: 40, action: message.status == .failed ? .warning : message.status == .streaming ? .replying : .idle) }
@@ -449,11 +463,11 @@ struct GroupChatView: View {
                     if message.status != .completed && message.status != .streaming {
                         Text(message.status == .failed ? "回应暂未完成" : message.status == .stopped ? "已停止 · 回应未完成" : "连接中断 · 回应未完成").font(.caption).foregroundStyle(.secondary)
                         Button("再试一次", systemImage: "arrow.clockwise") { model.retry(messageID: message.id) }
-                            .font(.caption).disabled(model.busy || !(model.group.members.first { $0.id == message.memberID }?.available ?? false))
+                            .font(.caption).disabled(!model.canRetry(messageID:message.id) || !(model.group.members.first { $0.id == message.memberID }?.available ?? false))
                     }
                 }.padding(13).background(Color.botBubble, in: RoundedRectangle(cornerRadius: 18))
                 Spacer(minLength: 20)
-            }
+            }.contextMenu { Button("回复", systemImage: "arrowshape.turn.up.left") { replyToMessageID = message.id; inputFocused = true } }
         }
     }
     private func historicalMember(_ message: GroupMessage) -> ChatGroupMember? {

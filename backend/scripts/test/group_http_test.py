@@ -1,90 +1,131 @@
 #!/usr/bin/env python3
-"""Real socket HTTP regression against group_chat_demo.py (no real provider)."""
+"""Real socket checks for durable group protocol v2 using only the local fake provider."""
 import asyncio
 import json
-from pathlib import Path
 import sys
 from uuid import uuid4
+
 import httpx
 
-URL = sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:8093'
+URL = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8093"
+PROTOCOL = {"X-VeraBot-Group-Protocol": "2"}
+
+
+async def wait_for(client, group_path, *, wanted):
+    for _ in range(120):
+        snapshot = (await client.get(group_path + "/execution")).json()
+        task = snapshot.get("task")
+        if task and task["state"] in wanted:
+            return snapshot
+        await asyncio.sleep(0.1)
+    raise AssertionError(f"execution did not reach {wanted}: {snapshot}")
+
+
+async def read_events(client, path, after_id):
+    events = []
+    async with client.stream("GET", path + f"/events?after_id={after_id}") as response:
+        assert response.status_code == 200, await response.aread()
+        event_id, kind = None, None
+        async for line in response.aiter_lines():
+            if line.startswith("id: "):
+                event_id = int(line[4:])
+            elif line.startswith("event: "):
+                kind = line[7:]
+            elif line.startswith("data: "):
+                events.append((kind, json.loads(line[6:])))
+    return events
+
+
+async def disconnect_after_first_event(client, path, after_id):
+    async with client.stream("GET", path + f"/events?after_id={after_id}") as response:
+        assert response.status_code == 200, await response.aread()
+        async for line in response.aiter_lines():
+            if line.startswith("data: "):
+                json.loads(line[6:])
+                return
+
 
 async def main():
-    async with httpx.AsyncClient(base_url=URL, timeout=40) as c:
-        r=await c.post('/api/auth/login',json={'username':'group-demo','password':'group-demo-123'})
-        r.raise_for_status(); c.headers['Authorization']='Bearer '+r.json()['token']
-        ids=[b['id'] for b in (await c.get('/api/bots')).json()['bots']][:3]
-        r=await c.post('/api/groups',json={'name':'G3 HTTP 联调','bot_ids':ids,'default_bot_id':ids[0]})
-        assert r.status_code==201,r.text
-        gid=r.json()['id']; path=f'/api/groups/{gid}'
-        def body(text='讨论问题',mode='single',target=None):
-            b={'client_request_id':str(uuid4()),'message':text,'mode':mode}
-            if target: b['target_bot_id']=target
-            return b
-        async def send(b, suffix='/chat'):
-            r=await c.post(path+suffix,json=b); assert r.status_code==200,r.text
-            assert r.headers['cache-control']=='no-store'
-            frames=[]
-            for frame in r.text.split('\n\n'):
-                if not frame.strip(): continue
-                lines=frame.splitlines(); frames.append((lines[0][7:],json.loads(lines[1][6:])))
-            assert frames[-1][0]=='turn_done'
-            assert all(f[1]['group_id']==gid for f in frames)
-            return frames
-        req=body(); await send(req)
-        duplicate=await c.post(path+'/chat',json=req)
-        assert duplicate.status_code==409 and duplicate.json()['detail']['code']=='request_exists'
-        await send(body(target=ids[1])); await send(body(mode='round'))
-        history=(await c.get(path+'/messages')).json()['messages']
-        assert [m['sender_name'] for m in history if m['role']=='bot']==['A','B','A','B','C']
-        print('PASS create/default A/target B/ordered round/persisted history/UUID duplicate',flush=True)
-        # Stop while the real network stream is active; reject concurrent writes.
-        async with c.stream('POST',path+'/chat',json=body(mode='round')) as response:
-            assert response.status_code==200
-            event=None
-            async for line in response.aiter_lines():
-                if line.startswith('event: '): event=line[7:]
-                if line.startswith('data: ') and event=='message_start':
-                    data=json.loads(line[6:]); tid=data['turn_id']
-                    busy=await c.post(path+'/chat',json=body())
-                    assert busy.status_code==409 and busy.json()['detail']['code']=='group_busy'
-                    assert (await c.delete(path+'/messages')).status_code==409
-                    assert (await c.post(path+f'/turns/{tid}/stop')).status_code==200
-                    assert (await c.post(path+f'/turns/{tid}/stop')).status_code==200
-                if line.startswith('data: ') and event=='turn_done': break
-        turn=(await c.get(path+f'/turns/{tid}')).json()
-        assert turn['status']=='stopped' and len([m for m in turn['messages'] if m['role']=='bot'])==1,turn
-        print('PASS concurrent busy/clear busy/stop repeated/no later members',flush=True)
-        # Deliberate B failure, C continues, B-only retry adds no user question.
-        await send(body('[fail-once]',mode='round'))
-        before=(await c.get(path+'/messages')).json()['messages']
-        failed=next(m for m in reversed(before) if m['status']=='failed')
-        await send({'client_request_id':str(uuid4())},f"/messages/{failed['id']}/retry")
-        after=(await c.get(path+'/messages')).json()['messages']
-        assert len(after)==len(before)+1 and after[-1]['sender_name']=='B' and after[-1]['status']=='completed'
-        assert after[-1]['retry_of_message_id']==failed['id']
-        print('PASS B failure/C continuation/B-only retry/original question/no duplicate user',flush=True)
-        # Closing a socket after the first delta must terminalize the turn.
-        async with c.stream('POST',path+'/chat',json=body(mode='round')) as response:
-            event=None
-            async for line in response.aiter_lines():
-                if line.startswith('event: '): event=line[7:]
-                if line.startswith('data: ') and event=='delta':
-                    tid=json.loads(line[6:])['turn_id']; break
-        for _ in range(100):
-            turn=(await c.get(path+f'/turns/{tid}')).json()
-            if turn['status']!='running': break
-            await asyncio.sleep(.05)
-        assert turn['status']=='interrupted',turn
-        assert (await c.get(path)).json()['active_turn_id'] is None
-        assert (await c.delete(path+'/messages')).status_code==200
-        assert (await c.get(path+'/messages')).json()['messages']==[]
-        assert (await c.delete(path)).status_code==200
-        assert (await c.get(path)).status_code==404
-        print('PASS real socket disconnect/re-entry/clear/delete',flush=True)
-        # Leave a clean group for the human's Simulator acceptance.
-        r=await c.post('/api/groups',json={'name':'伙伴讨论 · G3 验收','bot_ids':ids,'default_bot_id':ids[0]})
-        assert r.status_code==201,r.text
-        print('ALL HTTP CHECKS PASSED; human demo group',r.json()['id'])
+    async with httpx.AsyncClient(base_url=URL, timeout=35) as client:
+        login = await client.post("/api/auth/login", json={"username": "group-demo", "password": "group-demo-123"})
+        login.raise_for_status()
+        client.headers["Authorization"] = "Bearer " + login.json()["token"]
+        ids = [item["id"] for item in (await client.get("/api/bots")).json()["bots"][:3]]
+        created = await client.post("/api/groups", headers=PROTOCOL,
+                                   json={"name": "G3 HTTP 联调", "bot_ids": ids})
+        assert created.status_code == 201, created.text
+        group_id = created.json()["id"]
+        path = f"/api/groups/{group_id}"
+        legacy = await client.post(path + "/chat", json={"client_request_id": str(uuid4()), "message": "old"})
+        assert legacy.status_code == 426, legacy.text
+        assert (await client.get(path + "/messages")).status_code == 200
+        print("PASS group creation without default member; legacy writes require protocol v2", flush=True)
+
+        request = {"client_request_id": str(uuid4()), "message": "请帮我看看这份计划", "target_member_ids": [],
+                   "everyone": False, "reply_to_message_id": None, "attachment_ids": []}
+        accepted = await client.post(path + "/inputs", headers=PROTOCOL, json=request)
+        assert accepted.status_code == 202, accepted.text
+        duplicate = await client.post(path + "/inputs", headers=PROTOCOL, json=request)
+        assert duplicate.status_code == 200 and duplicate.json()["input_id"] == accepted.json()["input_id"]
+        receipt = await client.get(path + "/inputs/" + request["client_request_id"])
+        assert receipt.status_code == 200 and receipt.json()["turn_id"] == accepted.json()["turn_id"]
+        final = await wait_for(client, path, wanted={"completed"})
+        events = await read_events(client, path, accepted.json()["event_cursor"])
+        kinds = [kind for kind, _ in events]
+        assert "route_decided" in kinds and "step_completed" in kinds
+        assert final["task"]["state"] == "completed"
+        print("PASS submit acknowledgement, duplicate UUID, socket-independent worker, persisted event replay", flush=True)
+
+        request = {"client_request_id": str(uuid4()), "message": "帮我弄一下", "target_member_ids": [],
+                   "everyone": False, "reply_to_message_id": None, "attachment_ids": []}
+        accepted = await client.post(path + "/inputs", headers=PROTOCOL, json=request)
+        assert accepted.status_code == 202, accepted.text
+        waiting = await wait_for(client, path, wanted={"awaiting_user"})
+        clarification = waiting["clarification"]
+        assert clarification and clarification["owner_member_id"] is not None
+        assert clarification["latest_question_message_id"] is not None
+        answer = {"client_request_id": str(uuid4()), "message": "计划周末徒步，预算有限", "target_member_ids": [],
+                  "everyone": False, "reply_to_message_id": None, "attachment_ids": [],
+                  "expected_task_id": waiting["task"]["id"], "expected_version": waiting["task"]["version"],
+                  "clarification_id": clarification["id"]}
+        followup = await client.post(path + "/inputs", headers=PROTOCOL, json=answer)
+        assert followup.status_code == 202, followup.text
+        done = await wait_for(client, path, wanted={"completed"})
+        assert done["task"]["owner_member_id"] == clarification["owner_member_id"]
+        print("PASS dynamic Bot clarification, stable owner, user answer resumes the same task", flush=True)
+
+        request = {"client_request_id": str(uuid4()), "message": "[consult] 评估这个方案", "target_member_ids": [],
+                   "everyone": False, "reply_to_message_id": None, "attachment_ids": []}
+        accepted = await client.post(path + "/inputs", headers=PROTOCOL, json=request)
+        assert accepted.status_code == 202, accepted.text
+        await disconnect_after_first_event(client, path, accepted.json()["event_cursor"])
+        consulted = await wait_for(client, path, wanted={"completed"})
+        events = await read_events(client, path, accepted.json()["event_cursor"])
+        kinds = [kind for kind, _ in events]
+        consult_events = [data for kind, data in events if kind == "handoff_scheduled" and data["payload"].get("kind") == "consult"]
+        assert consult_events
+        assert consulted["task"]["owner_member_id"] == consult_events[0]["payload"]["from_member_id"]
+        print("PASS observer disconnect leaves worker running; consult returns to original owner and replays events", flush=True)
+
+        request = {"client_request_id": str(uuid4()), "message": "[handoff] 做完这份方案", "target_member_ids": [],
+                   "everyone": False, "reply_to_message_id": None, "attachment_ids": []}
+        accepted = await client.post(path + "/inputs", headers=PROTOCOL, json=request)
+        assert accepted.status_code == 202, accepted.text
+        done = await wait_for(client, path, wanted={"completed"})
+        events = await read_events(client, path, accepted.json()["event_cursor"])
+        handoffs = [data for kind, data in events if kind == "handoff_scheduled"]
+        assert handoffs and done["task"]["owner_member_id"] == handoffs[-1]["payload"]["to_member_id"]
+        print("PASS structured handoff changes owner and ends with the receiving Bot", flush=True)
+
+        request = {"client_request_id": str(uuid4()), "message": "帮我弄一下", "target_member_ids": [],
+                   "everyone": False, "reply_to_message_id": None, "attachment_ids": []}
+        waiting = await client.post(path + "/inputs", headers=PROTOCOL, json=request)
+        waiting.raise_for_status()
+        snapshot = await wait_for(client, path, wanted={"awaiting_user"})
+        stopped = await client.post(path + f"/tasks/{snapshot['task']['id']}/stop", headers=PROTOCOL,
+                                    json={"client_request_id": str(uuid4()), "expected_version": snapshot["task"]["version"]})
+        assert stopped.status_code == 200 and stopped.json()["state"] == "stopped", stopped.text
+        print("PASS explicit stop cancels a clarification that is waiting for user input", flush=True)
+
 
 asyncio.run(main())

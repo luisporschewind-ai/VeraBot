@@ -110,6 +110,41 @@ public actor ConversationStore {
         }
     }
 
+    public func pendingGroupInput<Value: Codable & Sendable>(_ type: Value.Type, conversationID: Int) async throws -> Value? {
+        guard let data = try database.rows("SELECT snapshot FROM card_states WHERE kind='group' AND conversation_id=? AND card_kind='pending_input' AND remote_id=0",values:[conversationID]).first?["snapshot"] as? Data else {return nil}
+        return try decoder.decode(type,from:data)
+    }
+    public func savePendingGroupInput<Value: Codable & Sendable>(_ input: Value?, conversationID: Int) async throws {
+        if let input {
+            try database.execute("INSERT INTO card_states(kind,conversation_id,card_kind,remote_id,snapshot) VALUES('group',?,'pending_input',0,?) ON CONFLICT(kind,conversation_id,card_kind,remote_id) DO UPDATE SET snapshot=excluded.snapshot",values:[conversationID,try encoder.encode(input)])
+        } else {
+            try database.execute("DELETE FROM card_states WHERE kind='group' AND conversation_id=? AND card_kind='pending_input' AND remote_id=0",values:[conversationID])
+        }
+    }
+
+    public func groupExecutionSnapshot<Value: Codable & Sendable>(_ type: Value.Type, conversationID: Int) async throws -> Value? {
+        guard let data = try database.rows("SELECT snapshot FROM card_states WHERE kind='group' AND conversation_id=? AND card_kind='execution' AND remote_id=0",
+                                           values: [conversationID]).first?["snapshot"] as? Data else { return nil }
+        return try decoder.decode(type, from: data)
+    }
+
+    public func saveGroupExecution<Value: Codable & Sendable, Message: Codable & Sendable>(
+        _ snapshot: Value, messages: [Message], id: @Sendable (Message) -> Int,
+        status: @Sendable (Message) -> String, conversationID: Int
+    ) async throws {
+        let stateData = try encoder.encode(snapshot)
+        let encodedMessages = try messages.map { (id: id($0), status: status($0), data: try encoder.encode($0)) }
+        try database.transaction { db in
+            try db.execute("INSERT INTO card_states(kind,conversation_id,card_kind,remote_id,snapshot) VALUES('group',?,'execution',0,?) ON CONFLICT(kind,conversation_id,card_kind,remote_id) DO UPDATE SET snapshot=excluded.snapshot",
+                           values: [conversationID, stateData])
+            for item in encodedMessages {
+                let localID = "group-\(conversationID)-\(item.id)"
+                try db.execute("INSERT INTO messages(local_id,kind,conversation_id,remote_id,sort_key,snapshot,local_status) VALUES(?,'group',?,?,?,?,?) ON CONFLICT(kind,conversation_id,remote_id) DO UPDATE SET snapshot=excluded.snapshot,local_status=excluded.local_status",
+                               values: [localID, conversationID, item.id, item.id, item.data, item.status])
+            }
+        }
+    }
+
     public func draft(kind: String, conversationID: Int) async throws -> String {
         try database.rows("SELECT text FROM drafts WHERE kind=? AND conversation_id=?", values: [kind, conversationID]).first?["text"] as? String ?? ""
     }

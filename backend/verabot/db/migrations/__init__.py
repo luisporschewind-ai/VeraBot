@@ -12,15 +12,17 @@ from . import (tags_coerce, v001_base, v002_permissions, v003_profile, v004_memo
                v007_mcp, v008_mcp_sync, v009_auth, v010_plugins, v011_reminders, v012_attachments,
                v013_mcp_auth, v014_memory_jobs, v015_bot_appearance,
                v016_memory_suggestions, v017_memory_reviews, v018_memory_vectors, v019_file_attachments, v020_group_chat,
-               v021_conversation_sync, v022_group_attachments, v023_scheduled_tasks)
+               v021_conversation_sync, v022_group_attachments, v023_scheduled_tasks,
+               v024_group_execution, v025_group_execution_safety)
 
-SCHEMA_VERSION = 23  # v21 会话同步，v22 群附件，v23 服务端定时任务
+SCHEMA_VERSION = 25  # v24 群聊持久任务、澄清与交接
 
 STEPS = (
     v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned, v007_mcp, v008_mcp_sync,
     v009_auth, v010_plugins, v011_reminders, tags_coerce, v012_attachments, v013_mcp_auth,
     v014_memory_jobs, v015_bot_appearance, v016_memory_suggestions, v017_memory_reviews, v018_memory_vectors,
     v019_file_attachments, v020_group_chat, v021_conversation_sync, v022_group_attachments, v023_scheduled_tasks,
+    v024_group_execution, v025_group_execution_safety,
 )
 
 

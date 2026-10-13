@@ -1,6 +1,6 @@
 # 当前 Main 运行入口 · 2026-10-12
 
-后端使用主工作区代码、现有配置与数据，schema v23。升级前先在线备份，并在副本运行 `init_db()` 两次确认幂等与存量数量。正常 `backend/start.sh --detach` 即可加载所有已整合 API，不再依赖旧工作树 PYTHONPATH。定时任务后台另行运行 `python -m verabot.services.scheduled_tasks`，不能把只启动 API 当成后台已部署；完整运行说明见 [后台说明](../../backend/verabot/services/scheduled_tasks/README.md)。本轮设备与服务证据见 [集成记录](../testing/2026-10-12-main-integration.md)。
+正式主工作区的当前运行状态见 [STATUS](../STATUS.md)。本隔离 worktree 的群任务代码目标 schema 为 v24；迁移前先备份数据库，在副本执行 `init_db()` 两次并对比用户、Bot、群及消息数量，再按后端说明切换到 v2 客户端。v24 仅清除旧群默认成员值并增加任务表，不删除群成员或历史。首版群任务 worker 托管在 API 进程内，正式服务只能运行一个 API 进程；定时任务 Scheduler/Worker 仍按独立方式运行。群任务完整升级和回滚注意见 [实现记录](../testing/2026-10-12-group-intent-and-handoff.md)。
 
 以下为既有版本的专题运行说明。
 

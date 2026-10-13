@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__, db
 from .api.routers import actions, attachments, auth, avatars, bots, chat, devices, feedback, mcp, memories, meta, notifications, plugins, reminders, suggestions, voice
-from .api.routers import groups, scheduled_tasks
+from .api.routers import groups, scheduled_tasks, group_execution
 from .services.reminders import scheduler as reminder_scheduler
 from .core.config import WEB_DIR
 from .core import log_redact
@@ -44,6 +44,11 @@ async def _startup():
     db.init_db()
     from .db.group_store import recover_interrupted_turns
     recover_interrupted_turns()  # Single-worker only; never resume model calls.
+    from .db import group_execution_store
+    from .services import group_worker
+    from datetime import datetime, timezone
+    group_execution_store.recover_interrupted(datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    app.state.group_execution_worker = asyncio.create_task(group_worker.loop("api-single-worker"))
     app.state.reminder_scheduler = asyncio.create_task(reminder_scheduler.loop())
 
 
@@ -58,10 +63,14 @@ async def _memory_jobs():
 
 @app.on_event("shutdown")
 async def _shutdown():
-    for name in ("reminder_scheduler", "attachments_reconcile", "memory_jobs"):
+    running = []
+    for name in ("group_execution_worker", "reminder_scheduler", "attachments_reconcile", "memory_jobs"):
         task = getattr(app.state, name, None)
         if task is not None:
             task.cancel()
+            running.append(task)
+    if running:
+        await asyncio.gather(*running, return_exceptions=True)
 
 
 @app.on_event("startup")
@@ -73,7 +82,7 @@ async def _attachments_reconcile():
 
 for r in (attachments.router, auth.router, avatars.router, bots.router, chat.router, memories.router, feedback.router,
           voice.router, reminders.router, notifications.router, devices.router, meta.router, mcp.router, plugins.router,
-          actions.router, suggestions.router, groups.router, scheduled_tasks.router):
+          actions.router, suggestions.router, groups.router, group_execution.router, scheduled_tasks.router):
     app.include_router(r)
 
 

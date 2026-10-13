@@ -194,7 +194,7 @@ func staleRepositoriesRejectAllLocalWrites(explicitInvalidation: Bool) async thr
     _ = try await fixture.store.saveMessage(privateMessage, kind: "private", conversationID: 3, localID: privateMessage.id.uuidString, remoteID: 17, sortKey: 17, status: "synced")
     _ = try await fixture.store.saveMessage(groupMessage, kind: "group", conversationID: 3, remoteID: 17, sortKey: 17, status: "synced")
     try await fixture.store.saveDraft("keep", kind: "private", conversationID: 3)
-    let group = ChatGroup(id: 3, name: "keep", members: [], defaultMemberID: 0)
+    let group = ChatGroup(id: 3, name: "keep", members: [])
     try await fixture.store.saveConversation(group, kind: "group", id: 3)
     if explicitInvalidation { await fixture.repository.invalidate() }
     let writes: [@Sendable () async throws -> Void] = [

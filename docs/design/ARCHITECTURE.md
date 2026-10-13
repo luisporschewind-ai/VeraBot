@@ -26,7 +26,7 @@ frontend/web  (SPA)  ────┘                    │                     
 | 包 | 职责 | 主要文件 |
 |---|---|---|
 | `core` | 配置 (环境变量)、安全 (bcrypt + JWT)、记忆加密 (Fernet，密钥与数据库分离) | `config.py`、`security.py`、`crypto.py` |
-| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v23；v13–v23 包括连接器、记忆、文件附件、群聊、会话同步与定时任务。以下 v1–v12 顺序为历史说明：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件)、查询。**全部 SQL 都在这里**：`*_store.py` 的函数第一个参数是调用方的连接 (事务由调用方决定)；迁移一个版本一个模块 | `database.py`、`schema.py` (入口 / 门面：`init_db`、`SCHEMA`、`SCHEMA_VERSION`、`ALL_TOOLS_V2`)、`migrations/` (`v001_base` … `v011_reminders`、`tags_coerce`、`v012_attachments`)、`repository.py` (Bot 读取 / 消息写入 / 用量 / 审计)、`auth_store.py`、`user_store.py`、`bot_store.py`、`message_store.py`、`usage_store.py`、`avatar_store.py`、`memory_store.py`、`attachment_store.py`、`delegation_store.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
+| `db` | SQLite 连接 / 事务、建表与幂等迁移 (当前 schema v25；v13–v24 包括连接器、记忆、附件、群聊、会话同步、定时任务与群任务事件)。以下 v1–v12 顺序为历史说明：v1 → v2 → v3 → v4 → v5 → v6 → v7 MCP → v8 MCP 同意 / 同步 / 熔断 → v9 账号 → v10 插件安装表 → v11 提醒与通知 → v12 图片附件)、查询。**全部 SQL 都在这里**：`*_store.py` 的函数第一个参数是调用方的连接 (事务由调用方决定)；迁移一个版本一个模块 | `database.py`、`schema.py` (入口 / 门面：`init_db`、`SCHEMA`、`SCHEMA_VERSION`、`ALL_TOOLS_V2`)、`migrations/` (`v001_base` … `v011_reminders`、`tags_coerce`、`v012_attachments`、`v024_group_execution`)、`repository.py` (Bot 读取 / 消息写入 / 用量 / 审计)、`auth_store.py`、`user_store.py`、`bot_store.py`、`message_store.py`、`usage_store.py`、`avatar_store.py`、`memory_store.py`、`attachment_store.py`、`delegation_store.py`、`plugin_store.py`、`mcp_store.py`、`reminder_store.py` |
 | `tools` | 工具注册表 (`@tool`、schema 导出、安全执行；`Tool.kind` 区分 builtin / memory) 和内置工具 | `registry.py`、`weather.py`、`reminder.py` |
 | `services` | 外部服务与业务逻辑：LLM 客户端、语音转写、Bot 权限校验、用量统计、用户资料、头像处理；长期记忆；MCP 客户端；插件安装层；提醒状态机与调度；通知偏好与投递。这里不写 SQL，只调用 `db/*_store.py` | `llm.py`、`transcribe.py`、`bots.py`、`quota.py`、`users.py`、`avatars.py`、`memory/`、`mcp/`、`plugins/{catalog,service}.py`、`reminders/`、`notify/`、`attachments/{store,images,repo,vision}.py` |
 | `agents` | Agent Loop 与多 Agent：system prompt、权限、护栏、上下文隔离、`ask_bot` 委派 | `runtime.py`、`prompts.py`、`permissions.py`、`guardrails.py`、`context.py`、`delegation.py`、`memory_tools.py` (`remember` / `forget_memory`) |
@@ -264,11 +264,11 @@ iOS：`VeraBotCore/BotTags.swift` 的 `BotTagRules` 与上面同一套规则（�
 
 本地 TetrisGame 独立运行；TetrisCompanionModel 管理伙伴、每局短对话、请求取消和旧响应隔离。VeraBotCore 的 TetrisCompanionPolicy 限制每局最多 3 次主动请求、间隔至少 30 秒。客户端通过 VeraBotNetworking → 鉴权 `/api/bots/{id}/tetris-companion` → services/tetris_companion → llm.complete_json → 模型供应商；服务端检查归属、预算并记录用量。局面只传递分数、消行、高度、空洞数量，不能据此声称知道具体摆放位置。无工具、无消息持久化、无记忆写入。
 
-## 群聊独立执行链（schema v20，2026-10-11）
+## 群聊意图路由与持久执行（schema v25，协议 v2）
 
-iOS GroupChatViewModel → APIClient 群 SSE → groups router → group_runtime → llm.stream_chat。chat_groups/members/turns/messages 独立存储，BEGIN IMMEDIATE 与部分唯一索引限制单群一个 running 轮次，UUID负责幂等。回复写入流式占位，256字符/1秒新delta检查点，终态原子保存文字与已知usage。
+iOS 以 UUID 提交结构化群输入，服务端返回持久任务回执；单进程 worker 负责意图路由、选取负责人、必要时澄清，以及执行 Bot 的一个结构化步骤。每次澄清负责人写入任务/clarification 并在后续输入与重启间保持；Bot 可咨询成员后返回原负责人，也可提交正式 handoff 转移负责人。无默认回应者；模型异常使用确定性路由/动态澄清回退。
 
-群运行绑定请求；stop 持久化取消并通知当前进程，断流关闭上游，启动将遗留轮次设为 interrupted，无自动续跑。首版仅单 worker/单进程，不支持多个服务实例共享该取消状态；不得以多worker部署并宣称停止可靠。SSE使用 group_id/turn_id/member_id归属，status不混入正文。重试引用原user_message与上下文边界，新回复关联retry_of_message_id。历史最多24条/12000字符，单回复max_tokens768、成员60秒/轮次240秒，每次调用前预算检查。非严格跨群额度预占。详细 [规格](../superpowers/specs/2026-10-11-bot-group-chat-design.md)与[G3](../testing/2026-10-11-bot-group-chat.md)。
+`chat_group_tasks/inputs/steps/clarifications/events/usage_calls` 在 SQLite 中保存任务状态、版本、租约、持久消息快照、事件游标和用量记录。SSE 只观察并重放事件，客户端离开不停止 worker；停止通过 task version fencing，重启后已调用步骤为 interrupted、未领取步骤可安全恢复。一个进程和一个 worker 是当前部署上限，不能多副本共享此版本。协议 v2 与用户验收边界见 [实现记录](../testing/2026-10-12-group-intent-and-handoff.md) 与 [已确认设计](../superpowers/specs/2026-10-12-group-intent-and-handoff-design.md)。
 
 ## 2026-10-12 数据访问与后台执行增量
 

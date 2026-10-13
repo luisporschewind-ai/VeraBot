@@ -33,12 +33,10 @@ def _group(c, user_id: int, group_id: int) -> Group:
                         "appearance": json.loads(r["live_appearance"]) if available and r["live_appearance"]
                                       else snapshot.get("appearance"), "available": available})
     active = [m["bot_id"] for m in members if m["available"]]
-    default = found["default_bot_id"]
     latest=c.execute('SELECT * FROM chat_group_messages WHERE user_id=? AND group_id=? ORDER BY id DESC LIMIT 1',(user_id,group_id)).fetchone()
     active_turn=c.execute("SELECT id FROM chat_group_turns WHERE user_id=? AND group_id=? AND status='running'",(user_id,group_id)).fetchone()
     return {"id": group_id, "name": found["name"], "members": members,
             "last_message": _message(latest,c) if latest else None, "active_turn_id": active_turn[0] if active_turn else None,
-            "default_bot_id": default if default in active else (active[0] if active else None),
             "read_only": not active, "created_at": found["created_at"], "updated_at": found["updated_at"]}
 
 def get_group(user_id: int, group_id: int) -> Group:
@@ -49,7 +47,7 @@ def list_groups(user_id: int) -> list[Group]:
         ids = [r[0] for r in c.execute("SELECT id FROM chat_groups WHERE user_id=? ORDER BY updated_at DESC,id DESC", (user_id,))]
         return [_group(c, user_id, gid) for gid in ids]
 
-def create_group(user_id: int, name: str, bot_ids: list[int], default_bot_id: int) -> Group:
+def create_group(user_id: int, name: str, bot_ids: list[int]) -> Group:
     with tx(immediate=True) as c:
         if c.execute("SELECT COUNT(*) FROM chat_groups WHERE user_id=?", (user_id,)).fetchone()[0] >= 10:
             raise GroupStoreError(422, "group_limit", "最多创建 10 个群")
@@ -59,8 +57,8 @@ def create_group(user_id: int, name: str, bot_ids: list[int], default_bot_id: in
             if r is None: raise GroupStoreError(422, "invalid_member", "成员必须是你自己的 Bot")
             bots.append(dict(r))
         now = now_iso()
-        gid = c.execute("INSERT INTO chat_groups(user_id,name,default_bot_id,created_at,updated_at) VALUES (?,?,?,?,?)",
-                        (user_id, name, default_bot_id, now, now)).lastrowid
+        gid = c.execute("INSERT INTO chat_groups(user_id,name,created_at,updated_at) VALUES (?,?,?,?)",
+                        (user_id, name, now, now)).lastrowid
         for position, bot in enumerate(bots):
             snapshot = {"avatar": bot["avatar"], "color": bot["color"], "detail": bot["persona"],
                         "appearance": json.loads(bot["appearance"]) if bot.get("appearance") else None}
@@ -77,10 +75,7 @@ def change_group(user_id: int, group_id: int, patch: dict) -> Group:
     with tx(immediate=True) as c:
         group = _group(c, user_id, group_id)
         _not_busy(c, user_id, group_id)
-        if patch.get("default_bot_id") is not None and patch["default_bot_id"] not in [
-                m["bot_id"] for m in group["members"] if m["available"]]:
-            raise GroupStoreError(422, "invalid_member", "默认回应者必须是可用成员")
-        for key in ("name", "default_bot_id"):
+        for key in ("name",):
             if patch.get(key) is not None:
                 c.execute(f"UPDATE chat_groups SET {key}=?,updated_at=? WHERE user_id=? AND id=?",
                           (patch[key], now_iso(), user_id, group_id))
@@ -89,13 +84,26 @@ def change_group(user_id: int, group_id: int, patch: dict) -> Group:
 def delete_group(user_id, group_id, *, clear_only=False):
     removed = []
     with tx(immediate=True) as c:
-        _group(c, user_id, group_id); _not_busy(c, user_id, group_id)
+        _group(c, user_id, group_id)
+        if not clear_only:
+            _not_busy(c, user_id, group_id)
         removed = [dict(r) for r in c.execute("SELECT a.* FROM chat_group_attachments ga JOIN attachments a "
             "ON a.id=ga.attachment_id WHERE ga.user_id=? AND ga.group_id=?", (user_id,group_id)).fetchall()]
         if clear_only:
+            now = now_iso()
+            c.execute("UPDATE chat_group_tasks SET state=CASE WHEN state IN ('queued','running','awaiting_user') THEN 'stopped' ELSE state END,version=version+1,goal='',updated_at=?,finished_at=CASE WHEN state IN ('queued','running','awaiting_user') THEN ? ELSE finished_at END WHERE user_id=? AND group_id=?",
+                      (now, now, user_id, group_id))
+            c.execute("UPDATE chat_group_steps SET status=CASE WHEN status='queued' THEN 'stopped' ELSE status END,finished_at=CASE WHEN status='queued' THEN ? ELSE finished_at END,input_json='{}',result_json='{}' WHERE group_id=?",
+                      (now, group_id))
+            c.execute("UPDATE chat_group_task_inputs SET message='' WHERE user_id=? AND group_id=?", (user_id, group_id))
+            c.execute("UPDATE chat_group_clarifications SET status='cancelled',original_request='',missing_information='[]',updated_at=? WHERE user_id=? AND group_id=? AND status IN ('active','awaiting_user')",
+                      (now, user_id, group_id))
+            c.execute("DELETE FROM chat_group_events WHERE user_id=? AND group_id=?", (user_id, group_id))
+            from .group_execution_store import _event
+            _event(c,group_id,user_id,None,0,"group_cleared",{})
             c.execute("DELETE FROM chat_group_turns WHERE user_id=? AND group_id=?", (user_id, group_id))
             c.executemany("DELETE FROM attachments WHERE id=? AND user_id=?", [(r["id"],user_id) for r in removed])
-            c.execute("UPDATE chat_groups SET updated_at=? WHERE id=? AND user_id=?", (now_iso(), group_id, user_id))
+            c.execute("UPDATE chat_groups SET updated_at=? WHERE id=? AND user_id=?", (now, group_id, user_id))
         else:
             c.execute("DELETE FROM chat_groups WHERE user_id=? AND id=?", (user_id, group_id))
             c.executemany("DELETE FROM attachments WHERE id=? AND user_id=?", [(r["id"],user_id) for r in removed])
@@ -110,7 +118,8 @@ def _message(r, c) -> GroupMessage:
                        "WHERE ga.user_id=? AND ga.group_id=? AND ga.message_id=? ORDER BY ga.created_at",
                        (m['user_id'],m['group_id'],m['id'])).fetchall()
     from ..services.attachments.repo import public as public_attachment
-    return {"id": m["id"], "retry_of_message_id": turn[0] if turn else None, "group_id": m["group_id"], "turn_id": m["turn_id"], "member_id": m["member_id"],
+    task=c.execute("SELECT t.id,t.version FROM chat_group_task_inputs i JOIN chat_group_tasks t ON t.id=i.task_id WHERE i.turn_id=? AND i.user_id=? AND i.group_id=? ORDER BY i.id DESC LIMIT 1",(m["turn_id"],m["user_id"],m["group_id"])).fetchone()
+    return {"task_id":task["id"] if task else None,"task_version":task["version"] if task else None,"id": m["id"], "retry_of_message_id": turn[0] if turn else None, "group_id": m["group_id"], "turn_id": m["turn_id"], "member_id": m["member_id"],
             "role": m["role"], "content": m["content"], "status": m["status"],
             "sender_name": m["sender_name_snapshot"], "sender_appearance": json.loads(m["sender_appearance_snapshot"])
             if m["sender_appearance_snapshot"] else None,
@@ -189,7 +198,9 @@ def claim_turn(user_id: int, group_id: int, request: GroupChatInput, *, retry_of
         if group["read_only"]: raise GroupStoreError(409, "group_read_only", "群里已没有可用成员")
         target = None
         if body["mode"] == "single":
-            bid = body["target_bot_id"] or group["default_bot_id"]
+            bid = body["target_bot_id"]
+            if bid is None:
+                raise GroupStoreError(426, "group_upgrade_required", "群聊需要升级到意图路由协议")
             target = next((m for m in group["members"] if m["bot_id"] == bid and m["available"]), None)
             if target is None: raise GroupStoreError(422, "invalid_member", "点名的 Bot 不是可用群成员")
         now = now_iso()

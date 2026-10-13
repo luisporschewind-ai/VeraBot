@@ -35,7 +35,7 @@ private let groupBot = #"{"id":101,"group_id":7,"turn_id":9,"member_id":21,"role
 @Test func GroupChatDeletedMembersDecode() throws {
     let data = Data(##"{"id":7,"name":"伙伴","default_bot_id":null,"read_only":true,"members":[{"id":21,"bot_id":null,"name":"旧伙伴","color":"#6461D1","detail":"","avatar":"robot","appearance":null,"available":false}]}"##.utf8)
     let group = try JSONDecoder().decode(ChatGroup.self, from: data)
-    #expect(group.readOnly && group.defaultBotID == nil)
+    #expect(group.readOnly)
     #expect(group.members[0].botID == nil && !group.members[0].available)
 }
 @Test func GroupChatRequestPreservesIDAndOmitsUnsetTarget() throws {

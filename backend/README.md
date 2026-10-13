@@ -19,7 +19,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 2. **Python**：按 `.python-version` (3.12) 由 uv 安装；失败时用 npmmirror 镜像 (`UV_PYTHON_INSTALL_MIRROR`)。
 3. **依赖**：`uv sync --frozen --no-dev`，严格按 `uv.lock` 安装到 `.venv/`；失败 (或 `VERABOT_FORCE_MIRROR=1`) 时改用清华 tuna 镜像 (`UV_INDEX_URL`，可用 `VERABOT_PYPI_MIRROR` 覆盖) 按 `requirements.txt` (同样锁定版本) 安装。
 4. **配置**：没有 `.env` 就从 `.env.example` 复制，并提示输入 DeepSeek Key (不回显，写入 `.env`，权限 600)。已 export 的环境变量优先于 `.env`。
-5. **数据库**：`init_db()` 建表与幂等迁移，当前 schema v23：v20 群聊、v21 会话修订同步、v22 群附件、v23 定时任务。数据保存在 `data/verabot.db`。升级前先在线备份并在副本演练；已有账号、Bot 和历史保留。
+5. **数据库**：`init_db()` 建表与幂等迁移，当前 schema v25：v20 群聊、v21 会话修订同步、v22 群附件、v23 定时任务、v24 群任务与事件。数据保存在 `data/verabot.db`。升级前先备份并在副本演练；v24 保留账号、Bot、群与历史，只清空旧默认成员值。
 6. **启动** uvicorn，默认 `0.0.0.0:8000` (`HOST` / `PORT` 可改)。
 
 启动后：API 文档 <http://127.0.0.1:8000/docs>，健康检查 `GET /api/health` → `{"ok":true,...}`。
@@ -115,26 +115,24 @@ uv run python scripts/dev/seed_demo.py --reset   # 重建演示账号 demo / ver
 
 `POST /api/bots/{bot_id}/tetris-companion` 接收局面摘要和短对话，返回 `{text}`；采用现有登录鉴权、Bot 归属和每日 Token 预算。服务端调用模型，携带 Bot 人设，不执行工具、不持久化对话或记忆。输入验证、权限、预算和错误用例：`uv run python scripts/test/tetris_companion_test.py`。
 
-## Bot 群聊（schema v20）
+## Bot 群聊（schema v25，执行协议 v2）
 
-文字群聊使用独立 `/api/groups` 存储与接口。本人 2–4 个 Bot、最多 10 个群；群名 1–64、消息 1–2000 字符。成员共享本群文字，不读取私聊/长期记忆，不启用工具、附件或语音。
+群聊使用独立 `/api/groups` 存储与服务端持久 worker。普通输入按本群上下文分配一个负责人；信息不清时从相关成员中动态选择澄清 Bot，同一次澄清及后续回答复用同一负责人。Bot 可通过受校验的结构化动作咨询其他成员并返回原负责人，或将任务正式交给下一位。没有默认回应者；正文提名不会直接调度。
 
-- `GET/POST /api/groups`：列表/创建（name、bot_ids、default_bot_id）。
-- `GET/PATCH/DELETE /api/groups/{id}`：详情、名称/默认成员、删除。
-- `GET/DELETE /api/groups/{id}/messages`：历史/清空；分页 before_id、limit 最大 100。
-- `POST /api/groups/{id}/chat`：client_request_id UUID、message、mode single/round、可选 target_bot_id；群 SSE。
-- `GET /api/groups/{id}/turns/{turn_id}` 与 `POST .../stop`：查询、持久化取消并停止执行。
-- `POST /api/groups/{id}/messages/{message_id}/retry`：client_request_id UUID，重试原未完成成员。
+- `GET/POST /api/groups`、`GET/PATCH/DELETE /api/groups/{id}`：群管理；创建只包含 name、bot_ids。
+- `GET/DELETE /api/groups/{id}/messages`：历史/清空；`GET .../messages/sync` 保持分页同步。
+- `POST /api/groups/{id}/inputs`：提交 `client_request_id`、message、`target_member_ids`、everyone、reply_to_message_id、附件及可选澄清 task/version；重复 UUID 返回相同回执。
+- `GET .../inputs/{client_request_id}`、`GET .../execution`：查询提交回执和当前任务/澄清快照。
+- `GET .../events?after_id=N`：按游标重放持久 SSE 事件；断开观察不停止执行。
+- `POST .../tasks/{task_id}/stop|resume`、`POST .../messages/{message_id}/retry-v2`：版本校验的停止/继续/失败步骤重试。
 
-同群只能一个 running 轮次。相同 UUID 返回 409 request_exists 与原 turn_id，内容冲突返回 idempotency_conflict；不要生成新 UUID 自动重发。查询原轮次快照恢复，不回放 delta。重试 turn_start 引用原问题的消息身份，事件 turn_id 为新轮次。
+全部群写操作需 `X-VeraBot-Group-Protocol: 2`；旧 chat/retry/turn-stop 写入口返回 426，历史读取保持可用。meta 返回 `group_protocol_version=2`。群路由与步骤不读取私聊或长期记忆、不开放一般工具和群外动作；当前执行限制为每条输入最多 6 次模型调用、每步 60 秒、整条任务 240 秒。
 
-**当前仅支持单个后端进程/worker。** 模型执行绑定 SSE，请求断开即收尾；启动时遗留轮次变 interrupted，不自动续跑。多 worker 需另补租约与跨进程停止后才能使用。群调用最多 768 输出 tokens，单成员 60 秒、整轮 240 秒；预算检查沿用现有调用前策略，不做跨调用额度预占。
-
-验证记录：[G2](../docs/testing/2026-10-11-bot-group-chat-g2.md)。代码实现与 mock 回归不代表生产部署或真实模型体验已验收。
+**部署限制：** 首版 worker 托管在 API 进程内，生产应运行一个 API 进程；不支持多个 API 副本共享任务执行。数据库 lease 与 task version 用于恢复和 fencing；API 进程关闭会将已开始的步骤标记 interrupted，未开始步骤可恢复领取，用户可显式继续。未知用量保持 unknown，不记作零。按 v23→v25 迁移前先备份并在副本演练；尚无正式数据库迁移或真实模型验收记录。协议、测试和用户验收边界见 [群意图与任务交接实现记录](../docs/testing/2026-10-12-group-intent-and-handoff.md)。
 
 ### 群聊开发回归夹具（产品外）
 
-`python scripts/dev/group_chat_demo.py --port 8093` 使用新临时库与确定性模拟提供者，只监听127.0.0.1，不请求真实模型；可用 `--data-dir` 指定独立测试目录。测试账号 group-demo / group-demo-123，已有A/B/C。服务启动后运行 `python scripts/test/group_http_test.py http://127.0.0.1:8093` 进行真实socket/SSE检查。此服务仅供开发自动回归，不是 App 功能或正式启动路径；正式群运行仍要求单worker。完整证据及人工步骤见 [G3](../docs/testing/2026-10-11-bot-group-chat.md)。
+`python scripts/dev/group_chat_demo.py --port 8093` 使用临时库与确定性模拟提供者，只监听127.0.0.1，不请求真实模型。服务启动后运行 `uv run python scripts/test/group_execution_http_test.py http://127.0.0.1:8093` 验证提交、澄清、咨询返回、交接、断开观察、事件重放及旧协议拒绝。此夹具仅用于开发回归，不是 App 功能或正式启动路径。
 
 ## Bot 无 key 联网查询
 
