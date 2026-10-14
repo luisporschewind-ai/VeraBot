@@ -135,9 +135,11 @@ public actor ConversationRepository {
     }
 
     public func syncPrivate(botID: Int) async throws {
-        try await sync(kind: .privateChat, conversationID: botID, fetch: { [api] (cursor: Int?, revision: Int64?) -> Page<LocalPrivateMessage> in
+        try await sync(kind: .privateChat, conversationID: botID, fetch: { [api, store] (cursor: Int?, revision: Int64?) -> Page<LocalPrivateMessage> in
             let response = try await api.syncMessages(botID: botID, beforeID: cursor, expectedRevision: revision)
-            return Page<LocalPrivateMessage>(revision: response.revision, messages: response.messages.map { LocalPrivateMessage($0) },
+            let existing = try await store.messages(LocalPrivateMessage.self, kind: "private", conversationID: botID, limit: 100_000)
+            let identities = Dictionary(uniqueKeysWithValues: existing.compactMap { row -> (Int, UUID)? in guard let id = row.remoteID else { return nil }; return (id, row.value.id) })
+            return Page<LocalPrivateMessage>(revision: response.revision, messages: response.messages.map { LocalPrivateMessage($0, id: identities[$0.id] ?? UUID()) },
                         nextBeforeID: response.nextBeforeID, unchanged: response.unchanged)
         }, id: { (message: LocalPrivateMessage) in message.remoteID ?? 0 },
            sort: { (message: LocalPrivateMessage) in message.remoteID ?? 0 })

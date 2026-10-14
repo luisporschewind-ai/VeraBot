@@ -446,6 +446,9 @@ public struct MessageFeedbackResponse: Decodable, Sendable {
 }
 
 public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
+    public let generation: Int?
+    public let publicationRevision: Int?
+    public let messageStatus: String?
     public let id: Int
     public let role: String
     public let content: String
@@ -458,6 +461,7 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, role, content, traces, feedback
+        case generation, publicationRevision = "publication_revision", messageStatus = "message_status"
         case createdAt = "created_at"
         case attachments
     }
@@ -468,6 +472,9 @@ public struct MessagesResponse: Codable, Sendable {
 }
 
 public struct LocalPrivateMessage: Codable, Sendable, Identifiable, Hashable {
+    public var generation: Int?
+    public var publicationRevision: Int?
+    public var messageStatus: String?
     public let id: UUID
     public var remoteID: Int?
     public var role: String
@@ -480,15 +487,16 @@ public struct LocalPrivateMessage: Codable, Sendable, Identifiable, Hashable {
 
     public init(id: UUID = UUID(), remoteID: Int? = nil, role: String, content: String,
                 traces: [ToolTrace] = [], createdAt: String? = nil, attachments: [Attachment] = [],
-                feedback: MessageFeedback? = nil, localStatus: String = "synced") {
+                feedback: MessageFeedback? = nil, localStatus: String = "synced", generation: Int? = nil, publicationRevision: Int? = nil, messageStatus: String? = nil) {
         self.id = id; self.remoteID = remoteID; self.role = role; self.content = content
         self.traces = traces; self.createdAt = createdAt; self.attachments = attachments
         self.feedback = feedback; self.localStatus = localStatus
+        self.generation = generation; self.publicationRevision = publicationRevision; self.messageStatus = messageStatus
     }
     public init(_ message: ChatMessage, id: UUID = UUID()) {
         self.init(id: id, remoteID: message.id, role: message.role, content: message.content,
                   traces: message.traces ?? [], createdAt: message.createdAt, attachments: message.attachments,
-                  feedback: message.feedback)
+                  feedback: message.feedback, generation: message.generation, publicationRevision: message.publicationRevision, messageStatus: message.messageStatus)
     }
 }
 

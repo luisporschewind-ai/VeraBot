@@ -11,6 +11,14 @@ struct GroupChatView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: GroupChatViewModel
     @State private var attachment: ComposerAttachmentModel
+    @State private var viewport: CGRect = .zero
+    @State private var composerViewport: CGRect = .zero
+    @State private var pageVisible = false
+    @State private var reading = ConversationReadingSession()
+    @State private var entered = false
+    @State private var initialPositionReady = false
+    @State private var followsBottom = true
+    @State private var hasNewReply = false
     @State private var showPhotos = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showCamera = false
@@ -56,16 +64,47 @@ struct GroupChatView: View {
                             RobotAvatarView(action: .waiting, size: 90, color: .brandFill, ambient: false)
                             Text("从一个话题开始").foregroundStyle(.secondary)
                         }
-                        ForEach(model.state.messages) { message in bubble(message).id(message.id) }
+                        ForEach(model.state.messages) { message in
+                            VStack(alignment: .leading, spacing: 4) {
+                                if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }
+                                if reading.newMessageIDs.contains(message.id), message.role != .user { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
+                                bubble(message)
+                                    .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && message.role != .user, revision: message.publicationRevision ?? 0) {
+                                        let activity = app.activity(kind: "group", id: model.group.id)
+                                        let revision = message.publicationRevision ?? 0
+                                        await app.markVisible(kind: "group", id: model.group.id, generation: message.generation ?? activity?.generation ?? 1, message: MessagePublication(messageID: message.id, publicationRevision: revision))
+                                    }
+                            }.id(message.id)
+                        }
                         Color.clear.frame(height: 1).id("bottom")
+                            .background(GeometryReader { geometry in Color.clear.preference(key: ConversationBottomKey.self, value: geometry.frame(in: .global)) })
                     }.padding()
                 }
+                .conversationViewport($viewport)
+                .onPreferenceChange(ConversationBottomKey.self) { rect in followsBottom = rect.minY <= viewport.maxY + 40 && rect.maxY >= viewport.minY }
                 .bottomAnchoredScrolling()
                 .scrollDismissesKeyboard(.interactively)
                 .onTapGesture { inputFocused = false }
                 .background(Color.appBackground)
-                .onChange(of: model.state.messages.last?.content) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
-                .onChange(of: model.state.messages.count) { old, new in if new > old && model.busy { proxy.scrollTo("bottom", anchor: .bottom) } }
+                .onChange(of: model.state.messages.last?.content) { _, _ in
+                    guard initialPositionReady else { return }
+                    if !entered && !model.state.messages.isEmpty {
+                        if let first = reading.newMessageIDs.sorted().first { proxy.scrollTo(first, anchor: .center) }
+                        else { proxy.scrollTo("bottom", anchor: .bottom) }
+                        entered = true
+                    } else if followsBottom { proxy.scrollTo("bottom", anchor: .bottom) }
+                    else { hasNewReply = true }
+                }
+                .onChange(of: initialPositionReady) { _, ready in
+                    guard ready, !entered else { return }
+                    if let first = reading.newMessageIDs.sorted().first { proxy.scrollTo(first, anchor: .center) }
+                    else { proxy.scrollTo("bottom", anchor: .bottom) }
+                    entered = true
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if hasNewReply && !followsBottom { Button("有新回复 ↓") { proxy.scrollTo("bottom", anchor: .bottom); hasNewReply = false }.buttonStyle(.borderedProminent).padding() }
+                }
+                .onChange(of: model.state.messages.count) { old, new in if new > old && model.busy && followsBottom { proxy.scrollTo("bottom", anchor: .bottom) } }
             }
             if model.confirmingStop { Text("正在确认讨论已停止…").font(.caption).foregroundStyle(.secondary) }
         }
@@ -98,7 +137,7 @@ struct GroupChatView: View {
                 } else {
                     composer
                 }
-            }
+            }.conversationComposer($composerViewport)
         }
         .themedPageBackground().navigationTitle(model.group.name).navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -128,7 +167,17 @@ struct GroupChatView: View {
             Button("前往设置") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
             Button("取消", role: .cancel) {}
         } message: { Text("请在「设置」中允许 VeraBot 使用相机。") }
-        .task { UserDefaults.standard.removeObject(forKey: legacyPreferenceKey); await model.load() }
+        .task {
+            pageVisible = true; await app.refreshActivityForEntry()
+            if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "group", id: model.group.id)?.unreadMessages ?? []) }
+            UserDefaults.standard.removeObject(forKey: legacyPreferenceKey); await model.load()
+            if !entered, let target = reading.newMessageIDs.sorted().first {
+                while !model.state.messages.contains(where: { $0.id == target }), model.nextBeforeID != nil {
+                    let before = model.nextBeforeID; await model.loadOlder(); if model.nextBeforeID == before { break }
+                }
+            }
+            initialPositionReady = true
+        }
         .onChange(of: model.draft) { _, new in
             if new.isEmpty {
                 mentionTokens = []
@@ -151,8 +200,11 @@ struct GroupChatView: View {
         .onChange(of: phase) { _, value in
             if value != .active { inputFocused = false; model.leave(); speech.cancel() } else { Task { await model.load() } }
         }
-        .onChange(of: app.sessionGeneration) { _, _ in model.leave() }
+        .onChange(of: app.activity(kind: "group", id: model.group.id)?.revision) { _, _ in if pageVisible { reading.include(app.activity(kind: "group", id: model.group.id)?.unreadMessages ?? []) } }
+        .onChange(of: app.sessionGeneration) { _, _ in pageVisible = false; reading.leave(); model.leave() }
         .onDisappear {
+            pageVisible = false
+            if !hasTemporaryCover { reading.leave(); entered = false }
             inputFocused = false
             draftSaveTask?.cancel()
             let finalDraft = model.draft
@@ -160,6 +212,12 @@ struct GroupChatView: View {
             model.leave(); speech.cancel()
         }
     }
+    private var effectiveViewport: CGRect {
+        guard !composerViewport.isEmpty else { return viewport }
+        return CGRect(x: viewport.minX, y: viewport.minY, width: viewport.width, height: max(0, min(viewport.maxY, composerViewport.minY) - viewport.minY))
+    }
+    private var hasTemporaryCover: Bool { info || showPhotos || showFiles || showCamera || cameraDenied }
+    private var canRead: Bool { pageVisible && phase == .active && app.selectedTab == 0 && !hasTemporaryCover }
     private var composer: some View {
         VStack(spacing: 6) {
             if activeMentionRange != nil {

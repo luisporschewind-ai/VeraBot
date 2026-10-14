@@ -43,9 +43,11 @@ class SyncTests(unittest.TestCase):
         self.assertGreater(fresh['revision'], page['revision'])
 
     def test_group_clear_during_page_keeps_old_snapshot(self):
-        group = group_store.create_group(fixture.UID, 'sync', fixture.BOTS[:2], fixture.BOTS[0])
-        turn = group_store.claim_turn(fixture.UID, group['id'], {'client_request_id':str(uuid4()),'message':'before','mode':'single'})
-        group_store.finish_turn(fixture.UID, group['id'], turn['id'], 'completed')
+        group = group_store.create_group(fixture.UID, 'sync', fixture.BOTS[:2])
+        # The test reads historical data; v2 rejects legacy execution submissions.
+        with db.tx() as c:
+            tid=c.execute("INSERT INTO chat_group_turns(user_id,group_id,client_request_id,request_hash,mode,status,created_at) VALUES(?,?,'sync-fixture','hash','single','completed','now')",(fixture.UID,group['id'])).lastrowid
+            c.execute("INSERT INTO chat_group_messages(user_id,group_id,turn_id,role,content,status,created_at) VALUES(?,?,?,'user','before','completed','now')",(fixture.UID,group['id'],tid))
         with self.interleaved_read(lambda c: c.execute('DELETE FROM chat_group_turns WHERE group_id=?', (group['id'],))):
             page = group_store.sync_messages(fixture.UID, group['id'])
         self.assertEqual([m['content'] for m in page['messages']], ['before'])

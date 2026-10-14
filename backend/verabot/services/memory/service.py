@@ -472,7 +472,7 @@ def clear_summaries(user_id: int, bot_id: int) -> int:
     return n
 
 
-def propose_style(user_id: int, bot: dict, content: str, *, user_message_id: int | None = None) -> dict | None:
+def propose_style(user_id: int, bot: dict, content: str, *, user_message_id: int | None = None, connection=None) -> dict | None:
     """风格校准提议：type=style、scope=bot、source=feedback、status=proposed。不自动生效。
     已有相同生效记忆、冷却期内被拒绝、或无法保存时返回 None（不弹卡片）。已有相同待确认提议时返回那一条。"""
     if not enabled_for(user_id):
@@ -485,7 +485,8 @@ def propose_style(user_id: int, bot: dict, content: str, *, user_message_id: int
     if code or sensitivity != "normal":
         log.info("style proposal blocked: user=%s bot=%s code=%s", user_id, bot.get("id"), code or sensitivity)
         return None
-    with db.tx() as c:
+    from contextlib import nullcontext
+    with (nullcontext(connection) if connection is not None else db.tx()) as c:
         repo.expire_stale(c, user_id)
         h = policy.content_hash(text, "normal")
         if repo.find_by_hash(c, user_id, "bot", bot["id"], h, ("active",)):

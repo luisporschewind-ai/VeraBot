@@ -21,12 +21,21 @@ def insert(
     expires_at: str,
     created_at: str | None = None,
     owned_step: dict | None = None,
+    chat_task: dict | None = None,
 ) -> int:
     stamp = created_at or now_iso()
     with tx(immediate=True) as c:
         if owned_step:
             from . import owned_task_store
             if not owned_task_store.live(c, owned_step): raise ValueError("任务已停止")
+        if chat_task:
+            from . import chat_reply_store
+            if chat_task["user_id"]!=user_id or chat_task["bot_id"]!=bot_id or not chat_reply_store.live(c,chat_task):
+                raise chat_reply_store.ChatTaskError(409,"task_changed","回复已停止或会话已清空")
+            from .repository import _bot
+            bot=_bot(c.execute("SELECT * FROM bots WHERE user_id=? AND id=?",(user_id,bot_id)).fetchone())
+            if tool_full_name not in chat_reply_store.authorized_bot(chat_task,bot)["allowed_tools"]:
+                raise chat_reply_store.ChatTaskError(409,"tool_not_allowed","工具授权已变更")
         cur = c.execute(
             """INSERT INTO pending_actions(
                  user_id, bot_id, kind, server_id, tool_full_name,
@@ -38,6 +47,8 @@ def insert(
         )
         action_id = int(cur.lastrowid)
         if owned_step: owned_task_store.bind_action(c, owned_step, action_id)
+        if chat_task and not chat_reply_store.bind_action(c,chat_task,action_id):
+            raise chat_reply_store.ChatTaskError(409,"task_changed","回复已停止")
         return action_id
 
 
@@ -108,6 +119,9 @@ def claim_for_execution(user_id: int, action_id: int) -> tuple[str, dict | None]
         if owned and dict(owned).get('owned_task_id'):
             from .owned_task_store import action_current
             if not action_current(c, dict(owned)): return ('task_changed', None)
+        if owned and dict(owned).get("chat_task_id"):
+            from ..services.chat_tasks.approvals import current
+            if not current(c,dict(owned)):return ("task_changed",None)
         claimed = c.execute(
             """UPDATE pending_actions
                SET status='done', result='执行中…', decided_at=?

@@ -90,6 +90,8 @@ def delete_group(user_id, group_id, *, clear_only=False):
         removed = [dict(r) for r in c.execute("SELECT a.* FROM chat_group_attachments ga JOIN attachments a "
             "ON a.id=ga.attachment_id WHERE ga.user_id=? AND ga.group_id=?", (user_id,group_id)).fetchall()]
         if clear_only:
+            from . import conversation_activity_store
+            conversation_activity_store.clear(c,user_id,"group",group_id)
             now = now_iso()
             c.execute("UPDATE chat_group_tasks SET state=CASE WHEN state IN ('queued','running','awaiting_user') THEN 'stopped' ELSE state END,version=version+1,goal='',updated_at=?,finished_at=CASE WHEN state IN ('queued','running','awaiting_user') THEN ? ELSE finished_at END WHERE user_id=? AND group_id=?",
                       (now, now, user_id, group_id))
@@ -106,6 +108,8 @@ def delete_group(user_id, group_id, *, clear_only=False):
             c.execute("UPDATE chat_groups SET updated_at=? WHERE id=? AND user_id=?", (now, group_id, user_id))
         else:
             c.execute("DELETE FROM chat_groups WHERE user_id=? AND id=?", (user_id, group_id))
+            from .conversation_activity_store import remove
+            remove(c,user_id,"group",group_id)
             c.executemany("DELETE FROM attachments WHERE id=? AND user_id=?", [(r["id"],user_id) for r in removed])
     if removed:
         from ..services.attachments.repo import file_keys, delete_files
@@ -119,7 +123,10 @@ def _message(r, c) -> GroupMessage:
                        (m['user_id'],m['group_id'],m['id'])).fetchall()
     from ..services.attachments.repo import public as public_attachment
     task=c.execute("SELECT t.id,t.version FROM chat_group_task_inputs i JOIN chat_group_tasks t ON t.id=i.task_id WHERE i.turn_id=? AND i.user_id=? AND i.group_id=? ORDER BY i.id DESC LIMIT 1",(m["turn_id"],m["user_id"],m["group_id"])).fetchone()
-    return {"task_id":task["id"] if task else None,"task_version":task["version"] if task else None,"id": m["id"], "retry_of_message_id": turn[0] if turn else None, "group_id": m["group_id"], "turn_id": m["turn_id"], "member_id": m["member_id"],
+    from .conversation_activity_store import generation
+    gen=generation(c,m["user_id"],"group",m["group_id"])
+    publication=(c.execute("SELECT publication_revision FROM message_publications WHERE user_id=? AND kind='group' AND conversation_id=? AND generation=? AND message_id=?",(m["user_id"],m["group_id"],gen,m["id"])).fetchone() or [0])[0]
+    return {"generation":gen,"publication_revision":publication,"task_id":task["id"] if task else None,"task_version":task["version"] if task else None,"id": m["id"], "retry_of_message_id": turn[0] if turn else None, "group_id": m["group_id"], "turn_id": m["turn_id"], "member_id": m["member_id"],
             "role": m["role"], "content": m["content"], "status": m["status"],
             "sender_name": m["sender_name_snapshot"], "sender_appearance": json.loads(m["sender_appearance_snapshot"])
             if m["sender_appearance_snapshot"] else None,

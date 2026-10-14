@@ -17,6 +17,8 @@ final class ChatViewModel {
         var feedback: MessageFeedback?       // assistant 消息的 👍 / 👎（M2）
         var sortKey: Int = 0
         var localStatus = "synced"
+        var publicationRevision = 0
+        var generation = 1
 
         init(id: UUID = UUID(), isUser: Bool, text: String, traces: [ToolTrace] = [], streaming: Bool = false,
              messageID: Int? = nil, attachments: [Attachment] = [], feedback: MessageFeedback? = nil,
@@ -34,6 +36,16 @@ final class ChatViewModel {
     var loadingOlder = false
     var hasOlderMessages = false
     var items: [Item] = []
+    var activityRepository: ConversationActivityRepository?
+    var replyTasks: [ChatReplyTask] = []
+    var conversationGeneration = 1
+    var controlBusy: Set<Int> = []
+    var selectedWaitTaskID: Int?
+    private var detailObservation: Task<Void, Never>?
+    private var recoveryRetry: Task<Void, Never>?
+    private var detailCursor = 0
+    private var pageEpoch = 0
+    private var projection = ChatReplyProjection()
     var sending = false
     var errorText: String?
     var scrollTick = 0
@@ -54,7 +66,7 @@ final class ChatViewModel {
     var actionBusy: Set<Int> = []
     /// 执行状态机与头像计时（对话页导航栏读取 `executionState`）。
     private var playback = ExecutionAvatarController()
-    var executionState: ExecutionState { playback.state }
+    var executionState: ExecutionState { replyTasks.first(where: { $0.state == "awaiting_user" || $0.state == "awaiting_approval" })?.executionState ?? replyTasks.first(where: { $0.state == "running" })?.executionState ?? playback.state }
     private var blockedTask: Task<Void, Never>?
     private var idleTask: Task<Void, Never>?
 
@@ -122,6 +134,7 @@ final class ChatViewModel {
         if items.isEmpty && !historyIncomplete {
             items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
         }
+        await recoverExecution()
         scrollTick += 1
         await refreshMemoryStates()
         await refreshPendingActions()
@@ -141,6 +154,13 @@ final class ChatViewModel {
                             attachments: message.attachments, feedback: message.feedback,
                             sortKey: row.sortKey,
                             localStatus: row.status == "receiving" ? (message.content.isEmpty ? "unconfirmed" : "interrupted") : row.status)
+            }
+            for row in stored {
+                if let index = items.firstIndex(where: { $0.id == row.value.id }) {
+                    items[index].publicationRevision = row.value.publicationRevision ?? 0
+                    items[index].generation = row.value.generation ?? 1
+                    items[index].streaming = row.value.messageStatus == "running" || row.value.messageStatus == "queued"
+                }
             }
             historyIncomplete = !(try await repository.isHistoryComplete(kind: .privateChat, id: bot.id))
         } catch {
@@ -165,6 +185,13 @@ final class ChatViewModel {
         } catch { errorText = "本地历史暂时无法读取。" }
     }
 
+    func ensureMessageLoaded(_ id: Int) async {
+        while hasOlderMessages && !items.contains(where: { $0.messageID == id }) {
+            let first = items.first?.id
+            await loadOlder()
+            if items.first?.id == first { break }
+        }
+    }
     func loadDraft() async -> String {
         (try? await repository?.draft(kind: .privateChat, id: bot.id)) ?? ""
     }
@@ -178,7 +205,7 @@ final class ChatViewModel {
         let message = LocalPrivateMessage(id: item.id, remoteID: item.messageID,
                                           role: item.isUser ? "user" : "assistant", content: item.text,
                                           traces: item.traces, attachments: item.attachments,
-                                          feedback: item.feedback, localStatus: status)
+                                          feedback: item.feedback, localStatus: status, generation: item.generation, publicationRevision: item.publicationRevision, messageStatus: status)
         try? await repository.savePrivate(message, botID: bot.id,
                                           sortKey: item.sortKey,
                                           status: status)
@@ -442,87 +469,216 @@ final class ChatViewModel {
         }
     }
 
+    func leave() {
+        pageEpoch += 1
+        detailObservation?.cancel(); detailObservation = nil
+        recoveryRetry?.cancel(); recoveryRetry = nil
+        // Observation and speech have page lifetimes; accepted server work does not.
+    }
+
+    func recoverExecution() async {
+        let epoch = pageEpoch
+        if let pending = try? await activityRepository?.pending(botID: bot.id) {
+            for input in pending where !items.contains(where: { $0.id == UUID(uuidString: input.clientRequestID) }) {
+                let sort = (items.last?.sortKey ?? 0) + 1
+                items.append(Item(id: UUID(uuidString: input.clientRequestID) ?? UUID(), isUser: true, text: input.message, sortKey: sort, localStatus: "sending"))
+                items.append(Item(id: pendingAssistantID(input.clientRequestID), isUser: false, text: "发送结果待确认", sortKey: sort + 1, localStatus: "pending:\(input.clientRequestID)"))
+            }
+        }
+        if let cached = try? await activityRepository?.cached(ChatExecutionSnapshot.self, key: "execution:\(bot.id)") { await applySnapshot(cached) }
+        do {
+            let snapshot = try await api.chatExecution(botID: bot.id)
+            guard epoch == pageEpoch, !Task.isCancelled else { return }
+            await applySnapshot(snapshot)
+            if let pending = try await activityRepository?.pending(botID: bot.id) {
+                for input in pending where input.expectedGeneration == snapshot.generation {
+                    do {
+                        let receipt: ChatInputReceipt
+                        do { receipt = try await api.chatInputReceipt(botID: bot.id, requestID: input.clientRequestID) }
+                        catch let error as APIError where error.status == 404 && error.code == "not_accepted" { receipt = try await api.submitChatInput(botID: bot.id, input: input) }
+                        guard epoch == pageEpoch else { return }
+                        // Receipts preserve original generation/state. Refresh before using one after an uncertain send.
+                        let fresh = try await api.chatExecution(botID: bot.id)
+                        await applySnapshot(fresh)
+                        if receipt.generation == fresh.generation { bindReceipt(receipt, input: input) }
+                        try await activityRepository?.removePending(botID: bot.id, requestID: input.clientRequestID)
+                    } catch {
+                        if let error = error as? APIError, (400..<500).contains(error.status), error.status != 408 {
+                            try? await activityRepository?.removePending(botID: bot.id, requestID: input.clientRequestID)
+                            errorText = error.message
+                        } else { errorText = "发送结果待确认，恢复网络后会继续核对。" }
+                    }
+                }
+            }
+            if let controls = try await activityRepository?.pendingControls(botID: bot.id) {
+                for control in controls where control.generation == conversationGeneration {
+                    do { try await submitControl(control); guard epoch == pageEpoch else { return } }
+                    catch { errorText = "操作结果待确认，恢复网络后会继续核对。" }
+                }
+                if !controls.isEmpty { let fresh = try await api.chatExecution(botID: bot.id); guard epoch == pageEpoch else { return }; await applySnapshot(fresh) }
+            }
+            startObservation()
+            let pendingInputs = (try? await activityRepository?.pending(botID: bot.id)) ?? []
+            let pendingControls = (try? await activityRepository?.pendingControls(botID: bot.id)) ?? []
+            if !pendingInputs.isEmpty || !pendingControls.isEmpty { scheduleRecovery() }
+        } catch { if !Task.isCancelled && epoch == pageEpoch { errorText = "待同步；已接收的回复会继续执行。"; scheduleRecovery() } }
+    }
+
+    private func scheduleRecovery() {
+        guard recoveryRetry == nil else { return }
+        let epoch = pageEpoch
+        recoveryRetry = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            guard let self, epoch == self.pageEpoch else { return }
+            self.recoveryRetry = nil
+            await self.recoverExecution()
+        }
+    }
+    private func pendingAssistantID(_ requestID: String) -> UUID {
+        guard let value = UUID(uuidString: requestID) else { return UUID() }
+        var bytes = value.uuid; bytes.0 ^= 255
+        return UUID(uuid: bytes)
+    }
+    private func bindReceipt(_ receipt: ChatInputReceipt, input: ChatInputRequest) {
+        guard receipt.generation == conversationGeneration else { return }
+        let userID = UUID(uuidString: input.clientRequestID)
+        if let index = items.firstIndex(where: { $0.id == userID }) { items[index].messageID = receipt.userMessageID; items[index].sortKey = receipt.userMessageID; items[index].localStatus = "synced" }
+        if let index = items.firstIndex(where: { $0.localStatus == "pending:\(input.clientRequestID)" }) {
+            let localID = items[index].id
+            items.removeAll { $0.messageID == receipt.assistantMessageID && $0.id != localID }
+            if let pending = items.firstIndex(where: { $0.id == localID }) { items[pending].messageID = receipt.assistantMessageID; items[pending].sortKey = receipt.assistantMessageID }
+        }
+    }
+
+    private func applySnapshot(_ snapshot: ChatExecutionSnapshot) async {
+        guard snapshot.generation >= conversationGeneration else { return }
+        if snapshot.generation != conversationGeneration {
+            items.removeAll(); try? await repository?.clearPrivate(botID: bot.id)
+        }
+        conversationGeneration = snapshot.generation
+        projection.apply(snapshot); replyTasks = projection.tasks
+        detailCursor = snapshot.eventCursor // Never use snapshot.cursor in the detail domain.
+        try? await activityRepository?.reconcileGeneration(botID: bot.id, generation: snapshot.generation)
+        try? await activityRepository?.save(snapshot, key: "execution:\(bot.id)")
+        for task in snapshot.tasks {
+            if let optimistic = items.first(where: { $0.id == UUID(uuidString: task.clientRequestID) }) {
+                items.removeAll { $0.messageID == task.userMessageID && $0.id != optimistic.id }
+            }
+            if let user = items.firstIndex(where: { $0.id == UUID(uuidString: task.clientRequestID) }) {
+                items[user].messageID = task.userMessageID; items[user].sortKey = task.userMessageID; items[user].localStatus = "synced"
+                await persist(items[user], status: "synced")
+            }
+            if let optimistic = items.first(where: { $0.localStatus == "pending:\(task.clientRequestID)" }) {
+                items.removeAll { $0.messageID == task.assistantMessageID && $0.id != optimistic.id }
+            }
+            let index: Int
+            if let existing = items.firstIndex(where: { $0.messageID == task.assistantMessageID }) { index = existing }
+            else if let existing = items.firstIndex(where: { $0.localStatus == "pending:\(task.clientRequestID)" }) {
+                index = existing; items[index].messageID = task.assistantMessageID
+            } else {
+                items.append(Item(isUser: false, text: "", messageID: task.assistantMessageID, sortKey: task.assistantMessageID)); index = items.count - 1
+            }
+            items[index].text = task.content // Complete snapshot replacement, never append a replay.
+            items[index].traces = task.traces
+            items[index].sortKey = task.assistantMessageID
+            items[index].streaming = task.state == "running" || task.state == "queued"
+            items[index].localStatus = task.messageStatus
+            items[index].publicationRevision = task.publicationRevision
+            items[index].generation = task.generation
+            await persist(items[index], status: task.messageStatus)
+        }
+        items.sort { $0.sortKey < $1.sortKey }
+        scrollTick += 1
+    }
+    private func startObservation() {
+        detailObservation?.cancel()
+        let epoch = pageEpoch
+        detailObservation = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled && epoch == self.pageEpoch {
+                do {
+                    for try await event in self.api.chatEvents(botID: self.bot.id, afterID: self.detailCursor) {
+                        guard !Task.isCancelled, epoch == self.pageEpoch else { return }
+                        let json = try JSONDecoder().decode(JSONValue.self, from: event.data)
+                        let eventGeneration: Int?
+                        if case .number(let number) = json["generation"] { eventGeneration = Int(number) } else { eventGeneration = nil }
+                        if let eventGeneration, eventGeneration < self.conversationGeneration { continue }
+                        // Snapshot contains all stable partial bodies/traces and handles generation/reset fences.
+                        let snapshot = try await self.api.chatExecution(botID: self.bot.id)
+                        guard epoch == self.pageEpoch else { return }
+                        await self.applySnapshot(snapshot)
+                        if event.name == "confirmation_required" || event.name == "task_updated" { await self.refreshPendingActions(); await self.refreshMemoryStates() }
+                        if event.name == "done" { await self.refreshCandidateMemories(); await self.refreshMemorySuggestions() }
+                    }
+                } catch { if !Task.isCancelled { self.errorText = "待同步；已接收的回复会继续执行。" } }
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                guard epoch == self.pageEpoch else { return }
+                if let snapshot = try? await self.api.chatExecution(botID: self.bot.id) { await self.applySnapshot(snapshot) }
+            }
+        }
+    }
+    private func submitControl(_ control: ChatControlSubmission) async throws {
+        do {
+            if let waitID = control.waitID, let message = control.message {
+                _ = try await api.answerChatTask(botID: bot.id, taskID: control.taskID, version: control.version, waitID: waitID, message: message, requestID: control.requestID)
+            } else {
+                _ = try await api.stopChatTask(botID: bot.id, taskID: control.taskID, version: control.version, requestID: control.requestID)
+            }
+            try await activityRepository?.removeControl(botID: bot.id, requestID: control.requestID)
+        } catch let error as APIError where (400..<500).contains(error.status) && error.status != 408 {
+            try await activityRepository?.removeControl(botID: bot.id, requestID: control.requestID)
+            throw error
+        }
+    }
+    func stop(_ task: ChatReplyTask) async {
+        guard !controlBusy.contains(task.id), let activityRepository else { return }
+        controlBusy.insert(task.id); defer { controlBusy.remove(task.id) }
+        let epoch = pageEpoch
+        let control = ChatControlSubmission(generation: task.generation, taskID: task.id, version: task.version)
+        do { try await activityRepository.saveControl(control, botID: bot.id); try await submitControl(control); if epoch == pageEpoch { await recoverExecution() } }
+        catch { if epoch == pageEpoch { errorText = (error as? APIError)?.message ?? "停止结果待确认，恢复网络后会继续核对。"; scheduleRecovery() } }
+    }
     func send(_ text: String, attachment: Attachment? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || attachment != nil, !sending else { return }
-        sending = true
+        sending = true; defer { sending = false }
         errorText = nil
-        feed(.sent)
-        let images = attachment.map { [$0] } ?? []
-        items.append(Item(isUser: true, text: trimmed, attachments: images))
-        items[items.count - 1].sortKey = (items.dropLast().last?.sortKey ?? 0) + 1
-        items[items.count - 1].localStatus = "sending"
-        items.append(Item(isUser: false, text: "", streaming: true))
-        items[items.count - 1].sortKey = items[items.count - 2].sortKey + 1
-        items[items.count - 1].localStatus = "receiving"
-        let idx = items.count - 1
-        await saveDraft("")
-        await persist(items[idx - 1], status: "sending")
-        await persist(items[idx], status: "receiving")
-        scrollTick += 1
+        if let id = selectedWaitTaskID, let task = replyTasks.first(where: { $0.id == id && $0.state == "awaiting_user" }), let waitID = task.waitID {
+            do {
+                guard let activityRepository else { errorText = "本地发送记录尚未准备好，请稍后重试。"; return }
+                let control = ChatControlSubmission(generation: task.generation, taskID: task.id, version: task.version, waitID: waitID, message: trimmed)
+                try await activityRepository.saveControl(control, botID: bot.id)
+                try await submitControl(control)
+                selectedWaitTaskID = nil; await saveDraft(""); await load()
+            } catch { errorText = error.localizedDescription; scheduleRecovery() }
+            return
+        }
+        guard let activityRepository else { errorText = "本地发送记录尚未准备好，请稍后重试。"; return }
+        let epoch = pageEpoch
+        let input = ChatInputRequest(message: trimmed, attachmentIDs: attachment.map { [$0.id] } ?? [], expectedGeneration: conversationGeneration)
+        do { try await activityRepository.savePending(input, botID: bot.id) }
+        catch { errorText = error.localizedDescription; return }
+        let userID = UUID(uuidString: input.clientRequestID) ?? UUID()
+        let sort = (items.last?.sortKey ?? 0) + 1
+        items.append(Item(id: userID, isUser: true, text: trimmed, attachments: attachment.map { [$0] } ?? [], sortKey: sort, localStatus: "sending"))
+        items.append(Item(id: pendingAssistantID(input.clientRequestID), isUser: false, text: "正在发送…", sortKey: sort + 1, localStatus: "pending:\(input.clientRequestID)"))
+        await persist(items[items.count - 2], status: "sending")
+        await persist(items[items.count - 1], status: "pending:\(input.clientRequestID)")
+        await saveDraft(""); scrollTick += 1
         do {
-            for try await event in api.chatStream(botID: bot.id, message: trimmed, attachmentIDs: images.map(\.id)) {
-                feed(event.executionEvent)
-                switch event {
-                case .delta(let t):
-                    items[idx].text += t
-                case .toolStart(let trace):
-                    items[idx].traces.append(trace)
-                case .toolResult(let trace):
-                    if let i = items[idx].traces.firstIndex(where: { $0.id == trace.id }) {
-                        items[idx].traces[i] = trace
-                    } else {
-                        items[idx].traces.append(trace)
-                    }
-                    if let pending = trace.pendingConfirmation {
-                        actionStates[pending.actionId] = pending.asPending()
-                    }
-                    if ["create_reminder", "manage_reminder", "list_reminders"].contains(trace.name) {
-                        NotificationCenter.default.post(name: .verabotRemindersChanged, object: nil)
-                    }
-                case .confirmationRequired(let req):
-                    actionStates[req.actionId] = req.asPending()
-                case .error(let msg):
-                    appendError(msg, at: idx)
-                case .done(let d):
-                    // 落库后的 id：刚收到的回复与刚发出的用户消息（idx - 1）都能立即长按删除；旧后端不发 user_message_id
-                    items[idx].messageID = d.messageID
-                    if let uid = d.userMessageID { items[idx - 1].messageID = uid; items[idx - 1].sortKey = uid }
-                    if let assistantID = d.messageID { items[idx].sortKey = assistantID }
-                    items[idx - 1].localStatus = "synced"
-                    items[idx].localStatus = "synced"
-                case .status:
-                    break   // 只驱动导航栏头像；消息正文不显示 status
-                case .notification:
-                    NotificationCenter.default.post(name: .verabotRemindersChanged, object: nil)
-                }
-                await persist(items[idx], status: items[idx].localStatus)
-                await persist(items[idx - 1], status: items[idx - 1].localStatus)
-                scrollTick += 1
-            }
-        } catch let e as APIError where e.status == 429 {
-            let msg = "今日额度已用完，请明天再试（可在「设置 › 用量」查看今日用量）"
-            feed(.error(msg))
-            appendError(msg, at: idx)
+            let receipt = try await api.submitChatInput(botID: bot.id, input: input)
+            let fresh = try await api.chatExecution(botID: bot.id)
+            guard epoch == pageEpoch, !Task.isCancelled else { return }
+            if receipt.generation == fresh.generation { bindReceipt(receipt, input: input) }
+            await applySnapshot(fresh)
+            try await activityRepository.removePending(botID: bot.id, requestID: input.clientRequestID)
+            startObservation()
         } catch {
-            feed(.error(error.localizedDescription))
-            appendError(error.localizedDescription, at: idx)
+            guard epoch == pageEpoch else { return }
+            if let error = error as? APIError, (400..<500).contains(error.status), error.status != 408 {
+                try? await activityRepository.removePending(botID: bot.id, requestID: input.clientRequestID)
+                errorText = error.message
+            } else { errorText = "发送结果待确认，恢复网络后会用原请求核对。"; scheduleRecovery() }
         }
-        feed(.streamEnded)
-        if items[idx].text.isEmpty && items[idx].traces.isEmpty { items[idx].text = "（无回复）" }
-        items[idx].streaming = false
-        if items[idx].localStatus == "receiving" { items[idx].localStatus = items[idx].text.isEmpty ? "unconfirmed" : "interrupted" }
-        await persist(items[idx], status: items[idx].localStatus)
-        await persist(items[idx - 1], status: items[idx - 1].localStatus)
-        sending = false
-        scrollTick += 1
-        if items[idx].traces.contains(where: { $0.memoryProposal?.isCard == true }) {
-            await refreshMemoryStates()
-        }
-        if items[idx].traces.contains(where: { $0.pendingConfirmation != nil }) {
-            await refreshPendingActions()
-        }
-        await refreshCandidateMemories()
-        await refreshMemorySuggestions()
     }
 }

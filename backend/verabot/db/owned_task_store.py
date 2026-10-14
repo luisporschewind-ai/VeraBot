@@ -20,6 +20,8 @@ def enqueue(c,t,input,kind='owner',bot_id=None,key=None):
 def create(c,uid,bot,payload,key,hashed,authorization):
  now=now_iso()
  tid=c.execute('INSERT INTO owned_tasks(user_id,owner_bot_id,owner_name,goal,completion_criteria,state,authorization_json,token_limit,created_at,updated_at,request_key,request_hash) VALUES (?,?,?,?,?,\'queued\',?,?,?,?,?,?)',(uid,bot['id'],bot['name'],payload['goal'],payload['completion_criteria'],json.dumps(authorization),payload.get('token_limit',20000),now,now,key,hashed)).lastrowid
+ from .conversation_activity_store import generation
+ c.execute('UPDATE owned_tasks SET delivery_generation=? WHERE id=?',(generation(c,uid,'private',bot['id']),tid))
  t=get(c,uid,tid);enqueue(c,t,{});event(c,t,'created');return t
 
 def invalidate(c,t,state,code=None):
@@ -129,9 +131,11 @@ def count_tool(c,step):
 def pending_delivery(c):
  return [r[0] for r in c.execute("SELECT s.id FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.delivered_at IS NULL AND s.result_json IS NOT NULL AND s.status NOT IN ('running','retry_wait','cancelled') AND s.kind='owner' AND t.owner_bot_id IS NOT NULL AND s.version=t.version")]
 def delivery_item(c,sid):
- return row(c.execute("SELECT s.*,t.user_id,t.owner_bot_id,t.goal FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.id=? AND s.delivered_at IS NULL AND s.version=t.version AND t.owner_bot_id IS NOT NULL",(sid,)).fetchone())
+ return row(c.execute("SELECT s.*,t.user_id,t.owner_bot_id,t.goal,t.delivery_generation FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.id=? AND s.delivered_at IS NULL AND s.version=t.version AND t.owner_bot_id IS NOT NULL",(sid,)).fetchone())
 def deliver_message(c,item,text):
- return c.execute("INSERT INTO messages(user_id,bot_id,role,content,created_at,source_kind,source_id) VALUES (?,?,'assistant',?,?,'owned_task',?)",(item['user_id'],item['owner_bot_id'],text,now_iso(),item['id'])).lastrowid
+ from .conversation_activity_store import generation
+ if generation(c,item['user_id'],'private',item['owner_bot_id'])!=item['delivery_generation']:return None
+ return c.execute("INSERT INTO messages(user_id,bot_id,role,content,created_at,source_kind,source_id,conversation_generation) VALUES (?,?,'assistant',?,?,'owned_task',?,?)",(item['user_id'],item['owner_bot_id'],text,now_iso(),item['id'],item['delivery_generation'])).lastrowid
 def mark_delivered(c,sid,mid):c.execute('UPDATE owned_steps SET delivered_at=?,message_id=? WHERE id=?',(now_iso(),mid,sid))
 def update_task(c,tid,fields):
  c.execute('UPDATE owned_tasks SET '+','.join(k+'=?' for k in fields)+' WHERE id=?',(*fields.values(),tid))
@@ -218,3 +222,15 @@ def consult_permitted(c,step,task):
 
 def checkpoint_action(c,uid,aid,encoded):
  c.execute('UPDATE pending_actions SET owned_result_enc=? WHERE user_id=? AND id=? AND owned_task_id IS NOT NULL',(encoded,uid,aid))
+
+
+def notify_with_savepoint(c,callback):
+ c.execute('SAVEPOINT notification_delivery')
+ try:
+  callback()
+  c.execute('RELEASE notification_delivery')
+  return True
+ except Exception:
+  c.execute('ROLLBACK TO notification_delivery')
+  c.execute('RELEASE notification_delivery')
+  return False
