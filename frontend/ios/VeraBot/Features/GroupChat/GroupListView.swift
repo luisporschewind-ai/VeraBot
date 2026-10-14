@@ -38,7 +38,12 @@ struct GroupListView: View {
             CreateGroupSheet { group in creating = false; selected = group; Task { await load() } }
         }
         .navigationDestination(item: $selected) { group in
-            GroupChatView(group: group, app: app).toolbar(.hidden, for: .tabBar)
+            GroupChatView(group: group, app: app, onGroupUpdated: { updated in
+                selected = updated
+                if let index = groups.firstIndex(where: { $0.id == updated.id }) {
+                    groups[index] = updated
+                }
+            }).toolbar(.hidden, for: .tabBar)
         }
     }
     private func load() async {

@@ -94,7 +94,12 @@ struct BotListView: View {
             }
             // 首页不显示导航标题；inline 保留紧凑导航栏，避免大标题占位。
             .navigationDestination(item: $selectedGroup) { group in
-                GroupChatView(group: group, app: app).toolbar(.hidden, for: .tabBar)
+                GroupChatView(group: group, app: app, onGroupUpdated: { updated in
+                    selectedGroup = updated
+                    if let index = groups.firstIndex(where: { $0.id == updated.id }) {
+                        groups[index] = updated
+                    }
+                }).toolbar(.hidden, for: .tabBar)
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -431,6 +436,7 @@ private struct BotSearchSheet: View {
             }
             .navigationDestination(for: ChatGroup.self) { group in
                 GroupChatView(group: group, app: app).toolbar(.hidden, for: .tabBar)
+                // 搜索页为瞬时导航栈；成员变更已写入 ConversationRepository，返回助理列表时会刷新。
             }
             .task {
                 await Task.yield()

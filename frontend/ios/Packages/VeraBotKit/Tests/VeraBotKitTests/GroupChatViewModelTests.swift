@@ -11,9 +11,11 @@ private actor GroupVMFixture: GroupChatAPI {
     let recovering: Bool
     let memberFailure: Bool
     var turnCalls = 0
+    var members: [ChatGroupMember]
     private var pendingLoad: CheckedContinuation<Void, Never>?
     init(delayed: Bool = false, unavailable: Bool = false, recovering: Bool = false, memberFailure: Bool = false) {
         self.delayed = delayed; self.unavailable = unavailable; self.recovering = recovering; self.memberFailure = memberFailure
+        self.members = Self.group.members
     }
     nonisolated static let group = ChatGroup(id: 7, name: "伙伴", members: [ChatGroupMember(id: 21, botID: 1, name: "A", color: "gray", detail: ""), ChatGroupMember(id: 22, botID: 2, name: "B", color: "gray", detail: ""), ChatGroupMember(id: 23, botID: 3, name: "C", color: "gray", detail: "")])
     nonisolated static let turnBody = #"{"id":9,"group_id":7,"client_request_id":"11111111-1111-1111-1111-111111111111","mode":"single","status":"completed","cancel_requested":false,"messages":[{"id":100,"group_id":7,"turn_id":9,"role":"user","content":"已有历史","status":"completed"}]}"#
@@ -28,7 +30,15 @@ private actor GroupVMFixture: GroupChatAPI {
     func groups() async throws -> GroupListResponse { try JSONDecoder().decode(GroupListResponse.self, from: Data(#"{"groups":[]}"#.utf8)) }
     func createGroup(_ request: GroupCreateRequest) async throws -> ChatGroup { Self.group }
     func updateGroup(id: Int, request: GroupUpdateRequest) async throws -> ChatGroup {
-        ChatGroup(id: id, name: request.name ?? Self.group.name, members: Self.group.members)
+        ChatGroup(id: id, name: request.name ?? Self.group.name, members: members)
+    }
+    func addGroupMember(groupID: Int, botID: Int) async throws -> ChatGroup {
+        members.append(ChatGroupMember(id: 100 + botID, botID: botID, name: "N\(botID)", color: "gray", detail: ""))
+        return ChatGroup(id: groupID, name: Self.group.name, members: members)
+    }
+    func removeGroupMember(groupID: Int, memberID: Int) async throws -> ChatGroup {
+        members.removeAll { $0.id == memberID }
+        return ChatGroup(id: groupID, name: Self.group.name, members: members)
     }
     func deleteGroup(id: Int) async throws -> OKResponse { try JSONDecoder().decode(OKResponse.self, from: Data(#"{"ok":true}"#.utf8)) }
     func clearGroupMessages(groupID: Int) async throws -> OKResponse { try JSONDecoder().decode(OKResponse.self, from: Data(#"{"ok":true}"#.utf8)) }
@@ -84,4 +94,14 @@ private actor GroupVMFixture: GroupChatAPI {
     while await api.calls == 0 { await Task.yield() }
     current = false; await api.resumeLoad(); await work.value
     #expect(model.state.messages.isEmpty && model.errorMessage == nil)
+}
+
+@MainActor @Test func GroupChatViewModelAddsAndRemovesMembers() async throws {
+    let api = GroupVMFixture()
+    let model = GroupChatViewModel(group: GroupVMFixture.group, api: api)
+    try await model.addMember(botID: 9)
+    #expect(model.group.members.contains { $0.botID == 9 })
+    let removable = try #require(model.group.members.first { $0.botID == 9 })
+    try await model.removeMember(memberID: removable.id)
+    #expect(!model.group.members.contains { $0.botID == 9 })
 }

@@ -3,7 +3,7 @@ import anyio
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..deps import current_user
-from ..group_schemas import GroupCreateIn, GroupPatchIn
+from ..group_schemas import GroupCreateIn, GroupMemberAddIn, GroupPatchIn
 from ...db import group_store
 
 router = APIRouter(prefix="/api/groups", tags=["groups"])
@@ -34,6 +34,14 @@ def detail(group_id: int, user=Depends(current_user)):
 @router.patch("/{group_id}", dependencies=[Depends(require_group_v2)])
 def update(group_id: int, body: GroupPatchIn, user=Depends(current_user)):
     return call(group_store.change_group, user["id"], group_id, body.model_dump(exclude_unset=True))
+
+@router.post("/{group_id}/members", dependencies=[Depends(require_group_v2)])
+def add_member(group_id: int, body: GroupMemberAddIn, user=Depends(current_user)):
+    return call(group_store.add_member, user["id"], group_id, body.bot_id)
+
+@router.delete("/{group_id}/members/{member_id}", dependencies=[Depends(require_group_v2)])
+def remove_member(group_id: int, member_id: int, user=Depends(current_user)):
+    return call(group_store.remove_member, user["id"], group_id, member_id)
 
 @router.delete("/{group_id}", dependencies=[Depends(require_group_v2)])
 def delete(group_id: int, user=Depends(current_user)):
