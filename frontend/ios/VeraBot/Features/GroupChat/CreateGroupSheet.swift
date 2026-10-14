@@ -21,7 +21,7 @@ struct CreateGroupSheet: View {
         NavigationStack {
             Form {
                 Section("群聊名称") { TextField("例如：周末小分队", text: $name) }
-                Section(BotProductLimits.groupSelectionTitle(selectedCount: selected.count)) {
+                Section {
                     if loading { ProgressView() }
                     ForEach(bots) { bot in
                         let isSelected = selected.contains(bot.id)
@@ -43,14 +43,10 @@ struct CreateGroupSheet: View {
                         .disabled(!isSelected && !canSelectMore)
                         .accessibilityHint(isSelected ? "取消选择" : (canSelectMore ? "选择" : BotProductLimits.groupSelectionFullMessage))
                     }
-                }
-                Section {
-                    Text(BotProductLimits.groupSelectionHint)
-                    Text("系统会根据每条消息的意图分配回应者；成员共享本群聊天记录。")
-                        .foregroundStyle(.secondary)
-                    if let selectionHint {
-                        Text(selectionHint).foregroundStyle(.secondary)
-                    }
+                } header: {
+                    Text(BotProductLimits.groupSelectionTitle(selectedCount: selected.count))
+                } footer: {
+                    Text(selectionHint ?? BotProductLimits.groupSelectionHint)
                 }
                 if let error { Section { Text(error).foregroundStyle(.secondary); Button("重新加载伙伴") { Task { await load() } } } }
             }.disabled(saving)
