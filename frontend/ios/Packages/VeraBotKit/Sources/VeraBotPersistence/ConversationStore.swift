@@ -62,18 +62,23 @@ public actor ConversationStore {
                                                         localID: String = UUID().uuidString, remoteID: Int?,
                                                         sortKey: Int, status: String) async throws -> String {
         let data = try encoder.encode(value)
-        let existing: String? = if let remoteID {
-            try database.rows("SELECT local_id FROM messages WHERE kind=? AND conversation_id=? AND remote_id=?",
-                                    values: [kind, conversationID, remoteID]).first?["local_id"] as? String
-        } else { nil }
-        let key = existing ?? localID
-        try database.execute("""
-                                     INSERT INTO messages(local_id,kind,conversation_id,remote_id,sort_key,snapshot,local_status)
-                                     VALUES(?,?,?,?,?,?,?) ON CONFLICT(local_id) DO UPDATE SET remote_id=excluded.remote_id,
-                                     sort_key=excluded.sort_key,snapshot=excluded.snapshot,local_status=excluded.local_status
-                                     """,
-                                   values: [key, kind, conversationID, remoteID, sortKey, data, status])
-        return key
+        return try database.transaction { db in
+            let existing: String? = if let remoteID {
+                try db.rows("SELECT local_id FROM messages WHERE kind=? AND conversation_id=? AND remote_id=?", values: [kind, conversationID, remoteID]).first?["local_id"] as? String
+            } else { nil }
+            let optimistic = try db.rows("SELECT local_id FROM messages WHERE local_id=? AND kind=? AND conversation_id=? AND remote_id IS NULL", values: [localID,kind,conversationID]).first != nil
+            let key = optimistic ? localID : existing ?? localID
+            // Lost receipt: history may have synchronized this remote message before the optimistic row received its ID.
+            if optimistic, let existing, existing != localID {
+                try db.execute("DELETE FROM messages WHERE local_id=?", values: [existing])
+            }
+            try db.execute("""
+                INSERT INTO messages(local_id,kind,conversation_id,remote_id,sort_key,snapshot,local_status)
+                VALUES(?,?,?,?,?,?,?) ON CONFLICT(local_id) DO UPDATE SET remote_id=excluded.remote_id,
+                sort_key=excluded.sort_key,snapshot=excluded.snapshot,local_status=excluded.local_status
+                """, values: [key,kind,conversationID,remoteID,sortKey,data,status])
+            return key
+        }
     }
 
     public func deleteMessage(localID: String, kind: String, conversationID: Int, remoteID: Int? = nil) async throws {

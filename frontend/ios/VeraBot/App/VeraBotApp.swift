@@ -51,6 +51,7 @@ struct RootView: View {
             } catch { /* Root dismissal cancels the welcome. */ }
         }
         .onChange(of: scenePhase) { _, phase in
+            app.setActivityForeground(phase == .active)
             if phase == .background { player.stop() }
         }
         .onChange(of: app.token) { _, token in
