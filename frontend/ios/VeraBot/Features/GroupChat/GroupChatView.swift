@@ -11,6 +11,8 @@ struct GroupChatView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: GroupChatViewModel
     @State private var attachment: ComposerAttachmentModel
+    @State private var notificationViewport: CGSize = .zero
+    @State private var notificationFrames: [Int: CGRect] = [:]
     @State private var viewport: CGRect = .zero
     @State private var composerViewport: CGRect = .zero
     @State private var pageVisible = false
@@ -65,22 +67,23 @@ struct GroupChatView: View {
                             Text("从一个话题开始").foregroundStyle(.secondary)
                         }
                         ForEach(model.state.messages) { message in
-                            VStack(alignment: .leading, spacing: 4) {
-                                if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }
-                                if reading.newMessageIDs.contains(message.id), message.role != .user { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
-                                bubble(message)
-                                    .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && message.role != .user, revision: message.publicationRevision ?? 0) {
-                                        let activity = app.activity(kind: "group", id: model.group.id)
-                                        let revision = message.publicationRevision ?? 0
-                                        await app.markVisible(kind: "group", id: model.group.id, generation: message.generation ?? activity?.generation ?? 1, message: MessagePublication(messageID: message.id, publicationRevision: revision))
-                                    }
-                            }.id(message.id)
+                            messageCell(message)
                         }
                         Color.clear.frame(height: 1).id("bottom")
                             .background(GeometryReader { geometry in Color.clear.preference(key: ConversationBottomKey.self, value: geometry.frame(in: .global)) })
                     }.padding()
                 }
                 .conversationViewport($viewport)
+                .coordinateSpace(name: "notificationChatViewport")
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.onAppear { notificationViewport = geometry.size; updateNotificationVisibility() }
+                            .onChange(of: geometry.size) { _, size in notificationViewport = size; updateNotificationVisibility() }
+                    }
+                }
+                .onPreferenceChange(GroupNotificationFrames.self) { frames in
+                    notificationFrames = frames; updateNotificationVisibility()
+                }
                 .onPreferenceChange(ConversationBottomKey.self) { rect in followsBottom = rect.minY <= viewport.maxY + 40 && rect.maxY >= viewport.minY }
                 .bottomAnchoredScrolling()
                 .scrollDismissesKeyboard(.interactively)
@@ -177,6 +180,7 @@ struct GroupChatView: View {
                 }
             }
             initialPositionReady = true
+            updateNotificationVisibility()
         }
         .onChange(of: model.draft) { _, new in
             if new.isEmpty {
@@ -197,13 +201,19 @@ struct GroupChatView: View {
             model.draft = speechBase + transcript
             draftSelection = NSRange(location: (model.draft as NSString).length, length: 0)
         }
+        .onChange(of: notificationModalShown) { _, _ in updateNotificationVisibility() }
         .onChange(of: phase) { _, value in
             if value != .active { inputFocused = false; model.leave(); speech.cancel() } else { Task { await model.load() } }
+            updateNotificationVisibility()
         }
         .onChange(of: app.activity(kind: "group", id: model.group.id)?.revision) { _, _ in if pageVisible { reading.include(app.activity(kind: "group", id: model.group.id)?.unreadMessages ?? []) } }
         .onChange(of: app.sessionGeneration) { _, _ in pageVisible = false; reading.leave(); model.leave() }
         .onDisappear {
             pageVisible = false
+            if app.notificationEvents.visibleGroupID == model.group.id {
+                app.notificationEvents.visibleGroupID = nil
+                app.notificationEvents.visibleMessageIDs = []
+            }
             if !hasTemporaryCover { reading.leave(); entered = false }
             inputFocused = false
             draftSaveTask?.cancel()
@@ -212,12 +222,40 @@ struct GroupChatView: View {
             model.leave(); speech.cancel()
         }
     }
+    @ViewBuilder
+    private func messageCell(_ message: GroupMessage) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }
+            if reading.newMessageIDs.contains(message.id), message.role != .user { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
+            bubble(message)
+                .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && message.role != .user, revision: message.publicationRevision ?? 0) {
+                    let activity = app.activity(kind: "group", id: model.group.id)
+                    let revision = message.publicationRevision ?? 0
+                    await app.markVisible(kind: "group", id: model.group.id, generation: message.generation ?? activity?.generation ?? 1, message: MessagePublication(messageID: message.id, publicationRevision: revision))
+                }
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: GroupNotificationFrames.self,
+                            value: [message.id: geometry.frame(in: .named("notificationChatViewport"))])
+                    }
+                }
+        }
+        .id(message.id)
+    }
     private var effectiveViewport: CGRect {
         guard !composerViewport.isEmpty else { return viewport }
         return CGRect(x: viewport.minX, y: viewport.minY, width: viewport.width, height: max(0, min(viewport.maxY, composerViewport.minY) - viewport.minY))
     }
     private var hasTemporaryCover: Bool { info || showPhotos || showFiles || showCamera || cameraDenied }
+    private var notificationModalShown: Bool { hasTemporaryCover }
     private var canRead: Bool { pageVisible && phase == .active && app.selectedTab == 0 && !hasTemporaryCover }
+    private func updateNotificationVisibility() {
+        app.notificationEvents.visibleGroupID = model.group.id
+        app.notificationEvents.visibleBotID = nil
+        guard phase == .active, !notificationModalShown else { app.notificationEvents.visibleMessageIDs = []; return }
+        let bounds = CGRect(origin: .zero, size: notificationViewport)
+        app.notificationEvents.visibleMessageIDs = Set(notificationFrames.filter { $0.value.intersects(bounds) }.keys)
+    }
     private var composer: some View {
         VStack(spacing: 6) {
             if activeMentionRange != nil {
@@ -548,6 +586,11 @@ struct GroupChatView: View {
 private enum GroupMentionTarget {
     case everyone
     case member(ChatGroupMember)
+}
+
+private struct GroupNotificationFrames: PreferenceKey {
+    static let defaultValue: [Int: CGRect] = [:]
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) { value.merge(nextValue(), uniquingKeysWith: { _, new in new }) }
 }
 
 private struct GroupReplyEnvelope: Decodable {

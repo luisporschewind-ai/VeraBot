@@ -1,8 +1,8 @@
-from verabot.services.scheduled_tasks.contracts import ExecutionResult
 import asyncio
 import importlib
 from unittest.mock import patch
 from scheduled_task_test_support import DBTest, db, NOW
+from verabot.services.scheduled_tasks.contracts import ExecutionResult
 from verabot.services.scheduled_tasks import service, clock, policy
 from verabot.db import scheduled_run_store as runs
 from verabot.services import llm
@@ -117,3 +117,7 @@ class ExecutorTests(DBTest):
         with db.tx() as c:
             self.assertEqual(c.execute('SELECT total_tokens FROM usage_log').fetchone()[0],7)
             self.assertEqual(runs.attempts(c,job['id'])[0]['usage_unknown'],1)
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()

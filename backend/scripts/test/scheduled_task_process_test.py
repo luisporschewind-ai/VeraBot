@@ -65,3 +65,7 @@ class ProcessTests(DBTest):
         with db.tx() as c:
             self.assertEqual(c.execute('SELECT state FROM scheduled_task_runs').fetchone()[0],'interrupted')
         self.assertEqual(len(counter),1)
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()

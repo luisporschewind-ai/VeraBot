@@ -18,3 +18,7 @@ class StoreTests(DBTest):
             c.execute("UPDATE scheduled_task_runs SET state='succeeded'")
             with self.assertRaises(sqlite3.IntegrityError):
                 c.execute("INSERT INTO scheduled_task_runs(task_id,user_id,bot_id,trigger,scheduled_for_utc,schedule_revision,state,task_snapshot_json,available_at,created_at) VALUES(1,1,1,'scheduled','x',1,'queued','{}','x','x')")
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()

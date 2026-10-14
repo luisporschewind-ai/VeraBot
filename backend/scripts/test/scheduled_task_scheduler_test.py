@@ -93,3 +93,7 @@ class SchedulerTests(DBTest):
         with db.tx() as c:
             self.assertEqual(c.execute("SELECT COUNT(*) FROM scheduled_task_runs WHERE state='queued'").fetchone()[0],1)
             self.assertEqual(c.execute('SELECT COUNT(*) FROM scheduled_task_runs').fetchone()[0],2)
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()

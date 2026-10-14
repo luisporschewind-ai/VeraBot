@@ -23,6 +23,7 @@ final class NotificationEventSync {
     var isForeground = true
     var visibleMessageIDs: Set<Int> = []
     var visibleBotID: Int?
+    var visibleGroupID: Int?
 
     init(app: AppState) { self.app = app }
     func attach(_ notices: BotNoticeCenter) { self.notices = notices }
@@ -32,7 +33,7 @@ final class NotificationEventSync {
         forceBootstrap = true
         syncing = false; syncOwner = UUID()
         ledger = NotificationEventLedger(); scope = nil
-        visibleMessageIDs = []; visibleBotID = nil; errorText = nil
+        visibleMessageIDs = []; visibleBotID = nil; visibleGroupID = nil; errorText = nil
     }
     func updateReminderCoverage(count: Int, end: Date?, error: String?) {
         pendingReminderCount = count; reminderCoverageEnd = end
@@ -144,7 +145,7 @@ final class NotificationEventSync {
             let foreground = isForeground && UIApplication.shared.applicationState == .active
             let modal = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
                 .flatMap(\.windows).first { $0.isKeyWindow }?.rootViewController?.presentedViewController != nil
-            let visible = foreground && app.selectedTab == 0 && visibleBotID == note.botId && !modal ? visibleMessageIDs : []
+            let visible = foreground && app.selectedTab == 0 && notificationMatchesOpenConversation(note) && !modal ? visibleMessageIDs : []
             let decision = NotificationEventPolicy.decision(note, settings: settings, visibleMessageIDs: visible, now: now, isForeground: foreground)
             let coalesced = ledger.coalesces(note, now: now)
             var presented = false
@@ -185,5 +186,15 @@ final class NotificationEventSync {
             try check(); ledger.finish(note, presented: presented, now: now); try save()
         }
         errorText = nil
+    }
+
+    /// 群消息和私聊消息各自编号，同一数字可能同时存在。只把当前打开的那一段对话里的 id 交给静音判断。
+    private func notificationMatchesOpenConversation(_ note: InboxNotification) -> Bool {
+        if let group = visibleGroupID {
+            if note.threadId == "group:\(group)" { return true }
+            if let link = note.link, link == "group/\(group)" || link.hasPrefix("group/\(group)/") { return true }
+            return false
+        }
+        return visibleBotID == note.botId
     }
 }
