@@ -251,11 +251,19 @@ public final class GroupChatViewModel {
         try valid(stamp); group = updated
         try await repository?.saveGroup(updated)
     }
-    public func removeMember(memberID: Int) async throws {
+    /// Calls the remove API and persists cache, but does **not** mutate `group`.
+    /// The view applies the result inside `withAnimation` so the List can animate the row out.
+    @discardableResult
+    public func removeMember(memberID: Int) async throws -> ChatGroup {
         let stamp = epoch
         let updated = try await api.removeGroupMember(groupID: group.id, memberID: memberID)
-        try valid(stamp); group = updated
+        try valid(stamp)
         try await repository?.saveGroup(updated)
+        return updated
+    }
+
+    public func applyGroup(_ updated: ChatGroup) {
+        group = updated
     }
     public func clear() async throws {
         leave();let stamp = epoch

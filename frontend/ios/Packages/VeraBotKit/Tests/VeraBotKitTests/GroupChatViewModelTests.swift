@@ -10,11 +10,14 @@ private actor GroupVMFixture: GroupChatAPI {
     let unavailable: Bool
     let recovering: Bool
     let memberFailure: Bool
+    let removeFails: Bool
     var turnCalls = 0
     var members: [ChatGroupMember]
     private var pendingLoad: CheckedContinuation<Void, Never>?
-    init(delayed: Bool = false, unavailable: Bool = false, recovering: Bool = false, memberFailure: Bool = false) {
+    init(delayed: Bool = false, unavailable: Bool = false, recovering: Bool = false, memberFailure: Bool = false,
+         removeFails: Bool = false) {
         self.delayed = delayed; self.unavailable = unavailable; self.recovering = recovering; self.memberFailure = memberFailure
+        self.removeFails = removeFails
         self.members = Self.group.members
     }
     nonisolated static let group = ChatGroup(id: 7, name: "伙伴", members: [ChatGroupMember(id: 21, botID: 1, name: "A", color: "gray", detail: ""), ChatGroupMember(id: 22, botID: 2, name: "B", color: "gray", detail: ""), ChatGroupMember(id: 23, botID: 3, name: "C", color: "gray", detail: "")])
@@ -37,6 +40,7 @@ private actor GroupVMFixture: GroupChatAPI {
         return ChatGroup(id: groupID, name: Self.group.name, members: members)
     }
     func removeGroupMember(groupID: Int, memberID: Int) async throws -> ChatGroup {
+        if removeFails { throw APIError(status: 500, message: "remove failed") }
         members.removeAll { $0.id == memberID }
         return ChatGroup(id: groupID, name: Self.group.name, members: members)
     }
@@ -102,6 +106,23 @@ private actor GroupVMFixture: GroupChatAPI {
     try await model.addMember(botID: 9)
     #expect(model.group.members.contains { $0.botID == 9 })
     let removable = try #require(model.group.members.first { $0.botID == 9 })
-    try await model.removeMember(memberID: removable.id)
-    #expect(!model.group.members.contains { $0.botID == 9 })
+    let beforeCount = model.group.members.count
+    let updated = try await model.removeMember(memberID: removable.id)
+    // 确认前/应用前本地列表不变，避免左滑即删。
+    #expect(model.group.members.count == beforeCount)
+    #expect(model.group.members.contains { $0.id == removable.id })
+    model.applyGroup(updated)
+    #expect(!model.group.members.contains { $0.id == removable.id })
+}
+
+@MainActor @Test func GroupChatViewModelRemoveMemberFailureKeepsMembers() async throws {
+    let api = GroupVMFixture(removeFails: true)
+    let model = GroupChatViewModel(group: GroupVMFixture.group, api: api)
+    let before = model.group.members
+    do {
+        _ = try await model.removeMember(memberID: before[0].id)
+        Issue.record("expected remove to fail")
+    } catch {
+        #expect(model.group.members.map(\.id) == before.map(\.id))
+    }
 }

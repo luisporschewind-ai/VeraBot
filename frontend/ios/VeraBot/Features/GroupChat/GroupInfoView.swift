@@ -65,10 +65,7 @@ struct GroupInfoView: View {
                 Button("移除", role: .destructive) {
                     guard let member = memberPendingRemove else { return }
                     memberPendingRemove = nil
-                    Task { await perform {
-                        try await model.removeMember(memberID: member.id)
-                        onGroupUpdated?(model.group)
-                    } }
+                    Task { await confirmRemove(member) }
                 }
             } message: {
                 Text("该成员将离开此群聊。Bot 本身会保留。")
@@ -95,11 +92,13 @@ struct GroupInfoView: View {
                     .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if canRemove(member) {
-                            Button(role: .destructive) {
+                            // 不用 role: .destructive：系统会在确认前就把行滑走/隐藏。
+                            Button {
                                 memberPendingRemove = member
                             } label: {
                                 Label("移除", systemImage: "minus.circle.fill")
                             }
+                            .tint(.red)
                             .accessibilityLabel("移除 \(member.name)")
                         }
                     }
@@ -124,6 +123,23 @@ struct GroupInfoView: View {
         // 不可用历史行不计入 Bot 下限；仍绑定 Bot 的成员受 min 2 限制。
         if member.botID == nil { return true }
         return BotProductLimits.canRemoveMember(currentBotCount: botCount)
+    }
+
+    private func confirmRemove(_ member: ChatGroupMember) async {
+        guard !saving else { return }
+        saving = true
+        defer { saving = false }
+        do {
+            let updated = try await model.removeMember(memberID: member.id)
+            withAnimation {
+                model.applyGroup(updated)
+            }
+            onGroupUpdated?(model.group)
+            error = nil
+        } catch {
+            // 失败时不改本地成员列表，行保持在原位。
+            self.error = app.message(for: error)
+        }
     }
 
     private func perform(_ action: () async throws -> Void) async {

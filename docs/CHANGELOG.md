@@ -1,6 +1,10 @@
 # 更新日志 (CHANGELOG)
 
-## 2026-10-14 · 群聊成员增删
+## 2026-10-14 · 群成员移除确认与动画
+
+- 修复左滑 `role: .destructive` 导致确认前行被系统移走的问题；改为确认「移除」后才调 API，并以 `withAnimation` 从数据源移除该行。取消保留原行。规格变更记录见 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
+
+## 2026-10-14 · 群聊成员增删（PR #37，已合入）
 
 - 群设置页支持添加 / 移除 Bot 成员（Boss 参考：同卡「添加成员」、左滑 minus.circle、确认「移除 {Name}？」）。
 - API：`POST/DELETE /api/groups/{id}/members`；服务端仅归属与防空群校验；产品 2～5 仍由 `BotProductLimits` UI 约束。规格见 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。

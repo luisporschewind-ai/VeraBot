@@ -69,7 +69,7 @@ PR #34（`fix/offline-notice-unify`，合入 `e888375`）后：助理列表不�
 
 ### Bot 数量限制（补充，PR #35 / #36）
 
-PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助理列表「我的 Bot（n/10）」展示与创建群聊底部提示卡片（说明改 footer）。规格与变更记录见 [bot-limits](../superpowers/specs/2026-10-14-bot-limits.md)。群成员增删 UI 仍不存在。
+PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助理列表「我的 Bot（n/10）」展示与创建群聊底部提示卡片（说明改 footer）。规格与变更记录见 [bot-limits](../superpowers/specs/2026-10-14-bot-limits.md)。PR #37 已接线群成员增删；左滑 `role: .destructive` 会在确认前移走行，由 `fix/group-member-remove` 修复（非 destructive + 确认后 `withAnimation` 再删）。
 
 ## 后续再做
 

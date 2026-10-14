@@ -43,8 +43,8 @@ Boss 参考（群信息页成员卡，三张截图）：成员行 = 头像 + 名
 
 - 成员区标题继续用 `BotProductLimits.botMemberCount`（只计 `botID != nil`）。
 - 「添加成员」行：打开选择 sheet，风格对齐 `CreateGroupSheet`；仅未入群 Bot 可选；满 5 时禁用未选项并提示 `groupSelectionFullMessage`；历史 >5 可查看、禁止再加、不自动踢人；\<2 不自动改成员。
-- 成员行：左滑 + 确认后再删；`canRemoveMember` 为 false 时不可删仍计为 Bot 的成员；不可用成员可删。
-- 成功后刷新当前群模型，并尽量同步列表/本地缓存；错误走 `app.message(for:)` / `ConnectionNotice` 风格提示。
+- 成员行：左滑（**非** `role: .destructive`，避免系统在确认前移走行）→ 确认后再调 API；成功后 `withAnimation` 从数据源移除该行；取消则行保留、滑动收回。`canRemoveMember` 为 false 时不可删仍计为 Bot 的成员；不可用成员可删。
+- 成功后刷新当前群模型，并尽量同步列表/本地缓存；API 失败不改本地列表，错误走 `app.message(for:)` / `ConnectionNotice`。
 
 ## 边界与测试
 
@@ -66,3 +66,8 @@ Boss 参考（群信息页成员卡，三张截图）：成员行 = 头像 + 名
 - 后端：`group_store.add_member` / `remove_member`；路由与 `GroupMemberAddIn`；`group_store_test` 增删回归。
 - iOS：API / ViewModel / `GroupInfoView`（Boss 参考：同卡「添加成员」、左滑 `minus.circle`、确认「移除 {Name}？」）+ 添加 sheet；Kit 契约 / ViewModel 测试。
 - 文档：本规格；`CHANGELOG` / `STATUS`；`bot-limits` 变更记录补「成员编辑已接线」。无 schema / Runtime / orchestrator 改动。
+
+### 2026-10-14 · 移除确认与动画修复（`fix/group-member-remove`）
+
+- 左滑按钮去掉 `role: .destructive`（改 `.tint(.red)`），确认框点「移除」后才请求 API；「取消」保留该行。
+- `removeMember` 先返回服务端群快照、不立刻改 `group`；视图在成功后 `withAnimation { applyGroup }` 做 List 原生行移除；失败保持原列表并提示错误。
