@@ -62,6 +62,8 @@ def trace_meta(user_id: int, name: str) -> dict:
 
 
 async def dispatch(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
+    if getattr(ctx,"chat_execution",None):
+        ctx.bot=ctx.chat_execution.check()
     if ctx.execution_mode == "owned":
         from ..services.owned_tasks.policy import require
         require(ctx, name)
@@ -77,6 +79,8 @@ async def dispatch(ctx: ToolContext, name: str, raw_args: str, call_id: str | No
 
 
 def _call_mcp(ctx: ToolContext, name: str, raw_args: str, call_id: str | None = None) -> dict:
+    if getattr(ctx,"chat_execution",None):
+        ctx.bot=ctx.chat_execution.check()
     tool = mcp_store.get_tool_by_full_name(ctx.user_id, name)
     if tool is None:
         if _uninstalled_plugin(ctx.user_id, name):

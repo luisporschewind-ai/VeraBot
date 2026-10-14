@@ -1,5 +1,6 @@
 """A separate process owns model work; HTTP only observes durable events."""
 import asyncio
+from copy import deepcopy
 import json
 import time
 import uuid
@@ -14,7 +15,7 @@ class Fenced(asyncio.CancelledError):pass
 
 class Execution:
     def __init__(self,task):
-        self.task=task;self.last_flush=time.monotonic();self.last_length=0;self.text='';self.traces=[];self.done=False
+        self.task=task;self.last_flush=time.monotonic();self.last_length=0;self.text='';self.traces=[];self.done=False;self.dirty_since=None
         self.checkpoint=store.decode_checkpoint(task.get('checkpoint_json'))
     def check(self,*,budget=True):
         with db.tx() as c:
@@ -23,7 +24,7 @@ class Execution:
         if not bot:raise Fenced()
         used,budget_limit=db.token_budget(self.task['user_id'])
         if budget and used>=budget_limit:raise store.ChatTaskError(429,'budget_exhausted','今日额度已用完')
-        return bot
+        return store.authorized_bot(self.task,bot)
     def history_rows(self):
         with db.tx() as c:
             return store.history_rows(c,self.task)
@@ -37,7 +38,7 @@ class Execution:
             if key=='mcp_read_servers':value=set(value)
             elif key=='reminder_created':value={tuple(k):v for k,v in value}
             if hasattr(turn,key):setattr(turn,key,value)
-        return cp['messages'],turn,cp.get('traces',[]),cp.get('answer',''),cp.get('usage',{}),cp.get('round',0)
+        return deepcopy(cp['messages']),turn,deepcopy(cp.get('traces',[])),cp.get('answer',''),dict(cp.get('usage',{})),cp.get('round',0)
     def checkpoint_save(self,messages,turn,traces,answer,usage,round_index,pending_calls=None):
         state={f.name:getattr(turn,f.name) for f in fields(turn) if f.name not in ('status_queue','parent_id','reminder_created')}
         state['mcp_read_servers']=list(state['mcp_read_servers'])
@@ -47,8 +48,8 @@ class Execution:
             if not store.live(c,self.task):raise Fenced()
             store.save_checkpoint(c,self.task,cp)
         self.checkpoint=cp
-    def start_tool(self,tc):
-        self.check()
+    def start_tool(self,tc,ctx):
+        ctx.bot=self.check()
         with db.tx(immediate=True) as c:return store.start_tool(c,self.task,tc)
     def complete_tool(self,tc,result):
         with db.tx(immediate=True) as c:
@@ -121,9 +122,11 @@ class Execution:
                 with db.tx(immediate=True) as c:store.event(c,self.task,ev["event"],ev["data"])
             return
         kind,data=ev['event'],ev['data']
-        if kind=='delta':self.text+=data['text']
+        if kind=='delta':
+            self.text+=data['text']
+            if self.dirty_since is None:self.dirty_since=time.monotonic()
         if kind=='tool_result':self.traces.append(data)
-        flush=kind!='delta' or len(self.text)-self.last_length>=256 or time.monotonic()-self.last_flush>=1
+        flush=kind!='delta' or len(self.text)-self.last_length>=256 or (self.dirty_since is not None and time.monotonic()>=self.dirty_since+1)
         if flush:
             with db.tx(immediate=True) as c:
                 if not store.live(c,self.task):raise Fenced()
@@ -136,7 +139,17 @@ class Execution:
                     store.phase(c,self.task,"tool")
                 store.save_partial(c,self.task,self.text,self.traces)
                 if kind!='delta':store.event(c,self.task,kind,data)
-            self.last_flush=time.monotonic();self.last_length=len(self.text)
+            self.last_flush=time.monotonic();self.last_length=len(self.text);self.dirty_since=None
+
+    def monitor_delay(self):
+        if self.dirty_since is None:return .5
+        return min(.5,max(0,self.dirty_since+1-time.monotonic()))
+    def flush_due(self):
+        if self.dirty_since is None or time.monotonic()<self.dirty_since+1:return True
+        with db.tx(immediate=True) as c:
+            if not store.save_partial(c,self.task,self.text,self.traces):return False
+        self.last_flush=time.monotonic();self.last_length=len(self.text);self.dirty_since=None
+        return True
 
 async def process_one(worker_id='chat-worker'):
     from . import approvals
@@ -146,7 +159,8 @@ async def process_one(worker_id='chat-worker'):
     if not task:return False
     execution=Execution(task)
     if execution.checkpoint:
-        execution.text=execution.checkpoint.get('answer','');execution.traces=execution.checkpoint.get('traces',[])
+        execution.text=execution.checkpoint.get('answer','');execution.traces=deepcopy(execution.checkpoint.get('traces',[]))
+        execution.last_length=len(execution.text)
     async def run():
         bot=execution.check()
         with db.tx() as c:text=store.input_content(c,task)
@@ -154,14 +168,12 @@ async def process_one(worker_id='chat-worker'):
     runner=asyncio.create_task(run())
     async def monitor():
         while not runner.done():
-            await asyncio.sleep(.5)
+            await asyncio.sleep(execution.monitor_delay())
             if execution.done:return
             with db.tx(immediate=True) as c:valid=store.heartbeat(c,task)
             if not valid:runner.cancel();return
-            # Flush partials within one second even when provider stalls after a delta.
-            if execution.text and time.monotonic()-execution.last_flush>=1 and not execution.done:
-                with db.tx(immediate=True) as c:store.save_partial(c,task,execution.text,execution.traces)
-                execution.last_flush=time.monotonic();execution.last_length=len(execution.text)
+            # Deadline starts at the first unsaved fragment, independent of heartbeat cadence.
+            if not execution.flush_due():runner.cancel();return
     heartbeat=asyncio.create_task(monitor())
     try:await runner
     except asyncio.CancelledError:

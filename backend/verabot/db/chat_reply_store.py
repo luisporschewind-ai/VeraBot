@@ -47,6 +47,9 @@ def accept(c,uid,bid,payload):
     out=c.execute("INSERT INTO messages(user_id,bot_id,role,content,created_at,message_status,conversation_generation) VALUES (?,?,'assistant','',?,'queued',?)",(uid,bid,now,gen)).lastrowid
     for aid in payload.get('attachment_ids',[]):attachment_store.attach(c,uid,aid,inp,bid)
     tid=c.execute('INSERT INTO chat_reply_tasks(user_id,bot_id,generation,client_request_id,payload_hash,input_message_id,output_message_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(uid,bid,gen,key,h,inp,out,now,now)).lastrowid
+    bot=c.execute("SELECT allowed_tools,delegate_to,memory_access FROM bots WHERE user_id=? AND id=?",(uid,bid)).fetchone()
+    authorization={"allowed_tools":json.loads(bot["allowed_tools"] or "[]"),"delegate_to":json.loads(bot["delegate_to"] or "[]"),"memory_access":bot["memory_access"] or "none"}
+    c.execute("UPDATE chat_reply_tasks SET authorization_json=? WHERE id=?",(json.dumps(authorization),tid))
     t=get(c,uid,bid,tid);event(c,t,'accepted',{'task':public(c,t)})
     response={'task':public(c,t),'user_message_id':inp,'assistant_message_id':out,'generation':gen,'cursor':activity.cursor(c,uid)}
     c.execute('INSERT INTO chat_input_receipts VALUES(?,?,?,?,?)',(uid,bid,key,h,json.dumps(response,ensure_ascii=False)))
@@ -259,3 +262,15 @@ def release_legacy(c,uid,bid,token):
 def recover_legacy(c):
     # Existing single API process deployment constraint: startup means old HTTP streams are gone.
     c.execute('DELETE FROM chat_legacy_sessions')
+
+
+def authorized_bot(t,bot):
+    frozen=json.loads(t.get('authorization_json') or '{}')
+    result=dict(bot)
+    for name in ('allowed_tools','delegate_to'):
+        allowed=set(frozen.get(name) or [])
+        result[name]=[value for value in bot.get(name,[]) if value in allowed]
+    accesses=['none','bot','bot_and_global']
+    current=bot.get('memory_access') or 'none';accepted=frozen.get('memory_access') or 'none'
+    result['memory_access']=accesses[min(accesses.index(current),accesses.index(accepted))]
+    return result

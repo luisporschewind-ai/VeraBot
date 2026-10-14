@@ -188,7 +188,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
                 args = {"_raw": tc["arguments"]}
             yield {"event": "tool_start", "data": {"id": tc["id"], "name": tc["name"], "args": args,
                                                    **trace_meta(user_id, tc["name"])}}
-            result = durable.start_tool(tc) if durable else None
+            result = durable.start_tool(tc,ctx) if durable else None
             if result is None:
                 async for kind, val in _run_tool_streaming(ctx, tc):
                     if kind == "status":

@@ -63,6 +63,7 @@ def migrate(c, ver):
         _add_column(c,'pending_actions',column,ddl)
     for sql in SCHEMA.split(';'):
         if sql.strip():c.execute(sql)
+    _add_column(c,"chat_reply_tasks","authorization_json", "TEXT NOT NULL DEFAULT '{}'")
     c.execute("INSERT OR IGNORE INTO conversation_activity SELECT user_id,'private',id,1 FROM bots")
     c.execute("INSERT OR IGNORE INTO conversation_activity SELECT user_id,'group',id,1 FROM chat_groups")
     if ver < 30:
@@ -86,8 +87,21 @@ END;''')
  DELETE FROM message_read_receipts WHERE user_id=OLD.user_id AND kind='{kind}' AND conversation_id=OLD.{cid} AND message_id=OLD.id;
  INSERT INTO conversation_events(user_id,kind,conversation_id,generation,event,created_at) VALUES(OLD.user_id,'{kind}',OLD.{cid},COALESCE((SELECT generation FROM conversation_activity WHERE user_id=OLD.user_id AND kind='{kind}' AND conversation_id=OLD.{cid}),1),'message_deleted',OLD.created_at);
 END;''')
-    statements.append('''CREATE TRIGGER IF NOT EXISTS chat_message_deleted AFTER DELETE ON messages WHEN EXISTS(SELECT 1 FROM users WHERE id=OLD.user_id) BEGIN
- UPDATE chat_reply_tasks SET state='stopped',phase='stopped',version=version+1,lease_token=NULL,updated_at=OLD.created_at WHERE user_id=OLD.user_id AND bot_id=OLD.bot_id AND (input_message_id=OLD.id OR output_message_id=OLD.id) AND state NOT IN ('completed','failed','stopped','interrupted');
+    # Replace this v30 trigger on idempotent init too, including isolated pre-review v30 DBs.
+    c.execute("DROP TRIGGER IF EXISTS chat_message_deleted")
+    statements.append('''CREATE TRIGGER chat_message_deleted AFTER DELETE ON messages WHEN EXISTS(SELECT 1 FROM users WHERE id=OLD.user_id) BEGIN
+ UPDATE messages SET content=CASE WHEN content='' THEN '输入消息已删除，回复已停止' ELSE content||'\n\n输入消息已删除，回复已停止' END,message_status='stopped'
+ WHERE user_id=OLD.user_id AND bot_id=OLD.bot_id AND id IN (
+   SELECT output_message_id FROM chat_reply_tasks WHERE user_id=OLD.user_id AND bot_id=OLD.bot_id AND input_message_id=OLD.id AND state NOT IN ('completed','failed','stopped','interrupted'));
+ INSERT INTO chat_reply_events(user_id,bot_id,task_id,generation,version,event,payload_json,created_at)
+ SELECT user_id,bot_id,id,generation,version+1,'task_updated',json_object('reason','message_deleted','message_id',output_message_id),strftime('%Y-%m-%dT%H:%M:%S+00:00','now')
+ FROM chat_reply_tasks WHERE user_id=OLD.user_id AND bot_id=OLD.bot_id AND (input_message_id=OLD.id OR output_message_id=OLD.id) AND state NOT IN ('completed','failed','stopped','interrupted');
+ UPDATE pending_actions SET status='cancelled',result='关联消息已删除',decided_at=strftime('%Y-%m-%dT%H:%M:%S+00:00','now')
+ WHERE user_id=OLD.user_id AND status='pending' AND chat_task_id IN (
+   SELECT id FROM chat_reply_tasks WHERE user_id=OLD.user_id AND bot_id=OLD.bot_id AND (input_message_id=OLD.id OR output_message_id=OLD.id) AND state NOT IN ('completed','failed','stopped','interrupted'));
+ UPDATE chat_tool_attempts SET state='unknown' WHERE state='running' AND task_id IN (
+   SELECT id FROM chat_reply_tasks WHERE user_id=OLD.user_id AND bot_id=OLD.bot_id AND (input_message_id=OLD.id OR output_message_id=OLD.id) AND state NOT IN ('completed','failed','stopped','interrupted'));
+ UPDATE chat_reply_tasks SET state='stopped',phase='stopped',version=version+1,lease_token=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%S+00:00','now') WHERE user_id=OLD.user_id AND bot_id=OLD.bot_id AND (input_message_id=OLD.id OR output_message_id=OLD.id) AND state NOT IN ('completed','failed','stopped','interrupted');
 END;''')
     for table,kind,cid in [('chat_reply_tasks','private','bot_id'),('chat_group_tasks','group','group_id'),('owned_tasks','private','owner_bot_id')]:
         for op in ['INSERT','UPDATE','DELETE']:

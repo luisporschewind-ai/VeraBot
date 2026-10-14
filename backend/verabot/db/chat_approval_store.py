@@ -9,8 +9,9 @@ def current(c,a):
     t=c.execute('SELECT * FROM chat_reply_tasks WHERE user_id=? AND id=?',(a['user_id'],a['chat_task_id'])).fetchone()
     if not t:return False
     t=dict(t)
-    bot=c.execute('SELECT allowed_tools FROM bots WHERE user_id=? AND id=?',(a['user_id'],t['bot_id'])).fetchone()
-    return bool(bot and a.get('tool_full_name') in json.loads(bot[0] or '[]') and t['state']=='awaiting_approval' and t['version']==a['chat_task_version'] and t['wait_id']==f"action:{a['id']}" and store.activity.generation(c,t['user_id'],'private',t['bot_id'])==t['generation'] and c.execute('SELECT COUNT(*) FROM messages WHERE user_id=? AND id IN (?,?)',(t['user_id'],t['input_message_id'],t['output_message_id'])).fetchone()[0]==2)
+    from .repository import _bot
+    bot=_bot(c.execute('SELECT * FROM bots WHERE user_id=? AND id=?',(a['user_id'],t['bot_id'])).fetchone())
+    return bool(bot and a.get('tool_full_name') in store.authorized_bot(t,bot)['allowed_tools'] and t['state']=='awaiting_approval' and t['version']==a['chat_task_version'] and t['wait_id']==f"action:{a['id']}" and store.activity.generation(c,t['user_id'],'private',t['bot_id'])==t['generation'] and c.execute('SELECT COUNT(*) FROM messages WHERE user_id=? AND id IN (?,?)',(t['user_id'],t['input_message_id'],t['output_message_id'])).fetchone()[0]==2)
 
 
 def preflight(uid,aid):
@@ -29,6 +30,20 @@ def _resolve(c,a):
     result=_decrypt(a.get('chat_result_enc'))
     unknown=a['status']=='unknown' or (a['status']=='done' and not result)
     resolution={'error':'操作结果未知，请到对应服务核实','code':'result_unknown'} if unknown else result or {'error':a.get('result') or a['status'],'code':a['status']}
+    # Approval executes outside the runtime: restore the same accounting/taint
+    # that synchronous MCP dispatch applies before the model sees its result.
+    turn=cp.setdefault('turn',{})
+    if a.get('chat_result_enc') is not None or unknown:
+        turn['mcp_calls']=int(turn.get('mcp_calls',0))+1
+    if resolution.get('content') or resolution.get('code')=='mcp_tool_error':
+        turn['untrusted_tainted']=True
+        server=c.execute('SELECT name,slug FROM mcp_servers WHERE user_id=? AND id=?',(a['user_id'],a.get('server_id'))).fetchone()
+        name=(server['name'] or server['slug']) if server else None
+        if not name:
+            name=next(((trace.get('result') or {}).get('server') for trace in cp.get('traces',[]) if (trace.get('result') or {}).get('action_id')==a['id']),None)
+        seen=set(turn.get('mcp_read_servers') or [])
+        if name:seen.add(name)
+        turn['mcp_read_servers']=sorted(seen)
     from ..agents.runtime import _tool_content
     for trace in cp.get('traces',[]):
         if (trace.get('result') or {}).get('action_id')==a['id']:

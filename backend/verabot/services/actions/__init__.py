@@ -115,13 +115,8 @@ def create_mcp_pending(
         tool_def_hash=tool.get("def_hash") or tool.get("accepted_hash"),
         expires_at=expires,
         owned_step=getattr(ctx, "owned_step", None),
+        chat_task=ctx.chat_execution.task if getattr(ctx,"chat_execution",None) else None,
     )
-    if getattr(ctx,"chat_execution",None):
-        execution=ctx.chat_execution
-        with db.tx(immediate=True) as c:
-            from ...db import chat_reply_store
-            if not chat_reply_store.bind_action(c,execution.task,action_id):
-                return {"error":"回复已停止","code":"task_changed"}
     ctx.turn.pending_created = getattr(ctx.turn, "pending_created", 0) + 1
     db.audit(ctx.user_id, ctx.bot.get("id"), "mcp_action_requested", {
         "action_id": action_id,
