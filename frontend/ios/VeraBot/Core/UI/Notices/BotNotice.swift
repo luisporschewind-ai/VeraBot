@@ -47,5 +47,12 @@ final class BotNoticeCenter {
         queue.show(notice, key: key, replacing: replacing)
     }
     func dismiss(id: UUID) { queue.dismiss(id: id) }
+    var notificationIDs: Set<Int> {
+        Set(([queue.current].compactMap { $0 } + queue.pending).compactMap {
+            $0.key.hasPrefix("notification:") ? Int($0.key.dropFirst("notification:".count)) : nil
+        })
+    }
+    func remove(key: String) { queue.remove(key: key) }
+    func removeNotification(_ id: Int) { queue.remove(key: "notification:\(id)") }
     func clear() { queue.clear() }
 }

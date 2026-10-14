@@ -126,3 +126,31 @@ public extension InboxNotification {
         }
     }
 }
+
+public struct NotificationRequestToken: Sendable, Equatable {
+    public let session: UInt64
+    public let revision: UInt64
+}
+public struct NotificationRequestGate: Sendable {
+    private var revision: UInt64 = 0
+    public init() {}
+    public mutating func begin(session: UInt64) -> NotificationRequestToken {
+        revision &+= 1
+        return NotificationRequestToken(session: session, revision: revision)
+    }
+    public func isCurrent(_ token: NotificationRequestToken, session: UInt64) -> Bool {
+        token.session == session && token.revision == revision
+    }
+}
+public extension NotificationEventPolicy {
+    static func retainedDisplayedIDs(_ notes: [InboxNotification], settings: NotificationSettings, now: Date) -> Set<Int> {
+        guard settings.enabled else { return [] }
+        return Set(notes.filter { note in
+            guard note.isUnread, note.openedAt == nil, note.suppressionReason == nil,
+                  settings.categories[note.category.rawValue] == true else { return false }
+            if let expires = VeraBotDate.parse(note.expiresAt), expires <= now { return false }
+            if let bot = note.botId, settings.mutedBots.contains(bot) { return false }
+            return true
+        }.map(\.id))
+    }
+}

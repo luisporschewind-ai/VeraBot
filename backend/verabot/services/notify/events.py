@@ -6,7 +6,7 @@ from .dispatcher import _public
 
 def list_events(user_id, *, after=None, through=None, limit=100):
     with db.tx() as c:
-        c.execute('BEGIN') # all pages see a committed snapshot
+        store.begin_snapshot(c) # all pages see a committed snapshot
         upper = store.bounds(c, user_id)
         reset = (after is not None and (after < 0 or after > upper)) or (through is not None and (through > upper or through < (after or 0)))
         base = {'events': [], 'next_cursor': upper, 'upper_bound': upper, 'has_more': False,
@@ -22,3 +22,8 @@ def list_events(user_id, *, after=None, through=None, limit=100):
                 'operation': item['operation'] if note else 'deleted', 'notification': _public(note) if note else None})
         base.update(next_cursor=found[-1]['id'] if more else bound, upper_bound=bound, has_more=more)
         return base
+
+
+def local_state(user_id, ids):
+    with db.tx() as c:
+        return {'notifications': [_public(note) for note in store.current_notifications(c, user_id, list(set(ids)))]}

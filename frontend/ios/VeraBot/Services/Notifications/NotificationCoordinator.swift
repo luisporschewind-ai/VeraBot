@@ -8,25 +8,25 @@ extension Notification.Name {
 }
 
 enum ReminderOutboxStore {
-    static func url(userID: Int) -> URL {
+    static func url(userID: Int, server: String) -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        return base.appendingPathComponent(ReminderOutbox.fileName(userID: userID))
+        return base.appendingPathComponent(ReminderOutbox.fileName(userID: userID, server: server))
     }
 
-    static func load(userID: Int) -> [ReminderOutboxItem] {
-        guard let data = try? Data(contentsOf: url(userID: userID)) else { return [] }
+    static func load(userID: Int, server: String) -> [ReminderOutboxItem] {
+        guard let data = try? Data(contentsOf: url(userID: userID, server: server)) else { return [] }
         return ReminderOutbox.decode(data)
     }
 
-    static func save(userID: Int, items: [ReminderOutboxItem]) {
-        let file = url(userID: userID)
+    static func save(userID: Int, server: String, items: [ReminderOutboxItem]) {
+        let file = url(userID: userID, server: server)
         try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? ReminderOutbox.encode(items).write(to: file, options: .atomic)
     }
 
-    static func remove(userID: Int) {
-        try? FileManager.default.removeItem(at: url(userID: userID))
+    static func remove(userID: Int, server: String) {
+        try? FileManager.default.removeItem(at: url(userID: userID, server: server))
     }
 }
 
@@ -40,6 +40,7 @@ private struct MainThreadCallback<Value>: @unchecked Sendable {
 
 /// 通知代理回调里取出的值（Sendable），交给主线程处理。
 struct NotificationTap: Sendable {
+    let sourceURL: String?
     let uid: Int?
     let reminderID: Int?
     let nid: Int?
@@ -81,42 +82,47 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
 
     func clearAll() {
         revision += 1
+        pendingTap = nil
+        preferences = .init()
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
         center.removeAllDeliveredNotifications()
         center.setBadgeCount(0) { _ in }
     }
 
-    func apply(planned: [PlannedNotification], userID: Int) async {
+    func apply(planned: [PlannedNotification], userID: Int, validReminderIDs: Set<Int>, request: NotificationRequestToken) async {
         let previous = schedulingTail
         let revision = revision
         let generation = app?.sessionGeneration
         let work = Task { @MainActor [weak self] in
             await previous?.value
-            guard let self, self.revision == revision, self.app?.userID == userID,
+            guard let self, self.revision == revision, self.app?.isCurrentReminderRequest(request) == true, self.app?.userID == userID,
                   self.app?.sessionGeneration == generation else { return }
             let center = UNUserNotificationCenter.current()
             let pending = await center.pendingNotificationRequests()
-            guard self.revision == revision, self.app?.sessionGeneration == generation else { return }
+            let delivered = await center.deliveredNotifications()
+            guard self.revision == revision, self.app?.isCurrentReminderRequest(request) == true, self.app?.sessionGeneration == generation else { return }
             let existing = pending.map {
                 ScheduledLocalNotification(identifier: $0.identifier, title: $0.content.title,
-                    repeats: $0.trigger?.repeats ?? false, signature: $0.content.userInfo["signature"] as? String)
+                    repeats: $0.trigger?.repeats ?? false, signature: $0.content.userInfo["source_url"] as? String == self.app?.baseURLString ? $0.content.userInfo["signature"] as? String : nil)
             }
             let diff = NotificationPlanner.reconcile(userID: userID, desired: planned, existing: existing)
             center.removePendingNotificationRequests(withIdentifiers: diff.remove)
+            center.removeDeliveredNotifications(withIdentifiers: NotificationPlanner.cancelDelivered(
+                userID: userID, validReminderIDs: validReminderIDs, identifiers: delivered.map { $0.request.identifier }))
             self.lastScheduleError = nil
             for item in diff.add {
-                guard self.revision == revision, self.app?.sessionGeneration == generation else { return }
+                guard self.revision == revision, self.app?.isCurrentReminderRequest(request) == true, self.app?.sessionGeneration == generation else { return }
                 let content = UNMutableNotificationContent()
                 content.title = item.title
                 content.sound = item.soundEnabled ? .default : nil
                 content.categoryIdentifier = "VB_REMINDER"
-                content.userInfo = ["uid": item.userID, "link": "reminder/\(item.reminderID)",
+                content.userInfo = ["source_url": self.app?.baseURLString ?? "", "uid": item.userID, "link": "reminder/\(item.reminderID)",
                                     "reminder_id": item.reminderID, "signature": item.signature]
                 guard let trigger = self.trigger(for: item, calendar: Calendar.current) else { continue }
                 do { try await center.add(UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger)) }
                 catch { self.lastScheduleError = error.localizedDescription }
-                if self.revision != revision || self.app?.sessionGeneration != generation {
+                if self.revision != revision || self.app?.sessionGeneration != generation || self.app?.isCurrentReminderRequest(request) != true {
                     center.removePendingNotificationRequests(withIdentifiers: [item.identifier]); return
                 }
             }
@@ -134,10 +140,12 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             guard let self, self.app?.userID == userID, self.app?.sessionGeneration == generation, self.revision == revision else { return }
             let center = UNUserNotificationCenter.current()
             let pending = await center.pendingNotificationRequests()
+            let delivered = await center.deliveredNotifications()
             guard self.app?.sessionGeneration == generation, self.revision == revision else { return }
             let prefix = "vb.\(userID).rem.\(reminderID)."
-            let ids = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
+            let ids = (pending + delivered.map(\.request)).map(\.identifier).filter { $0.hasPrefix(prefix) }
             center.removePendingNotificationRequests(withIdentifiers: ids)
+            center.removeDeliveredNotifications(withIdentifiers: ids)
             let permission = await center.notificationSettings().authorizationStatus
             guard self.app?.sessionGeneration == generation, self.revision == revision,
                   self.preferences.enabled, self.preferences.categories["reminder"] == true,
@@ -147,7 +155,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             item.soundEnabled = self.preferences.soundEnabled
             let content = UNMutableNotificationContent()
             content.title = title; content.sound = item.soundEnabled ? .default : nil; content.categoryIdentifier = "VB_REMINDER"
-            content.userInfo = ["uid": userID, "reminder_id": reminderID, "link": "reminder/\(reminderID)", "signature": item.signature]
+            content.userInfo = ["source_url": self.app?.baseURLString ?? "", "uid": userID, "reminder_id": reminderID, "link": "reminder/\(reminderID)", "signature": item.signature]
             guard let trigger = self.trigger(for: item, calendar: .current) else { return }
             do { try await center.add(UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger)) }
             catch { self.lastScheduleError = error.localizedDescription }
@@ -195,11 +203,12 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         let info = notification.request.content.userInfo
+        let sourceURL = info["source_url"] as? String
         let uid = info["uid"] as? Int
         let nid = info["nid"] as? Int
         let done = MainThreadCallback(completionHandler)
         Task { @MainActor in
-            let options = await self.handleWillPresent(uid: uid, nid: nid)
+            let options = await self.handleWillPresent(uid: uid, nid: nid, sourceURL: sourceURL)
             done.call(options)
         }
     }
@@ -209,7 +218,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         let request = response.notification.request
         let info = request.content.userInfo
         let tap = NotificationTap(
-            uid: info["uid"] as? Int, reminderID: info["reminder_id"] as? Int, nid: info["nid"] as? Int,
+            sourceURL: info["source_url"] as? String, uid: info["uid"] as? Int, reminderID: info["reminder_id"] as? Int, nid: info["nid"] as? Int,
             link: info["link"] as? String, identifier: request.identifier,
             actionIdentifier: response.actionIdentifier, title: request.content.title
         )
@@ -220,8 +229,8 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         }
     }
 
-    private func handleWillPresent(uid: Int?, nid: Int?) async -> UNNotificationPresentationOptions {
-        guard let app, let uid, uid == app.userID, preferences.enabled else { return [] }
+    private func handleWillPresent(uid: Int?, nid: Int?, sourceURL: String?) async -> UNNotificationPresentationOptions {
+        guard let app, let uid, uid == app.userID, sourceURL == app.baseURLString, preferences.enabled else { return [] }
         if nid == nil && preferences.categories["reminder"] != true { return [] }
         if let nid {
             await app.report(notificationID: nid, event: "delivered", channel: "local")
@@ -233,7 +242,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         let center = UNUserNotificationCenter.current()
         let uid = tap.uid
         guard let app, app.token != nil else { pendingTap = tap; return }
-        guard uid == app.userID else {
+        guard uid == app.userID, tap.sourceURL == app.baseURLString else {
             center.removeDeliveredNotifications(withIdentifiers: [tap.identifier])
             center.removePendingNotificationRequests(withIdentifiers: [tap.identifier])
             return
@@ -287,7 +296,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             content.sound = settings.soundEnabled && !coalesced ? .default : nil
             content.categoryIdentifier = "VB_GENERIC"
             content.threadIdentifier = note.localThreadKey
-            content.userInfo = ["uid": userID, "nid": note.id, "link": note.link ?? "inbox"]
+            content.userInfo = ["source_url": self.app?.baseURLString ?? "", "uid": userID, "nid": note.id, "link": note.link ?? "inbox"]
             do {
                 try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
                 if self.app?.sessionGeneration != generation || self.revision != revision {
@@ -300,6 +309,15 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         }
         schedulingTail = Task { _ = await work.value }
         try await work.value.get()
+    }
+
+    func eventNotificationIDs(userID: Int) async -> Set<Int> {
+        let center = UNUserNotificationCenter.current()
+        let pending = await center.pendingNotificationRequests()
+        let delivered = await center.deliveredNotifications()
+        return Set((pending + delivered.map(\.request)).compactMap {
+            $0.content.userInfo["uid"] as? Int == userID ? $0.content.userInfo["nid"] as? Int : nil
+        })
     }
 
     func removeEvent(notificationID: Int, userID: Int) async {

@@ -75,3 +75,19 @@ private func eventNote(id: Int = 1, created: Date, read: Bool = false, category:
     ledger.failed(note, now: now.addingTimeInterval(30))
     #expect(ledger.pending.isEmpty)
 }
+
+@Test func notificationBootstrapSnapshotRetainsOnlyValidDisplayedAlerts() throws {
+    let now = Date()
+    let notes = [try eventNote(id: 1, created: now), try eventNote(id: 2, created: now, read: true)]
+    #expect(NotificationEventPolicy.retainedDisplayedIDs(notes, settings: .init(), now: now) == [1])
+    #expect(NotificationEventPolicy.retainedDisplayedIDs(notes, settings: .init(enabled: false), now: now).isEmpty)
+}
+
+@Test func notificationOlderRefreshCannotOverwriteAcknowledgedAction() {
+    var gate = NotificationRequestGate()
+    let old = gate.begin(session: 1)
+    let actionRefresh = gate.begin(session: 1)
+    #expect(!gate.isCurrent(old, session: 1))
+    #expect(gate.isCurrent(actionRefresh, session: 1))
+    #expect(!gate.isCurrent(actionRefresh, session: 2))
+}

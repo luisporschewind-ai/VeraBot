@@ -32,5 +32,9 @@ struct NoticeQueue<Message: Equatable> {
         guard current?.id == id else { return }
         current = pending.isEmpty ? nil : pending.removeFirst()
     }
+    mutating func remove(key: String) {
+        pending.removeAll { $0.key == key }
+        if let current, current.key == key { dismiss(id: current.id) }
+    }
     mutating func clear() { current = nil; pending.removeAll() }
 }

@@ -4,7 +4,7 @@ from .worker import process_one
 async def main(once=False):
  owner=uuid.uuid4().hex
  with db.tx() as c:
-  if __import__('verabot.db.owned_task_store',fromlist=['schema_version']).schema_version(c)<29:raise RuntimeError('先由 API 在备份后的数据库应用迁移')
+  if __import__('verabot.db.owned_task_store',fromlist=['schema_version']).schema_version(c)<30:raise RuntimeError('先由 API 在备份后的数据库应用迁移至 v30')
  if once:await process_one(owner);return
  while True:
   if not await process_one(owner):await asyncio.sleep(1)

@@ -218,3 +218,21 @@ def consult_permitted(c,step,task):
 
 def checkpoint_action(c,uid,aid,encoded):
  c.execute('UPDATE pending_actions SET owned_result_enc=? WHERE user_id=? AND id=? AND owned_task_id IS NOT NULL',(encoded,uid,aid))
+
+
+def latest_state_event(c, task_id, version):
+ return row(c.execute('SELECT e.* FROM owned_events e JOIN owned_tasks t ON t.id=e.task_id WHERE e.task_id=? AND e.version=? AND e.kind=t.state ORDER BY e.id DESC LIMIT 1', (task_id,version)).fetchone())
+
+
+def pending_state_notifications(c):
+ return [dict(r) for r in c.execute("""SELECT e.*,t.owner_bot_id,t.goal,t.state FROM owned_events e JOIN owned_tasks t ON t.id=e.task_id
+ WHERE e.notified_at IS NULL AND e.version=t.version AND e.kind=t.state AND e.kind IN ('completed','failed','interrupted','awaiting_user','awaiting_approval')
+ AND e.id=(SELECT MAX(x.id) FROM owned_events x WHERE x.task_id=e.task_id AND x.version=e.version AND x.kind=e.kind)
+ AND NOT EXISTS(SELECT 1 FROM notifications n WHERE n.user_id=e.user_id AND n.dedupe_key='owned-state:' || e.id)
+ AND NOT EXISTS(SELECT 1 FROM owned_steps s WHERE s.task_id=t.id AND s.version=t.version AND s.kind='owner' AND s.result_json IS NOT NULL AND s.delivered_at IS NULL AND s.status NOT IN ('running','retry_wait','cancelled'))
+ AND NOT EXISTS(SELECT 1 FROM notifications n JOIN owned_steps s ON n.dedupe_key='owned-step:' || s.id WHERE n.user_id=e.user_id AND s.task_id=t.id AND s.version=t.version)
+ ORDER BY e.id LIMIT 100""")]
+
+
+def mark_state_notified(c, event_id, notification_id):
+ c.execute('UPDATE owned_events SET notified_at=?,notification_id=? WHERE id=?', (now_iso(),notification_id,event_id))

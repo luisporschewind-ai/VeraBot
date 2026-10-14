@@ -12,8 +12,8 @@ log=logging.getLogger('verabot.scheduled_tasks')
 
 async def main(once=False):
     with db.tx() as c:
-        if scheduled_task_store.schema_version(c)<23:
-            raise RuntimeError('Start the API once to apply schema v23 before starting this worker')
+        if scheduled_task_store.schema_version(c)<30:
+            raise RuntimeError('Start the API once to apply schema v30 before starting this worker')
     owner=uuid4().hex
     if once:
         scheduler.tick()

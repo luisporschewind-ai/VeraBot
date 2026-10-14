@@ -106,7 +106,7 @@ def _suppress_reason(prefs, category: str, *, bot_id, created_by, now, rate_reas
 def notify(user_id: int, *, category: str, title: str, body: str | None = None, sensitive: bool = False,
            bot_id: int | None = None, reminder_id: int | None = None, message_id: int | None = None,
            plugin_id: str | None = None, link: str | None = None, thread_id: str | None = None,
-           dedupe_key: str, created_by: str | None = None, source_kind: str | None = None, source_id: str | None = None, source_state: str | None = None, conn=None) -> dict:
+           dedupe_key: str, created_by: str | None = None, source_kind: str | None = None, source_id: str | None = None, source_state: str | None = None, occurred_at: str | None = None, conn=None) -> dict:
     if category not in {"reminder", "bot_message", "task_result", "delegation", "plugin", "system"}:
         raise ValueError("未知通知分类")
 
@@ -121,7 +121,7 @@ def notify(user_id: int, *, category: str, title: str, body: str | None = None, 
             category, title, body, prefs["preview"], sensitive, bot_name)
         rate = None if source_kind == "chat_reply" else _limited(c, user_id, category, bot_id, plugin_id, now, prefs["quiet_timezone"])
         reason = _suppress_reason(prefs, category, bot_id=bot_id, created_by=created_by, now=now, rate_reason=rate)
-        created = clock.iso_utc(now)
+        created = occurred_at or clock.iso_utc(now)
         expires = clock.iso_utc(now + timedelta(days=30))
         nid = store.insert_notification(c, (
             user_id, "bot_message" if category == "task_result" else category, shown_title, shown_body, 1 if (sensitive or force_sensitive) else 0,
@@ -191,7 +191,8 @@ def list_notifications(user_id: int, *, unread=False, category=None, before_id=N
 
 def summary(user_id: int) -> dict:
     with db.tx() as c:
-        return {"unread_count": store.unread_count(c, user_id), "by_category": store.unread_by_category(c, user_id)}
+        return {"unread_count": store.unread_count(c, user_id), "by_category": store.unread_by_category(c, user_id),
+                "pending_action_count": store.pending_notification_actions(c, user_id, clock.iso_utc(clock.now()), get_prefs(user_id, conn=c)["muted_bots"])}
 
 
 def mark_read(user_id: int, nid: int, *, read: bool) -> dict:
@@ -239,7 +240,10 @@ def report_event(user_id: int, nid: int, *, event: str, channel: str, device_id:
                 when if event == "delivered" else None, when if event == "opened" else None)
         else:
             current = found["state"]
-            if RANK.get(event, 0) >= RANK.get(current, 0) and current not in {"suppressed", "failed", "expired", "cancelled"}:
+            terminal = current in {"suppressed", "expired", "cancelled"}
+            regresses_confirmed_delivery = event == "failed" and current in {"delivered", "opened", "dismissed"}
+            retry_confirmed = current == "failed" and event != "failed"
+            if not terminal and not regresses_confirmed_delivery and (retry_confirmed or RANK.get(event, 0) >= RANK.get(current, 0)):
                 delivered = found["delivered_at"] or (when if event in {"delivered", "opened"} else None)
                 opened = found["opened_at"] or (when if event == "opened" else None)
                 store.advance_delivery(c, state, when, delivered, opened, found["id"])

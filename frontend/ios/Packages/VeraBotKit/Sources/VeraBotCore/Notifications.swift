@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 public enum NotificationCategory: String, Codable, Sendable, Hashable {
     case reminder, bot_message, task_result, delegation, plugin, system, unknown
@@ -123,15 +124,18 @@ public struct NotificationsResponse: Codable, Sendable {
 public struct NotificationSummary: Codable, Sendable {
     public var unreadCount: Int
     public var byCategory: [String: Int]
+    public var pendingActionCount: Int
 
     enum CodingKeys: String, CodingKey {
         case unreadCount = "unread_count"
         case byCategory = "by_category"
+        case pendingActionCount = "pending_action_count"
     }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         unreadCount = try c.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
+        pendingActionCount = try c.decodeIfPresent(Int.self, forKey: .pendingActionCount) ?? 0
         byCategory = try c.decodeIfPresent([String: Int].self, forKey: .byCategory) ?? [:]
     }
 }
@@ -307,7 +311,7 @@ public enum NotificationPlanner {
                 items.append(oneShot(userID: userID, reminder: reminder, title: title, fire: until))
                 continue
             }
-            let offsets = Array(Set(reminder.alertOffsets)).sorted()
+            let offsets = Array(Set(reminder.alertOffsets.isEmpty ? [0] : reminder.alertOffsets.filter { (-10080...0).contains($0) })).sorted()
             if let kind = simpleKind(reminder.rrule), let anchor = reminder.dueUTC ?? reminder.nextFires.first {
                 var calendar = Calendar(identifier: .gregorian)
                 calendar.timeZone = TimeZone(identifier: reminder.timeZone) ?? .gmt
@@ -320,7 +324,7 @@ public enum NotificationPlanner {
                             let mondayBased = weekday == 1 ? 7 : weekday - 1
                             base = calendar.date(byAdding: .day, value: day - mondayBased, to: anchor) ?? anchor
                         }
-                        let shifted = base.addingTimeInterval(-Double(offset) * 60)
+                        let shifted = base.addingTimeInterval(Double(offset) * 60)
                         var parts = calendar.dateComponents([.hour, .minute], from: shifted)
                         let targetWeekday = kind == "daily" ? nil : calendar.component(.weekday, from: shifted)
                         if let targetWeekday { parts.weekday = targetWeekday }
@@ -336,7 +340,7 @@ public enum NotificationPlanner {
                 // Advance alerts use server occurrence instants so DST transitions cannot shift their offset.
                 for occurrence in reminder.nextFires.isEmpty ? [anchor] : reminder.nextFires {
                     for offset in offsets where offset != 0 {
-                        let fire = occurrence.addingTimeInterval(-Double(offset) * 60)
+                        let fire = occurrence.addingTimeInterval(Double(offset) * 60)
                         if fire > now && fire <= now.addingTimeInterval(horizon) {
                             items.append(oneShot(userID: userID, reminder: reminder, title: title, fire: fire))
                         }
@@ -345,7 +349,7 @@ public enum NotificationPlanner {
             } else {
                 for occurrence in reminder.nextFires {
                     for offset in offsets {
-                        let fire = occurrence.addingTimeInterval(-Double(offset) * 60)
+                        let fire = occurrence.addingTimeInterval(Double(offset) * 60)
                         if fire > now && fire <= now.addingTimeInterval(horizon) {
                             items.append(oneShot(userID: userID, reminder: reminder, title: title, fire: fire))
                         }
@@ -358,6 +362,25 @@ public enum NotificationPlanner {
             .filter { seen.insert($0.identifier).inserted }.prefix(maxPending)).map {
                 var item = $0; item.soundEnabled = settings.soundEnabled; return item
             }
+    }
+
+    public static func eligibleReminderIDs(_ reminders: [Reminder], settings: NotificationSettings,
+                                           overrides: [ReminderLocalOverride] = []) -> Set<Int> {
+        guard settings.enabled, settings.categories["reminder"] == true else { return [] }
+        return Set(reminders.filter { reminder in
+            guard reminder.notify, [.scheduled, .due, .snoozed].contains(reminder.status),
+                  !overrides.contains(where: { $0.reminderID == reminder.id && $0.action == "complete" }) else { return false }
+            let botID = reminder.assigneeBotId ?? reminder.sourceBotId
+            return reminder.createdBy == "user" || botID.map { !settings.mutedBots.contains($0) } ?? true
+        }.map(\.id))
+    }
+
+    public static func cancelDelivered(userID: Int, validReminderIDs: Set<Int>, identifiers: [String]) -> [String] {
+        let prefix = "vb.\(userID).rem."
+        return identifiers.filter { identifier in
+            guard identifier.hasPrefix(prefix), let id = Int(identifier.dropFirst(prefix.count).split(separator: ".").first ?? "") else { return false }
+            return !validReminderIDs.contains(id)
+        }
     }
 
     public static func reconcile(userID: Int, desired: [PlannedNotification], existing: [ScheduledLocalNotification]) -> (remove: [String], add: [PlannedNotification]) {
@@ -492,7 +515,11 @@ public struct ReminderOutboxItem: Codable, Equatable, Sendable {
 }
 
 public enum ReminderOutbox {
-    public static func fileName(userID: Int) -> String { "outbox-\(userID).json" }
+    public static func fileName(userID: Int, server: String? = nil) -> String {
+        guard let server else { return "outbox-\(userID).json" }
+        let digest = SHA256.hash(data: Data(server.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+        return "outbox-\(digest)-\(userID).json"
+    }
 
     public static func decode(_ data: Data) -> [ReminderOutboxItem] {
         (try? JSONDecoder().decode([ReminderOutboxItem].self, from: data)) ?? []

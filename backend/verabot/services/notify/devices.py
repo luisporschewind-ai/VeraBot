@@ -39,8 +39,7 @@ def register(user_id: int, body: dict) -> dict:
                 c, user_id, device_id, platform, token, body.get("apns_env"), body.get("app_version"),
                 body.get("os_version"), body.get("timezone"), fields["local_reminders"], now,
             )
-        c.execute("UPDATE push_devices SET local_events=? WHERE user_id=? AND device_id=?",
-                  (int(bool(body.get("local_events", False))), user_id, device_id))
+        store.set_device_local_events(c, user_id, device_id, bool(body.get("local_events", False)))
     return public_device(user_id, device_id)
 
 

@@ -22,6 +22,12 @@ class NotificationEventsTests(unittest.TestCase):
         cls.uid = a['user']['id']; cls.other = b['user']['id']
         cls.headers = {'Authorization': 'Bearer ' + a['token']}
         cls.bot = client.post('/api/bots', headers=cls.headers, json={'name':'Events'}).json()['id']
+    def setUp(self):
+        client.patch('/api/notification-settings', headers=self.headers, json={
+            'enabled':True, 'preview':'title', 'quiet_enabled':False, 'muted_bots':[],
+            'categories':{'reminder':True, 'bot_message':True, 'task_result':True, 'system':True}})
+        client.post('/api/notifications/read-all', headers=self.headers, json={})
+
     def feed(self, **params):
         response = client.get('/api/notification-events', headers=self.headers, params=params)
         self.assertEqual(response.status_code, 200, response.text)
@@ -70,6 +76,62 @@ class NotificationEventsTests(unittest.TestCase):
         self.assertEqual(filtered['notifications'][0]['id'], note['id'])
         self.assertEqual(client.get('/api/notifications/summary', headers=self.headers).json()['by_category']['task_result'], 1)
         client.patch('/api/notification-settings', headers=self.headers, json={'categories': {'task_result': True}, 'preview':'title'})
+    def test_account_cascade_and_migration_reopen(self):
+        user = client.post('/api/auth/register', json={'username':'event-delete','password':'pw123456'}).json()['user']['id']
+        notify(user, category='system', title='delete me', dedupe_key='delete-user')
+        with db.tx() as c:
+            before = c.execute('SELECT COUNT(*) FROM notification_events').fetchone()[0]
+        db.init_db()
+        with db.tx() as c:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM notification_events').fetchone()[0], before)
+            c.execute('DELETE FROM users WHERE id=?', (user,))
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM notification_events WHERE user_id=?', (user,)).fetchone()[0], 0)
+            self.assertEqual(c.execute('PRAGMA foreign_key_check').fetchall(), [])
+
+    def test_local_snapshot_and_worker_schema_gate(self):
+        note = notify(self.uid, category='system', title='snapshot', dedupe_key='snapshot')
+        response = client.post('/api/notifications/local-state', headers=self.headers, json={'ids':[note['id'], 99999999]})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual([n['id'] for n in response.json()['notifications']], [note['id']])
+        with db.tx() as c: c.execute("UPDATE schema_meta SET value='29' WHERE key='version'")
+        try:
+            for module in ('owned_tasks', 'scheduled_tasks'):
+                result = subprocess.run([sys.executable, '-m', 'verabot.services.' + module, '--once'], cwd=ROOT,
+                    env=os.environ.copy(), capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0, module)
+                self.assertIn('v30', result.stderr)
+        finally:
+            with db.tx() as c: c.execute("UPDATE schema_meta SET value='30' WHERE key='version'")
+
+    def test_recovered_task_without_result_notifies_once(self):
+        from verabot.db import owned_task_store
+        from verabot.services.owned_tasks import delivery
+        with db.tx(immediate=True) as c:
+            task = owned_task_store.create(c, self.uid, {'id':self.bot, 'name':'Events'},
+                {'goal':'recover task', 'completion_criteria':'done'}, 'recovery-notification', 'hash', {})
+            owned_task_store.invalidate(c, task, 'interrupted', 'execution_unknown')
+        delivery.flush(); delivery.flush()
+        notes = client.get('/api/notifications', headers=self.headers, params={'category':'task_result'}).json()['notifications']
+        matched = [n for n in notes if n['source_kind']=='owned_task' and n['source_id']==str(task['id'])]
+        self.assertEqual(len(matched), 1)
+        self.assertEqual(matched[0]['source_state'], 'interrupted')
+        client.delete(f"/api/notifications/{matched[0]['id']}", headers=self.headers)
+        delivery.flush()
+        remaining = client.get('/api/notifications', headers=self.headers, params={'category':'task_result'}).json()['notifications']
+        self.assertFalse(any(n['source_kind']=='owned_task' and n['source_id']==str(task['id']) for n in remaining))
+
+    def test_pending_task_summary_excludes_resolved_tasks(self):
+        from verabot.db import owned_task_store
+        from verabot.services.owned_tasks import delivery
+        with db.tx(immediate=True) as c:
+            task = owned_task_store.create(c, self.uid, {'id':self.bot, 'name':'Events'},
+                {'goal':'waiting task', 'completion_criteria':'done'}, 'waiting-summary', 'hash', {})
+            task = owned_task_store.invalidate(c, task, 'awaiting_user', 'needs_input')
+        delivery.flush()
+        self.assertEqual(client.get('/api/notifications/summary', headers=self.headers).json()['pending_action_count'], 1)
+        with db.tx(immediate=True) as c: owned_task_store.invalidate(c, task, 'stopped')
+        self.assertEqual(client.get('/api/notifications/summary', headers=self.headers).json()['pending_action_count'], 0)
+
     def test_atomic_message_publication_and_delivery_receipt(self):
         from verabot.services.notify.dispatcher import report_event
         cursor = self.feed()['next_cursor']
@@ -84,6 +146,9 @@ class NotificationEventsTests(unittest.TestCase):
         note = notify(self.uid, category='bot_message', title='reply', bot_id=self.bot, dedupe_key='receipt', source_kind='chat_reply')
         result = report_event(self.uid, note['id'], event='scheduled', channel='local', device_id='new-device', at=None)
         self.assertEqual(result['state'], 'scheduled')
+        report_event(self.uid, note['id'], event='failed', channel='local', device_id='new-device', at=None)
+        retried = report_event(self.uid, note['id'], event='scheduled', channel='local', device_id='new-device', at=None)
+        self.assertEqual(retried['state'], 'scheduled')
 
     def test_reply_notification_does_not_use_proactive_limit(self):
         for i in range(5):

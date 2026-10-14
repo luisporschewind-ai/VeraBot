@@ -131,7 +131,7 @@ def update_prefs(user_id: int, patch: dict) -> dict:
             json.dumps(current["muted_bots"]), 1 if current["quiet_enabled"] else 0,
             current["quiet_start"], current["quiet_end"], current["quiet_timezone"], current["preview"], now,
         )
-        c.execute("UPDATE notification_prefs SET sound_enabled=? WHERE user_id=?", (int(current["sound_enabled"]), user_id))
+        store.set_notification_sound(c, user_id, current["sound_enabled"])
     return current
 
 

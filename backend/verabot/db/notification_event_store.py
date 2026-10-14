@@ -7,3 +7,13 @@ def bounds(c, user_id):
 def page(c, user_id, after, through, limit):
     return rows(c.execute('SELECT * FROM notification_events WHERE user_id=? AND id>? AND id<=? ORDER BY id LIMIT ?',
                           (user_id, after, through, limit)).fetchall())
+
+
+def begin_snapshot(c):
+    c.execute('BEGIN')
+
+
+def current_notifications(c, user_id, ids):
+    if not ids: return []
+    placeholders = ','.join('?' for _ in ids)
+    return rows(c.execute(f'SELECT * FROM notifications WHERE user_id=? AND id IN ({placeholders})', (user_id, *ids)).fetchall())

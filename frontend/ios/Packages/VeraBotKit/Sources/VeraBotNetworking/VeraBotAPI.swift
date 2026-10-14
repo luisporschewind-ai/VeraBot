@@ -94,6 +94,7 @@ public protocol VeraBotAPI: Sendable {
     func restoreReminder(_ id: Int) async throws -> Reminder
     func deleteReminder(_ id: Int, scope: String) async throws -> Reminder
     func notifications(unread: Bool, category: String?) async throws -> NotificationsResponse
+    func localNotificationState(ids: [Int]) async throws -> [InboxNotification]
     func notificationEvents(after: Int?, through: Int?) async throws -> NotificationEventPage
     func notificationSummary() async throws -> NotificationSummary
     func markNotificationRead(_ id: Int) async throws -> InboxNotification

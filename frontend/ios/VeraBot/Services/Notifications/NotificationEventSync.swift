@@ -4,6 +4,7 @@ import CryptoKit
 import UserNotifications
 import UIKit
 import VeraBotCore
+import VeraBotNetworking
 
 @MainActor @Observable
 final class NotificationEventSync {
@@ -11,6 +12,7 @@ final class NotificationEventSync {
     @ObservationIgnored private weak var notices: BotNoticeCenter?
     @ObservationIgnored private var ledger = NotificationEventLedger()
     @ObservationIgnored private var scope: String?
+    @ObservationIgnored private var forceBootstrap = true
     @ObservationIgnored private var syncing = false
     @ObservationIgnored private var syncOwner = UUID()
     private(set) var errorText: String?
@@ -25,6 +27,9 @@ final class NotificationEventSync {
     init(app: AppState) { self.app = app }
     func attach(_ notices: BotNoticeCenter) { self.notices = notices }
     func invalidate() {
+        notices?.clear()
+        settings = .init(); pendingReminderCount = 0; reminderCoverageEnd = nil; scheduleErrorText = nil
+        forceBootstrap = true
         syncing = false; syncOwner = UUID()
         ledger = NotificationEventLedger(); scope = nil
         visibleMessageIDs = []; visibleBotID = nil; errorText = nil
@@ -53,6 +58,26 @@ final class NotificationEventSync {
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         try JSONEncoder().encode(ledger).write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
+    private func reconcileDisplayed(api: any VeraBotAPI, userID: Int, now: Date) async throws {
+        guard let app else { throw CancellationError() }
+        let generation = app.sessionGeneration
+        let sourceURL = app.baseURLString
+        let ids = await NotificationCoordinator.shared.eventNotificationIDs(userID: userID).union(notices?.notificationIDs ?? [])
+        var retained = Set<Int>()
+        let list = Array(ids)
+        for start in stride(from: 0, to: list.count, by: 200) {
+            let notes = try await api.localNotificationState(ids: Array(list[start..<min(start + 200, list.count)]))
+            try Task.checkCancellation()
+            guard app.userID == userID, app.isCurrentSession(generation), app.baseURLString == sourceURL else { throw CancellationError() }
+            retained.formUnion(NotificationEventPolicy.retainedDisplayedIDs(notes, settings: settings, now: now))
+        }
+        for id in ids.subtracting(retained) {
+            try Task.checkCancellation()
+            guard app.userID == userID, app.isCurrentSession(generation), app.baseURLString == sourceURL else { throw CancellationError() }
+            await NotificationCoordinator.shared.removeEvent(notificationID: id, userID: userID)
+            notices?.removeNotification(id)
+        }
+    }
     func syncOnce() async throws {
         guard !syncing, let app, let uid = app.userID, app.token != nil else { return }
         let owner = UUID(); syncOwner = owner; syncing = true
@@ -80,27 +105,38 @@ final class NotificationEventSync {
         try check()
         let deviceAllows = [.authorized, .provisional, .ephemeral].contains(permission)
         let now = Date()
-        if ledger.needsBootstrap(now: now) {
+        var bootstrapped = false
+        if forceBootstrap || ledger.needsBootstrap(now: now) {
             let page = try await api.notificationEvents(after: nil, through: nil)
-            try check(); ledger.bootstrap(cursor: page.nextCursor, now: now); try save()
+            try check(); try await reconcileDisplayed(api: api, userID: uid, now: now)
+            try check(); ledger.bootstrap(cursor: page.nextCursor, now: now); try save(); bootstrapped = true; forceBootstrap = false
         } else {
             var through: Int?
             var more = true
             while more {
                 let page = try await api.notificationEvents(after: ledger.cursor, through: through)
                 try check()
-                if page.resetRequired { ledger.bootstrap(cursor: page.nextCursor, now: now); try save(); break }
+                if page.resetRequired {
+                    try await reconcileDisplayed(api: api, userID: uid, now: now); try check()
+                    ledger.bootstrap(cursor: page.nextCursor, now: now); try save(); bootstrapped = true; forceBootstrap = false; break
+                }
                 ledger.ingest(page, now: now)
                 try save() // cursor and pending events share an atomic write
                 for event in page.events where event.operation == "deleted" || event.notification?.isUnread == false {
                     await NotificationCoordinator.shared.removeEvent(notificationID: event.notificationID, userID: uid)
-                    if notices?.current?.key == "notification:\(event.notificationID)", let id = notices?.current?.id { notices?.dismiss(id: id) }
+                    try check(); notices?.removeNotification(event.notificationID)
                 }
                 through = page.upperBound; more = page.hasMore
             }
         }
         let summary = try await api.notificationSummary()
         try check(); app.unreadCount = summary.unreadCount
+        if summary.pendingActionCount == 0 { notices?.remove(key: "notification:pending-tasks") }
+        if bootstrapped, summary.pendingActionCount > 0, isForeground, settings.enabled,
+           settings.categories["task_result"] == true, !NotificationEventPolicy.inQuietHours(settings, now: now) {
+            notices?.show(BotNotice(title: "有 \(summary.pendingActionCount) 项任务需要你处理", tone: .confirmation,
+                avatar: .awaitingConfirmation, actionTitle: "查看", duration: 5, link: "inbox"), key: "notification:pending-tasks")
+        }
         try? await center.setBadgeCount(summary.unreadCount)
         try check()
         for event in ledger.pending {

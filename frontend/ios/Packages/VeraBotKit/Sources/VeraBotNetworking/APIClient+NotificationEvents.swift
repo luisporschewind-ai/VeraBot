@@ -9,3 +9,17 @@ extension APIClient {
         return try await call("/api/notification-events", query: query)
     }
 }
+
+extension APIClient {
+    public func localNotificationState(ids: [Int]) async throws -> [InboxNotification] {
+        struct Body: Encodable { let ids: [Int] }
+        struct Response: Decodable { let notifications: [InboxNotification] }
+        let result: Response = try await call("/api/notifications/local-state", method: "POST", body: encode(Body(ids: ids)))
+        return result.notifications
+    }
+}
+public extension VeraBotAPI {
+    func localNotificationState(ids: [Int]) async throws -> [InboxNotification] {
+        throw APIError(status: 501, message: "通知同步暂不可用")
+    }
+}
