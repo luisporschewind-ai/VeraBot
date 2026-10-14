@@ -74,3 +74,4 @@ Boss 参考（群信息页成员卡，三张截图）：成员行 = 头像 + 名
 - 添加成员 sheet：去掉底部 hint/footer；改为多选 +「添加」；`addMembers` 顺序 POST，部分失败保留成功项。
 - 同 PR：未读「新」分隔线样式对齐 Boss 参考（见 [chat-continuity](2026-10-14-chat-continuity-design.md) 变更记录）。
 - 群设置页：顶部居中群头像；去掉「群聊名称」分区标题；群名输入居中、加粗、字号大一号。
+- 同 PR 后端：`await_user` + 空 `missing_information` 在已有正文/追问时 coerce，不再把完整回复标失败（见 known-issues）。

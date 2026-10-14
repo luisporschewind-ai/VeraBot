@@ -60,6 +60,13 @@ class GroupHandoffTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.validate({"kind": "await_user", "result": "", "missing_information": []})
 
+    def test_await_user_empty_missing_coerces_from_result(self):
+        action = self.validate({"kind": "await_user", "result": "你希望方案用于什么场景？",
+                                "missing_information": []})
+        self.assertEqual(action["kind"], "await_user")
+        self.assertTrue(action["missing_information"])
+        self.assertIn("场景", "".join(action["missing_information"]))
+
     def test_resolved_clarification_handoff_keeps_all_requirements(self):
         action = self.validate({"kind": "handoff", "target_member_id": self.fx.member_ids[1],
                                 "goal": "写完整方案", "result": "用户希望面向新手，预算固定"})
@@ -118,6 +125,22 @@ class GroupStepRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 group=self.group, task=self.task, member=self.group["members"][0])
         self.assertEqual(result["status"], "failed")
         self.assertIsNone(result["action"])
+
+    async def test_content_plus_await_user_empty_missing_does_not_fail(self):
+        body = "Boss，今天只有 1 件需要您处理：您希望先看哪封邮件？"
+        async def fake(messages, tools, *, tool_choice, max_tokens):
+            yield "delta", body
+            yield "tool_calls", [{"name": "group_next_step", "arguments": json.dumps({
+                "kind": "await_user", "result": "", "missing_information": []})}]
+            yield "usage", {"total_tokens": 4}
+        with patch.object(group_runtime.llm, "stream_chat", fake):
+            result = await group_runtime.run_step(self.step, lambda: False, user_id=self.fx.user_id,
+                group=self.group, task=self.task, member=self.group["members"][0])
+        self.assertNotEqual(result["status"], "failed")
+        self.assertEqual(result["content"], body)
+        self.assertIsNotNone(result["action"])
+        self.assertEqual(result["action"]["kind"], "await_user")
+        self.assertTrue(result["action"]["missing_information"])
 
 
 if __name__ == "__main__":

@@ -22,14 +22,19 @@ class MemberGone(Exception): pass
 class BudgetExhausted(Exception): pass
 
 GROUP_NEXT_STEP = [{"type": "function", "function": {
-    "name": "group_next_step", "description": "提交唯一的群内协作动作；只允许在用户目标需要成员接力时调用。",
+    "name": "group_next_step",
+    "description": ("提交唯一的群内协作动作；只允许在用户目标需要成员接力时调用。"
+                    "kind=await_user 时必须提供非空 missing_information，并在正文写出真实追问。"),
     "parameters": {"type": "object", "additionalProperties": False, "required": ["kind"], "properties": {
         "kind": {"type": "string", "enum": ["completed", "consult", "handoff", "await_user"]},
         "target_member_id": {"type": ["integer", "null"]}, "goal": {"type": "string"},
         "result": {"type": "string"}, "context_message_ids": {"type": "array", "items": {"type": "integer"}},
         "attachment_ids": {"type": "array", "items": {"type": "string"}},
         "completion_criteria": {"type": "string"}, "issue_key": {"type": ["string", "null"]},
-        "missing_information": {"type": "array", "items": {"type": "string"}},
+        "missing_information": {
+            "type": "array", "items": {"type": "string"},
+            "description": "await_user 时必填：还缺哪些信息的简短列表；其他 kind 可省略或为空。",
+        },
     }},
 }}]
 
@@ -89,7 +94,15 @@ async def run_step(step: dict, should_stop, *, user_id: int, group: dict, task: 
                         accounted = True
                 if content.strip() or raw_action is not None: break
                 if attempt==1: raise ValueError("empty_response")
-        action = group_actions.validate(user_id,group,task,step,raw_action)
+        try:
+            action = group_actions.validate(user_id, group, task, step, raw_action)
+        except ValueError as exc:
+            # Streamed body already useful; do not mark the step failed for a soft tool-arg mistake.
+            if content.strip():
+                log.warning("group_next_step validation failed with non-empty content; coercing (%s)", exc)
+                action = group_actions.coerce_from_content(user_id, group, task, step, raw_action, content)
+            else:
+                raise
     except Stopped:
         status,action="stopped",None
     except asyncio.CancelledError:

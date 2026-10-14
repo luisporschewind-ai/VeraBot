@@ -6,6 +6,7 @@
 - 添加成员 sheet：去掉底部说明；改为多选确认「添加」；顺序 POST，部分失败保留已成功成员并提示。规格变更记录见 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
 - 私聊/群聊未读分隔线：多条未读时改为浅蓝发丝线 + 居中「新」（无胶囊底）。见 [chat-continuity](superpowers/specs/2026-10-14-chat-continuity-design.md)。
 - 群设置页：顶部居中群头像；去掉「群聊名称」标题；群名输入居中加粗并大一号字。
+- 群聊：`await_user` 且 `missing_information` 为空时，若正文已有追问则不再把步骤标失败（校验放宽 / 有内容时 coerce）；避免完整回复下方误显示「回应暂未完成」。
 
 ## 2026-10-14 · 群聊成员增删（PR #37，已合入）
 

@@ -71,6 +71,10 @@ PR #34（`fix/offline-notice-unify`，合入 `e888375`）后：助理列表不�
 
 PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助理列表「我的 Bot（n/10）」展示与创建群聊底部提示卡片（说明改 footer）。规格与变更记录见 [bot-limits](../superpowers/specs/2026-10-14-bot-limits.md)。PR #37 已接线群成员增删；左滑 `role: .destructive` 会在确认前移走行，由 `fix/group-member-remove` 修复（非 destructive + `.tint(.red)` + 确认后 `withAnimation` 再删；添加改为多选、无 footer）。
 
+### 群 await_user 空 missing_information 误失败（补充，PR #38）
+
+现象：成员已完整流出正文，但 `group_next_step` 为 `kind=await_user` 且 `missing_information=[]` 时，`group_actions.validate` 抛错，`group_runtime` 通吃异常把步骤/消息标 `failed`，iOS 在完整回复下显示「回应暂未完成/再试一次」。修复：有真实追问时从 `result`/正文派生 `missing_information`；有非空正文时校验失败则 coerce（`await_user` 或降为 `completed`）并打 warning，不再失败；工具 schema/prompt 标明 `await_user` 必填非空 `missing_information`。回归见 `group_handoff_test`。
+
 ## 后续再做
 
 这些不在本分支里实现：
