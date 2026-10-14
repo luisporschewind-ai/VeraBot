@@ -146,6 +146,10 @@ struct PlaygroundView: View {
                 ?? bots.first(where: { $0.name == PlaygroundAssistant.name }) {
                 assistant = existing
             } else {
+                guard BotProductLimits.canCreateBot(currentCount: bots.count) else {
+                    assistantNotice = .sentence(BotProductLimits.accountLimitReachedMessage)
+                    return
+                }
                 do {
                     assistant = try await api.createBot(PlaygroundAssistant.draft)
                 } catch let error as APIError where error.status == 409 {

@@ -8,7 +8,6 @@ struct BotListView: View {
     @State private var selectedGroup: ChatGroup?
     @State private var createGroup = false
     @State private var bots: [Bot] = []
-    @State private var limit = 20   // 服务端下发的软上限（Soft limit）
     @State private var editing: Bot?
     @State private var pendingDelete: Bot?   // 左滑「删除」只弹确认框，确认后才调用 API
     @State private var showCreate = false
@@ -22,13 +21,22 @@ struct BotListView: View {
     @State private var pinning: Set<Int> = []    // 正在与服务端同步置顶状态的 Bot，避免连点重复提交
     @State private var linkedChat: LinkedChat?
     @State private var linkedPlugin: String?
+    @State private var createLimitAlert = false
 
     private var conversations: [ConversationItem] { ConversationItem.sorted(bots: bots, groups: groups) }
+    private var canCreateBot: Bool { BotProductLimits.canCreateBot(currentCount: bots.count) }
 
     var body: some View {
         NavigationStack {
             // 沉浸式平铺列表：白底、无圆角分组、无分隔线（plainListRow 见 Theme）
             List {
+                if loaded || !bots.isEmpty || !groups.isEmpty {
+                    Text(BotProductLimits.accountListTitle(botCount: bots.count))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .plainListRow()
+                        .accessibilityLabel(BotProductLimits.accountListTitle(botCount: bots.count))
+                }
                 if !conversations.isEmpty, let connectionIssue {
                     BotConnectionView(issue: connectionIssue, retrying: loading, compact: true) {
                         Task { await load() }
@@ -83,11 +91,12 @@ struct BotListView: View {
                     listFailureNotice(errorText).padding(24)
                 } else if conversations.isEmpty {
                     ContentUnavailableView {
-                        Label("还没有 Bot", systemImage: "person.crop.circle.badge.plus")
+                        Label(BotProductLimits.accountListTitle(botCount: bots.count),
+                              systemImage: "person.crop.circle.badge.plus")
                     } description: {
                         Text("点击右上角「＋」或下方按钮创建第一个助理")
                     } actions: {
-                        Button("＋ 创建第一个 Bot") { showCreate = true }.prominentButtonStyle()
+                        Button("＋ 创建第一个 Bot") { requestCreateBot() }.prominentButtonStyle()
                     }
                 }
             }
@@ -138,11 +147,17 @@ struct BotListView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("创建 Bot", systemImage: "plus") { showCreate = true }.disabled(bots.count >= limit)
+                        Button("创建 Bot", systemImage: "plus") { requestCreateBot() }
+                            .disabled(!canCreateBot)
                         Button("创建群聊", systemImage: "person.3") { createGroup = true }
                     } label: { Image(systemName: "plus") }
                     .accessibilityLabel("创建 Bot 或群聊")
                 }
+            }
+            .alert("无法创建", isPresented: $createLimitAlert) {
+                Button("知道了", role: .cancel) {}
+            } message: {
+                Text(BotProductLimits.accountLimitReachedMessage)
             }
             .sheet(isPresented: $createGroup) {
                 CreateGroupSheet { group in
@@ -152,7 +167,7 @@ struct BotListView: View {
                 }
             }
             .sheet(isPresented: $showCreate) {
-                CreateBotSheet { Task { await load() } }
+                CreateBotSheet(currentBotCount: bots.count) { Task { await load() } }
                     .toolbar(.hidden, for: .tabBar)
                     .presentationDetents([.large])
             }
@@ -213,7 +228,6 @@ struct BotListView: View {
             guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
             bots = BotOrdering.sorted(r.bots)
             try? await app.conversationRepository?.replaceBots(r.bots)
-            limit = r.limit
             for bot in r.bots {
                 app.avatars.reconcileBot(id: bot.id, hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
             }
@@ -277,6 +291,14 @@ struct BotListView: View {
             app.pendingLink = nil
         default:
             break
+        }
+    }
+
+    private func requestCreateBot() {
+        if canCreateBot {
+            showCreate = true
+        } else {
+            createLimitAlert = true
         }
     }
 
