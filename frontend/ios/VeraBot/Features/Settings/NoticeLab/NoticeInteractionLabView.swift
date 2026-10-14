@@ -138,7 +138,8 @@ private struct NoticePresentationProbe: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("完成") { dismiss() }.accessibilityIdentifier("notice.modalClose")
+                    DismissToolbarButton(kind: .close) { dismiss() }
+                        .accessibilityIdentifier("notice.modalClose")
                 }
             }
             .botNoticeHost(center, style: style) { entry in
