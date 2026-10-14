@@ -1,7 +1,7 @@
 """站内通知与偏好。"""
 from zoneinfo import ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from ...services.notify import dispatcher, prefs
@@ -24,6 +24,7 @@ class ReadAllIn(BaseModel):
 
 class PrefsPatch(BaseModel):
     enabled: bool | None = None
+    sound_enabled: bool | None = None
     categories: dict | None = None
     muted_bots: list[int] | None = None
     quiet_enabled: bool | None = None
@@ -106,3 +107,22 @@ def notification_settings_patch(body: PrefsPatch, user=Depends(current_user)):
         raise HTTPException(404, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.get("/api/notification-events")
+def notification_events(after: int | None = Query(None, ge=0), through: int | None = Query(None, ge=0),
+                        limit: int = Query(100, ge=1, le=200), user=Depends(current_user)):
+    from ...services.notify.events import list_events
+    return list_events(user["id"], after=after, through=through, limit=limit)
+
+
+class LocalStateIn(BaseModel):
+    ids: list[int]
+
+
+@router.post('/api/notifications/local-state')
+def local_notification_state(body: LocalStateIn, user=Depends(current_user)):
+    if len(body.ids) > 200 or any(n <= 0 for n in body.ids):
+        raise HTTPException(422, '通知数量或标识无效')
+    from ...services.notify.events import local_state
+    return local_state(user['id'], body.ids)

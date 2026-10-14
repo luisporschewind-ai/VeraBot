@@ -71,15 +71,21 @@ def recent_messages(user_id: int, bot_id: int, limit: int):
     return [dict(r) for r in reversed(rs)]
 
 
-def add_message(user_id, bot_id, role, content, traces=None, memory_ids=None):
+def add_message(user_id, bot_id, role, content, traces=None, memory_ids=None, *, conn=None):
     from .conversation_activity_store import generation
-    with tx() as c:
+
+    def insert(c):
         cur = c.execute(
             "INSERT INTO messages(user_id,bot_id,role,content,traces,created_at,memory_ids,conversation_generation) VALUES (?,?,?,?,?,?,?,?)",
             (user_id, bot_id, role, content, json.dumps(traces, ensure_ascii=False) if traces else None, now_iso(),
-             json.dumps(memory_ids) if memory_ids else None, generation(c,user_id,"private",bot_id)),
+             json.dumps(memory_ids) if memory_ids else None, generation(c, user_id, "private", bot_id)),
         )
         return cur.lastrowid
+
+    if conn is not None:
+        return insert(conn)
+    with tx() as c:
+        return insert(c)
 
 
 def delete_message(user_id: int, bot_id: int, message_id: int) -> bool:

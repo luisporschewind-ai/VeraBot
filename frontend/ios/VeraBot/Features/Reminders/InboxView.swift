@@ -41,6 +41,7 @@ struct InboxView: View {
         }
         .task { await load() }
         .refreshable { await load() }
+        .onReceive(NotificationCenter.default.publisher(for: .verabotRemindersChanged)) { _ in Task { await load() } }
     }
 
     private func row(_ item: InboxNotification) -> some View {
@@ -66,7 +67,7 @@ struct InboxView: View {
     private var categoryMenu: some View {
         Menu("分类") {
             Button("全部") { category = nil; Task { await load() } }
-            ForEach(["reminder", "bot_message", "delegation", "plugin", "system"], id: \.self) { raw in
+            ForEach(["reminder", "bot_message", "task_result", "delegation", "plugin", "system"], id: \.self) { raw in
                 Button((NotificationCategory(rawValue: raw) ?? .unknown).title) {
                     category = raw
                     Task { await load() }

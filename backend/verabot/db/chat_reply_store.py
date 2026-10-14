@@ -94,6 +94,7 @@ def finish(c,t,state,text,traces,error_code=None,wait_id=None):
     c.execute('UPDATE messages SET content=?,traces=?,message_status=? WHERE id=? AND user_id=?',(text,json.dumps(traces,ensure_ascii=False),state,t['output_message_id'],t['user_id']))
     c.execute('UPDATE chat_reply_tasks SET state=?,phase=?,wait_id=?,error_code=?,lease_token=NULL,lease_expires_at=NULL,updated_at=? WHERE id=?',(state,state,wait_id,error_code,now_iso(),t['id']))
     fresh=get(c,t['user_id'],t['bot_id'],t['id']);event(c,fresh,'task_updated',{'task':public(c,fresh)})
+    _notify_published_reply(c,fresh,state,text)
     return True
 
 def recover(c):
@@ -101,8 +102,31 @@ def recover(c):
         t=dict(r)
         c.execute("UPDATE chat_reply_tasks SET state='interrupted',phase='interrupted',version=version+1,lease_token=NULL,error_code='worker_interrupted',updated_at=? WHERE id=?",(now_iso(),t['id']))
         c.execute("UPDATE messages SET content=content||'\n\n回复因服务中断而停止，请核实已执行的操作。',message_status='interrupted' WHERE id=? AND user_id=?",(t['output_message_id'],t['user_id']))
-        event(c,get(c,t['user_id'],t['bot_id'],t['id']),'task_updated',{'reason':'worker_interrupted'})
+        fresh=get(c,t['user_id'],t['bot_id'],t['id'])
+        event(c,fresh,'task_updated',{'reason':'worker_interrupted'})
+        text=c.execute('SELECT content FROM messages WHERE id=? AND user_id=?',(t['output_message_id'],t['user_id'])).fetchone()
+        _notify_published_reply(c,fresh,'interrupted',text['content'] if text else '')
     c.execute("UPDATE chat_tool_attempts SET state='unknown' WHERE state='running' AND task_id IN (SELECT id FROM chat_reply_tasks WHERE state='interrupted')")
+
+
+def _notify_published_reply(c,t,state,text):
+    if state not in ('completed','awaiting_user','awaiting_approval','failed','interrupted'):
+        return
+    c.execute('SAVEPOINT chat_reply_notify')
+    try:
+        from ..services.notify.dispatcher import notify
+        name=c.execute('SELECT name FROM bots WHERE id=? AND user_id=?',(t['bot_id'],t['user_id'])).fetchone()
+        label=name['name'] if name else '助手'
+        title={'completed':f'「{label}」有新消息','awaiting_user':f'「{label}」需要你补充','awaiting_approval':f'「{label}」需要你确认','failed':f'「{label}」回复失败','interrupted':f'「{label}」回复中断'}[state]
+        notify(t['user_id'],category='bot_message',title=title,body=(text or '')[:160] or None,bot_id=t['bot_id'],message_id=t['output_message_id'],
+               link=f"bot/{t['bot_id']}/chat?message={t['output_message_id']}",thread_id=f"bot:{t['bot_id']}",
+               dedupe_key=f"chat-reply:{t['id']}:{t['version']}:{state}",source_kind='chat_reply',source_id=str(t['id']),source_state=state,conn=c)
+        c.execute('RELEASE chat_reply_notify')
+    except Exception:
+        c.execute('ROLLBACK TO chat_reply_notify')
+        c.execute('RELEASE chat_reply_notify')
+        import logging
+        logging.getLogger(__name__).warning('chat reply notification failed task=%s',t.get('id'))
 
 def start_tool(c,t,tc):
     if not live(c,t):raise ChatTaskError(409,'task_changed','回复已停止')

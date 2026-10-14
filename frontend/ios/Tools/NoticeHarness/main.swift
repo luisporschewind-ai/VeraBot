@@ -2,6 +2,16 @@ import Foundation
 
 @main struct NoticeHarness {
     static func main() {
+        var removals = NoticeQueue<String>()
+        removals.show("first", key: "notification:1")
+        removals.show("queued obsolete", key: "notification:2")
+        removals.show("copy feedback", key: "copy")
+        removals.remove(key: "notification:2")
+        removals.dismiss(id: removals.current!.id)
+        precondition(removals.current?.key == "copy", "removed queued notification must never be displayed")
+        removals.remove(key: "copy")
+        precondition(removals.current == nil, "targeted removal clears current without resurrecting queue")
+
         var queue = NoticeQueue<String>(capacity: 2)
         queue.show("正在保存", key: "save")
         precondition(queue.current?.message == "正在保存", "first notice must become visible")
@@ -27,6 +37,6 @@ import Foundation
         precondition(queue.current == nil && queue.pending.isEmpty, "leaving a scope must clear every notice")
         queue.dismiss(id: completion)
         precondition(queue.current == nil, "stale dismiss after clear must be harmless")
-        print("Notice queue: 10 checks passed")
+        print("Notice queue: 12 checks passed")
     }
 }

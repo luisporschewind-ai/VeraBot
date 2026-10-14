@@ -56,6 +56,11 @@ final class AppState {
     private var activityObservation: Task<Void, Never>?
     private var activityCursor = 0
     private var appIsForeground = true
+    @ObservationIgnored var reminderRequests = NotificationRequestGate()
+    func isCurrentReminderRequest(_ token: NotificationRequestToken) -> Bool {
+        reminderRequests.isCurrent(token, session: sessionGeneration)
+    }
+    @ObservationIgnored lazy var notificationEvents = NotificationEventSync(app: self)
     var unreadCount = 0
     var selectedTab = 0
     var pendingLink: DeepLink?
@@ -134,6 +139,9 @@ final class AppState {
     func isCurrentAuthAttempt(_ generation: UInt64) -> Bool { authSession.isCurrentAuthAttempt(generation) }
 
     func saveBaseURL() {
+        _ = reminderRequests.begin(session: sessionGeneration)
+        notificationEvents.invalidate()
+        NotificationCoordinator.shared.clearAll()
         invalidatePersistenceScope()
         UserDefaults.standard.set(baseURLString, forKey: Keys.baseURL)
         activatePersistenceScope()
@@ -235,6 +243,7 @@ final class AppState {
     }
 
     func signOut() {
+        notificationEvents.invalidate()
         let oldRepository = conversationRepository
         let oldDatabaseURL = conversationDatabaseURL
         primaryBotRepository?.close(); ownedTaskRepository?.close(); scheduledTaskRepository?.close()
@@ -265,7 +274,7 @@ final class AppState {
         let device = DeviceIdentity.current()
         let uid = userID
         let api = self.api
-        if let uid { ReminderOutboxStore.remove(userID: uid) }
+        if let uid { ReminderOutboxStore.remove(userID: uid, server: baseURLString) }
         NotificationCoordinator.shared.clearAll()
         DeviceIdentity.rotate()
         // 先注销设备，再吊销刷新令牌。失败不影响本地退出。

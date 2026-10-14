@@ -210,7 +210,7 @@ def notification_by_dedupe(conn, user_id: int, dedupe_key: str):
 
 
 def count_notifications(conn, user_id: int, category: str, since: str, *, bot_id=None, plugin_id=None) -> int:
-    clauses = ["user_id=?", "category=?", "created_at>=?"]
+    clauses = ["user_id=?", "COALESCE(kind,category)=?", "created_at>=?", "COALESCE(source_kind,'') != 'chat_reply'"]
     args: list = [user_id, category, since]
     if bot_id is not None:
         clauses.append("bot_id=?")
@@ -225,8 +225,8 @@ def count_notifications(conn, user_id: int, category: str, since: str, *, bot_id
 def insert_notification(conn, values: tuple) -> int:
     cur = conn.execute(
         """INSERT INTO notifications(user_id, category, title, body, sensitive, bot_id, reminder_id, message_id,
-               plugin_id, link, thread_id, dedupe_key, created_at, expires_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               plugin_id, link, thread_id, dedupe_key, created_at, expires_at, kind, source_kind, source_id, source_state, suppression_reason)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         values,
     )
     return cur.lastrowid
@@ -258,7 +258,7 @@ def select_notifications(conn, user_id: int, *, unread: bool, category, before_i
     if unread:
         clauses.append("read_at IS NULL")
     if category:
-        clauses.append("category=?")
+        clauses.append("COALESCE(kind,category)=?")
         args.append(category)
     if before_id:
         clauses.append("id<?")
@@ -275,7 +275,7 @@ def unread_count(conn, user_id: int) -> int:
 
 def unread_by_category(conn, user_id: int) -> dict:
     found = conn.execute(
-        "SELECT category, COUNT(*) FROM notifications WHERE user_id=? AND read_at IS NULL GROUP BY category",
+        "SELECT COALESCE(kind,category), COUNT(*) FROM notifications WHERE user_id=? AND read_at IS NULL GROUP BY COALESCE(kind,category)",
         (user_id,),
     )
     return {item[0]: item[1] for item in found}
@@ -299,7 +299,7 @@ def mark_notifications_read(conn, user_id: int, now: str, *, category=None, befo
     clauses = ["user_id=?", "read_at IS NULL"]
     args: list = [user_id]
     if category:
-        clauses.append("category=?")
+        clauses.append("COALESCE(kind,category)=?")
         args.append(category)
     if before_id:
         clauses.append("id<=?")
@@ -434,3 +434,20 @@ def active_devices(conn, user_id: int) -> list[dict]:
     return rows(conn.execute(
         "SELECT * FROM push_devices WHERE user_id=? AND disabled_at IS NULL", (user_id,)
     ).fetchall())
+
+
+def set_device_local_events(c, user_id: int, device_id: str, enabled: bool):
+    c.execute('UPDATE push_devices SET local_events=? WHERE user_id=? AND device_id=?', (int(enabled), user_id, device_id))
+
+
+def set_notification_sound(c, user_id: int, enabled: bool):
+    c.execute('UPDATE notification_prefs SET sound_enabled=? WHERE user_id=?', (int(enabled), user_id))
+
+
+def pending_notification_actions(c, user_id: int, now: str, muted_bots: list[int]) -> int:
+    muted = ' AND (n.bot_id IS NULL OR n.bot_id NOT IN (' + ','.join('?' for _ in muted_bots) + '))' if muted_bots else ''
+    return c.execute('''SELECT COUNT(DISTINCT n.source_id) FROM notifications n JOIN owned_tasks t
+        ON t.id=CAST(n.source_id AS INTEGER) AND t.user_id=n.user_id
+        WHERE n.user_id=? AND n.source_kind='owned_task' AND n.source_state IN ('awaiting_user','awaiting_approval')
+          AND t.state=n.source_state AND n.read_at IS NULL AND n.suppression_reason IS NULL
+          AND (n.expires_at IS NULL OR n.expires_at>?)''' + muted, (user_id,now,*muted_bots)).fetchone()[0]

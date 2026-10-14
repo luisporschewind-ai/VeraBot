@@ -10,6 +10,7 @@ struct RemindersView: View {
     @State private var filter: ReminderListFilter = .all
     @State private var showDone = false
     @State private var errorText: String?
+    @State private var viewing: Reminder?
     @State private var editing: Reminder?
     @State private var creating = false
     @State private var completedCount = 0
@@ -41,6 +42,9 @@ struct RemindersView: View {
                 NavigationStack {
                     ReminderEditorView(reminder: nil, bots: bots) { await load() }
                 }
+            }
+            .sheet(item: $viewing) { item in
+                NavigationStack { ReminderDetailView(reminder: item, bots: bots) { await load() } }
             }
             .sheet(item: $editing) { item in
                 NavigationStack {
@@ -188,8 +192,9 @@ struct RemindersView: View {
         switch link {
         case .reminder(let id):
             segment = 0
-            editing = reminders.first { $0.id == id }
-            if editing == nil, !reminders.isEmpty { app.missingNotice = "内容已不存在" }
+            viewing = reminders.first { $0.id == id }
+            if viewing == nil, reminders.isEmpty { return }
+            if viewing == nil, !reminders.isEmpty { app.missingNotice = "内容已不存在" }
         case .reminders(let bucket):
             segment = 0
             if bucket == "due" { filter = .all }

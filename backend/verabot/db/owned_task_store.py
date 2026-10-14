@@ -131,7 +131,7 @@ def count_tool(c,step):
 def pending_delivery(c):
  return [r[0] for r in c.execute("SELECT s.id FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.delivered_at IS NULL AND s.result_json IS NOT NULL AND s.status NOT IN ('running','retry_wait','cancelled') AND s.kind='owner' AND t.owner_bot_id IS NOT NULL AND s.version=t.version")]
 def delivery_item(c,sid):
- return row(c.execute("SELECT s.*,t.user_id,t.owner_bot_id,t.goal,t.delivery_generation FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.id=? AND s.delivered_at IS NULL AND s.version=t.version AND t.owner_bot_id IS NOT NULL",(sid,)).fetchone())
+ return row(c.execute("SELECT s.*,t.user_id,t.owner_bot_id,t.goal,t.delivery_generation,t.state AS task_state FROM owned_steps s JOIN owned_tasks t ON t.id=s.task_id WHERE s.id=? AND s.delivered_at IS NULL AND s.version=t.version AND t.owner_bot_id IS NOT NULL",(sid,)).fetchone())
 def deliver_message(c,item,text):
  from .conversation_activity_store import generation
  if generation(c,item['user_id'],'private',item['owner_bot_id'])!=item['delivery_generation']:return None
@@ -234,3 +234,20 @@ def notify_with_savepoint(c,callback):
   c.execute('ROLLBACK TO notification_delivery')
   c.execute('RELEASE notification_delivery')
   return False
+
+def latest_state_event(c, task_id, version):
+ return row(c.execute('SELECT e.* FROM owned_events e JOIN owned_tasks t ON t.id=e.task_id WHERE e.task_id=? AND e.version=? AND e.kind=t.state ORDER BY e.id DESC LIMIT 1', (task_id,version)).fetchone())
+
+
+def pending_state_notifications(c):
+ return [dict(r) for r in c.execute("""SELECT e.*,t.owner_bot_id,t.goal,t.state,t.delivery_generation FROM owned_events e JOIN owned_tasks t ON t.id=e.task_id
+ WHERE e.notified_at IS NULL AND e.version=t.version AND e.kind=t.state AND e.kind IN ('completed','failed','interrupted','awaiting_user','awaiting_approval')
+ AND e.id=(SELECT MAX(x.id) FROM owned_events x WHERE x.task_id=e.task_id AND x.version=e.version AND x.kind=e.kind)
+ AND NOT EXISTS(SELECT 1 FROM notifications n WHERE n.user_id=e.user_id AND n.dedupe_key='owned-state:' || e.id)
+ AND NOT EXISTS(SELECT 1 FROM owned_steps s WHERE s.task_id=t.id AND s.version=t.version AND s.kind='owner' AND s.result_json IS NOT NULL AND s.delivered_at IS NULL AND s.status NOT IN ('running','retry_wait','cancelled'))
+ AND NOT EXISTS(SELECT 1 FROM notifications n JOIN owned_steps s ON n.dedupe_key='owned-step:' || s.id WHERE n.user_id=e.user_id AND s.task_id=t.id AND s.version=t.version)
+ ORDER BY e.id LIMIT 100""")]
+
+
+def mark_state_notified(c, event_id, notification_id):
+ c.execute('UPDATE owned_events SET notified_at=?,notification_id=? WHERE id=?', (now_iso(),notification_id,event_id))

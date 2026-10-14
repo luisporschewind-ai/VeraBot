@@ -1,5 +1,9 @@
 # 项目状态 (STATUS) — 2026-10-13
 
+## 2026-10-14 · 对话持续执行与本地通知集成
+
+`wip/main-uncommitted`、`codex/chat-continuity`、`codex/local-notifications` 已合入 `integration/2026-10-14`，基于 main `5a91461`，尚未合并。schema v30 为私聊持续回复与阅读记录，v31 为通知事件。离线后端脚本已跑，Swift / 模拟器 / 真机未验证。范围和剩余项见 [集成记录](testing/2026-10-14-integration.md)。
+
 ## 2026-10-14 · 主 Bot 已集成本地 Main
 
 产品提交 b68dfc4 已合入，现有 iPhone 17 已安装启动，8096假模型服务运行；原并行修改保持未提交。功能验收待用户完成，最新证据见[交付记录](testing/2026-10-13-primary-bot.md)。下方实施前说明为历史快照。

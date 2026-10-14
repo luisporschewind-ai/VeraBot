@@ -52,6 +52,8 @@ def init_db():
     # v15: optional bots.appearance; historical avatars are unchanged.
     _backup_before_v11()
     from .migrations.v030_chat_continuity import backup_before_v30
+    from .migrations.v031_notification_events import backup_before_v31
     backup_before_v30()
+    backup_before_v31()
     with tx() as c:
         _apply_migrations(c)

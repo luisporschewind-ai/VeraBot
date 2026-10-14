@@ -104,6 +104,8 @@ public protocol VeraBotAPI: Sendable {
     func restoreReminder(_ id: Int) async throws -> Reminder
     func deleteReminder(_ id: Int, scope: String) async throws -> Reminder
     func notifications(unread: Bool, category: String?) async throws -> NotificationsResponse
+    func localNotificationState(ids: [Int]) async throws -> [InboxNotification]
+    func notificationEvents(after: Int?, through: Int?) async throws -> NotificationEventPage
     func notificationSummary() async throws -> NotificationSummary
     func markNotificationRead(_ id: Int) async throws -> InboxNotification
     func markNotificationUnread(_ id: Int) async throws -> InboxNotification
@@ -228,4 +230,7 @@ public extension VeraBotAPI {
     func readConversation(kind: String, id: Int, generation: Int, messages: [MessagePublication]) async throws -> ConversationReadResponse { throw APIError(status: 501, message: "后端尚未支持阅读同步") }
     func conversationEvents(afterID: Int) -> AsyncThrowingStream<DurableEvent, Error> { AsyncThrowingStream { $0.finish(throwing: APIError(status: 501, message: "后端尚未支持会话同步")) } }
     func chatEvents(botID: Int, afterID: Int) -> AsyncThrowingStream<DurableEvent, Error> { AsyncThrowingStream { $0.finish(throwing: APIError(status: 501, message: "后端尚未支持持续对话")) } }
+    func notificationEvents(after: Int?, through: Int?) async throws -> NotificationEventPage {
+        throw APIError(status: 501, message: "通知同步暂不可用")
+    }
 }
