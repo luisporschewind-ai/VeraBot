@@ -243,6 +243,19 @@ public final class GroupChatViewModel {
     public func update(name: String? = nil) async throws {
         let stamp = epoch;let updated = try await api.updateGroup(id:group.id,request:.init(name:name))
         try valid(stamp);group = updated
+        try await repository?.saveGroup(updated)
+    }
+    public func addMember(botID: Int) async throws {
+        let stamp = epoch
+        let updated = try await api.addGroupMember(groupID: group.id, botID: botID)
+        try valid(stamp); group = updated
+        try await repository?.saveGroup(updated)
+    }
+    public func removeMember(memberID: Int) async throws {
+        let stamp = epoch
+        let updated = try await api.removeGroupMember(groupID: group.id, memberID: memberID)
+        try valid(stamp); group = updated
+        try await repository?.saveGroup(updated)
     }
     public func clear() async throws {
         leave();let stamp = epoch

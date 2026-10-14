@@ -37,9 +37,11 @@ struct GroupChatView: View {
     @Environment(SpeechPlayer.self) private var player
     @State private var info = false
     private let app: AppState
+    private let onGroupUpdated: ((ChatGroup) -> Void)?
     private let legacyPreferenceKey: String
-    init(group: ChatGroup, app: AppState) {
+    init(group: ChatGroup, app: AppState, onGroupUpdated: ((ChatGroup) -> Void)? = nil) {
         self.app = app
+        self.onGroupUpdated = onGroupUpdated
         legacyPreferenceKey = "groupTarget.\(app.baseURLString).\(app.userID ?? 0).\(group.id)"
         let generation = app.sessionGeneration
         let session = app.authSession
@@ -128,7 +130,9 @@ struct GroupChatView: View {
                 Button("群设置", systemImage: "ellipsis") { inputFocused = false; info = true }
             }
         }
-        .sheet(isPresented: $info) { GroupInfoView(model: model) { dismiss() } }
+        .sheet(isPresented: $info) {
+            GroupInfoView(model: model, onGroupUpdated: onGroupUpdated) { dismiss() }
+        }
         .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .plainText, .commaSeparatedText,
             UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "docx") ?? .data,

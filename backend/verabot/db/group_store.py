@@ -81,6 +81,45 @@ def change_group(user_id: int, group_id: int, patch: dict) -> Group:
                           (patch[key], now_iso(), user_id, group_id))
         return _group(c, user_id, group_id)
 
+def add_member(user_id: int, group_id: int, bot_id: int) -> Group:
+    """Append one Bot. Product caps stay on the client; in-flight tasks keep their member snapshot."""
+    with tx(immediate=True) as c:
+        _group(c, user_id, group_id)
+        raw = c.execute("SELECT * FROM bots WHERE id=? AND user_id=?", (bot_id, user_id)).fetchone()
+        if raw is None:
+            raise GroupStoreError(422, "invalid_member", "成员必须是你自己的 Bot")
+        bot = dict(raw)
+        if c.execute("SELECT 1 FROM chat_group_members WHERE group_id=? AND user_id=? AND bot_id=?",
+                     (group_id, user_id, bot_id)).fetchone():
+            raise GroupStoreError(422, "already_member", "该 Bot 已在群中")
+        position = c.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM chat_group_members WHERE group_id=? AND user_id=?",
+                             (group_id, user_id)).fetchone()[0]
+        snapshot = {"avatar": bot["avatar"], "color": bot["color"], "detail": bot["persona"],
+                    "appearance": json.loads(bot["appearance"]) if bot.get("appearance") else None}
+        c.execute("INSERT INTO chat_group_members(group_id,user_id,bot_id,position,name_snapshot,appearance_snapshot)"
+                  " VALUES (?,?,?,?,?,?)",
+                  (group_id, user_id, bot["id"], position, bot["name"], json.dumps(snapshot)))
+        c.execute("UPDATE chat_groups SET updated_at=? WHERE id=? AND user_id=?", (now_iso(), group_id, user_id))
+        return _group(c, user_id, group_id)
+
+def remove_member(user_id: int, group_id: int, member_id: int) -> Group:
+    """Remove one member row. Reject only when it would leave zero Bots still linked."""
+    with tx(immediate=True) as c:
+        _group(c, user_id, group_id)
+        row = c.execute("SELECT id,bot_id FROM chat_group_members WHERE id=? AND group_id=? AND user_id=?",
+                        (member_id, group_id, user_id)).fetchone()
+        if row is None:
+            _missing()
+        if row["bot_id"] is not None:
+            linked = c.execute("SELECT COUNT(*) FROM chat_group_members WHERE group_id=? AND user_id=? AND bot_id IS NOT NULL",
+                               (group_id, user_id)).fetchone()[0]
+            if linked <= 1:
+                raise GroupStoreError(422, "last_member", "至少保留一名 Bot 成员")
+        c.execute("DELETE FROM chat_group_members WHERE id=? AND group_id=? AND user_id=?",
+                  (member_id, group_id, user_id))
+        c.execute("UPDATE chat_groups SET updated_at=? WHERE id=? AND user_id=?", (now_iso(), group_id, user_id))
+        return _group(c, user_id, group_id)
+
 def delete_group(user_id, group_id, *, clear_only=False):
     removed = []
     with tx(immediate=True) as c:

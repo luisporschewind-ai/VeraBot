@@ -9,6 +9,8 @@ public protocol GroupChatAPI: Sendable {
     func createGroup(_ request: GroupCreateRequest) async throws -> ChatGroup
     func group(id: Int) async throws -> ChatGroup
     func updateGroup(id: Int, request: GroupUpdateRequest) async throws -> ChatGroup
+    func addGroupMember(groupID: Int, botID: Int) async throws -> ChatGroup
+    func removeGroupMember(groupID: Int, memberID: Int) async throws -> ChatGroup
     func deleteGroup(id: Int) async throws -> OKResponse
     func groupMessages(groupID: Int, beforeID: Int?) async throws -> GroupMessagesResponse
     func syncGroupMessages(groupID: Int, beforeID: Int?, expectedRevision: Int64?) async throws -> GroupMessagesSyncResponse
@@ -29,6 +31,12 @@ public protocol GroupChatAPI: Sendable {
 public extension GroupChatAPI {
     func syncGroupMessages(groupID: Int, beforeID: Int?, expectedRevision: Int64?) async throws -> GroupMessagesSyncResponse {
         throw APIError(status: 501, message: "当前服务不支持离线历史同步")
+    }
+    func addGroupMember(groupID: Int, botID: Int) async throws -> ChatGroup {
+        throw APIError(status: 501, message: "群成员编辑未实现")
+    }
+    func removeGroupMember(groupID: Int, memberID: Int) async throws -> ChatGroup {
+        throw APIError(status: 501, message: "群成员编辑未实现")
     }
     func submitGroupInput(groupID: Int, request: GroupInputRequest) async throws -> GroupInputReceipt { throw APIError(status: 501, message: "群任务协议未实现") }
     func groupInputReceipt(groupID: Int, requestID: UUID) async throws -> GroupInputReceipt { throw APIError(status: 501, message: "群任务协议未实现") }
@@ -73,6 +81,13 @@ extension APIClient: GroupChatAPI {
     public func group(id: Int) async throws -> ChatGroup { try await groupCall("/api/groups/\(id)") }
     public func updateGroup(id: Int, request: GroupUpdateRequest) async throws -> ChatGroup {
         try await groupCall("/api/groups/\(id)", method: "PATCH", body: try encode(request))
+    }
+    public func addGroupMember(groupID: Int, botID: Int) async throws -> ChatGroup {
+        try await groupCall("/api/groups/\(groupID)/members", method: "POST",
+                            body: try encode(GroupMemberAddRequest(botID: botID)))
+    }
+    public func removeGroupMember(groupID: Int, memberID: Int) async throws -> ChatGroup {
+        try await groupCall("/api/groups/\(groupID)/members/\(memberID)", method: "DELETE")
     }
     public func deleteGroup(id: Int) async throws -> OKResponse { try await groupCall("/api/groups/\(id)", method: "DELETE") }
     public func groupMessages(groupID: Int, beforeID: Int? = nil) async throws -> GroupMessagesResponse {

@@ -5,13 +5,21 @@ import VeraBotNetworking
 
 struct GroupInfoView: View {
     @Bindable var model: GroupChatViewModel
+    var onGroupUpdated: ((ChatGroup) -> Void)? = nil
     let onDeleted: () -> Void
+    @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var clearConfirm = false
     @State private var deleteConfirm = false
     @State private var saving = false
     @State private var error: String?
+    @State private var showingAdd = false
+    @State private var memberPendingRemove: ChatGroupMember?
+
+    private var botCount: Int { BotProductLimits.botMemberCount(in: model.group.members) }
+    private var canAddMember: Bool { BotProductLimits.canAddMember(currentBotCount: botCount) }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -22,7 +30,11 @@ struct GroupInfoView: View {
                     Button("清空群历史", role: .destructive) { clearConfirm = true }
                     Button("删除群聊", role: .destructive) { deleteConfirm = true }
                 }.disabled(model.busy || saving)
-                if let error { Section { Text(error).foregroundStyle(.secondary) } }
+                if let error {
+                    Section {
+                        ConnectionNotice(title: error)
+                    }
+                }
             }.navigationTitle("群设置").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -31,6 +43,7 @@ struct GroupInfoView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { Task { await perform {
                         try await model.update(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
+                        onGroupUpdated?(model.group)
                         dismiss()
                     } } }.disabled(saving || model.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 64)
                 }
@@ -41,15 +54,65 @@ struct GroupInfoView: View {
             .confirmationDialog("删除这个群聊？", isPresented: $deleteConfirm, titleVisibility: .visible) {
                 Button("删除", role: .destructive) { Task { await perform { try await model.delete(); dismiss(); onDeleted() } } }
             } message: { Text("群和全部群历史将一起删除。") }
+            .alert(
+                memberPendingRemove.map { "移除 \($0.name)？" } ?? "移除成员？",
+                isPresented: Binding(
+                    get: { memberPendingRemove != nil },
+                    set: { if !$0 { memberPendingRemove = nil } }
+                )
+            ) {
+                Button("取消", role: .cancel) { memberPendingRemove = nil }
+                Button("移除", role: .destructive) {
+                    guard let member = memberPendingRemove else { return }
+                    memberPendingRemove = nil
+                    Task { await perform {
+                        try await model.removeMember(memberID: member.id)
+                        onGroupUpdated?(model.group)
+                    } }
+                }
+            } message: {
+                Text("该成员将离开此群聊。Bot 本身会保留。")
+            }
+            .sheet(isPresented: $showingAdd) {
+                AddGroupMemberSheet(
+                    memberBotIDs: Set(model.group.members.compactMap(\.botID)),
+                    currentBotCount: botCount
+                ) { botID in
+                    showingAdd = false
+                    Task { await perform {
+                        try await model.addMember(botID: botID)
+                        onGroupUpdated?(model.group)
+                    } }
+                }
+            }
         }
     }
+
     private var memberSection: some View {
-        let botCount = BotProductLimits.botMemberCount(in: model.group.members)
-        return Section {
+        Section {
             ForEach(model.group.members) { member in
                 GroupInfoMemberRow(member: member)
                     .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if canRemove(member) {
+                            Button(role: .destructive) {
+                                memberPendingRemove = member
+                            } label: {
+                                Label("移除", systemImage: "minus.circle.fill")
+                            }
+                            .accessibilityLabel("移除 \(member.name)")
+                        }
+                    }
             }
+            Button {
+                if canAddMember { showingAdd = true }
+                else { error = BotProductLimits.groupSelectionFullMessage }
+            } label: {
+                Label("添加成员", systemImage: "person.badge.plus")
+                    .foregroundStyle(canAddMember && !saving ? Color.blue : Color.secondary)
+            }
+            .disabled(saving)
+            .accessibilityHint(canAddMember ? "选择要加入的 Bot" : BotProductLimits.groupSelectionFullMessage)
         } header: {
             Text("群成员（\(botCount)）")
         } footer: {
@@ -57,9 +120,20 @@ struct GroupInfoView: View {
         }
     }
 
+    private func canRemove(_ member: ChatGroupMember) -> Bool {
+        // 不可用历史行不计入 Bot 下限；仍绑定 Bot 的成员受 min 2 限制。
+        if member.botID == nil { return true }
+        return BotProductLimits.canRemoveMember(currentBotCount: botCount)
+    }
+
     private func perform(_ action: () async throws -> Void) async {
         guard !saving else { return }; saving = true; defer { saving = false }
-        do { try await action() } catch { self.error = (error as? APIError)?.status == 409 ? "讨论还在进行，请先停止后再操作。" : "暂时没能完成操作，请重新加载后再试。" }
+        do {
+            try await action()
+            error = nil
+        } catch {
+            self.error = app.message(for: error)
+        }
     }
 }
 
@@ -74,6 +148,105 @@ private struct GroupInfoMemberRow: View {
             if !member.available {
                 Text("不可用").font(.caption2).foregroundStyle(.secondary)
             }
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// 选择尚未入群的 Bot；风格对齐 CreateGroupSheet，一次添加一名。
+private struct AddGroupMemberSheet: View {
+    @Environment(AppState.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    let memberBotIDs: Set<Int>
+    let currentBotCount: Int
+    let onPick: (Int) -> Void
+    @State private var bots: [Bot] = []
+    @State private var selected: Int?
+    @State private var loading = true
+    @State private var saving = false
+    @State private var error: String?
+    @State private var selectionHint: String?
+
+    private var candidates: [Bot] { bots.filter { !memberBotIDs.contains($0.id) } }
+    private var canAddMore: Bool { BotProductLimits.canAddMember(currentBotCount: currentBotCount) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    if loading { ProgressView() }
+                    else if candidates.isEmpty {
+                        Text(bots.isEmpty ? "还没有可加入的 Bot。" : "所有 Bot 都已在群中。")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(candidates) { bot in
+                            let isSelected = selected == bot.id
+                            Button {
+                                guard canAddMore else {
+                                    selectionHint = BotProductLimits.groupSelectionFullMessage
+                                    return
+                                }
+                                selectionHint = nil
+                                selected = bot.id
+                            } label: {
+                                HStack {
+                                    LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
+                                                  hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 40,
+                                                  appearance: bot.supportedAppearance)
+                                    Text(bot.name).foregroundStyle(canAddMore || isSelected ? .primary : .secondary)
+                                    Spacer()
+                                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(isSelected ? Color.accentColor : (canAddMore ? Color.secondary : Color.secondary.opacity(0.5)))
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!canAddMore && !isSelected)
+                            .accessibilityHint(canAddMore ? "选择" : BotProductLimits.groupSelectionFullMessage)
+                        }
+                    }
+                } header: {
+                    Text(BotProductLimits.groupSelectionTitle(selectedCount: currentBotCount + (selected == nil ? 0 : 1)))
+                } footer: {
+                    Text(selectionHint ?? BotProductLimits.groupSelectionHint)
+                }
+                if let error {
+                    Section { ConnectionNotice(title: error) { Task { await load() } } }
+                }
+            }
+            .disabled(saving)
+            .navigationTitle("添加成员").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    DismissToolbarButton(action: { dismiss() }).disabled(saving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(saving ? "添加中…" : "添加") {
+                        guard let selected, canAddMore else {
+                            selectionHint = canAddMore ? nil : BotProductLimits.groupSelectionFullMessage
+                            return
+                        }
+                        saving = true
+                        onPick(selected)
+                    }
+                    .disabled(selected == nil || !canAddMore || saving || loading)
+                }
+            }
+            .task { await load() }
+        }
+    }
+
+    private func load() async {
+        let generation = app.sessionGeneration; loading = true
+        defer { if generation == app.sessionGeneration { loading = false } }
+        do {
+            let result = try await app.api.bots()
+            guard generation == app.sessionGeneration, !Task.isCancelled else { return }
+            bots = result.bots; error = nil
+        } catch {
+            if generation == app.sessionGeneration { self.error = app.message(for: error) }
         }
     }
 }

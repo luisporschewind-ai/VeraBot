@@ -33,6 +33,10 @@ class GroupPatchIn(BaseModel):
             self.name = GroupCreateIn.clean_name(self.name)
         return self
 
+class GroupMemberAddIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    bot_id: int = Field(gt=0)
+
 class GroupChatIn(BaseModel):
     client_request_id: UUID
     message: str = Field(default="", max_length=2000)

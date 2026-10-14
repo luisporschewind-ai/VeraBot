@@ -90,6 +90,39 @@ class GroupTests(unittest.TestCase):
         self.assertEqual(cli.delete(path, headers={**H, **GH}).status_code, 200)
         self.assertEqual(cli.get(path, headers=H).status_code, 404)
 
+    def test_add_and_remove_member(self):
+        g = self.create(BOTS[:2]).json()
+        path = f"/api/groups/{g['id']}/members"
+        added = cli.post(path, headers={**H, **GH}, json={'bot_id': BOTS[2]})
+        self.assertEqual(added.status_code, 200, added.text)
+        ids = [m['bot_id'] for m in added.json()['members']]
+        self.assertEqual(ids, BOTS[:3])
+        # Duplicate / foreign / missing group
+        self.assertEqual(cli.post(path, headers={**H, **GH}, json={'bot_id': BOTS[2]}).status_code, 422)
+        self.assertEqual(cli.post(path, headers={**H, **GH}, json={'bot_id': FOREIGN}).status_code, 422)
+        self.assertEqual(cli.post('/api/groups/999999/members', headers={**H, **GH},
+                                  json={'bot_id': BOTS[3]}).status_code, 404)
+        # Other user cannot mutate
+        self.assertEqual(cli.post(path, headers={**H2, **GH}, json={'bot_id': FOREIGN}).status_code, 404)
+        member = next(m for m in added.json()['members'] if m['bot_id'] == BOTS[2])
+        removed = cli.delete(f"{path}/{member['id']}", headers={**H, **GH})
+        self.assertEqual(removed.status_code, 200, removed.text)
+        self.assertEqual([m['bot_id'] for m in removed.json()['members']], BOTS[:2])
+        # Busy discussion does not block membership edits; in-flight turn stays running.
+        turn = self.claim(removed.json())
+        more = cli.post(path, headers={**H, **GH}, json={'bot_id': BOTS[3]})
+        self.assertEqual(more.status_code, 200, more.text)
+        self.assertEqual(cli.get(f"/api/groups/{g['id']}/turns/{turn['id']}", headers=H).json()['status'], 'running')
+        # Cannot remove the last linked Bot
+        pair = self.create(BOTS[:2]).json()
+        first = pair['members'][0]
+        second = pair['members'][1]
+        self.assertEqual(cli.delete(f"/api/groups/{pair['id']}/members/{first['id']}",
+                                    headers={**H, **GH}).status_code, 200)
+        last = cli.delete(f"/api/groups/{pair['id']}/members/{second['id']}", headers={**H, **GH})
+        self.assertEqual(last.status_code, 422)
+        self.assertEqual(last.json()['detail']['code'], 'last_member')
+
     def test_idempotency_and_busy(self):
         from verabot.db import group_store
         g = self.group()

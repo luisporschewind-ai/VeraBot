@@ -46,6 +46,9 @@ private let groupBot = #"{"id":101,"group_id":7,"turn_id":9,"member_id":21,"role
     #expect(body["target_bot_id"] == nil)
     let patch = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(GroupUpdateRequest(name: "新名称"))) as? [String: Any])
     #expect(patch["default_bot_id"] == nil)
+    let addMember = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(GroupMemberAddRequest(botID: 42))) as? [String: Any])
+    #expect(addMember["bot_id"] as? Int == 42)
+    #expect(addMember.count == 1)
 }
 
 @Test func GroupChatSSEPreservesBlankSeparatorsAndMultilineData() {

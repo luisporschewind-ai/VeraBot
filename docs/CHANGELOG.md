@@ -1,9 +1,14 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-14 · 群聊成员增删
+
+- 群设置页支持添加 / 移除 Bot 成员（Boss 参考：同卡「添加成员」、左滑 minus.circle、确认「移除 {Name}？」）。
+- API：`POST/DELETE /api/groups/{id}/members`；服务端仅归属与防空群校验；产品 2～5 仍由 `BotProductLimits` UI 约束。规格见 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
+
 ## 2026-10-14 · Bot 数量限制与创建群聊 UI 跟进
 
 - PR #35（已合入）：iOS UI 层落实账号最多 10 个 Bot、群聊创建选择 2～5 个 Bot；上限集中在 `BotProductLimits`，不改 Runtime / DB / API。规格见 [bot-limits](superpowers/specs/2026-10-14-bot-limits.md)。
-- PR #36（进行中）：按 Boss 去掉助理列表「我的 Bot（n/10）」展示（保留上限校验与提示）；创建群聊页去掉底部提示卡片，说明改到选择区 footer。变更细节见规格「变更记录」。
+- PR #36（已合入）：按 Boss 去掉助理列表「我的 Bot（n/10）」展示（保留上限校验与提示）；创建群聊页去掉底部提示卡片，说明改到选择区 footer。变更细节见规格「变更记录」。
 
 ## 2026-10-14 · 离线提示统一（PR #34，已合入）
 

@@ -162,6 +162,11 @@ public struct GroupUpdateRequest: Encodable, Sendable {
     public init(name: String? = nil) { self.name = name }
     enum CodingKeys: String, CodingKey { case name }
 }
+public struct GroupMemberAddRequest: Encodable, Sendable {
+    public let botID: Int
+    public init(botID: Int) { self.botID = botID }
+    enum CodingKeys: String, CodingKey { case botID = "bot_id" }
+}
 public struct GroupChatRequest: Encodable, Sendable {
     public let clientRequestID: UUID; public let message: String; public let mode: GroupChatMode; public let targetBotID: Int?
     public let attachmentIDs: [String]

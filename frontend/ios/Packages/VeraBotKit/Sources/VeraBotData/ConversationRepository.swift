@@ -39,6 +39,10 @@ public actor ConversationRepository {
         guard isCurrent else { throw CancellationError() }
         try await store.replaceConversations(groups, kind: ConversationKind.group.rawValue, id: \.id)
     }
+    public func saveGroup(_ group: ChatGroup) async throws {
+        guard isCurrent else { throw CancellationError() }
+        try await store.saveConversation(group, kind: ConversationKind.group.rawValue, id: group.id)
+    }
 
     public func refreshLists() async throws -> (bots: [Bot], groups: [ChatGroup]) {
         async let remoteBots = api.bots()
