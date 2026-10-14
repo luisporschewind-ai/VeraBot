@@ -80,6 +80,40 @@ def list_pending(user_id: int, bot_id: int) -> list[dict]:
         ).fetchall())
 
 
+def begin_immediate(c) -> None:
+    c.execute("BEGIN IMMEDIATE")
+
+
+def get_raw(c, suggestion_id: int, user_id: int):
+    return c.execute("SELECT * FROM suggestions WHERE id=? AND user_id=?", (suggestion_id, user_id)).fetchone()
+
+
+def expire_pending(c, suggestion_id: int, user_id: int) -> None:
+    c.execute(
+        "UPDATE suggestions SET status='expired' WHERE id=? AND user_id=? AND status='pending'",
+        (suggestion_id, user_id))
+
+
+def expire(c, suggestion_id: int, user_id: int) -> None:
+    c.execute("UPDATE suggestions SET status='expired' WHERE id=? AND user_id=?", (suggestion_id, user_id))
+
+
+def claim_pending(c, suggestion_id: int, user_id: int, decided_at: str) -> int:
+    return c.execute(
+        "UPDATE suggestions SET status='accepted',decided_at=? WHERE id=? AND user_id=? AND status='pending'",
+        (decided_at, suggestion_id, user_id)).rowcount
+
+
+def status_of(c, suggestion_id: int, user_id: int):
+    return c.execute("SELECT status FROM suggestions WHERE id=? AND user_id=?", (suggestion_id, user_id)).fetchone()
+
+
+def set_payload(c, suggestion_id: int, user_id: int, payload_json: str) -> None:
+    c.execute(
+        "UPDATE suggestions SET payload=? WHERE id=? AND user_id=?",
+        (payload_json, suggestion_id, user_id))
+
+
 def decide(user_id: int, suggestion_id: int, decision: str) -> dict | None:
     if decision not in VALID_DECISIONS:
         raise ValueError("invalid_decision")

@@ -10,6 +10,7 @@ import logging
 
 from ... import db
 from ...core import config
+from ...db import message_store
 from . import policy
 from . import repository as repo
 from .errors import MemoryServiceError
@@ -100,8 +101,7 @@ def public(r: dict, c=None) -> dict:
                     continue
                 if not source_bot_id or (r.get("scope") == "bot" and r.get("bot_id") != source_bot_id):
                     continue
-                row = cc.execute("SELECT created_at FROM messages WHERE id=? AND user_id=? AND bot_id=? AND role='user'",
-                                 (mid, owner, source_bot_id)).fetchone()
+                row = message_store.user_message_created_at(cc, mid, owner, source_bot_id)
                 if row and row["created_at"]:
                     evidence.append({"message_id": mid, "date": str(row["created_at"])[:10], "role": "user"})
                     seen_ids.add(mid)

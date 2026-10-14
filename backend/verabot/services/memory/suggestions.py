@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ... import db
 from ...core.config import TIMEZONE
-from ...db import reminder_store, suggestion_store
+from ...db import bot_store, delegation_store, memory_store, reminder_store, suggestion_store
 from ..reminders import service as reminder_service
 from . import policy, repository as memory_repo
 
@@ -130,11 +130,7 @@ def _suggest_routines(user_id: int, bot: dict) -> None:
     if access == "none" or not memory_repo.user_enabled(user_id):
         return
     with db.tx() as c:
-        memories = c.execute(
-            "SELECT id,scope,content FROM memories WHERE user_id=? AND type='routine' AND status='active' "
-            "AND ((scope='bot' AND bot_id=?) OR (scope='global' AND ?=1)) LIMIT 100",
-            (user_id, bot["id"], int(access == "bot_and_global")),
-        ).fetchall()
+        memories = memory_store.active_routines(c, user_id, bot["id"], access == "bot_and_global")
     for memory in memories:
         memory = dict(memory)
         schedule = routine_schedule_from_text(memory.get("content") or "", TIMEZONE)
@@ -158,13 +154,7 @@ def _suggest_delegations(user_id: int, bot: dict) -> None:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
     allowed = set(bot.get("delegate_to") or [])
     with db.tx() as c:
-        rows = c.execute(
-            "SELECT d.to_bot_id, COUNT(*) AS n, MAX(d.created_at) AS latest, b.name AS target_name "
-            "FROM delegations d JOIN bots b ON b.id=d.to_bot_id AND b.user_id=d.user_id "
-            "WHERE d.user_id=? AND d.from_bot_id=? AND d.created_at>=? "
-            "GROUP BY d.to_bot_id HAVING COUNT(*)>=3",
-            (user_id, bot["id"], cutoff),
-        ).fetchall()
+        rows = delegation_store.frequent_targets(c, user_id, bot["id"], cutoff)
     for row in rows:
         target_id = int(row["to_bot_id"])
         if target_id in allowed:
@@ -200,8 +190,8 @@ def decide(user_id: int, suggestion_id: int, decision: str) -> dict | None:
 
 def accept(user_id: int, suggestion_id: int) -> dict | None:
     with db.tx() as c:
-        c.execute("BEGIN IMMEDIATE")
-        item = c.execute("SELECT * FROM suggestions WHERE id=? AND user_id=?", (suggestion_id, user_id)).fetchone()
+        suggestion_store.begin_immediate(c)
+        item = suggestion_store.get_raw(c, suggestion_id, user_id)
         if not item:
             return None
         item = dict(item)
@@ -217,20 +207,16 @@ def accept(user_id: int, suggestion_id: int) -> dict | None:
         if item["status"] != "pending":
             return {"status": item["status"], "kind": item["kind"]}
         if datetime.fromisoformat(item["expires_at"].replace("Z", "+00:00")) <= datetime.now(timezone.utc):
-            c.execute("UPDATE suggestions SET status='expired' WHERE id=? AND user_id=? AND status='pending'",
-                      (suggestion_id, user_id))
+            suggestion_store.expire_pending(c, suggestion_id, user_id)
             return {"status": "expired", "kind": item["kind"]}
         if payload.get("source_memory_id"):
-            source = c.execute("SELECT 1 FROM memories WHERE id=? AND user_id=? AND status='active'",
-                               (payload["source_memory_id"], user_id)).fetchone()
+            source = memory_store.active_exists(c, payload["source_memory_id"], user_id)
             if not source:
-                c.execute("UPDATE suggestions SET status='expired' WHERE id=? AND user_id=?",
-                          (suggestion_id, user_id))
+                suggestion_store.expire(c, suggestion_id, user_id)
                 return {"status": "expired", "kind": item["kind"]}
-        claimed = c.execute("UPDATE suggestions SET status='accepted',decided_at=? WHERE id=? AND user_id=? AND status='pending'",
-                            (db.now_iso(), suggestion_id, user_id)).rowcount
+        claimed = suggestion_store.claim_pending(c, suggestion_id, user_id, db.now_iso())
         if claimed != 1:
-            latest = c.execute("SELECT status FROM suggestions WHERE id=? AND user_id=?", (suggestion_id, user_id)).fetchone()
+            latest = suggestion_store.status_of(c, suggestion_id, user_id)
             return {"status": latest[0] if latest else "not_found", "kind": item["kind"]}
         result = {"status": "accepted", "kind": item["kind"]}
         if item["kind"] == "routine_reminder":
@@ -240,13 +226,12 @@ def accept(user_id: int, suggestion_id: int) -> dict | None:
                 bot_id=item["bot_id"], created_by="suggestion", client="ios", actor="user", _connection=c)
             reminder_id = int(reminder.get("id"))
             payload["created_reminder_id"] = reminder_id
-            c.execute("UPDATE suggestions SET payload=? WHERE id=? AND user_id=?",
-                      (json.dumps(payload, ensure_ascii=False), suggestion_id, user_id))
+            suggestion_store.set_payload(c, suggestion_id, user_id, json.dumps(payload, ensure_ascii=False))
             result["reminder_id"] = reminder_id
         elif item["kind"] == "delegation":
             source_id, target_id = payload.get("source_bot_id"), payload.get("target_bot_id")
-            valid = c.execute("SELECT 1 FROM bots WHERE id=? AND user_id=?", (source_id, user_id)).fetchone()
-            target = c.execute("SELECT 1 FROM bots WHERE id=? AND user_id=?", (target_id, user_id)).fetchone()
+            valid = bot_store.exists(c, user_id, source_id)
+            target = bot_store.exists(c, user_id, target_id)
             if not valid or not target:
                 raise ValueError("suggestion_target_unavailable")
             result.update({"settings_bot_id": int(source_id), "target_bot_id": int(target_id)})

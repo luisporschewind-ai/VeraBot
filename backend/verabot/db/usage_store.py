@@ -41,6 +41,13 @@ def transcribe_totals(c, user_id: int, since: str | None = None) -> dict:
     return row(c.execute(_TRANSCRIBE_Q + " AND created_at>=?", (user_id, since)).fetchone())
 
 
+def counts_by_kind(c, user_id: int, bot_ids: list[int], start: str, end: str):
+    marks = ",".join("?" * len(bot_ids))
+    return c.execute(
+        f"SELECT kind,COUNT(*) n FROM usage_log WHERE user_id=? AND bot_id IN ({marks}) AND created_at>=? AND created_at<? GROUP BY kind",
+        (user_id, *bot_ids, start, end)).fetchall()
+
+
 def insert_transcription(c, user_id: int, model: str, nbytes: int, duration_s, chars: int, total_tokens: int,
                          created_at: str) -> None:
     c.execute("INSERT INTO transcriptions(user_id,model,bytes,duration_s,chars,total_tokens,created_at)"

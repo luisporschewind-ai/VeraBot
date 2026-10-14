@@ -184,6 +184,66 @@ def user_enabled(user_id: int) -> bool:
     return bool(r and r[0])
 
 
+_MEMORY_PUBLIC = (
+    "id,scope,bot_id,type,content,source,status,sensitivity,action,confidence,use_count,"
+    "last_used_at,confirmed_at,created_at,updated_at"
+)
+
+
+def confirmed_in_range(c, user_id: int, start: str, end: str):
+    return c.execute(
+        f"SELECT {_MEMORY_PUBLIC} FROM memories WHERE user_id=? AND status='active' AND confirmed_at>=? AND confirmed_at<? "
+        "AND sensitivity='normal' ORDER BY confirmed_at DESC LIMIT 20",
+        (user_id, start, end)).fetchall()
+
+
+def normal_candidate_count(c, user_id: int) -> int:
+    return c.execute(
+        "SELECT COUNT(*) FROM memories WHERE user_id=? AND status='candidate' AND sensitivity='normal'",
+        (user_id,)).fetchone()[0]
+
+
+def type_counts_for_bot(c, user_id: int, bot_id: int, access: str):
+    return c.execute(
+        "SELECT type,COUNT(*) n FROM memories WHERE user_id=? AND status='active' AND "
+        "((scope IN ('bot','summary') AND bot_id=?) OR (scope='global' AND ?='bot_and_global')) GROUP BY type",
+        (user_id, bot_id, access)).fetchall()
+
+
+def recent_for_bot(c, user_id: int, bot_id: int, access: str):
+    return c.execute(
+        f"SELECT {_MEMORY_PUBLIC} FROM memories WHERE user_id=? AND status='active' AND sensitivity='normal' AND "
+        "((scope IN ('bot','summary') AND bot_id=?) OR (scope='global' AND ?='bot_and_global')) "
+        "ORDER BY confirmed_at DESC LIMIT 3",
+        (user_id, bot_id, access)).fetchall()
+
+
+def active_normal_ids(c, user_id: int, ids: list[int]) -> set[int]:
+    if not ids:
+        return set()
+    marks = ",".join("?" * len(ids))
+    return {r[0] for r in c.execute(
+        f"SELECT id FROM memories WHERE user_id=? AND status='active' AND sensitivity='normal' AND id IN ({marks})",
+        (user_id, *ids)).fetchall()}
+
+
+def export_rows(c, user_id: int):
+    return c.execute("SELECT * FROM memories WHERE user_id=? ORDER BY id", (user_id,)).fetchall()
+
+
+def active_routines(c, user_id: int, bot_id: int, include_global: bool):
+    return c.execute(
+        "SELECT id,scope,content FROM memories WHERE user_id=? AND type='routine' AND status='active' "
+        "AND ((scope='bot' AND bot_id=?) OR (scope='global' AND ?=1)) LIMIT 100",
+        (user_id, bot_id, int(include_global))).fetchall()
+
+
+def active_exists(c, memory_id: int, user_id: int):
+    return c.execute(
+        "SELECT 1 FROM memories WHERE id=? AND user_id=? AND status='active'",
+        (memory_id, user_id)).fetchone()
+
+
 def set_user_enabled(user_id: int, enabled: bool):
     with tx() as c:
         c.execute("UPDATE users SET memory_enabled=? WHERE id=?", (int(enabled), user_id))

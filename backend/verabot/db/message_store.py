@@ -47,6 +47,82 @@ def list_conversation(c, user_id: int, bot_id: int) -> list[dict]:
         (user_id, bot_id)).fetchall())
 
 
+def user_message_stamp(c, message_id: int, user_id: int, bot_id: int):
+    return c.execute(
+        "SELECT id,created_at FROM messages WHERE id=? AND user_id=? AND bot_id=? AND role='user'",
+        (message_id, user_id, bot_id)).fetchone()
+
+
+def user_message_role(c, message_id: int, user_id: int, bot_id: int):
+    return c.execute(
+        "SELECT id,role,created_at FROM messages WHERE id=? AND user_id=? AND bot_id=? AND role='user'",
+        (message_id, user_id, bot_id)).fetchone()
+
+
+def count_user_messages_through(c, user_id: int, bot_id: int, after_id: int, through_id: int) -> int:
+    return c.execute(
+        "SELECT COUNT(*) FROM messages WHERE user_id=? AND bot_id=? AND role='user' AND id>? AND id<=?",
+        (user_id, bot_id, after_id, through_id)).fetchone()[0]
+
+
+def previous_message(c, user_id: int, bot_id: int, before_id: int):
+    return c.execute(
+        "SELECT role,created_at FROM messages WHERE user_id=? AND bot_id=? AND id<? ORDER BY id DESC LIMIT 1",
+        (user_id, bot_id, before_id)).fetchone()
+
+
+def recent_user_contents(c, user_id: int, bot_id: int, cutoff: str):
+    return c.execute(
+        "SELECT role,content FROM messages WHERE user_id=? AND bot_id=? AND role='user' AND created_at>=? ORDER BY id DESC LIMIT 1000",
+        (user_id, bot_id, cutoff)).fetchall()
+
+
+def user_message_created_at(c, message_id: int, user_id: int, bot_id: int):
+    return c.execute(
+        "SELECT created_at FROM messages WHERE id=? AND user_id=? AND bot_id=? AND role='user'",
+        (message_id, user_id, bot_id)).fetchone()
+
+
+def min_created_for_bots(c, user_id: int, bot_ids: list[int]):
+    marks = ",".join("?" * len(bot_ids))
+    return c.execute(
+        f"SELECT MIN(created_at) FROM messages WHERE user_id=? AND bot_id IN ({marks})",
+        (user_id, *bot_ids)).fetchone()[0]
+
+
+def count_assistant_between(c, user_id: int, bot_ids: list[int], start: str, end: str) -> int:
+    marks = ",".join("?" * len(bot_ids))
+    return c.execute(
+        f"SELECT COUNT(*) FROM messages WHERE user_id=? AND bot_id IN ({marks}) AND role='assistant' AND created_at>=? AND created_at<?",
+        (user_id, *bot_ids, start, end)).fetchone()[0]
+
+
+def count_assistant(c, user_id: int, bot_id: int) -> int:
+    return c.execute(
+        "SELECT COUNT(*) FROM messages WHERE user_id=? AND bot_id=? AND role='assistant'",
+        (user_id, bot_id)).fetchone()[0]
+
+
+def min_created_for_bot(c, user_id: int, bot_id: int):
+    return c.execute(
+        "SELECT MIN(created_at) FROM messages WHERE user_id=? AND bot_id=?",
+        (user_id, bot_id)).fetchone()[0]
+
+
+def memory_ids_json(c, message_id: int, user_id: int):
+    return c.execute(
+        "SELECT memory_ids FROM messages WHERE id=? AND user_id=?",
+        (message_id, user_id)).fetchone()
+
+
+def rated_assistant_traces(c, user_id: int, bot_id: int):
+    return c.execute(
+        "SELECT m.traces, f.rating FROM messages m JOIN message_feedback f "
+        "ON f.user_id=m.user_id AND f.message_id=m.id "
+        "WHERE m.user_id=? AND m.bot_id=? AND m.role='assistant' AND m.traces IS NOT NULL "
+        "ORDER BY f.created_at DESC LIMIT 500", (user_id, bot_id)).fetchall()
+
+
 def list_for_extraction(c, user_id: int, bot_id: int, after_message_id: int, limit: int = 64) -> list[dict]:
     """Recent conversation rows for implicit extraction; caller filters to user evidence and safe context."""
     found = rows(c.execute(
