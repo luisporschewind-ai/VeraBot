@@ -1,4 +1,10 @@
-# 项目状态 (STATUS) — 2026-10-13
+# 项目状态 (STATUS) — 2026-10-14
+
+## 2026-10-14 · 今日已合入 main（文档同步）
+
+- PR #33 SQL 分层收尾：直连查询迁入 `db/`，`sql_layer_check` 严格通过。见 [CHANGELOG](CHANGELOG.md)、[known-issues](testing/2026-10-14-known-issues.md)。
+- PR #34 离线提示统一：单条 `ConnectionNotice` + `AppState.message(for:)` 友好文案。
+- PR #35 Bot/群聊数量 UI 限制（10 / 2～5）。PR #36（进行中）去掉助理列表计数展示与创建群聊底部提示卡片。规格 [bot-limits](superpowers/specs/2026-10-14-bot-limits.md)。
 
 ## 2026-10-14 · 对话持续执行与本地通知集成
 
