@@ -4,13 +4,13 @@ import VeraBotCore
 struct MemoryMonthlyReviewView:View {
     @Environment(AppState.self) private var app
     @State private var review:MonthlyMemoryReview?
-    @State private var errorText:String?
+    @State private var notice: PageNotice?
     @State private var loading=false
     private let month:String
     init(month:String=String(Calendar.current.dateComponents([.year,.month],from:Date()).year ?? 2026)+"-"+String(format:"%02d",Calendar.current.component(.month,from:Date()))) { self.month=month }
     var body:some View {
         ThemedList {
-            if let errorText { Text(errorText).foregroundStyle(.red) }
+            if let notice { PageConnectionNotice(notice: notice) { Task { await load() } }.connectionNoticeRow() }
             if loading && review == nil { ProgressView("正在整理本月回顾…") }
             if let review {
                 Section("本月协助") { LabeledContent("完成的协助",value:"\(review.assistedCount) 次") }
@@ -31,8 +31,8 @@ struct MemoryMonthlyReviewView:View {
     }
     private func load() async {
         loading=true; defer{loading=false}
-        do { review=try await app.api.monthlyMemoryReview(month:month); errorText=nil }
-        catch { errorText=app.message(for:error) }
+        do { review=try await app.api.monthlyMemoryReview(month:month); notice=nil }
+        catch { notice = .fromLoad(error, message: app.message(for: error)) }
     }
     private func capabilityTitle(_ key:String)->String { switch key {case "chat":return "对话";case "delegation":return "委派";case "memory":return "记忆整理";default:return key} }
 }
@@ -41,13 +41,16 @@ private struct MemoryReviewMemoryDetail:View {
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
     let memory:Memory
-    @State private var errorText:String?
+    @State private var notice: PageNotice?
     var body:some View {
         ThemedForm {
             Section("记忆内容") { Text(memory.content) }
             Section("信息") { LabeledContent("类型",value:memory.type.title); LabeledContent("使用次数",value:"\(memory.useCount)") }
-            if let errorText { Text(errorText).foregroundStyle(.red) }
-            Section { Button("删除这条记忆",role:.destructive) { Task { do {_ = try await app.api.deleteMemory(id:memory.id); dismiss()} catch {errorText=app.message(for:error)} } } }
+            if let notice {
+                ConnectionNotice(title: notice.offline ? UserFacingError.offline : (notice.title ?? UserFacingError.offline))
+                    .connectionNoticeRow()
+            }
+            Section { Button("删除这条记忆",role:.destructive) { Task { do {_ = try await app.api.deleteMemory(id:memory.id); dismiss()} catch { notice = .fromAction(error, message: app.message(for: error)) } } } }
         }.navigationTitle("记忆详情")
     }
 }

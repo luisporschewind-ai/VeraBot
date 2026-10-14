@@ -116,7 +116,7 @@ struct DebugView: View {
             healthError = nil
         } catch {
             health = nil
-            healthError = error.localizedDescription
+            healthError = app.message(for: error)
         }
     }
 

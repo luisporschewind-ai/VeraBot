@@ -102,3 +102,92 @@ struct BotLoadingView: View {
         .accessibilityIdentifier("connection.loading")
     }
 }
+
+/// One inline notice for a screen that could not load, or for a pending action that is waiting on the network.
+/// Load failures use the same title and button. A pending sentence keeps its own wording in this card.
+struct ConnectionNotice: View {
+    var title: String = "暂时连接不上"
+    var message: String? = nil
+    var retrying = false
+    var retry: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            RobotAvatarView(action: retrying ? .waiting : .warning, size: 40, color: .brandFill)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(retrying ? "正在重新连接…" : title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let message, !message.isEmpty {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let retry {
+                Button(retrying ? "连接中…" : "重新连接", action: retry)
+                    .font(.subheadline.weight(.semibold))
+                    .disabled(retrying)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("connection.notice")
+    }
+}
+
+/// What a page should show in its single notice slot.
+struct PageNotice: Equatable {
+    var offline = false
+    var title: String?
+    var detail: String?
+    var allowsRetry = false
+
+    static func fromLoad(_ error: Error, message: String) -> PageNotice {
+        if UserFacingError.isTransport(error) || message == UserFacingError.offline {
+            return PageNotice(offline: true, allowsRetry: true)
+        }
+        return PageNotice(title: message, allowsRetry: true)
+    }
+
+    static func fromAction(_ error: Error, message: String) -> PageNotice {
+        if UserFacingError.isTransport(error) || message == UserFacingError.offline {
+            return PageNotice(offline: true, allowsRetry: true)
+        }
+        return PageNotice(title: message)
+    }
+
+    static func sentence(_ text: String) -> PageNotice {
+        PageNotice(title: text)
+    }
+}
+
+struct PageConnectionNotice: View {
+    let notice: PageNotice
+    var retrying = false
+    let retry: () -> Void
+
+    var body: some View {
+        if notice.offline {
+            ConnectionNotice(message: notice.detail, retrying: retrying, retry: retry)
+        } else if let title = notice.title {
+            ConnectionNotice(title: title, message: notice.detail, retry: notice.allowsRetry ? retry : nil)
+        }
+    }
+}
+
+extension View {
+    /// List row for an inline connection notice: the card supplies its own fill.
+    func connectionNoticeRow() -> some View {
+        listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+    }
+}

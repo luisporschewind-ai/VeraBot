@@ -359,12 +359,42 @@ final class AppState {
         if let old { Task { await old.invalidate() } }
     }
 
-    /// 统一错误文案；401 时自动退出登录。
+    /// 统一错误文案；401 时自动退出登录。网络和未知错误不用系统英文。
     func message(for error: Error) -> String {
         if let e = error as? APIError, e.status == 401 {
             signOut()
         }
-        return error.localizedDescription
+        return UserFacingError.message(for: error)
+    }
+}
+
+/// 界面上的错误句子。传输失败用同一句；服务端已经写好的中文保留；其余不用 localizedDescription。
+enum UserFacingError {
+    static let offline = "暂时连接不上"
+    static let unavailable = "这次没能完成，请稍后再试。"
+
+    static func isTransport(_ error: Error) -> Bool {
+        if ConnectionIssue.classify(error) != nil { return true }
+        if let api = error as? APIError, (500...599).contains(api.status) { return true }
+        let ns = error as NSError
+        return ns.domain == NSURLErrorDomain && ns.code != NSURLErrorCancelled
+    }
+
+    static func message(for error: Error) -> String {
+        if isTransport(error) { return offline }
+        if let api = error as? APIError {
+            let text = api.message.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? unavailable : text
+        }
+        if let text = (error as? LocalizedError)?.errorDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !text.isEmpty, text.contains(where: isChinese) {
+            return text
+        }
+        return unavailable
+    }
+
+    private static func isChinese(_ character: Character) -> Bool {
+        character.unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) }
     }
 }
 

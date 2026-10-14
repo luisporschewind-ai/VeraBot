@@ -80,18 +80,11 @@ struct ChatView: View {
                         Button(vm.loadingOlder ? "正在加载…" : "加载更早的消息") { Task { await vm.loadOlder() } }
                             .disabled(vm.loadingOlder).font(.footnote)
                     }
-                    if vm.historyIncomplete {
-                        Text("部分历史尚未同步；联网后会继续下载。")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
                     ForEach(vm.items) { item in
                         messageCell(item)
                     }
                     ForEach(vm.memorySuggestions) { suggestion in
                         MemorySuggestionCard(suggestion: suggestion, vm: vm)
-                    }
-                    if let e = vm.errorText {
-                        Text(e).font(.footnote).foregroundStyle(.red)
                     }
                     Color.clear.frame(height: 1).id("bottom")
                         .background(GeometryReader { geometry in Color.clear.preference(key: ConversationBottomKey.self, value: geometry.frame(in: .global)) })
@@ -132,7 +125,16 @@ struct ChatView: View {
                 proxy.scrollTo("bottom", anchor: .bottom)   // 键盘弹出后：确保最后一条可见
             }
         }
-        .bottomBar { composer.conversationComposer($composerViewport) }   // iOS 26 safeAreaBar：消息滚到输入栏下方有系统滚动边缘效果（同顶部导航栏）；旧系统 safeAreaInset
+        .bottomBar {
+            VStack(spacing: 8) {
+                if let notice = vm.notice {
+                    PageConnectionNotice(notice: notice) { Task { await vm.load() } }
+                        .padding(.horizontal, 16)
+                }
+                composer
+            }
+            .conversationComposer($composerViewport)
+        }   // iOS 26 safeAreaBar：消息滚到输入栏下方有系统滚动边缘效果（同顶部导航栏）；旧系统 safeAreaInset
         .inAppBrowser(isPresented: $browserCovered)   // 消息里的 http/https 链接在 App 内 SFSafariViewController 打开；tel: / mailto: 交给系统
         .navigationTitle(vm.bot.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -276,12 +278,12 @@ struct ChatView: View {
         guard !deletingBot else { return }
         deletingBot = true
         defer { deletingBot = false }
-        vm.errorText = nil
+        vm.notice = nil
         do {
             _ = try await app.api.deleteBot(vm.bot.id)
             dismiss()
         } catch {
-            vm.errorText = app.message(for: error)
+            vm.notice = .fromAction(error, message: app.message(for: error))
         }
     }
 
@@ -507,7 +509,7 @@ struct ChatView: View {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !vm.sending, !attachment.blocksSend else { return }
         guard !text.isEmpty || attachment.ready != nil else { return }
-        if vm.selectedWaitTaskID != nil && attachment.ready != nil { vm.errorText = "请先退出问题关联，再发送附件。"; return }
+        if vm.selectedWaitTaskID != nil && attachment.ready != nil { vm.notice = .sentence("请先退出问题关联，再发送附件。"); return }
         if speech.isRecording { speech.stop() }
         let image = attachment.consume()
         input = ""

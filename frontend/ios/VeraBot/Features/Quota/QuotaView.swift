@@ -5,10 +5,14 @@ import VeraBotCore
 struct QuotaView: View {
     @Environment(AppState.self) private var app
     @State private var quota: Quota?
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
 
     var body: some View {
         ThemedList {
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
+            }
             if let q = quota {
                 Section("今日额度") {
                     ProgressView(value: Double(min(q.today.totalTokens, q.dailyTokenQuota)),
@@ -56,7 +60,6 @@ struct QuotaView: View {
                     }
                 }
             }
-            if let errorText { Text(errorText).foregroundStyle(.red) }
         }
         .navigationTitle("用量看板")
         .navigationBarTitleDisplayMode(.inline)
@@ -67,9 +70,9 @@ struct QuotaView: View {
     private func load() async {
         do {
             quota = try await app.api.quota()
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 }

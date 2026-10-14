@@ -47,7 +47,8 @@ final class ChatViewModel {
     private var pageEpoch = 0
     private var projection = ChatReplyProjection()
     var sending = false
-    var errorText: String?
+    /// 这一页只显示一条通知：连不上时是「暂时连接不上」，待确认句子保持原文。
+    var notice: PageNotice?
     var scrollTick = 0
     /// 对话中记忆确认卡片的服务器状态（memory_id → 最新 Memory；nil 值 = 已不存在）
     var memoryStates: [Int: Memory?] = [:]
@@ -114,12 +115,18 @@ final class ChatViewModel {
         if let repository {
             do {
                 try await repository.syncPrivate(botID: bot.id)
-                await restoreLocal()
+                let restored = await restoreLocal()
                 historyIncomplete = false
+                if restored, notice?.offline == true { notice = nil }
             } catch {
                 historyIncomplete = !((try? await repository.isHistoryComplete(kind: .privateChat, id: bot.id)) ?? false)
-                if items.isEmpty && historyIncomplete { errorText = "历史尚未同步到这台设备，请联网后重试。" }
-                else if !items.isEmpty { errorText = "暂时离线，仍可查看已同步的历史。" }
+                if !items.isEmpty {
+                    notice = PageNotice(offline: true, detail: "仍可查看已同步的历史。", allowsRetry: true)
+                } else if historyIncomplete {
+                    notice = PageNotice(offline: true, allowsRetry: true)
+                } else {
+                    notice = .fromLoad(error, message: UserFacingError.message(for: error))
+                }
             }
         } else {
             do {
@@ -129,7 +136,8 @@ final class ChatViewModel {
                          attachments: $0.attachments, feedback: $0.feedback, sortKey: $0.id)
                 }
                 historyIncomplete = response.messages.count >= 100
-            } catch { errorText = error.localizedDescription }
+                if notice?.offline == true { notice = nil }
+            } catch { notice = .fromLoad(error, message: UserFacingError.message(for: error)) }
         }
         if items.isEmpty && !historyIncomplete {
             items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
@@ -142,8 +150,9 @@ final class ChatViewModel {
         await refreshMemorySuggestions()
     }
 
-    private func restoreLocal() async {
-        guard let repository else { return }
+    @discardableResult
+    private func restoreLocal() async -> Bool {
+        guard let repository else { return true }
         do {
             let stored = try await repository.privateMessages(botID: bot.id, limit: 101)
             hasOlderMessages = stored.count > 100
@@ -163,9 +172,11 @@ final class ChatViewModel {
                 }
             }
             historyIncomplete = !(try await repository.isHistoryComplete(kind: .privateChat, id: bot.id))
+            return true
         } catch {
             historyIncomplete = true
-            errorText = "本地历史暂时无法读取。"
+            notice = PageNotice(offline: true, detail: "本地历史暂时无法读取。", allowsRetry: true)
+            return false
         }
     }
 
@@ -182,7 +193,7 @@ final class ChatViewModel {
                      feedback: row.value.feedback, sortKey: row.sortKey, localStatus: row.status)
             }
             items.insert(contentsOf: older, at: 0)
-        } catch { errorText = "本地历史暂时无法读取。" }
+        } catch { notice = PageNotice(offline: true, detail: "本地历史暂时无法读取。", allowsRetry: true) }
     }
 
     func ensureMessageLoaded(_ id: Int) async {
@@ -304,14 +315,14 @@ final class ChatViewModel {
                               result: "已过期", createdAt: $0.createdAt, expiresAt: $0.expiresAt,
                               decidedAt: $0.decidedAt)
             } ?? PendingAction(id: id, status: "expired", result: "已过期")
-            errorText = e.message
+            notice = .sentence(e.message)
         } catch let e as APIError {
-            errorText = e.message
+            notice = .sentence(e.message)
             if e.status == 409, let a = try? await api.pendingAction(id: id) {
                 actionStates[id] = a
             }
         } catch {
-            errorText = error.localizedDescription
+            notice = .fromAction(error, message: UserFacingError.message(for: error))
         }
     }
 
@@ -321,12 +332,12 @@ final class ChatViewModel {
         do {
             actionStates[id] = try await api.cancelPendingAction(id: id)
         } catch let e as APIError {
-            errorText = e.message
+            notice = .sentence(e.message)
             if e.status == 409 || e.status == 410, let a = try? await api.pendingAction(id: id) {
                 actionStates[id] = a
             }
         } catch {
-            errorText = error.localizedDescription
+            notice = .fromAction(error, message: UserFacingError.message(for: error))
         }
     }
 
@@ -389,7 +400,7 @@ final class ChatViewModel {
             await refreshMemoryStates()
             if e.status == 404 { memoryStates[id] = .some(nil) }
         } else {
-            errorText = error.localizedDescription
+            notice = .fromAction(error, message: UserFacingError.message(for: error))
         }
     }
 
@@ -416,7 +427,7 @@ final class ChatViewModel {
                 await refreshMemoryStates()
             }
         } catch {
-            errorText = error.localizedDescription
+            notice = .fromAction(error, message: UserFacingError.message(for: error))
         }
     }
 
@@ -429,17 +440,17 @@ final class ChatViewModel {
                 items[idx].feedback = nil
             }
         } catch {
-            errorText = error.localizedDescription
+            notice = .fromAction(error, message: UserFacingError.message(for: error))
         }
     }
 
     /// 清空对话；includeMemories = true 时同时删除该 Bot 的「本 Bot 记忆」。对话摘要总会删掉，已确认的记忆默认保留。
     func clear(includeMemories: Bool = false) async {
-        errorText = nil
+        notice = nil
         do {
             _ = try await api.clearMessages(botID: bot.id, includeMemories: includeMemories)
         } catch {
-            errorText = error.localizedDescription
+            notice = .fromAction(error, message: UserFacingError.message(for: error))
             return
         }
         try? await repository?.clearPrivate(botID: bot.id)
@@ -450,7 +461,7 @@ final class ChatViewModel {
         await load()
     }
 
-    /// 删除单条消息：只对已落库（有 messageID）且不在流式输出中的条目生效；成功后从列表移除，失败按其他错误一样显示在 errorText。
+    /// 删除单条消息：只对已落库（有 messageID）且不在流式输出中的条目生效；成功后从列表移除，失败显示在这一页的通知上。
     func delete(_ item: Item) async {
         guard let mid = item.messageID, !item.streaming else { return }
         do {
@@ -465,7 +476,7 @@ final class ChatViewModel {
             try? await repository?.deletePrivate(LocalPrivateMessage(id: item.id, remoteID: mid,
                                                                       role: item.isUser ? "user" : "assistant", content: item.text), botID: bot.id)
         } catch {
-            errorText = error.localizedDescription
+            notice = .fromAction(error, message: UserFacingError.message(for: error))
         }
     }
 
@@ -505,15 +516,15 @@ final class ChatViewModel {
                     } catch {
                         if let error = error as? APIError, (400..<500).contains(error.status), error.status != 408 {
                             try? await activityRepository?.removePending(botID: bot.id, requestID: input.clientRequestID)
-                            errorText = error.message
-                        } else { errorText = "发送结果待确认，恢复网络后会继续核对。" }
+                            notice = .sentence(error.message)
+                        } else { notice = .sentence("发送结果待确认，恢复网络后会继续核对。") }
                     }
                 }
             }
             if let controls = try await activityRepository?.pendingControls(botID: bot.id) {
                 for control in controls where control.generation == conversationGeneration {
                     do { try await submitControl(control); guard epoch == pageEpoch else { return } }
-                    catch { errorText = "操作结果待确认，恢复网络后会继续核对。" }
+                    catch { notice = .sentence("操作结果待确认，恢复网络后会继续核对。") }
                 }
                 if !controls.isEmpty { let fresh = try await api.chatExecution(botID: bot.id); guard epoch == pageEpoch else { return }; await applySnapshot(fresh) }
             }
@@ -521,7 +532,7 @@ final class ChatViewModel {
             let pendingInputs = (try? await activityRepository?.pending(botID: bot.id)) ?? []
             let pendingControls = (try? await activityRepository?.pendingControls(botID: bot.id)) ?? []
             if !pendingInputs.isEmpty || !pendingControls.isEmpty { scheduleRecovery() }
-        } catch { if !Task.isCancelled && epoch == pageEpoch { errorText = "待同步；已接收的回复会继续执行。"; scheduleRecovery() } }
+        } catch { if !Task.isCancelled && epoch == pageEpoch { notice = .sentence("待同步；已接收的回复会继续执行。"); scheduleRecovery() } }
     }
 
     private func scheduleRecovery() {
@@ -610,7 +621,7 @@ final class ChatViewModel {
                         if event.name == "confirmation_required" || event.name == "task_updated" { await self.refreshPendingActions(); await self.refreshMemoryStates() }
                         if event.name == "done" { await self.refreshCandidateMemories(); await self.refreshMemorySuggestions() }
                     }
-                } catch { if !Task.isCancelled { self.errorText = "待同步；已接收的回复会继续执行。" } }
+                } catch { if !Task.isCancelled { self.notice = .sentence("待同步；已接收的回复会继续执行。") } }
                 do { try await Task.sleep(for: .seconds(2)) } catch { return }
                 guard epoch == self.pageEpoch else { return }
                 if let snapshot = try? await self.api.chatExecution(botID: self.bot.id) { await self.applySnapshot(snapshot) }
@@ -636,28 +647,34 @@ final class ChatViewModel {
         let epoch = pageEpoch
         let control = ChatControlSubmission(generation: task.generation, taskID: task.id, version: task.version)
         do { try await activityRepository.saveControl(control, botID: bot.id); try await submitControl(control); if epoch == pageEpoch { await recoverExecution() } }
-        catch { if epoch == pageEpoch { errorText = (error as? APIError)?.message ?? "停止结果待确认，恢复网络后会继续核对。"; scheduleRecovery() } }
+        catch {
+            if epoch == pageEpoch {
+                if let message = (error as? APIError)?.message, !message.isEmpty { notice = .sentence(message) }
+                else { notice = .sentence("停止结果待确认，恢复网络后会继续核对。") }
+                scheduleRecovery()
+            }
+        }
     }
     func send(_ text: String, attachment: Attachment? = nil) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || attachment != nil, !sending else { return }
         sending = true; defer { sending = false }
-        errorText = nil
+        notice = nil
         if let id = selectedWaitTaskID, let task = replyTasks.first(where: { $0.id == id && $0.state == "awaiting_user" }), let waitID = task.waitID {
             do {
-                guard let activityRepository else { errorText = "本地发送记录尚未准备好，请稍后重试。"; return }
+                guard let activityRepository else { notice = .sentence("本地发送记录尚未准备好，请稍后重试。"); return }
                 let control = ChatControlSubmission(generation: task.generation, taskID: task.id, version: task.version, waitID: waitID, message: trimmed)
                 try await activityRepository.saveControl(control, botID: bot.id)
                 try await submitControl(control)
                 selectedWaitTaskID = nil; await saveDraft(""); await load()
-            } catch { errorText = error.localizedDescription; scheduleRecovery() }
+            } catch { notice = .fromAction(error, message: UserFacingError.message(for: error)); scheduleRecovery() }
             return
         }
-        guard let activityRepository else { errorText = "本地发送记录尚未准备好，请稍后重试。"; return }
+        guard let activityRepository else { notice = .sentence("本地发送记录尚未准备好，请稍后重试。"); return }
         let epoch = pageEpoch
         let input = ChatInputRequest(message: trimmed, attachmentIDs: attachment.map { [$0.id] } ?? [], expectedGeneration: conversationGeneration)
         do { try await activityRepository.savePending(input, botID: bot.id) }
-        catch { errorText = error.localizedDescription; return }
+        catch { notice = .fromAction(error, message: UserFacingError.message(for: error)); return }
         let userID = UUID(uuidString: input.clientRequestID) ?? UUID()
         let sort = (items.last?.sortKey ?? 0) + 1
         items.append(Item(id: userID, isUser: true, text: trimmed, attachments: attachment.map { [$0] } ?? [], sortKey: sort, localStatus: "sending"))
@@ -677,8 +694,8 @@ final class ChatViewModel {
             guard epoch == pageEpoch else { return }
             if let error = error as? APIError, (400..<500).contains(error.status), error.status != 408 {
                 try? await activityRepository.removePending(botID: bot.id, requestID: input.clientRequestID)
-                errorText = error.message
-            } else { errorText = "发送结果待确认，恢复网络后会用原请求核对。"; scheduleRecovery() }
+                notice = .sentence(error.message)
+            } else { notice = .sentence("发送结果待确认，恢复网络后会用原请求核对。"); scheduleRecovery() }
         }
     }
 }

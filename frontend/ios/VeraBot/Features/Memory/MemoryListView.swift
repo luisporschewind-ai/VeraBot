@@ -12,7 +12,7 @@ struct MemoryListView: View {
     @State private var memories: [Memory] = []
     @State private var bots: [Bot] = []
     @State private var loaded = false
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     @State private var editing: MemoryEditView.Mode?
     @State private var confirmClear = false
     @State private var showIntro = false
@@ -40,8 +40,9 @@ struct MemoryListView: View {
 
     var body: some View {
         ThemedList {
-            if let errorText {
-                Text(errorText).font(.footnote).foregroundStyle(.red)
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
             }
             if botFilter == nil {
                 Section { NavigationLink { MemoryMonthlyReviewView().environment(app) } label: {
@@ -107,7 +108,7 @@ struct MemoryListView: View {
             }
         }
         .overlay {
-            if loaded && memories.isEmpty && errorText == nil {
+            if loaded && memories.isEmpty && notice == nil {
                 ContentUnavailableView {
                     Label("还没有记住任何内容", systemImage: "brain")
                 } description: {
@@ -215,9 +216,9 @@ struct MemoryListView: View {
             let (mr, br) = try await (ms, bs)
             memories = mr.memories
             bots = br.bots
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
         loaded = true
     }
@@ -229,24 +230,24 @@ struct MemoryListView: View {
             let url=FileManager.default.temporaryDirectory.appendingPathComponent("VeraBot-Memory-Export.json")
             try encoder.encode(value).write(to:url,options:.atomic); shareURL=url
         }
-        catch { errorText=app.message(for:error) }
+        catch { notice = .fromAction(error, message: app.message(for: error)) }
     }
 
     private func confirm(_ m: Memory) async {
         busy.insert(m.id); defer { busy.remove(m.id) }
-        do { _ = try await app.api.confirmMemory(id: m.id, content: nil) } catch { errorText = app.message(for: error) }
+        do { _ = try await app.api.confirmMemory(id: m.id, content: nil) } catch { notice = .fromAction(error, message: app.message(for: error)) }
         await load()
     }
 
     private func reject(_ m: Memory) async {
         busy.insert(m.id); defer { busy.remove(m.id) }
-        do { _ = try await app.api.rejectMemory(id: m.id) } catch { errorText = app.message(for: error) }
+        do { _ = try await app.api.rejectMemory(id: m.id) } catch { notice = .fromAction(error, message: app.message(for: error)) }
         await load()
     }
 
     private func delete(_ m: Memory) async {
         memories.removeAll { $0.id == m.id }   // 与系统邮件一致：左滑删除不再二次确认
-        do { _ = try await app.api.deleteMemory(id: m.id) } catch { errorText = app.message(for: error) }
+        do { _ = try await app.api.deleteMemory(id: m.id) } catch { notice = .fromAction(error, message: app.message(for: error)) }
         await load()
     }
 
@@ -258,7 +259,7 @@ struct MemoryListView: View {
                 _ = try await app.api.clearMemories(scope: nil, botID: nil)
             }
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
         await load()
     }

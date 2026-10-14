@@ -15,7 +15,7 @@ struct PluginDetailView: View {
     @State private var bots: [Bot] = []
     @State private var botID: Int?
     @State private var allowed: [String] = []
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     @State private var busy = false
     @State private var confirmUninstall = false
     @State private var showConsentPrompt = false
@@ -26,6 +26,10 @@ struct PluginDetailView: View {
 
     var body: some View {
         ThemedForm {
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
+            }
             if let plugin {
                 Section {
                     Label {
@@ -122,9 +126,6 @@ struct PluginDetailView: View {
                     Button("卸载插件", role: .destructive) { confirmUninstall = true }
                         .disabled(busy || !plugin.removable)
                 }
-            }
-            if let errorText {
-                Text(errorText).foregroundStyle(.red)
             }
         }
         .navigationTitle(plugin?.name ?? "插件")
@@ -256,10 +257,10 @@ struct PluginDetailView: View {
                 code: code, state: returnedState, issuer: query.first(where: { $0.name == "iss" })?.value))
             state = nil
             await load()
-            errorText = nil
+            notice = nil
         } catch {
             if let state { try? await app.api.cancelMCPOAuth(serverID: serverID, state: state) }
-            errorText = error.localizedDescription
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 
@@ -269,9 +270,9 @@ struct PluginDetailView: View {
         defer { busy = false }
         do {
             try await app.api.disconnectMCPOAuth(serverID: serverID)
-            errorText = nil
+            notice = nil
             await load()
-        } catch { errorText = app.message(for: error) }
+        } catch { notice = .fromAction(error, message: app.message(for: error)) }
     }
 
     private func disconnect() async {
@@ -280,9 +281,9 @@ struct PluginDetailView: View {
         do {
             plugin = try await app.api.deletePluginCredential(id: pluginID)
             tools = try await app.api.pluginTools(id: pluginID).tools
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 
@@ -292,9 +293,9 @@ struct PluginDetailView: View {
         do {
             plugin = try await app.api.acceptPluginToolChanges(id: pluginID).plugin
             tools = try await app.api.pluginTools(id: pluginID).tools
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 
@@ -342,9 +343,9 @@ struct PluginDetailView: View {
             bots = try await app.api.bots().bots
             if botID == nil { botID = bots.first?.id }
             allowed = bots.first { $0.id == botID }?.allowedTools ?? []
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 
@@ -354,9 +355,9 @@ struct PluginDetailView: View {
         do {
             plugin = try await app.api.updatePlugin(id: pluginID, enabled: on)
             tools = try await app.api.pluginTools(id: pluginID).tools
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
         if on { await watch() }
     }
@@ -366,9 +367,9 @@ struct PluginDetailView: View {
         defer { busy = false }
         do {
             plugin = try await app.api.setPluginConsent(id: pluginID, granted: granted)
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 
@@ -379,9 +380,9 @@ struct PluginDetailView: View {
             let synced = try await app.api.syncPlugin(id: pluginID)
             plugin = synced.plugin
             tools = try await app.api.pluginTools(id: pluginID).tools
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 
@@ -391,7 +392,7 @@ struct PluginDetailView: View {
         if on {
             if next.contains(tool.fullName) { return }
             if next.filter({ $0.hasPrefix("mcp__") }).count >= MCPToolRules.maxPerBot {
-                errorText = "每个 Bot 最多开启 \(MCPToolRules.maxPerBot) 个插件工具"
+                notice = .sentence("每个 Bot 最多开启 \(MCPToolRules.maxPerBot) 个插件工具")
                 return
             }
             next.append(tool.fullName)
@@ -413,9 +414,9 @@ struct PluginDetailView: View {
             let updated = try await app.api.updateBot(id, BotPatch(allowedTools: names))
             if let index = bots.firstIndex(where: { $0.id == id }) { bots[index] = updated }
             allowed = updated.allowedTools
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 
@@ -426,7 +427,7 @@ struct PluginDetailView: View {
             _ = try await app.api.uninstallPlugin(id: pluginID)
             dismiss()
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 }
@@ -485,7 +486,7 @@ struct BuiltinPluginDetailView: View {
 
     @State private var plugin: Plugin?
     @State private var bots: [Bot] = []
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
 
     private var toolRows: [(name: String, label: String)] {
         switch pluginID {
@@ -560,8 +561,9 @@ struct BuiltinPluginDetailView: View {
                     }
                 }
             }
-            if let errorText {
-                Text(errorText).foregroundStyle(.red)
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
             }
         }
         .navigationTitle(plugin?.name ?? "内置插件")
@@ -573,9 +575,9 @@ struct BuiltinPluginDetailView: View {
         do {
             plugin = try await app.api.plugin(id: pluginID)
             bots = try await app.api.bots().bots
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 }
@@ -585,7 +587,7 @@ struct BuiltinBotPermissionList: View {
     @Environment(AppState.self) private var app
     let toolNames: [String]
     @State private var bots: [Bot] = []
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
 
     var body: some View {
         ThemedForm {
@@ -608,8 +610,9 @@ struct BuiltinBotPermissionList: View {
             } footer: {
                 Text("进入 Bot 后，在「工具权限」里打开或关闭。")
             }
-            if let errorText {
-                Text(errorText).foregroundStyle(.red)
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
             }
         }
         .navigationTitle("选择 Bot")
@@ -620,9 +623,9 @@ struct BuiltinBotPermissionList: View {
     private func load() async {
         do {
             bots = try await app.api.bots().bots
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 }

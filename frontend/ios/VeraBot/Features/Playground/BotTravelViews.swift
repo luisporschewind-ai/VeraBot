@@ -10,8 +10,8 @@ struct BotTravelStartView: View {
     @State private var theme = ""
     @State private var note = ""
     @State private var loading = false
-    @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var loadNotice: PageNotice?
+    @State private var actionNotice: PageNotice?
     @State private var journey: BotTravelTrip?
     @State private var showingAlbum = false
 
@@ -76,15 +76,8 @@ struct BotTravelStartView: View {
             sectionHeading("邀请哪位伙伴", subtitle: "旅行中的 Bot 会暂时专心探索")
             if loading && bots.isEmpty {
                 ProgressView("正在找你的伙伴…").frame(maxWidth: .infinity, minHeight: 76)
-            } else if let loadError {
-                ContentUnavailableView {
-                    Label("暂时没能加载伙伴", systemImage: "wifi.exclamationmark")
-                } description: {
-                    Text(loadError)
-                } actions: {
-                    Button("再试一次") { Task { await loadBots() } }
-                        .prominentButtonStyle()
-                }
+            } else if let loadNotice {
+                PageConnectionNotice(notice: loadNotice, retrying: loading) { Task { await loadBots() } }
             } else if bots.isEmpty {
                 ContentUnavailableView("还没有 Bot 伙伴", systemImage: "person.crop.circle.badge.plus",
                                        description: Text("先创建一位 Bot，再邀请它去旅行。"))
@@ -234,8 +227,8 @@ struct BotTravelStartView: View {
             .prominentButtonStyle()
             .disabled(selectedBot == nil || selectedDestination == nil || theme.isEmpty ||
                       (selectedBot.map { travelStore.activeTrip(botID: $0.id) != nil } ?? false))
-            if let actionError {
-                Text(actionError).font(.footnote).foregroundStyle(.red)
+            if let actionNotice {
+                PageConnectionNotice(notice: actionNotice) { }
             }
         }
     }
@@ -265,9 +258,9 @@ struct BotTravelStartView: View {
             if selectedBotID == nil, let first = bots.first(where: { travelStore.activeTrip(botID: $0.id) == nil }) {
                 selectedBotID = first.id
             }
-            loadError = nil
+            loadNotice = nil
         } catch {
-            loadError = app.message(for: error)
+            loadNotice = .fromLoad(error, message: app.message(for: error))
         }
     }
 
@@ -276,9 +269,9 @@ struct BotTravelStartView: View {
         do {
             journey = try travelStore.startTrip(bot: bot, destinationID: destination.id,
                                                theme: theme, note: note)
-            actionError = nil
+            actionNotice = nil
         } catch {
-            actionError = error.localizedDescription
+            actionNotice = .fromAction(error, message: UserFacingError.message(for: error))
         }
     }
 

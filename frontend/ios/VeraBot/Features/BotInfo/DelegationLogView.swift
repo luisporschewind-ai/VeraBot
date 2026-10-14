@@ -7,11 +7,15 @@ struct DelegationLogView: View {
     let bot: Bot
     @State private var records: [DelegationRecord] = []
     @State private var toolCalls: [ToolCallRecord] = []
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     @State private var loaded = false
 
     var body: some View {
         ThemedList {
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
+            }
             if !records.isEmpty {
                 Section("协作") {
                     ForEach(records) { r in
@@ -26,10 +30,9 @@ struct DelegationLogView: View {
                     }
                 }
             }
-            if let errorText { Text(errorText).foregroundStyle(.red) }
         }
         .overlay {
-            if loaded && records.isEmpty && toolCalls.isEmpty && errorText == nil {
+            if loaded && records.isEmpty && toolCalls.isEmpty && notice == nil {
                 ContentUnavailableView("暂无记录", systemImage: "person.2.wave.2",
                                        description: Text("当该 Bot 委派、被委派或调用外部工具时，记录会显示在这里"))
             }
@@ -124,9 +127,9 @@ struct DelegationLogView: View {
             async let t = app.api.toolCalls(botID: bot.id)
             records = try await d.delegations
             toolCalls = (try? await t.toolCalls) ?? []
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
         loaded = true
     }

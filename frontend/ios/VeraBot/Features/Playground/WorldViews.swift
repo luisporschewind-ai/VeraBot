@@ -11,7 +11,7 @@ struct PlaygroundView: View {
     @State private var gameAssistant: Bot?
     @State private var assistantChat: Bot?
     @State private var openingAssistant = false
-    @State private var assistantError: String?
+    @State private var assistantNotice: PageNotice?
     @State private var assistantTask: Task<Void, Never>?
 
     var body: some View {
@@ -29,6 +29,12 @@ struct PlaygroundView: View {
                         }
                         Spacer(minLength: 0)
                         assistantAvatarButton
+                    }
+                    if let assistantNotice {
+                        PageConnectionNotice(notice: assistantNotice) {
+                            assistantTask?.cancel()
+                            assistantTask = Task { await openAssistant() }
+                        }
                     }
 
                     Button { showingSudoku = true } label: {
@@ -78,14 +84,6 @@ struct PlaygroundView: View {
                 ChatView(bot: bot, api: app.api, repository: app.conversationRepository)
                     .toolbar(.hidden, for: .tabBar)
             }
-            .alert("无法打开游戏助手", isPresented: Binding(
-                get: { assistantError != nil },
-                set: { if !$0 { assistantError = nil } }
-            )) {
-                Button("好", role: .cancel) { assistantError = nil }
-            } message: {
-                Text(assistantError ?? "")
-            }
             .onDisappear { assistantTask?.cancel(); assistantTask = nil }
             .navigationDestination(isPresented: $showingSudoku) {
                 SudokuGameView()
@@ -134,7 +132,7 @@ struct PlaygroundView: View {
         defer { openingAssistant = false }
         let generation = app.sessionGeneration
         guard let userID = app.userID else {
-            assistantError = "账号信息正在加载，请稍后重试。"
+            assistantNotice = .sentence("账号信息正在加载，请稍后重试。")
             return
         }
         let api = app.api
@@ -164,9 +162,10 @@ struct PlaygroundView: View {
             UserDefaults.standard.set(assistant.id, forKey: key)
             gameAssistant = assistant
             assistantChat = assistant
+            assistantNotice = nil
         } catch {
             guard !Task.isCancelled, app.isCurrentSession(generation) else { return }
-            assistantError = app.message(for: error)
+            assistantNotice = .fromLoad(error, message: app.message(for: error))
         }
     }
 
@@ -619,7 +618,7 @@ private struct GameIdeaRow: View {
 struct IslandView: View {
     @Environment(AppState.self) private var app
     @State private var bots: [Bot] = []
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     @State private var loading = false
 
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
@@ -644,15 +643,8 @@ struct IslandView: View {
                         if loading && bots.isEmpty {
                             ProgressView("正在找你的伙伴…")
                                 .frame(maxWidth: .infinity, minHeight: 100)
-                        } else if let errorText {
-                            ContentUnavailableView {
-                                Label("暂时没能加载伙伴", systemImage: "wifi.exclamationmark")
-                            } description: {
-                                Text(errorText)
-                            } actions: {
-                                Button("再试一次") { Task { await loadBots() } }
-                                    .prominentButtonStyle()
-                            }
+                        } else if let notice {
+                            PageConnectionNotice(notice: notice, retrying: loading) { Task { await loadBots() } }
                         } else if bots.isEmpty {
                             ContentUnavailableView("还没有 Bot 伙伴", systemImage: "person.2", description: Text("创建一位 Bot，就可以邀请它一起聊天和做事。"))
                         } else {
@@ -699,9 +691,9 @@ struct IslandView: View {
             for bot in response.bots {
                 app.avatars.reconcileBot(id: bot.id, hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
             }
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 }

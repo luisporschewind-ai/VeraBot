@@ -26,7 +26,7 @@ struct MemoryEditView: View {
     @State private var type: MemoryType = .preference
     @State private var scopeBotID: Int = 0          // 0 = 所有 Bot（global）；>0 = 仅该 Bot
     @State private var saving = false
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     @State private var confirmDelete = false
 
     private static let maxChars = 200
@@ -55,11 +55,11 @@ struct MemoryEditView: View {
                         ForEach(bots) { b in Text("仅 \(b.name)").tag(b.id) }
                     }
                 } footer: {
-                    if let errorText {
-                        Text(errorText).foregroundStyle(.red)
-                    } else {
-                        Text("健康、财务信息会加密保存；密码、验证码、证件号、卡号不会被记住。")
-                    }
+                    Text("健康、财务信息会加密保存；密码、验证码、证件号、卡号不会被记住。")
+                }
+                if let notice {
+                    PageConnectionNotice(notice: notice) { Task { await save() } }
+                        .connectionNoticeRow()
                 }
                 if let m = existing {
                     Section("信息") {
@@ -133,7 +133,7 @@ struct MemoryEditView: View {
             await onSaved()
             dismiss()
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 
@@ -143,7 +143,7 @@ struct MemoryEditView: View {
             await onSaved()
             dismiss()
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 }
