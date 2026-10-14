@@ -7,6 +7,7 @@
 - 私聊/群聊未读分隔线：多条未读时改为浅蓝发丝线 + 居中「新」（无胶囊底）。见 [chat-continuity](superpowers/specs/2026-10-14-chat-continuity-design.md)。
 - 群设置页：顶部居中群头像；去掉「群聊名称」标题；群名输入居中加粗并大一号字。
 - 群聊：`await_user` 且 `missing_information` 为空时，若正文已有追问则不再把步骤标失败（校验放宽 / 有内容时 coerce）；避免完整回复下方误显示「回应暂未完成」。
+- 群聊公开消息原则：编排内部失败/中断不得对用户露出；有非空正文的 bot 消息对外为 `completed`（`_public_message_status`），iOS 仅在无可用正文时显示「回应暂未完成/再试一次」。
 
 ## 2026-10-14 · 群聊成员增删（PR #37，已合入）
 

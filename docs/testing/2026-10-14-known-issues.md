@@ -75,6 +75,10 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 
 现象：成员已完整流出正文，但 `group_next_step` 为 `kind=await_user` 且 `missing_information=[]` 时，`group_actions.validate` 抛错，`group_runtime` 通吃异常把步骤/消息标 `failed`，iOS 在完整回复下显示「回应暂未完成/再试一次」。修复：有真实追问时从 `result`/正文派生 `missing_information`；有非空正文时校验失败则 coerce（`await_user` 或降为 `completed`）并打 warning，不再失败；工具 schema/prompt 标明 `await_user` 必填非空 `missing_information`。回归见 `group_handoff_test`。
 
+### 群编排内部状态对用户可见（补充，PR #38）
+
+原则：Bot↔Bot 路由、action kind、校验错误、step/task 状态与重试原因不得进入用户 UI。实现：`group_execution_store._public_message_status` 在 commit/interrupt/recover 时，非空正文消息对外 `completed`（步骤仍可失败）；iOS `presentsIncompleteReply` 仅空正文显示失败 footer。历史库中「有正文 + failed」由客户端门控兼容。回归见 `group_execution_store_test` / `GroupMessagePresentsIncompleteReplyOnlyWhenBotContentEmpty`。
+
 ## 后续再做
 
 这些不在本分支里实现：

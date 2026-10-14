@@ -214,6 +214,7 @@ public final class GroupChatViewModel {
     }
     public func canRetry(messageID: Int) -> Bool {
         guard !busy,!hasUnconfirmedInput,let message=state.messages.first(where:{$0.id == messageID}),
+              message.presentsIncompleteReply,
               [.failed,.interrupted].contains(message.status),message.taskID != nil,message.taskVersion != nil else {return false}
         return true
     }

@@ -60,6 +60,15 @@ public enum GroupMessageRole: String, Codable, Sendable { case user, bot }
 public enum GroupTurnStatus: String, Codable, Sendable { case running, completed, partial, stopped, failed, interrupted }
 public enum GroupChatMode: String, Codable, Sendable { case auto, single, round }
 
+extension GroupMessage {
+    /// Bot↔Bot 编排失败不得暴露给用户：仅当没有任何可用正文时才显示未完成/重试。
+    public var presentsIncompleteReply: Bool {
+        guard role == .bot else { return false }
+        if status == .completed || status == .streaming { return false }
+        return content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
 public struct GroupMessage: Codable, Sendable, Hashable, Identifiable {
     public var generation: Int?
     public var publicationRevision: Int?

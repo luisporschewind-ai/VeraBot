@@ -75,3 +75,11 @@ Boss 参考（群信息页成员卡，三张截图）：成员行 = 头像 + 名
 - 同 PR：未读「新」分隔线样式对齐 Boss 参考（见 [chat-continuity](2026-10-14-chat-continuity-design.md) 变更记录）。
 - 群设置页：顶部居中群头像；去掉「群聊名称」分区标题；群名输入居中、加粗、字号大一号。
 - 同 PR 后端：`await_user` + 空 `missing_information` 在已有正文/追问时 coerce，不再把完整回复标失败（见 known-issues）。
+
+### 2026-10-14 · 编排内部不对用户暴露（公开消息状态）
+
+Boss 原则：Bot↔Bot 群编排内部（路由、action kind、校验错误、step/task 状态、重试原因）不得出现在用户可见 UI。
+
+- 后端：`commit_step` / `interrupt_step` / `recover_interrupted` 经 `_public_message_status`：步骤可为 `failed`/`interrupted`/`stopped`，但消息有非空正文时对外 `status=completed`。
+- iOS：`GroupMessage.presentsIncompleteReply`——仅 bot 且非 completed/streaming、且去空白后正文为空时，才显示「回应暂未完成 / 再试一次」与警告头像；有可用正文则按正常回复渲染。`canRetry` 同步门控。
+- 规格见 [bot-group-chat-design](2026-10-11-bot-group-chat-design.md) §6.1 / §5、[intent-handoff](2026-10-12-group-intent-and-handoff-design.md) §5.3 / §10。
