@@ -87,7 +87,9 @@
 
 回复气泡包含成员头像、名称和稳定消息 ID。等待/思考/回复/受阻使用现有 Bot 形象与状态组件；群导航栏显示正在发言的成员。技术报错保留服务端日志与 Debug 入口，正文显示可理解的说明。
 
-一个成员失败，保留其失败气泡，继续剩余成员；整轮状态为 `partial`。手动重试只为选中的失败 Bot 创建新轮次，引用原用户问题和原轮次结束时的历史；追加新消息并标注“重试”，不覆盖原记录、不重复其他成员。
+**编排内部不对用户暴露：** 路由、action kind、校验错误、step/task 状态与重试原因不进入聊天气泡。bot 消息有非空可用正文时按正常回复渲染（无「回应暂未完成 / 再试一次」）；仅当该条完全没有可用正文时才显示未完成说明与重试。
+
+一个成员在内部失败时：若已有部分/完整正文则公开为正常回复；若无正文则保留失败气泡并允许重试。整轮状态可为 `partial`。手动重试只为选中的、无可用正文的失败 Bot 创建新轮次，引用原用户问题和原轮次结束时的历史；追加新消息并标注“重试”，不覆盖原记录、不重复其他成员。
 
 离开群页、退出登录、切换账号、App 进入后台或流连接断开，停止当前请求，已完成回复保留；重新进入以服务器历史为准，不自动继续或自动重试。停止确认以服务器状态为准；断网导致停止未确认时显示“正在确认是否已停止”，恢复连接后查询。
 
@@ -108,7 +110,7 @@
 | `chat_group_turns` | id、group_id、user_id、client_request_id、request_hash、mode、target_member_id、retry_of_message_id、user_message_id、context_end_message_id、status、cancel_requested、created_at、finished_at；`UNIQUE(user_id,group_id,client_request_id)` |
 | `chat_group_messages` | id、group_id、user_id、turn_id、role（user/bot）、member_id（用户消息为空）、content、status、sender_name_snapshot、sender_appearance_snapshot、usage_json、usage_logged、created_at、finished_at |
 
-轮次状态：`running / completed / partial / stopped / failed / interrupted`；消息状态：`streaming / completed / failed / stopped / interrupted`。部分文本作为内容保留，并明确标注未完成。消息 ID 提供稳定排序；不使用秒级时间戳决定先后。
+轮次状态：`running / completed / partial / stopped / failed / interrupted`；消息状态：`streaming / completed / failed / stopped / interrupted`。步骤/任务可保留内部失败态；**对用户公开的 bot 消息**：只要有非空可用正文，对外 `status` 应为 `completed`（正常回复），不得因编排失败露出「未完成」。仅当没有任何可用正文时，消息才可为 `failed` / `interrupted` / `stopped`，客户端才可显示未完成说明与重试。消息 ID 提供稳定排序；不使用秒级时间戳决定先后。
 
 一个群只能有一个 `running` 轮次，以 SQLite 部分唯一索引和 `BEGIN IMMEDIATE` 事务保证，不依赖客户端 `sending` 或单纯进程内锁。创建群及成员、领取轮次及创建用户消息、清空与删除均在短事务中完成；模型网络调用不持有数据库事务。
 

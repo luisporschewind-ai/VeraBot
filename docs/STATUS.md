@@ -1,8 +1,8 @@
 # 项目状态 (STATUS) — 2026-10-14
 
-## 2026-10-14 · 群聊成员增删（进行中）
+## 2026-10-14 · 群聊成员增删
 
-- 分支 `feat/group-member-edit`：已有群可增删 Bot 成员；UI 对齐 Boss 群信息参考交互；后端成员 API 无 schema 变更。规格 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
+- PR #37 已合入：已有群可增删 Bot 成员。跟进 `fix/group-member-remove`（PR #38）：左滑确认前不移走行（`.tint(.red)`）、成功后再动画移除；添加成员多选且无 footer；未读「新」分隔线样式；群设置顶栏头像/群名样式；群 `await_user` 空 `missing_information` 不再误失败完整回复；编排内部状态不对用户暴露（有正文则公开 `completed`，仅空正文显示未完成/重试）。规格 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
 
 ## 2026-10-14 · 今日已合入 main（文档同步）
 

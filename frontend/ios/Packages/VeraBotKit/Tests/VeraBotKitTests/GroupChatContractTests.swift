@@ -69,3 +69,18 @@ private let groupBot = #"{"id":101,"group_id":7,"turn_id":9,"member_id":21,"role
     if let event { GroupChatReducer.apply(event, to: &state) }
     #expect(state.activeTurnID == 10 && state.messages.first?.id == 100)
 }
+
+@Test func GroupMessagePresentsIncompleteReplyOnlyWhenBotContentEmpty() {
+    let withText = GroupMessage(id: 1, memberID: 21, content: "已有回复", status: .failed, role: .bot)
+    let whitespaceOnly = GroupMessage(id: 2, memberID: 21, content: "  \n  ", status: .interrupted, role: .bot)
+    let emptyFailed = GroupMessage(id: 3, memberID: 21, content: "", status: .failed, role: .bot)
+    let emptyStopped = GroupMessage(id: 4, memberID: 21, content: "", status: .stopped, role: .bot)
+    let completed = GroupMessage(id: 5, memberID: 21, content: "", status: .completed, role: .bot)
+    let user = GroupMessage(id: 6, memberID: nil, content: "", status: .failed, role: .user)
+    #expect(!withText.presentsIncompleteReply)
+    #expect(whitespaceOnly.presentsIncompleteReply)
+    #expect(emptyFailed.presentsIncompleteReply)
+    #expect(emptyStopped.presentsIncompleteReply)
+    #expect(!completed.presentsIncompleteReply)
+    #expect(!user.presentsIncompleteReply)
+}

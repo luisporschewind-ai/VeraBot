@@ -108,6 +108,7 @@ def build_execution(user_id: int, group_id: int, task: dict, step: dict, *, rema
     messages.append({"role": "system", "content": (
         "当前服务端任务状态（仅用于这一步）：\n" + json.dumps(protocol, ensure_ascii=False) +
         "\n只能通过 group_next_step 提交一个结构化动作；正文提到成员不会创建任务。"
-        "await_user 必须在正文提出一个真实、具体的问题，随后停止并等待用户。"
+        "await_user 必须在正文提出一个真实、具体的问题，随后停止并等待用户；"
+        "同时在 group_next_step 中提供非空的 missing_information（字符串数组）。"
     )})
     return messages

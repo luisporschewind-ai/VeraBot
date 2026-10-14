@@ -62,7 +62,9 @@ class RuntimeRepairTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(closed.is_set())
         with db.tx() as c:
             row=c.execute("SELECT content,status FROM chat_group_messages WHERE role='bot'").fetchone()
-            self.assertTrue(row['content'].endswith('TAIL'));self.assertEqual(row['status'],'stopped')
+            # 有可用正文时公开为 completed；步骤/任务仍可为 stopped。
+            self.assertTrue(row['content'].endswith('TAIL'));self.assertEqual(row['status'],'completed')
+            self.assertEqual(c.execute("SELECT status FROM chat_group_steps WHERE kind='member' ORDER BY id DESC LIMIT 1").fetchone()[0],'stopped')
             self.assertEqual(c.execute("SELECT SUM(total_tokens) FROM usage_log WHERE user_id=? AND kind='group_chat'",(self.fx.user_id,)).fetchone()[0],77)
 
 if __name__=='__main__':unittest.main()

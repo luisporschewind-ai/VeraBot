@@ -325,6 +325,13 @@ def save_snapshot(step_id: int, lease_token: str, version: int, content: str) ->
         return True
 
 
+def _public_message_status(content: str, status: str) -> str:
+    """Steps may fail internally; a message with usable text must look like a normal reply."""
+    if (content or "").strip() and status in {"failed", "interrupted", "stopped"}:
+        return "completed"
+    return status
+
+
 def commit_step(step_id: int, lease_token: str, version: int, result: dict) -> bool:
     with tx(immediate=True) as c:
         step = _live_step(c, step_id, lease_token, version)
@@ -340,7 +347,8 @@ def commit_step(step_id: int, lease_token: str, version: int, result: dict) -> b
         action = result.get("action") if status == "completed" else None
         if message_id:
             c.execute("UPDATE chat_group_messages SET content=?,status=?,usage_json=?,finished_at=? WHERE id=? AND user_id=? AND group_id=? AND status='streaming'",
-                      (content, status, json.dumps(result["usage"]) if result.get("usage") is not None else None,
+                      (content, _public_message_status(content, status),
+                       json.dumps(result["usage"]) if result.get("usage") is not None else None,
                        now, message_id, step["user_id"], step["group_id"]))
         c.execute("UPDATE chat_group_steps SET status=?,result_json=?,finished_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=?",
                   (status, json.dumps({**step_saved, **result}, ensure_ascii=False), now, step_id))
@@ -636,8 +644,10 @@ def interrupt_step(step_id: int, lease_token: str, *, stopped: bool = False, res
             c.execute("UPDATE chat_group_steps SET result_json=? WHERE id=?", (json.dumps(saved,ensure_ascii=False), step_id))
         status = "stopped" if stopped or step["task_version"] != step["version"] else "interrupted"
         if message_id:
+            row = c.execute("SELECT content FROM chat_group_messages WHERE id=?", (message_id,)).fetchone()
+            body = (result or {}).get("content") if result and "content" in (result or {}) else (row["content"] if row else "")
             c.execute("UPDATE chat_group_messages SET status=?,finished_at=? WHERE id=? AND status='streaming'",
-                      (status, now, message_id))
+                      (_public_message_status(body, status), now, message_id))
         c.execute("UPDATE chat_group_steps SET status=?,finished_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=? AND lease_token=?",
                   (status, now, step_id, lease_token))
         c.execute("UPDATE chat_group_turns SET status=?,finished_at=? WHERE id=? AND status='running'",
@@ -661,8 +671,9 @@ def recover_interrupted(now: str) -> int:
             result = json.loads(step["result_json"] or "{}")
             message_id = result.get("message_id")
             if message_id:
-                c.execute("UPDATE chat_group_messages SET status='interrupted',finished_at=? WHERE id=? AND status='streaming'",
-                          (now, message_id))
+                row = c.execute("SELECT content FROM chat_group_messages WHERE id=?", (message_id,)).fetchone()
+                c.execute("UPDATE chat_group_messages SET status=?,finished_at=? WHERE id=? AND status='streaming'",
+                          (_public_message_status(row["content"] if row else "", "interrupted"), now, message_id))
             c.execute("UPDATE chat_group_steps SET status='interrupted',finished_at=?,lease_token=NULL,lease_expires_at=NULL WHERE id=?",
                       (now, step["id"]))
             c.execute("UPDATE chat_group_turns SET status='interrupted',finished_at=? WHERE id=? AND status='running'",

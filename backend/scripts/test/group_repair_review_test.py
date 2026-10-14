@@ -24,7 +24,8 @@ class ReviewRepairTests(unittest.TestCase):
         self.finish(self.claim());b=self.claim()
         self.assertIsNotNone(b);self.assertEqual(b['member_id'],self.fx.member_ids[1])
     def test_retry_keeps_remaining_speakers_in_order(self):
-        t=self.prepare();a=self.claim();self.finish(a,status='failed',action=None)
+        # 仅无可用正文的失败消息可公开重试（有正文时对外 completed）。
+        t=self.prepare();a=self.claim();self.finish(a,status='failed',content='',action=None)
         s.retry_failed(self.fx.user_id,self.fx.group_id,a['message_id'],str(uuid4()),1)
         retried=self.claim();self.assertEqual(retried['member_id'],self.fx.member_ids[0]);self.finish(retried)
         b=self.claim();self.assertIsNotNone(b);self.assertEqual(b['member_id'],self.fx.member_ids[1])
@@ -43,13 +44,19 @@ class ReviewRepairTests(unittest.TestCase):
         self.assertTrue(s.apply_route(r2['id'],r2['lease_token'],r2['version'],decision))
         with db.tx() as c:self.assertEqual(c.execute("SELECT COUNT(*) FROM chat_group_clarifications WHERE status IN ('active','awaiting_user')").fetchone()[0],1)
     def test_retry_older_failure_is_the_current_execution(self):
-        t=self.prepare([self.fx.member_ids[0]]);a=self.claim();self.finish(a,status='failed',action=None)
+        t=self.prepare([self.fx.member_ids[0]]);a=self.claim();self.finish(a,status='failed',content='',action=None)
         newer=self.prepare([self.fx.member_ids[1]]);self.finish(self.claim())
         s.retry_failed(self.fx.user_id,self.fx.group_id,a['message_id'],str(uuid4()),1)
         self.assertEqual(s.execution_snapshot(self.fx.user_id,self.fx.group_id)['task']['id'],t['id'])
     def test_retry_cannot_create_second_active_task(self):
-        t=self.prepare([self.fx.member_ids[0]]);a=self.claim();self.finish(a,status='failed',action=None)
+        t=self.prepare([self.fx.member_ids[0]]);a=self.claim();self.finish(a,status='failed',content='',action=None)
         newer=self.prepare([self.fx.member_ids[1]])
+        with self.assertRaises(s.GroupExecutionError) as error:s.retry_failed(self.fx.user_id,self.fx.group_id,a['message_id'],str(uuid4()),1)
+        self.assertEqual(error.exception.status,409)
+    def test_retry_rejects_failed_step_when_message_has_usable_content(self):
+        t=self.prepare([self.fx.member_ids[0]]);a=self.claim();self.finish(a,status='failed',content='已有可用正文',action=None)
+        with db.tx() as c:
+            self.assertEqual(c.execute("SELECT status FROM chat_group_messages WHERE id=?",(a['message_id'],)).fetchone()[0],'completed')
         with self.assertRaises(s.GroupExecutionError) as error:s.retry_failed(self.fx.user_id,self.fx.group_id,a['message_id'],str(uuid4()),1)
         self.assertEqual(error.exception.status,409)
     def test_retry_completed_message_returns_domain_conflict(self):

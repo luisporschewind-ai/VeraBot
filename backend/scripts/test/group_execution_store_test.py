@@ -112,6 +112,72 @@ class GroupExecutionStoreTests(unittest.TestCase):
                                   group, request, clarification, {})
         self.assertEqual(decision["speaker_member_ids"], [owner])
 
+    def _running_member_step_with_message(self, *, content=""):
+        """Streaming bot message linked to a live member step (for public status tests)."""
+        task_id = self.fx.insert_task(state="running")
+        action_key = f"pub-status-{uuid4()}"
+        with db.tx() as c:
+            turn_id = c.execute(
+                "INSERT INTO chat_group_turns(group_id,user_id,client_request_id,request_hash,mode,status,created_at) VALUES (?,?,?,'hash','single','running','now')",
+                (self.fx.group_id, self.fx.user_id, str(uuid4())),
+            ).lastrowid
+            input_id = c.execute(
+                "INSERT INTO chat_group_task_inputs(task_id,group_id,user_id,client_request_id,request_hash,message,turn_id,created_at) VALUES (?,?,?,?,?,?,?,'now')",
+                (task_id, self.fx.group_id, self.fx.user_id, str(uuid4()), "hash", "hello", turn_id),
+            ).lastrowid
+            message_id = c.execute(
+                "INSERT INTO chat_group_messages(group_id,user_id,turn_id,role,member_id,content,status,created_at) VALUES (?,?,?,'bot',?,?,'streaming','now')",
+                (self.fx.group_id, self.fx.user_id, turn_id, self.fx.member_ids[0], content),
+            ).lastrowid
+            step_id = c.execute(
+                "INSERT INTO chat_group_steps(task_id,input_id,group_id,user_id,kind,action_key,version,member_id,status,result_json,created_at,lease_token,lease_expires_at) VALUES (?,?,?,?,'member',?,1,?,'running',?,'now','lease-1','2999-01-01')",
+                (task_id, input_id, self.fx.group_id, self.fx.user_id, action_key, self.fx.member_ids[0],
+                 '{"message_id":%d}' % message_id),
+            ).lastrowid
+        return step_id, message_id
+
+    def test_public_message_status_hides_internal_failure_when_content_exists(self):
+        self.assertEqual(store._public_message_status("可用正文", "failed"), "completed")
+        self.assertEqual(store._public_message_status("  有字  ", "interrupted"), "completed")
+        self.assertEqual(store._public_message_status("停前已写", "stopped"), "completed")
+        self.assertEqual(store._public_message_status("", "failed"), "failed")
+        self.assertEqual(store._public_message_status("   ", "interrupted"), "interrupted")
+        self.assertEqual(store._public_message_status("正常", "completed"), "completed")
+
+    def test_commit_failed_step_with_content_publishes_completed_message(self):
+        step_id, message_id = self._running_member_step_with_message()
+        self.assertTrue(store.commit_step(step_id, "lease-1", 1, {
+            "status": "failed", "content": "已经说完的话", "action": None,
+        }))
+        with db.tx() as c:
+            message = c.execute("SELECT content,status FROM chat_group_messages WHERE id=?", (message_id,)).fetchone()
+            step = c.execute("SELECT status FROM chat_group_steps WHERE id=?", (step_id,)).fetchone()
+        self.assertEqual(message["content"], "已经说完的话")
+        self.assertEqual(message["status"], "completed")
+        self.assertEqual(step["status"], "failed")
+
+    def test_commit_failed_step_without_content_keeps_failed_message(self):
+        step_id, message_id = self._running_member_step_with_message()
+        self.assertTrue(store.commit_step(step_id, "lease-1", 1, {
+            "status": "failed", "content": "", "action": None,
+        }))
+        with db.tx() as c:
+            self.assertEqual(c.execute("SELECT status FROM chat_group_messages WHERE id=?", (message_id,)).fetchone()[0], "failed")
+            self.assertEqual(c.execute("SELECT status FROM chat_group_steps WHERE id=?", (step_id,)).fetchone()[0], "failed")
+
+    def test_interrupt_and_recover_with_content_publish_completed_message(self):
+        step_id, message_id = self._running_member_step_with_message(content="中断前已流出")
+        self.assertTrue(store.interrupt_step(step_id, "lease-1"))
+        with db.tx() as c:
+            self.assertEqual(c.execute("SELECT status FROM chat_group_messages WHERE id=?", (message_id,)).fetchone()[0], "completed")
+            self.assertEqual(c.execute("SELECT status FROM chat_group_steps WHERE id=?", (step_id,)).fetchone()[0], "interrupted")
+
+        step_id2, message_id2 = self._running_member_step_with_message(content="重启前已写")
+        self.assertEqual(store.recover_interrupted("2026-10-14T00:00:00+00:00"), 1)
+        with db.tx() as c:
+            self.assertEqual(c.execute("SELECT status FROM chat_group_messages WHERE id=?", (message_id2,)).fetchone()[0], "completed")
+            self.assertEqual(c.execute("SELECT status FROM chat_group_steps WHERE id=?", (step_id2,)).fetchone()[0], "interrupted")
+
 
 if __name__ == "__main__":
     unittest.main()

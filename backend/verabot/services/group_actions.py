@@ -1,9 +1,24 @@
 """Validate one explicit in-group collaboration action and plan the next member step."""
 import hashlib
+import logging
+import re
 
 from ..db import group_execution_store
 
 ALLOWED = {"completed", "consult", "handoff", "await_user"}
+log = logging.getLogger(__name__)
+
+
+def _derive_missing(question: str) -> list[str]:
+    """Pick a short missing-information label from a real clarifying question."""
+    text = (question or "").strip()
+    if not text:
+        return []
+    # Prefer the last question-like clause when the model wrote a longer reply.
+    chunks = [part.strip() for part in re.split(r"[？?\n]+", text) if part.strip()]
+    if chunks and ("？" in text or "?" in text):
+        return [chunks[-1][:200]]
+    return [text[:200]]
 
 
 def validate(user_id: int, group: dict, task: dict, step: dict, raw_action: dict | None) -> dict:
@@ -23,12 +38,20 @@ def validate(user_id: int, group: dict, task: dict, step: dict, raw_action: dict
     goal = raw.get("goal", "")
     result = raw.get("result", "")
     missing = raw.get("missing_information", [])
+    if missing is None:
+        missing = []
     if not isinstance(goal, str) or len(goal) > 2000 or not isinstance(result, str) or len(result) > 4000:
         raise ValueError("协作目标或结果格式无效")
     if not isinstance(missing, list) or any(not isinstance(item, str) for item in missing):
         raise ValueError("缺失信息格式无效")
-    if kind == "await_user" and (not result.strip() or not missing):
-        raise ValueError("等待用户的动作必须包含真实追问和缺失信息")
+    missing = [item.strip() for item in missing if item.strip()]
+    if kind == "await_user":
+        # Model often asks in `result` / body but omits missing_information — coerce instead of failing.
+        if result.strip() and not missing:
+            missing = _derive_missing(result)
+            log.warning("await_user missing_information empty; derived from result")
+        if not result.strip() or not missing:
+            raise ValueError("等待用户的动作必须包含真实追问和缺失信息")
     criteria = raw.get("completion_criteria", "")
     if not isinstance(criteria,str) or len(criteria)>2000:
         raise ValueError("完成条件格式无效")
@@ -46,6 +69,37 @@ def validate(user_id: int, group: dict, task: dict, step: dict, raw_action: dict
             "result": result, "context_message_ids": context_ids, "attachment_ids": attachment_ids,
             "completion_criteria": raw.get("completion_criteria", ""),
             "issue_key": raw.get("issue_key"), "missing_information": missing}
+
+
+def coerce_from_content(user_id: int, group: dict, task: dict, step: dict,
+                        raw_action: dict | None, content: str) -> dict:
+    """When the body already has useful text, recover from a bad group_next_step payload."""
+    text = (content or "").strip()
+    raw = raw_action if isinstance(raw_action, dict) else {}
+    kind = raw.get("kind")
+    result = (raw.get("result") or "").strip() or text
+    if kind == "await_user" and result:
+        missing = raw.get("missing_information") or []
+        if not isinstance(missing, list):
+            missing = []
+        missing = [item.strip() for item in missing if isinstance(item, str) and item.strip()]
+        if not missing:
+            missing = _derive_missing(result)
+        return validate(user_id, group, task, step, {
+            "kind": "await_user",
+            "result": result,
+            "missing_information": missing,
+            "goal": raw.get("goal", "") if isinstance(raw.get("goal"), str) else "",
+            "context_message_ids": raw.get("context_message_ids") if isinstance(raw.get("context_message_ids"), list) else [],
+            "attachment_ids": raw.get("attachment_ids") if isinstance(raw.get("attachment_ids"), list) else [],
+            "completion_criteria": raw.get("completion_criteria", "") if isinstance(raw.get("completion_criteria"), str) else "",
+            "issue_key": raw.get("issue_key") if isinstance(raw.get("issue_key"), (str, type(None))) else None,
+        })
+    log.warning("downgrading invalid group_next_step to completed after non-empty content")
+    return validate(user_id, group, task, step, {
+        "kind": "completed",
+        "result": (raw.get("result") if isinstance(raw.get("result"), str) and raw.get("result").strip() else text),
+    })
 
 
 def next_steps(task: dict, step: dict, action: dict) -> list[dict]:

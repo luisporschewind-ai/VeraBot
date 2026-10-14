@@ -24,7 +24,7 @@ private actor RepairGroupAPI: GroupChatAPI {
     func updateGroup(id: Int, request: GroupUpdateRequest) async throws -> ChatGroup { Self.group }
     func deleteGroup(id: Int) async throws -> OKResponse { try JSONDecoder().decode(OKResponse.self, from: Data(#"{"ok":true}"#.utf8)) }
     func groupMessages(groupID: Int, beforeID: Int?) async throws -> GroupMessagesResponse {
-        let json = oldFailedMessage ? #"{"messages":[{"id":29,"group_id":7,"turn_id":1,"member_id":20,"role":"bot","content":"失败","status":"failed","task_id":2,"task_version":7,"attachments":[]}],"next_before_id":null}"# : #"{"messages":[],"next_before_id":null}"#
+        let json = oldFailedMessage ? #"{"messages":[{"id":29,"group_id":7,"turn_id":1,"member_id":20,"role":"bot","content":"","status":"failed","task_id":2,"task_version":7,"attachments":[]}],"next_before_id":null}"# : #"{"messages":[],"next_before_id":null}"#
         return try JSONDecoder().decode(GroupMessagesResponse.self,from:Data(json.utf8))
     }
     func syncGroupMessages(groupID: Int, beforeID: Int?, expectedRevision: Int64?) async throws -> GroupMessagesSyncResponse { try JSONDecoder().decode(GroupMessagesSyncResponse.self, from: Data(#"{"revision":1,"messages":[],"next_before_id":null,"unchanged":false}"#.utf8)) }

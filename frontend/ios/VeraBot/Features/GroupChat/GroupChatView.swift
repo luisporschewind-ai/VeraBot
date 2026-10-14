@@ -226,7 +226,9 @@ struct GroupChatView: View {
 
     private func messageCell(_ message: GroupMessage) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }
+            if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first {
+                NewMessagesDivider()
+            }
             if reading.newMessageIDs.contains(message.id), message.role != .user { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
             bubble(message)
                 .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && message.role != .user, revision: message.publicationRevision ?? 0) {
@@ -550,14 +552,19 @@ struct GroupChatView: View {
             }.contextMenu { Button("回复", systemImage: "arrowshape.turn.up.left") { replyToMessageID = message.id; inputFocused = true } }
         } else {
             HStack(alignment: .top, spacing: 10) {
-                if let member = historicalMember(message) { GroupMemberAvatar(member: member, size: 40, action: message.status == .failed ? .warning : message.status == .streaming ? .replying : .idle) }
+                if let member = historicalMember(message) {
+                    GroupMemberAvatar(member: member, size: 40,
+                                      action: message.presentsIncompleteReply ? .warning
+                                        : message.status == .streaming ? .replying : .idle)
+                }
                 VStack(alignment: .leading, spacing: 6) {
                     Text(message.senderName ?? historicalMember(message)?.name ?? "伙伴").font(.caption).foregroundStyle(.secondary)
                     if message.retryOfMessageID != nil { Text("重试回应").font(.caption2).foregroundStyle(.secondary) }
                     let visibleText = displayContent(message)
                     if visibleText.isEmpty && message.status == .streaming { ProgressView("正在组织想法…") }
                     else { MessageContentView(text: visibleText).textSelection(.enabled) }
-                    if message.status != .completed && message.status != .streaming {
+                    // 有可用正文时当正常回复；编排失败/停止不向用户露出「暂未完成」。
+                    if message.presentsIncompleteReply {
                         Text(message.status == .failed ? "回应暂未完成" : message.status == .stopped ? "已停止 · 回应未完成" : "连接中断 · 回应未完成").font(.caption).foregroundStyle(.secondary)
                         Button("再试一次", systemImage: "arrow.clockwise") { model.retry(messageID: message.id) }
                             .font(.caption).disabled(!model.canRetry(messageID:message.id) || !(model.group.members.first { $0.id == message.memberID }?.available ?? false))

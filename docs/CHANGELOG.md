@@ -1,6 +1,16 @@
 # 更新日志 (CHANGELOG)
 
-## 2026-10-14 · 群聊成员增删
+## 2026-10-14 · 群成员移除确认与动画
+
+- 修复左滑 `role: .destructive` 导致确认前行被系统移走的问题；改为非 destructive + 显式 `.tint(.red)`，确认「移除」后才调 API，并以 `withAnimation` 从数据源移除该行。取消保留原行。
+- 添加成员 sheet：去掉底部说明；改为多选确认「添加」；顺序 POST，部分失败保留已成功成员并提示。规格变更记录见 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
+- 添加成员 sheet：列表行对齐群设置成员行（头像 30、间距 10、相同 `listRowInsets`），行高一致。
+- 私聊/群聊未读分隔线：多条未读时改为浅蓝发丝线 + 居中「新」（无胶囊底）。见 [chat-continuity](superpowers/specs/2026-10-14-chat-continuity-design.md)。
+- 群设置页：顶部居中群头像；去掉「群聊名称」标题；群名输入居中加粗并大一号字。
+- 群聊：`await_user` 且 `missing_information` 为空时，若正文已有追问则不再把步骤标失败（校验放宽 / 有内容时 coerce）；避免完整回复下方误显示「回应暂未完成」。
+- 群聊公开消息原则：编排内部失败/中断不得对用户露出；有非空正文的 bot 消息对外为 `completed`（`_public_message_status`），iOS 仅在无可用正文时显示「回应暂未完成/再试一次」。
+
+## 2026-10-14 · 群聊成员增删（PR #37，已合入）
 
 - 群设置页支持添加 / 移除 Bot 成员（Boss 参考：同卡「添加成员」、左滑 minus.circle、确认「移除 {Name}？」）。
 - API：`POST/DELETE /api/groups/{id}/members`；服务端仅归属与防空群校验；产品 2～5 仍由 `BotProductLimits` UI 约束。规格见 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
