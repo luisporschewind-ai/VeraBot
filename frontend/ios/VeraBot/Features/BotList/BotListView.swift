@@ -6,7 +6,6 @@ struct BotListView: View {
     @Environment(AppState.self) private var app
     @State private var groups: [ChatGroup] = []
     @State private var selectedGroup: ChatGroup?
-    @State private var groupError: String?
     @State private var createGroup = false
     @State private var bots: [Bot] = []
     @State private var limit = 20   // 服务端下发的软上限（Soft limit）
@@ -35,6 +34,8 @@ struct BotListView: View {
                         Task { await load() }
                     }
                     .plainListRow()
+                } else if !conversations.isEmpty, let errorText {
+                    listFailureNotice(errorText).plainListRow()
                 }
                 if let primary=bots.first(where:{$0.id==app.primaryBotID}) {
                     NavigationLink(value:primary){Label("主 Bot："+primary.name,systemImage:"star.circle")}
@@ -60,16 +61,6 @@ struct BotListView: View {
                             .buttonStyle(.plain).plainListRow()
                     }
                 }
-                if let groupError {
-                    VStack(alignment: .leading) {
-                        Text(groupError)
-                        Button("重新加载") { Task { await load() } }
-                    }.font(.footnote).plainListRow()
-                }
-                if let errorText {
-                    Text(errorText).foregroundStyle(.red).font(.footnote)
-                        .plainListRow()
-                }
             }
             .listStyle(.plain)
             .confirmationDialog(pendingDelete.map { BotDeletion.title($0.name) } ?? "",
@@ -88,7 +79,9 @@ struct BotListView: View {
                     BotConnectionView(issue: connectionIssue, retrying: loading) { Task { await load() } }
                 } else if conversations.isEmpty && (!loaded || loading) {
                     BotLoadingView()
-                } else if conversations.isEmpty && errorText == nil && groupError == nil {
+                } else if conversations.isEmpty, let errorText {
+                    listFailureNotice(errorText).padding(24)
+                } else if conversations.isEmpty {
                     ContentUnavailableView {
                         Label("还没有 Bot", systemImage: "person.crop.circle.badge.plus")
                     } description: {
@@ -214,7 +207,7 @@ struct BotListView: View {
                 if !Task.isCancelled { Task { await load() } }
             }
         }
-        async let groupLoad: Void = loadGroups(generation: generation, endpoint: endpoint)
+        async let groupFailure: Error? = loadGroups(generation: generation, endpoint: endpoint)
         do {
             let r = try await app.api.bots()
             guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
@@ -241,18 +234,34 @@ struct BotListView: View {
                 errorText = app.message(for: error)
             }
         }
-        await groupLoad
+        if let groupFailure = await groupFailure, connectionIssue == nil {
+            if let issue = ConnectionIssue.classify(groupFailure) {
+                connectionIssue = issue
+                errorText = nil
+                app.connectionDiagnostic = groupFailure.localizedDescription
+            } else if errorText == nil {
+                errorText = app.message(for: groupFailure)
+            }
+        }
     }
 
-    private func loadGroups(generation: UInt64, endpoint: String) async {
+    /// 置顶、删除等没能归入连接横幅的失败，仍只占首页这一条通知。
+    private func listFailureNotice(_ text: String) -> some View {
+        let offline = text == UserFacingError.offline
+        return ConnectionNotice(title: offline ? UserFacingError.offline : text,
+                                retry: offline ? { Task { await load() } } : nil)
+    }
+
+    private func loadGroups(generation: UInt64, endpoint: String) async -> Error? {
         do {
             let response = try await app.groupAPI.groups()
-            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
-            groups = response.groups; groupError = nil
+            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return nil }
+            groups = response.groups
             try? await app.conversationRepository?.replaceGroups(response.groups)
+            return nil
         } catch {
-            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return }
-            groupError = "群聊暂时没连上，请重新加载。"
+            guard !Task.isCancelled, app.isCurrentSession(generation), app.baseURLString == endpoint else { return nil }
+            return error
         }
     }
 

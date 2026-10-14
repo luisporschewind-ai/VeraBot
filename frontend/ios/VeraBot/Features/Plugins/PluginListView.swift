@@ -5,13 +5,17 @@ import VeraBotCore
 struct PluginListView: View {
     @Environment(AppState.self) private var app
     @State private var plugins: [Plugin] = []
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
 
     private var builtins: [Plugin] { plugins.filter(\.isBuiltin) }
     private var external: [Plugin] { plugins.filter { $0.kind == "mcp" && $0.installed } }
 
     var body: some View {
         ThemedForm {
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await reload() } }
+                    .connectionNoticeRow()
+            }
             Section {
                 ForEach(builtins) { plugin in
                     NavigationLink {
@@ -49,10 +53,6 @@ struct PluginListView: View {
                     Label("浏览插件", systemImage: "square.grid.2x2")
                 }
             }
-
-            if let errorText {
-                Text(errorText).font(.footnote).foregroundStyle(.red)
-            }
         }
         .navigationTitle("插件")
         .navigationBarTitleDisplayMode(.inline)
@@ -83,9 +83,9 @@ struct PluginListView: View {
     private func reload() async {
         do {
             plugins = try await app.api.plugins().plugins
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 }

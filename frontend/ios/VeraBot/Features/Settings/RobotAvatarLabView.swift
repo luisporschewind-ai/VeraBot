@@ -10,7 +10,7 @@ struct RobotAvatarLabView: View {
     @State private var size = 160
     private var appearance: Binding<BotAppearance> {
         Binding(get: { draft.current }, set: { value in
-            do { try draft.update(value) } catch { message = error.localizedDescription }
+            do { try draft.update(value) } catch { message = UserFacingError.message(for: error) }
         })
     }
     var body: some View {
@@ -47,7 +47,7 @@ struct RobotAvatarLabView: View {
             guard !loaded else { return }; loaded = true
             if let data = familyLookJSON.data(using:.utf8), !data.isEmpty {
                 do { familyLook = try JSONDecoder().decode(BotAvatarFamilyLook.self,from:data) }
-                catch { message = "实验选择读取失败，原记录已保留：\(error.localizedDescription)" }
+                catch { message = "实验选择读取失败，原记录已保留：\(UserFacingError.message(for: error))" }
             }
             do {
                 if let value = try BotAppearanceLabStore().load() {
@@ -56,7 +56,7 @@ struct RobotAvatarLabView: View {
                     }
                     draft = BotAppearanceDraft(saved:value)
                 }
-            } catch { message = "本机外观读取失败，原文件已保留：\(error.localizedDescription)" }
+            } catch { message = "本机外观读取失败，原文件已保留：\(UserFacingError.message(for: error))" }
         }
         .onChange(of:familyLook) { _,value in
             if let data = try? JSONEncoder().encode(value), let text = String(data:data,encoding:.utf8) { familyLookJSON = text }

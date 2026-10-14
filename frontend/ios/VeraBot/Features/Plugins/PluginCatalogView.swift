@@ -5,7 +5,7 @@ import VeraBotCore
 struct PluginCatalogView: View {
     @Environment(AppState.self) private var app
     @State private var items: [Plugin] = []
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     @State private var busyID: String?
     @State private var openedID: String?
 
@@ -19,15 +19,16 @@ struct PluginCatalogView: View {
 
     var body: some View {
         ThemedForm {
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await reload() } }
+                    .connectionNoticeRow()
+            }
             ForEach(categories, id: \.self) { category in
                 Section(category) {
                     ForEach(items.filter { ($0.category.isEmpty ? "其他" : $0.category) == category }) { item in
                         catalogRow(item)
                     }
                 }
-            }
-            if let errorText {
-                Text(errorText).font(.footnote).foregroundStyle(.red)
             }
         }
         .navigationTitle("浏览插件")
@@ -66,9 +67,9 @@ struct PluginCatalogView: View {
     private func reload() async {
         do {
             items = try await app.api.pluginCatalog().catalog
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 
@@ -80,7 +81,7 @@ struct PluginCatalogView: View {
             await reload()
             openedID = item.pluginId
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 }

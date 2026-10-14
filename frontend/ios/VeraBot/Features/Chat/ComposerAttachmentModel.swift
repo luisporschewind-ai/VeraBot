@@ -77,7 +77,7 @@ final class ComposerAttachmentModel {
                 guard let self else { return }
                 self.preparedFile = data; self.preparedFilename = name
                 await self.upload()
-            } catch { self?.fail(error.localizedDescription) }
+            } catch { self?.fail(UserFacingError.message(for: error)) }
         }
     }
 
@@ -90,7 +90,7 @@ final class ComposerAttachmentModel {
         task = Task { [weak self] in
             do {
                 guard let raw = try await load() else {
-                    self?.fail(ImagePreparer.Failure.unreadable.localizedDescription)
+                    self?.fail(UserFacingError.message(for: ImagePreparer.Failure.unreadable))
                     return
                 }
                 // 压缩和缩略图解码都在后台；GIF 逐帧解码成动图（UIImage(data:) 只有第一帧，缩略图会不动）。
@@ -105,7 +105,7 @@ final class ComposerAttachmentModel {
             } catch is CancellationError {
                 return
             } catch {
-                self?.fail(error.localizedDescription)
+                self?.fail(UserFacingError.message(for: error))
             }
         }
     }
@@ -139,7 +139,7 @@ final class ComposerAttachmentModel {
                 let result = try await api.uploadAttachment(data: data, mime: "application/octet-stream", botID: botID, filename: filename)
                 guard !Task.isCancelled else { return }
                 state = .ready(result)
-            } catch { guard !Task.isCancelled else { return }; fail(error.localizedDescription) }
+            } catch { guard !Task.isCancelled else { return }; fail(UserFacingError.message(for: error)) }
             return
         }
         state = .uploading
@@ -149,7 +149,7 @@ final class ComposerAttachmentModel {
             state = .ready(attachment)
         } catch {
             guard !Task.isCancelled else { return }
-            fail(error.localizedDescription)
+            fail(UserFacingError.message(for: error))
         }
     }
 

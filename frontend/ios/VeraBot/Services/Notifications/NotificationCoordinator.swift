@@ -121,7 +121,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
                                     "reminder_id": item.reminderID, "signature": item.signature]
                 guard let trigger = self.trigger(for: item, calendar: Calendar.current) else { continue }
                 do { try await center.add(UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger)) }
-                catch { self.lastScheduleError = error.localizedDescription }
+                catch { self.lastScheduleError = UserFacingError.message(for: error) }
                 if self.revision != revision || self.app?.sessionGeneration != generation || self.app?.isCurrentReminderRequest(request) != true {
                     center.removePendingNotificationRequests(withIdentifiers: [item.identifier]); return
                 }
@@ -158,7 +158,7 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             content.userInfo = ["source_url": self.app?.baseURLString ?? "", "uid": userID, "reminder_id": reminderID, "link": "reminder/\(reminderID)", "signature": item.signature]
             guard let trigger = self.trigger(for: item, calendar: .current) else { return }
             do { try await center.add(UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger)) }
-            catch { self.lastScheduleError = error.localizedDescription }
+            catch { self.lastScheduleError = UserFacingError.message(for: error) }
             if self.app?.sessionGeneration != generation || self.revision != revision {
                 center.removePendingNotificationRequests(withIdentifiers: [item.identifier])
             }

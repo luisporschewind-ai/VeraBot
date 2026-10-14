@@ -6,13 +6,17 @@ struct InboxView: View {
     @Environment(AppState.self) private var app
     @State private var items: [InboxNotification] = []
     @State private var category: String?
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     /// 列表第一个分组的头（提醒页传入「提醒／通知」分段），随列表滚动、位于大标题下方
     var header: AnyView = AnyView(EmptyView())
 
     var body: some View {
         ThemedList {
             Section { } header: { header }
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
+            }
             ForEach(items) { item in
                 Button { Task { await open(item) } } label: { row(item) }
                     .swipeActions(edge: .trailing) {
@@ -26,10 +30,9 @@ struct InboxView: View {
                         }
                     }
             }
-            if let errorText { Text(errorText).foregroundStyle(.red) }
         }
         .overlay {
-            if items.isEmpty && errorText == nil {
+            if items.isEmpty && notice == nil {
                 ContentUnavailableView("没有通知", systemImage: "bell", description: Text("新的提醒和消息会出现在这里"))
             }
         }
@@ -81,9 +84,9 @@ struct InboxView: View {
             let response = try await app.api.notifications(unread: false, category: category)
             items = response.notifications
             app.unreadCount = response.unreadCount
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 

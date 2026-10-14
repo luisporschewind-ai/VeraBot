@@ -9,7 +9,7 @@ struct RemindersView: View {
     @State private var bots: [Bot] = []
     @State private var filter: ReminderListFilter = .all
     @State private var showDone = false
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     @State private var viewing: Reminder?
     @State private var editing: Reminder?
     @State private var creating = false
@@ -87,6 +87,10 @@ struct RemindersView: View {
     private var reminderList: some View {
         ThemedList {
             Section { } header: { segmentPicker }
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
+            }
             let sections = ReminderGrouping.sections(reminders, filter: filter, showDone: showDone)
             ForEach(sections, id: \.0) { bucket, rows in
                 Section(bucket.title) {
@@ -111,10 +115,9 @@ struct RemindersView: View {
                     }
                 }
             }
-            if let errorText { Text(errorText).foregroundStyle(.red) }
         }
         .overlay {
-            if reminders.isEmpty && errorText == nil {
+            if reminders.isEmpty && notice == nil {
                 ContentUnavailableView {
                     Label("暂无提醒", systemImage: "alarm")
                 } description: {
@@ -160,11 +163,11 @@ struct RemindersView: View {
             async let botList = app.api.bots()
             reminders = try await list.reminders
             bots = try await botList.bots
-            errorText = nil
+            notice = nil
             apply(app.pendingLink)
             await app.syncReminders()
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
     }
 

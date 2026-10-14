@@ -58,11 +58,7 @@ struct GroupChatView: View {
                         GroupExecutionStatusView(model: model)
                         if model.nextBeforeID != nil { Button("加载更早的消息") { Task { await model.loadOlder() } }.disabled(model.loading) }
                         if model.loading && model.state.messages.isEmpty { BotLoadingView() }
-                        if model.historyIncomplete {
-                            Text(model.state.messages.isEmpty ? "历史尚未同步到这台设备，请联网后重试。" : "部分历史尚未同步；联网后会继续下载。")
-                                .font(.footnote).foregroundStyle(.secondary)
-                        }
-                        if !model.loading && model.state.messages.isEmpty && !model.historyIncomplete {
+                        if !model.loading && model.state.messages.isEmpty && !model.historyIncomplete && model.errorMessage == nil {
                             RobotAvatarView(action: .waiting, size: 90, color: .brandFill, ambient: false)
                             Text("从一个话题开始").foregroundStyle(.secondary)
                         }
@@ -113,26 +109,7 @@ struct GroupChatView: View {
         }
         .bottomBar {
             VStack(spacing: 8) {
-                if let error = model.errorMessage {
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "exclamationmark.bubble")
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 1)
-                        Text(error)
-                            .font(.footnote)
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Button("重新加载") { Task { await model.load() } }
-                            .font(.footnote.weight(.medium))
-                            .fixedSize()
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .padding(.horizontal, 16)
-                }
+                groupNotice
                 if model.group.readOnly {
                     Text("群里已没有可用伙伴，仍可查看历史。")
                         .font(.footnote).padding(.horizontal).padding(.vertical, 12)
@@ -223,6 +200,27 @@ struct GroupChatView: View {
         }
     }
     @ViewBuilder
+    @ViewBuilder private var groupNotice: some View {
+        if let error = model.errorMessage {
+            if error.contains("暂未确认") || error.contains("待确认") || error.contains("待同步") {
+                ConnectionNotice(title: error).padding(.horizontal, 16)
+            } else if error.contains("暂时没连上") {
+                ConnectionNotice(message: model.state.messages.isEmpty ? nil : "仍可查看已同步的历史。") {
+                    Task { await model.load() }
+                }
+                .padding(.horizontal, 16)
+            } else {
+                ConnectionNotice(title: error, retry: { Task { await model.load() } })
+                    .padding(.horizontal, 16)
+            }
+        } else if model.historyIncomplete && !model.loading {
+            ConnectionNotice(message: model.state.messages.isEmpty ? nil : "仍可查看已同步的历史。") {
+                Task { await model.load() }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
     private func messageCell(_ message: GroupMessage) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }

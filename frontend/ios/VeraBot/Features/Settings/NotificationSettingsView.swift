@@ -14,11 +14,17 @@ struct NotificationSettingsView: View {
     @State private var quietStart = Date()
     @State private var quietEnd = Date()
     @State private var showDeniedAlert = false
-    @State private var errorText: String?
+    @State private var notice: PageNotice?
     @State private var loaded = false
 
     var body: some View {
         ThemedForm {
+            if let notice {
+                PageConnectionNotice(notice: notice) { Task { await load() } }
+                    .connectionNoticeRow()
+            } else if let error = app.notificationEvents.errorText ?? app.notificationEvents.scheduleErrorText {
+                ConnectionNotice(title: error).connectionNoticeRow()
+            }
             Section {
                 CompactToggle(isOn: Binding(get: { settings.enabled }, set: { enabled in
                     settings.enabled = enabled
@@ -83,10 +89,7 @@ struct NotificationSettingsView: View {
                 }
                 Text("复杂重复提醒会在打开 App 时补排。新消息与任务结果在 App 关闭期间暂不支持即时通知。")
                     .font(.footnote).foregroundStyle(.secondary)
-                if let error = app.notificationEvents.scheduleErrorText { Text(error).font(.footnote) }
-                if let error = app.notificationEvents.errorText { Text(error).font(.footnote) }
             }
-            if let errorText { Text(errorText).foregroundStyle(.red) }
         }
         .navigationTitle("通知")
         .navigationBarTitleDisplayMode(.inline)
@@ -118,9 +121,9 @@ struct NotificationSettingsView: View {
             quietStart = parse(settings.quietStart)
             quietEnd = parse(settings.quietEnd)
             loaded = true
-            errorText = nil
+            notice = nil
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromLoad(error, message: app.message(for: error))
         }
         await syncSystemStatus()
     }
@@ -132,7 +135,7 @@ struct NotificationSettingsView: View {
             settings = try await app.api.updateNotificationSettings(settings)
             await app.syncReminders()
         } catch {
-            errorText = app.message(for: error)
+            notice = .fromAction(error, message: app.message(for: error))
         }
     }
 

@@ -26,9 +26,10 @@ struct GroupListView: View {
                     }.buttonStyle(.plain).plainListRow()
                 }.listStyle(.plain)
             }
-            if let error {
-                VStack { Text(error); Button("重新加载") { Task { await load() } } }
-                    .font(.footnote).padding()
+            if error != nil {
+                ConnectionNotice { Task { await load() } }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
             }
         }.themedPageBackground()
         .task(id: app.sessionGeneration) { groups = []; selected = nil; await load() }
@@ -53,7 +54,7 @@ struct GroupListView: View {
             groups = response.groups; error = nil
             try? await app.conversationRepository?.replaceGroups(response.groups)
         } catch is CancellationError {} catch {
-            if generation == app.sessionGeneration { self.error = "伙伴们暂时没连上，请重新加载。" }
+            if generation == app.sessionGeneration { self.error = UserFacingError.offline }
         }
     }
 }

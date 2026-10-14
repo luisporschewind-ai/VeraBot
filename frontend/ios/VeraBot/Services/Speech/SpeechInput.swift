@@ -85,7 +85,7 @@ final class SpeechEngine: @unchecked Sendable {
             if error != nil || result?.isFinal == true {
                 let userStopped = self?.finish(generation: gen) ?? true
                 if let error, result == nil, !userStopped {
-                    onError(error.localizedDescription)
+                    onError(UserFacingError.message(for: error))
                 }
             }
         }
@@ -195,7 +195,7 @@ final class SpeechInput {
                 })
             isRecording = true
         } catch {
-            errorText = error.localizedDescription
+            errorText = UserFacingError.message(for: error)
             isRecording = false
         }
     }

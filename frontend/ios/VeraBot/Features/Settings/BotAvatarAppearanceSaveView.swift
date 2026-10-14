@@ -69,7 +69,7 @@ struct BotAvatarAppearanceSaveView: View {
         }
     }
     private func local(_ operation:() throws -> String) {
-        do { message = try operation() } catch { message = "未完成，草稿和原配置已保留：\(error.localizedDescription)" }
+        do { message = try operation() } catch { message = "未完成，草稿和原配置已保留：\(UserFacingError.message(for: error))" }
     }
     private func invalidate() { gate.invalidate(); request?.cancel(); request = nil; busy = false }
     private func accepts(_ ticket:BotAppearanceRequestGate.Ticket) -> Bool {
@@ -88,7 +88,7 @@ struct BotAvatarAppearanceSaveView: View {
                 if let selectedID, !bots.contains(where: { $0.id == selectedID }) { self.selectedID = nil }
                 message = bots.isEmpty ? "尚无可选择的 Bot" : nil
             } catch {
-                guard accepts(ticket) else { return }; message = error.localizedDescription
+                guard accepts(ticket) else { return }; message = UserFacingError.message(for: error)
             }
             busy = false
         }
@@ -127,7 +127,7 @@ struct BotAvatarAppearanceSaveView: View {
                 }
             } catch {
                 guard accepts(ticket) else { return }
-                message = "未完成，草稿已保留：\(error.localizedDescription)"
+                message = "未完成，草稿已保留：\(UserFacingError.message(for: error))"
             }
             busy = false
         }
