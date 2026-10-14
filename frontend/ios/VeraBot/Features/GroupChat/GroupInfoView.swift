@@ -44,13 +44,14 @@ struct GroupInfoView: View {
         }
     }
     private var memberSection: some View {
-        Section {
+        let botCount = BotProductLimits.botMemberCount(in: model.group.members)
+        return Section {
             ForEach(model.group.members) { member in
                 GroupInfoMemberRow(member: member)
                     .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
             }
         } header: {
-            Text("群成员（\(model.group.members.count)）")
+            Text("群成员（\(botCount)）")
         } footer: {
             Text("成员共享本群文字记录；群聊不会读取私聊或长期记忆。")
         }

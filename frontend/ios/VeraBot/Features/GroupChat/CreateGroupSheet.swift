@@ -11,29 +11,47 @@ struct CreateGroupSheet: View {
     @State private var loading = true
     @State private var saving = false
     @State private var error: String?
+    @State private var selectionHint: String?
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canSubmit: Bool {
+        !saving && !loading && !trimmed.isEmpty && trimmed.count <= 64
+            && BotProductLimits.canCreateGroup(selectedBotCount: selected.count)
+    }
     var body: some View {
         NavigationStack {
             Form {
                 Section("群聊名称") { TextField("例如：周末小分队", text: $name) }
-                Section("选择伙伴 · \(selected.count)/4") {
+                Section(BotProductLimits.groupSelectionTitle(selectedCount: selected.count)) {
                     if loading { ProgressView() }
                     ForEach(bots) { bot in
+                        let isSelected = selected.contains(bot.id)
+                        let canSelectMore = BotProductLimits.canAddBotToSelection(selectedCount: selected.count)
                         Button {
-                            if selected.contains(bot.id) { selected.remove(bot.id) }
-                            else if selected.count < 4 { selected.insert(bot.id) }
+                            toggle(bot.id, isSelected: isSelected, canSelectMore: canSelectMore)
                         } label: {
                             HStack {
                                 LiveBotAvatar(botID:bot.id,emoji:bot.avatar,color:bot.color,
                                               hasAvatar:bot.hasAvatar,updatedAt:bot.avatarUpdatedAt,size:40,
                                               appearance:bot.supportedAppearance)
-                                Text(bot.name).foregroundStyle(.primary)
-                                Spacer(); Image(systemName: selected.contains(bot.id) ? "checkmark.circle.fill" : "circle")
+                                Text(bot.name).foregroundStyle(isSelected || canSelectMore ? .primary : .secondary)
+                                Spacer()
+                                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(isSelected ? Color.accentColor : (canSelectMore ? Color.secondary : Color.secondary.opacity(0.5)))
                             }
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!isSelected && !canSelectMore)
+                        .accessibilityHint(isSelected ? "取消选择" : (canSelectMore ? "选择" : BotProductLimits.groupSelectionFullMessage))
                     }
                 }
-                Section { Text("选择 2–4 位伙伴。系统会根据每条消息的意图分配回应者；成员共享本群聊天记录。") }
+                Section {
+                    Text(BotProductLimits.groupSelectionHint)
+                    Text("系统会根据每条消息的意图分配回应者；成员共享本群聊天记录。")
+                        .foregroundStyle(.secondary)
+                    if let selectionHint {
+                        Text(selectionHint).foregroundStyle(.secondary)
+                    }
+                }
                 if let error { Section { Text(error).foregroundStyle(.secondary); Button("重新加载伙伴") { Task { await load() } } } }
             }.disabled(saving)
             .navigationTitle("创建群聊").navigationBarTitleDisplayMode(.inline)
@@ -43,11 +61,25 @@ struct CreateGroupSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(saving ? "创建中…" : "创建") { Task { await create() } }
-                        .disabled(saving || loading || trimmed.isEmpty || trimmed.count > 64 || !(2...4).contains(selected.count))
+                        .disabled(!canSubmit)
                 }
             }.task { await load() }
         }
     }
+
+    private func toggle(_ botID: Int, isSelected: Bool, canSelectMore: Bool) {
+        selectionHint = nil
+        if isSelected {
+            selected.remove(botID)
+            return
+        }
+        guard canSelectMore else {
+            selectionHint = BotProductLimits.groupSelectionFullMessage
+            return
+        }
+        selected.insert(botID)
+    }
+
     private func load() async {
         let generation = app.sessionGeneration; loading = true
         defer { if generation == app.sessionGeneration { loading = false } }
@@ -58,7 +90,13 @@ struct CreateGroupSheet: View {
         } catch { if generation == app.sessionGeneration { self.error = "暂时无法加载伙伴，请再试一次。" } }
     }
     private func create() async {
-        guard !saving else { return }; saving = true
+        guard !saving else { return }
+        // 提交时二次校验：防止重复触发绕过 2～5 范围。
+        guard BotProductLimits.canCreateGroup(selectedBotCount: selected.count) else {
+            selectionHint = BotProductLimits.groupSelectionHint
+            return
+        }
+        saving = true
         let generation = app.sessionGeneration
         defer { if generation == app.sessionGeneration { saving = false } }
         do {

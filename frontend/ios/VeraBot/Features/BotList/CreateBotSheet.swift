@@ -4,6 +4,8 @@ import VeraBotCore
 struct CreateBotSheet: View {
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
+    /// 打开创建页时的账号 Bot 数量；提交时做二次校验，防止重复触发绕过。
+    let currentBotCount: Int
     let onCreated: @MainActor () -> Void
 
     @State private var draft = BotCreate(name: "", avatar: BotAvatarFigure.default.rawValue, color: BotAvatarColorPalette.defaultColor, persona: "", instructions: "")
@@ -13,6 +15,8 @@ struct CreateBotSheet: View {
     @State private var tagsText = ""   // 「搜索, 查询, 调研」；保存时 BotTagRules.parse
     private enum Field: Hashable { case name, persona, instructions }
     @FocusState private var focus: Field?
+
+    private var atAccountLimit: Bool { !BotProductLimits.canCreateBot(currentCount: currentBotCount) }
 
     var body: some View {
         NavigationStack {
@@ -55,7 +59,9 @@ struct CreateBotSheet: View {
                 } footer: {
                     Text("仅本 Bot 使用，不对其他 Bot 公开。")
                 }
-                if let errorText {
+                if atAccountLimit {
+                    Text(BotProductLimits.accountLimitReachedMessage).foregroundStyle(.red)
+                } else if let errorText {
                     Text(errorText).foregroundStyle(.red)
                 }
             }
@@ -69,7 +75,7 @@ struct CreateBotSheet: View {
                 ToolbarItem(placement: .cancellationAction) { DismissToolbarButton(kind: .cancel) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("创建") { Task { await save() } }
-                        .disabled(saving || draft.name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(saving || atAccountLimit || draft.name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }
@@ -83,8 +89,14 @@ struct CreateBotSheet: View {
     }
 
     private func save() async {
+        guard !saving else { return }
         saving = true
         defer { saving = false }
+        // 提交时二次校验：防止菜单态与表单态之间重复触发绕过。
+        guard BotProductLimits.canCreateBot(currentCount: currentBotCount) else {
+            errorText = BotProductLimits.accountLimitReachedMessage
+            return
+        }
         var body = draft
         body.name = body.name.trimmingCharacters(in: .whitespaces)
         let cleaned = BotTagRules.parse(tagsText)
