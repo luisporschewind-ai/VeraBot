@@ -52,6 +52,26 @@ struct ChatView: View {
         _attachment = State(initialValue: ComposerAttachmentModel(botID: bot.id, api: api))
     }
 
+    @ViewBuilder
+    private func messageCell(_ item: ChatViewModel.Item) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let id = item.messageID, reading.newMessageIDs.count > 1, id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }
+            if let id = item.messageID, reading.newMessageIDs.contains(id), !item.isUser { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
+            MessageRow(item: item, bot: vm.bot, vm: vm)
+                .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && !item.isUser, revision: item.publicationRevision) {
+                    guard let id = item.messageID else { return }
+                    await app.markVisible(kind: "private", id: vm.bot.id, generation: item.generation, message: MessagePublication(messageID: id, publicationRevision: item.publicationRevision))
+                }
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: ChatNotificationFrames.self,
+                            value: item.messageID.map { [$0: geometry.frame(in: .named("notificationChatViewport"))] } ?? [:])
+                    }
+                }
+        }
+        .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -65,22 +85,7 @@ struct ChatView: View {
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                     ForEach(vm.items) { item in
-                        VStack(alignment: .leading, spacing: 4) {
-                            if let id = item.messageID, reading.newMessageIDs.count > 1, id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }
-                            if let id = item.messageID, reading.newMessageIDs.contains(id), !item.isUser { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
-                            MessageRow(item: item, bot: vm.bot, vm: vm)
-                                .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && !item.isUser, revision: item.publicationRevision) {
-                                    guard let id = item.messageID else { return }
-                                    await app.markVisible(kind: "private", id: vm.bot.id, generation: item.generation, message: MessagePublication(messageID: id, publicationRevision: item.publicationRevision))
-                                }
-                                .background {
-                                    GeometryReader { geometry in
-                                        Color.clear.preference(key: ChatNotificationFrames.self,
-                                            value: item.messageID.map { [$0: geometry.frame(in: .named("notificationChatViewport"))] } ?? [:])
-                                    }
-                                }
-                        }
-                        .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
+                        messageCell(item)
                     }
                     ForEach(vm.memorySuggestions) { suggestion in
                         MemorySuggestionCard(suggestion: suggestion, vm: vm)
