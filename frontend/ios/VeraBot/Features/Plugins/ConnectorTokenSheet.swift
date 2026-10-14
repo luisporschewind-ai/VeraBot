@@ -38,7 +38,7 @@ struct ConnectorTokenSheet: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("取消") { dismiss() }
+                DismissToolbarButton(kind: .cancel) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
                 if busy {

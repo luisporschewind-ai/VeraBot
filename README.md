@@ -6,7 +6,7 @@
 
 
 > **v0.1.0 · 原型验证完成 (Prototype validated, feasible)** — 2026-09-30
-> 91 条用例：通过 90 / 失败 0 / 跳过 1。之后的未发布改动 (设置页重排、头像 / 昵称、Liquid Glass 视觉、富文本等) 与当前进度见 [docs/STATUS.md](docs/STATUS.md)。
+> 91 条用例：通过 90 / 失败 0 / 跳过 1（发布时快照）。当前开发主线为 schema v23，已增加记忆成长、附件、群聊、联网搜索、本地持久化与服务端定时任务；功能和验收边界见 [2026-10-13 盘点](docs/testing/2026-10-13-project-inventory.md)及 [docs/STATUS.md](docs/STATUS.md)。
 
 VeraBot 是一个**个人 AI 助理 (Personal AI Agent)** 平台，不是编程助手 (Coding Agent)。用户创建多个 Bot，每个 Bot 有自己的头像、昵称、人设 (Persona) 和自定义指令 (Instructions)，与用户 1:1 私聊。Bot 之间可以通过 `ask_bot` 做**多 Agent 协作 (Multi-Agent Collaboration)**，并受权限、上下文隔离和护栏 (Guardrails) 约束。
 用户不需要填写 API Key：服务端统一用 `DEEPSEEK_API_KEY` 调用 DeepSeek (OpenAI 兼容接口)。
@@ -52,8 +52,9 @@ open frontend/ios/VeraBot.xcodeproj # Xcode 里选 iPhone 模拟器 ⌘R；演�
 | [docs/product/FEATURES.md](docs/product/FEATURES.md) | 功能清单与 API 摘要 |
 | [docs/design/ARCHITECTURE.md](docs/design/ARCHITECTURE.md) | 架构、模块划分、依赖规则、依赖管理 (SPM / uv) |
 | [docs/design/MULTI_AGENT_DESIGN.md](docs/design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限 / 上下文隔离 / 护栏 / 审计 |
-| [docs/design/MCP_CAPABILITY.md](docs/design/MCP_CAPABILITY.md)、[GMAIL_CAPABILITY.md](docs/design/GMAIL_CAPABILITY.md) | 设计稿 (未实现，待 Boss 评审)：MCP 能力与 Gmail 接入 |
-| [docs/design/MEMORY_GROWTH.md](docs/design/MEMORY_GROWTH.md) | 实施方案 (未实现，待 Boss 评审)：以记忆为核心的 Bot 成长体系 |
+| [docs/design/MCP_CAPABILITY.md](docs/design/MCP_CAPABILITY.md)、[GMAIL_CAPABILITY.md](docs/design/GMAIL_CAPABILITY.md) | MCP M1–M4 已实现，真实 OAuth 待验收；Gmail 邮件工具仍是未实现设计 |
+| [docs/design/MEMORY_GROWTH.md](docs/design/MEMORY_GROWTH.md) | 记忆 M1–M5 已实现；M3/M4、主要 M5 已验收，真实本地向量效果单独跟踪 |
+| [主 Bot 接入讨论稿](docs/superpowers/specs/2026-10-13-primary-bot-design.md) | 基于现有定时任务和群接力开发进度的方案、范围与难度；待评审，未实施 |
 | [docs/testing/TEST_CASES_v0.1.md](docs/testing/TEST_CASES_v0.1.md) | 测试用例与结果 |
 
 ## 安全 (Security)
