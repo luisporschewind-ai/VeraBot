@@ -36,7 +36,7 @@ struct CreateGroupSheet: View {
                                 Text(bot.name).foregroundStyle(isSelected || canSelectMore ? .primary : .secondary)
                                 Spacer()
                                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(isSelected ? Color.accentColor : (canSelectMore ? .secondary : .tertiary))
+                                    .foregroundStyle(isSelected ? Color.accentColor : (canSelectMore ? Color.secondary : Color.secondary.opacity(0.5)))
                             }
                         }
                         .buttonStyle(.plain)
