@@ -30,13 +30,6 @@ struct BotListView: View {
         NavigationStack {
             // 沉浸式平铺列表：白底、无圆角分组、无分隔线（plainListRow 见 Theme）
             List {
-                if loaded || !bots.isEmpty || !groups.isEmpty {
-                    Text(BotProductLimits.accountListTitle(botCount: bots.count))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .plainListRow()
-                        .accessibilityLabel(BotProductLimits.accountListTitle(botCount: bots.count))
-                }
                 if !conversations.isEmpty, let connectionIssue {
                     BotConnectionView(issue: connectionIssue, retrying: loading, compact: true) {
                         Task { await load() }
@@ -91,8 +84,7 @@ struct BotListView: View {
                     listFailureNotice(errorText).padding(24)
                 } else if conversations.isEmpty {
                     ContentUnavailableView {
-                        Label(BotProductLimits.accountListTitle(botCount: bots.count),
-                              systemImage: "person.crop.circle.badge.plus")
+                        Label("还没有 Bot", systemImage: "person.crop.circle.badge.plus")
                     } description: {
                         Text("点击右上角「＋」或下方按钮创建第一个助理")
                     } actions: {
