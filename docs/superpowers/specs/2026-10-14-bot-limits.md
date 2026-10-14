@@ -34,3 +34,13 @@ Bot 创建入口与流程、Bot 列表/管理页、群聊创建入口与 Bot 选
 1. 修改文件清单；2. 每个文件主要改动；3. 实际实现的 UI 限制规则；4. 构建和测试结果；5. 未覆盖的边界；6. 是否触及 Runtime/数据库/API/服务端；7. 将来把 10/5 改成动态配置需要改哪些位置。
 
 最终原则：这是产品体验和 UI 规则调整，不是底层 Agent 能力限制，保留未来更多 Bot、更大群聊和动态配置的扩展空间。
+
+## 变更记录
+
+### 2026-10-14 · UI 跟进（PR #36，`fix/create-group-hint-card`）
+
+相对首版实现（PR #35）的可见 UI 调整，产品数值与 UI 层校验原则不变：
+
+- **(a) 助理列表计数**：按 Boss 要求，去掉助理列表（`BotListView`）顶部/空态的「我的 Bot（n/10）」展示；账号上限校验与达上限时的创建提示（`BotProductLimits.accountLimitReachedMessage`）保留。上文「列表/管理页显示 `我的 Bot（7/10）`」不再作为当前 UI 要求。
+- **(b) 创建群聊说明**：去掉 `CreateGroupSheet` 底部提示卡片；保留「已选择 n/5 个 Bot」与 2～5 选择逻辑；「每个群聊需要选择 2～5 个 Bot」改到选择区 section footer。
+- **(c) 成员增删**：群设置页尚无成员添加/移除 UI（`GroupUpdateRequest` 仅改名）；`BotProductLimits.canAddMember` / `canRemoveMember` 仅预留边界逻辑，待有编辑入口再接线。验收项中「编辑成员时新增/移除校验」当前不适用。

@@ -40,12 +40,14 @@ python scripts/dev/primary_bot_manual.py --data-dir /tmp/verabot-primary-manual 
 
 ### SQL 分层
 
-这些查询后来已收进 `db/`（见 `refactor/sql-layer-cleanup`）。`sql_layer_check.py` 重新对 `db/` 以外的全部模块严格检查，不再保留 known 名单。当时留下的位置是：
+PR #33（`refactor/sql-layer-cleanup`，合入 `244e906`）已把当时留下的直连查询收进 `db/`：
 
-- `api/routers/bots.py`（`bot_tool_calls`）
-- `services/actions/__init__.py`（`confirm`）
-- `services/mcp/oauth.py`
-- `services/memory/` 下的 `collaboration.py`、`embeddings.py`、`extract.py`、`growth.py`、`quick_prompts.py`、`service.py`、`suggestions.py`
+- `api/routers/bots.py`（`bot_tool_calls`）→ `audit_store`
+- `services/actions/__init__.py`（`confirm`）→ `action_store`
+- `services/mcp/oauth.py` → `mcp_store`
+- `services/memory/`（`collaboration` / `embeddings` / `extract` / `growth` / `quick_prompts` / `service` / `suggestions`）→ 对应 memory / suggestion / vector 等 store
+
+`sql_layer_check.py` 现对 `db/` 以外模块严格检查（无 known 白名单）。合入时：`sql_layer_check` SQL-LAYER-01/02 通过；`run_offline.py` 59 通过 / 6 跳过（仍依赖已启动服务、真实模型或外网的脚本除外）。
 
 ### 离线测试入口
 
@@ -60,6 +62,14 @@ cd backend && uv run python scripts/test/run_offline.py
 跳过依赖已启动服务、真实模型或外网的脚本：`smoke_test.py`、`web_browser_test.py`、`web_query_test.py`、`mcp_oauth_test.py`、`group_http_test.py`、`group_execution_http_test.py`。`sql_layer_check.py` 包含在这条命令里。
 
 本分支在这台 Linux 上跑完这条命令：59 通过，0 失败，6 个跳过。`scheduled_task_executor_test.py` 从仓库根目录直接执行，10 项通过。假模型服务用同一个进程登录 `primary-test` 并发送私聊后，助手消息状态为 `completed`，正文是上面的固定假回复。
+
+### 离线提示统一（补充，PR #34）
+
+PR #34（`fix/offline-notice-unify`，合入 `e888375`）后：助理列表不再叠两条失败提示；各主页面用单个 `ConnectionNotice`（标题「暂时连接不上」、按钮「重新连接」）。`AppState.message(for:)` 不再直接抛 `localizedDescription`。本文件原先关注的群聊可见性 / 假模型等问题与该 PR 无关；离线文案与单条横幅以 #34 为准。
+
+### Bot 数量限制（补充，PR #35 / #36）
+
+PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助理列表「我的 Bot（n/10）」展示与创建群聊底部提示卡片（说明改 footer）。规格与变更记录见 [bot-limits](../superpowers/specs/2026-10-14-bot-limits.md)。群成员增删 UI 仍不存在。
 
 ## 后续再做
 
