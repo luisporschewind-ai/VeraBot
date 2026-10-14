@@ -87,6 +87,12 @@ struct ChatContinuityTests {
         session.include([MessagePublication(messageID: 5, publicationRevision: 2)])
         session.include([]) // server read acknowledgments never remove entry labels
         #expect(session.newMessageIDs == [4, 5])
+        #expect(session.showsNewMessagesDivider(messageID: 4))
+        #expect(!session.showsNewMessagesDivider(messageID: 5))
+        var single = ConversationReadingSession()
+        single.enter([MessagePublication(messageID: 9, publicationRevision: 1)])
+        #expect(single.showsNewMessagesDivider(messageID: 9))
+        #expect(!single.showsNewMessagesDivider(messageID: 8))
         let visible1 = !session.observe(messageID: 4, revision: 1, visibleFraction: 1, foreground: true, pageVisible: true, now: 0)
         #expect(visible1)
         let visible2 = !session.observe(messageID: 4, revision: 1, visibleFraction: 0, foreground: true, pageVisible: true, now: 0.4)

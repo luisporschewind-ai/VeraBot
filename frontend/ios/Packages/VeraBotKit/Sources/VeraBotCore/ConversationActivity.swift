@@ -43,6 +43,8 @@ public struct ConversationReadingSession: Sendable {
     public init() {}
     public mutating func enter(_ unread: [MessagePublication]) { leave(); include(unread) }
     public mutating func include(_ unread: [MessagePublication]) { newMessageIDs.formUnion(unread.map(\.messageID)) }
+    /// 本次未读里最早的一条前面放「新消息」分隔线。单条也放；其余消息不再另挂未读提示。
+    public func showsNewMessagesDivider(messageID: Int) -> Bool { newMessageIDs.min() == messageID }
     public mutating func leave() { newMessageIDs.removeAll(); visibleSince.removeAll() }
     public mutating func suspend() { visibleSince.removeAll() }
     public mutating func observe(messageID: Int, revision: Int, visibleFraction: Double, foreground: Bool, pageVisible: Bool, now: TimeInterval) -> Bool {

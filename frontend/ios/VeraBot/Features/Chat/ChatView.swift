@@ -55,10 +55,9 @@ struct ChatView: View {
     @ViewBuilder
     private func messageCell(_ item: ChatViewModel.Item) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let id = item.messageID, reading.newMessageIDs.count > 1, id == reading.newMessageIDs.sorted().first {
+            if let id = item.messageID, reading.showsNewMessagesDivider(messageID: id) {
                 NewMessagesDivider()
             }
-            if let id = item.messageID, reading.newMessageIDs.contains(id), !item.isUser { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
             MessageRow(item: item, bot: vm.bot, vm: vm)
                 .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && !item.isUser, revision: item.publicationRevision) {
                     guard let id = item.messageID else { return }
