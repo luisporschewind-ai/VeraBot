@@ -72,3 +72,4 @@ Boss 参考（群信息页成员卡，三张截图）：成员行 = 头像 + 名
 - 左滑按钮去掉 `role: .destructive`，显式 `.tint(.red)` 保持红色敏感操作样式；确认框点「移除」后才请求 API；「取消」保留该行。
 - `removeMember` / `addMember` 先返回服务端群快照、不立刻改 `group`；视图在成功后 `withAnimation { applyGroup }` 做 List 原生增删动画；失败保持原列表（添加则为部分成功后的快照）并提示错误。
 - 添加成员 sheet：去掉底部 hint/footer；改为多选 +「添加」；`addMembers` 顺序 POST，部分失败保留成功项。
+- 同 PR：未读「新」分隔线样式对齐 Boss 参考（见 [chat-continuity](2026-10-14-chat-continuity-design.md) 变更记录）。

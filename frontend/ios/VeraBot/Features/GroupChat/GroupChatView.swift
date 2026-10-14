@@ -226,7 +226,9 @@ struct GroupChatView: View {
 
     private func messageCell(_ message: GroupMessage) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }
+            if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first {
+                NewMessagesDivider()
+            }
             if reading.newMessageIDs.contains(message.id), message.role != .user { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
             bubble(message)
                 .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && message.role != .user, revision: message.publicationRevision ?? 0) {
