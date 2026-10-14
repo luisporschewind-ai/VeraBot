@@ -2,7 +2,8 @@
 
 ## 2026-10-14 · 群成员移除确认与动画
 
-- 修复左滑 `role: .destructive` 导致确认前行被系统移走的问题；改为确认「移除」后才调 API，并以 `withAnimation` 从数据源移除该行。取消保留原行。规格变更记录见 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
+- 修复左滑 `role: .destructive` 导致确认前行被系统移走的问题；改为非 destructive + 显式 `.tint(.red)`，确认「移除」后才调 API，并以 `withAnimation` 从数据源移除该行。取消保留原行。
+- 添加成员 sheet：去掉底部说明；改为多选确认「添加」；顺序 POST，部分失败保留已成功成员并提示。规格变更记录见 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
 
 ## 2026-10-14 · 群聊成员增删（PR #37，已合入）
 

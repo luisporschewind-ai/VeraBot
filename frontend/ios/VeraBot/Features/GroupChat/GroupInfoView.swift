@@ -74,12 +74,9 @@ struct GroupInfoView: View {
                 AddGroupMemberSheet(
                     memberBotIDs: Set(model.group.members.compactMap(\.botID)),
                     currentBotCount: botCount
-                ) { botID in
+                ) { botIDs in
                     showingAdd = false
-                    Task { await perform {
-                        try await model.addMember(botID: botID)
-                        onGroupUpdated?(model.group)
-                    } }
+                    Task { await confirmAdd(botIDs) }
                 }
             }
         }
@@ -92,7 +89,7 @@ struct GroupInfoView: View {
                     .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if canRemove(member) {
-                            // 不用 role: .destructive：系统会在确认前就把行滑走/隐藏。
+                            // 不用 role: .destructive：系统会在确认前就把行滑走/隐藏；敏感操作用 .tint(.red)。
                             Button {
                                 memberPendingRemove = member
                             } label: {
@@ -142,6 +139,24 @@ struct GroupInfoView: View {
         }
     }
 
+    private func confirmAdd(_ botIDs: [Int]) async {
+        guard !saving, !botIDs.isEmpty else { return }
+        saving = true
+        defer { saving = false }
+        let result = await model.addMembers(botIDs: botIDs)
+        if result.addedCount > 0 {
+            withAnimation {
+                model.applyGroup(result.group)
+            }
+            onGroupUpdated?(model.group)
+        }
+        if let failure = result.failure {
+            self.error = app.message(for: failure)
+        } else {
+            error = nil
+        }
+    }
+
     private func perform(_ action: () async throws -> Void) async {
         guard !saving else { return }; saving = true; defer { saving = false }
         do {
@@ -172,22 +187,23 @@ private struct GroupInfoMemberRow: View {
     }
 }
 
-/// 选择尚未入群的 Bot；风格对齐 CreateGroupSheet，一次添加一名。
+/// 多选尚未入群的 Bot；风格对齐 CreateGroupSheet（无底部说明 footer）。
 private struct AddGroupMemberSheet: View {
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
     let memberBotIDs: Set<Int>
     let currentBotCount: Int
-    let onPick: (Int) -> Void
+    let onConfirm: ([Int]) -> Void
     @State private var bots: [Bot] = []
-    @State private var selected: Int?
+    @State private var selected: Set<Int> = []
     @State private var loading = true
     @State private var saving = false
     @State private var error: String?
-    @State private var selectionHint: String?
 
     private var candidates: [Bot] { bots.filter { !memberBotIDs.contains($0.id) } }
-    private var canAddMore: Bool { BotProductLimits.canAddMember(currentBotCount: currentBotCount) }
+    private var projectedCount: Int { currentBotCount + selected.count }
+    private var canSelectMore: Bool { BotProductLimits.canAddMember(currentBotCount: projectedCount) }
+    private var canSubmit: Bool { !selected.isEmpty && !saving && !loading }
 
     var body: some View {
         NavigationStack {
@@ -199,34 +215,27 @@ private struct AddGroupMemberSheet: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(candidates) { bot in
-                            let isSelected = selected == bot.id
+                            let isSelected = selected.contains(bot.id)
                             Button {
-                                guard canAddMore else {
-                                    selectionHint = BotProductLimits.groupSelectionFullMessage
-                                    return
-                                }
-                                selectionHint = nil
-                                selected = bot.id
+                                toggle(bot.id, isSelected: isSelected)
                             } label: {
                                 HStack {
                                     LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
                                                   hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 40,
                                                   appearance: bot.supportedAppearance)
-                                    Text(bot.name).foregroundStyle(canAddMore || isSelected ? .primary : .secondary)
+                                    Text(bot.name).foregroundStyle(isSelected || canSelectMore ? .primary : .secondary)
                                     Spacer()
                                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(isSelected ? Color.accentColor : (canAddMore ? Color.secondary : Color.secondary.opacity(0.5)))
+                                        .foregroundStyle(isSelected ? Color.accentColor : (canSelectMore ? Color.secondary : Color.secondary.opacity(0.5)))
                                 }
                             }
                             .buttonStyle(.plain)
-                            .disabled(!canAddMore && !isSelected)
-                            .accessibilityHint(canAddMore ? "选择" : BotProductLimits.groupSelectionFullMessage)
+                            .disabled(!isSelected && !canSelectMore)
+                            .accessibilityHint(isSelected ? "取消选择" : (canSelectMore ? "选择" : BotProductLimits.groupSelectionFullMessage))
                         }
                     }
                 } header: {
-                    Text(BotProductLimits.groupSelectionTitle(selectedCount: currentBotCount + (selected == nil ? 0 : 1)))
-                } footer: {
-                    Text(selectionHint ?? BotProductLimits.groupSelectionHint)
+                    Text(BotProductLimits.groupSelectionTitle(selectedCount: projectedCount))
                 }
                 if let error {
                     Section { ConnectionNotice(title: error) { Task { await load() } } }
@@ -240,18 +249,25 @@ private struct AddGroupMemberSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(saving ? "添加中…" : "添加") {
-                        guard let selected, canAddMore else {
-                            selectionHint = canAddMore ? nil : BotProductLimits.groupSelectionFullMessage
-                            return
-                        }
+                        guard canSubmit else { return }
                         saving = true
-                        onPick(selected)
+                        let ids = candidates.filter { selected.contains($0.id) }.map(\.id)
+                        onConfirm(ids)
                     }
-                    .disabled(selected == nil || !canAddMore || saving || loading)
+                    .disabled(!canSubmit)
                 }
             }
             .task { await load() }
         }
+    }
+
+    private func toggle(_ botID: Int, isSelected: Bool) {
+        if isSelected {
+            selected.remove(botID)
+            return
+        }
+        guard canSelectMore else { return }
+        selected.insert(botID)
     }
 
     private func load() async {

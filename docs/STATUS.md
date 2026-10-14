@@ -2,7 +2,7 @@
 
 ## 2026-10-14 · 群聊成员增删
 
-- PR #37 已合入：已有群可增删 Bot 成员。跟进 `fix/group-member-remove`：左滑确认前不移走行，成功后再动画移除。规格 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
+- PR #37 已合入：已有群可增删 Bot 成员。跟进 `fix/group-member-remove`：左滑确认前不移走行（`.tint(.red)`）、成功后再动画移除；添加成员多选且无 footer。规格 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。
 
 ## 2026-10-14 · 今日已合入 main（文档同步）
 

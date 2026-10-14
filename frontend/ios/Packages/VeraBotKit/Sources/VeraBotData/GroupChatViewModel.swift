@@ -245,12 +245,35 @@ public final class GroupChatViewModel {
         try valid(stamp);group = updated
         try await repository?.saveGroup(updated)
     }
-    public func addMember(botID: Int) async throws {
+    /// Single add; does **not** mutate `group` — caller applies with animation.
+    @discardableResult
+    public func addMember(botID: Int) async throws -> ChatGroup {
         let stamp = epoch
         let updated = try await api.addGroupMember(groupID: group.id, botID: botID)
-        try valid(stamp); group = updated
+        try valid(stamp)
         try await repository?.saveGroup(updated)
+        return updated
     }
+
+    /// Sequential POSTs. On partial failure, `group` in the result includes successful adds; `failure` is set.
+    public func addMembers(botIDs: [Int]) async -> (group: ChatGroup, addedCount: Int, failure: Error?) {
+        var latest = group
+        var added = 0
+        for botID in botIDs {
+            do {
+                let stamp = epoch
+                let updated = try await api.addGroupMember(groupID: group.id, botID: botID)
+                try valid(stamp)
+                latest = updated
+                added += 1
+                try await repository?.saveGroup(updated)
+            } catch {
+                return (latest, added, error)
+            }
+        }
+        return (latest, added, nil)
+    }
+
     /// Calls the remove API and persists cache, but does **not** mutate `group`.
     /// The view applies the result inside `withAnimation` so the List can animate the row out.
     @discardableResult

@@ -11,13 +11,17 @@ private actor GroupVMFixture: GroupChatAPI {
     let recovering: Bool
     let memberFailure: Bool
     let removeFails: Bool
+    /// Fail the Nth `addGroupMember` call (1-based); `nil` never fails adds.
+    let failAddOnCall: Int?
+    var addCalls = 0
     var turnCalls = 0
     var members: [ChatGroupMember]
     private var pendingLoad: CheckedContinuation<Void, Never>?
     init(delayed: Bool = false, unavailable: Bool = false, recovering: Bool = false, memberFailure: Bool = false,
-         removeFails: Bool = false) {
+         removeFails: Bool = false, failAddOnCall: Int? = nil) {
         self.delayed = delayed; self.unavailable = unavailable; self.recovering = recovering; self.memberFailure = memberFailure
         self.removeFails = removeFails
+        self.failAddOnCall = failAddOnCall
         self.members = Self.group.members
     }
     nonisolated static let group = ChatGroup(id: 7, name: "伙伴", members: [ChatGroupMember(id: 21, botID: 1, name: "A", color: "gray", detail: ""), ChatGroupMember(id: 22, botID: 2, name: "B", color: "gray", detail: ""), ChatGroupMember(id: 23, botID: 3, name: "C", color: "gray", detail: "")])
@@ -36,6 +40,10 @@ private actor GroupVMFixture: GroupChatAPI {
         ChatGroup(id: id, name: request.name ?? Self.group.name, members: members)
     }
     func addGroupMember(groupID: Int, botID: Int) async throws -> ChatGroup {
+        addCalls += 1
+        if let failAddOnCall, addCalls == failAddOnCall {
+            throw APIError(status: 500, message: "add failed")
+        }
         members.append(ChatGroupMember(id: 100 + botID, botID: botID, name: "N\(botID)", color: "gray", detail: ""))
         return ChatGroup(id: groupID, name: Self.group.name, members: members)
     }
@@ -103,7 +111,9 @@ private actor GroupVMFixture: GroupChatAPI {
 @MainActor @Test func GroupChatViewModelAddsAndRemovesMembers() async throws {
     let api = GroupVMFixture()
     let model = GroupChatViewModel(group: GroupVMFixture.group, api: api)
-    try await model.addMember(botID: 9)
+    let added = try await model.addMember(botID: 9)
+    #expect(!model.group.members.contains { $0.botID == 9 })
+    model.applyGroup(added)
     #expect(model.group.members.contains { $0.botID == 9 })
     let removable = try #require(model.group.members.first { $0.botID == 9 })
     let beforeCount = model.group.members.count
@@ -113,6 +123,19 @@ private actor GroupVMFixture: GroupChatAPI {
     #expect(model.group.members.contains { $0.id == removable.id })
     model.applyGroup(updated)
     #expect(!model.group.members.contains { $0.id == removable.id })
+}
+
+@MainActor @Test func GroupChatViewModelAddMembersPartialFailureKeepsSuccesses() async {
+    let api = GroupVMFixture(failAddOnCall: 2)
+    let model = GroupChatViewModel(group: GroupVMFixture.group, api: api)
+    let before = model.group.members.count
+    let result = await model.addMembers(botIDs: [9, 10, 11])
+    #expect(result.addedCount == 1)
+    #expect(result.failure != nil)
+    #expect(model.group.members.count == before)
+    model.applyGroup(result.group)
+    #expect(model.group.members.contains { $0.botID == 9 })
+    #expect(!model.group.members.contains { $0.botID == 10 })
 }
 
 @MainActor @Test func GroupChatViewModelRemoveMemberFailureKeepsMembers() async throws {
