@@ -199,7 +199,6 @@ struct GroupChatView: View {
             model.leave(); speech.cancel()
         }
     }
-    @ViewBuilder
     @ViewBuilder private var groupNotice: some View {
         if let error = model.errorMessage {
             if error.contains("暂未确认") || error.contains("待确认") || error.contains("待同步") {
