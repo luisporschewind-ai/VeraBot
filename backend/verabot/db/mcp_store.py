@@ -341,6 +341,28 @@ def save_oauth_storage(user_id: int, server_id: int, issuer: str, *, access_toke
     return get_credential_for_issuer(user_id, server_id, issuer) or {}
 
 
+def oauth_client_registration(issuer: str, redirect_uri: str) -> str | None:
+    with tx() as c:
+        row = c.execute(
+            "SELECT registration_enc FROM mcp_oauth_clients WHERE issuer=? AND redirect_uri=?",
+            (issuer, redirect_uri),
+        ).fetchone()
+    return row["registration_enc"] if row else None
+
+
+def upsert_oauth_client(issuer: str, redirect_uri: str, client_id: str, client_secret_enc: str | None,
+                        registration_enc: str, stamp: str) -> None:
+    with tx() as c:
+        c.execute(
+            """INSERT INTO mcp_oauth_clients(issuer,redirect_uri,client_id,client_secret_enc,
+               registration_enc,created_at,updated_at) VALUES(?,?,?,?,?,?,?)
+               ON CONFLICT(issuer,redirect_uri) DO UPDATE SET client_id=excluded.client_id,
+               client_secret_enc=excluded.client_secret_enc,registration_enc=excluded.registration_enc,
+               updated_at=excluded.updated_at""",
+            (issuer, redirect_uri, client_id, client_secret_enc, registration_enc, stamp, stamp),
+        )
+
+
 def insert_oauth_state(state: str, user_id: int, server_id: int, provider: str, payload_enc: str,
                        expires_at: str) -> None:
     with tx() as c:

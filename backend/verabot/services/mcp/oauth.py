@@ -77,14 +77,9 @@ class DatabaseTokenStorage(TokenStorage):
         row = self._row()
         raw = crypto.decrypt(row.get("client_info_enc"), "token") if row else None
         if not raw and self.issuer and self.redirect_uri:
-            from ...db.database import tx
-            with tx() as c:
-                client_row = c.execute(
-                    "SELECT registration_enc FROM mcp_oauth_clients WHERE issuer=? AND redirect_uri=?",
-                    (self.issuer, self.redirect_uri),
-                ).fetchone()
-            if client_row:
-                raw = crypto.decrypt(client_row["registration_enc"], "token")
+            stored = mcp_store.oauth_client_registration(self.issuer, self.redirect_uri)
+            if stored:
+                raw = crypto.decrypt(stored, "token")
         if not raw and self.pre_registered_client_id:
             client = OAuthClientInformationFull(
                 client_id=self.pre_registered_client_id,
@@ -113,17 +108,10 @@ class DatabaseTokenStorage(TokenStorage):
         redirect_uri = str((bound.redirect_uris or ["com.verabot.app:/oauth/callback"])[0])
         secret_enc = crypto.encrypt(bound.client_secret, "token") if bound.client_secret else None
         registration_enc = crypto.encrypt(bound.model_dump_json(exclude_none=True), "token")
-        from ...db.database import now_iso, tx
-        stamp = now_iso()
-        with tx() as c:
-            c.execute(
-                """INSERT INTO mcp_oauth_clients(issuer,redirect_uri,client_id,client_secret_enc,
-                   registration_enc,created_at,updated_at) VALUES(?,?,?,?,?,?,?)
-                   ON CONFLICT(issuer,redirect_uri) DO UPDATE SET client_id=excluded.client_id,
-                   client_secret_enc=excluded.client_secret_enc,registration_enc=excluded.registration_enc,
-                   updated_at=excluded.updated_at""",
-                (self.issuer, redirect_uri, bound.client_id, secret_enc, registration_enc, stamp, stamp),
-            )
+        from ...db.database import now_iso
+        mcp_store.upsert_oauth_client(
+            self.issuer, redirect_uri, bound.client_id, secret_enc, registration_enc, now_iso(),
+        )
         mcp_store.save_oauth_storage(self.user_id, self.server_id, self.issuer, client_info_enc=encoded)
 
 
