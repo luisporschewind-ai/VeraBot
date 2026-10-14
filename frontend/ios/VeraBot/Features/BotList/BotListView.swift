@@ -147,8 +147,8 @@ struct BotListView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        // 达上限仍可点选，弹出固定提示文案（不静默禁用）。
                         Button("创建 Bot", systemImage: "plus") { requestCreateBot() }
-                            .disabled(!canCreateBot)
                         Button("创建群聊", systemImage: "person.3") { createGroup = true }
                     } label: { Image(systemName: "plus") }
                     .accessibilityLabel("创建 Bot 或群聊")
