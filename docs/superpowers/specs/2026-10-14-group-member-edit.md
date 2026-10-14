@@ -76,6 +76,10 @@ Boss 参考（群信息页成员卡，三张截图）：成员行 = 头像 + 名
 - 群设置页：顶部居中群头像；去掉「群聊名称」分区标题；群名输入居中、加粗、字号大一号。
 - 同 PR 后端：`await_user` + 空 `missing_information` 在已有正文/追问时 coerce，不再把完整回复标失败（见 known-issues）。
 
+### 2026-10-14 · 添加成员 sheet 行高对齐
+
+- `AddGroupMemberSheet` 候选行与 `GroupInfoMemberRow` 一致：头像 30、`HStack` spacing 10、`listRowInsets(top/bottom: 2, leading/trailing: 20)`。
+
 ### 2026-10-14 · 编排内部不对用户暴露（公开消息状态）
 
 Boss 原则：Bot↔Bot 群编排内部（路由、action kind、校验错误、step/task 状态、重试原因）不得出现在用户可见 UI。

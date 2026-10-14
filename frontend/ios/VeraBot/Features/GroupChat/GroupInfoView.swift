@@ -235,17 +235,20 @@ private struct AddGroupMemberSheet: View {
                             Button {
                                 toggle(bot.id, isSelected: isSelected)
                             } label: {
-                                HStack {
+                                // 行高对齐 GroupInfoMemberRow：头像 30、间距 10、相同 listRowInsets。
+                                HStack(alignment: .center, spacing: 10) {
                                     LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
-                                                  hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 40,
+                                                  hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 30,
                                                   appearance: bot.supportedAppearance)
-                                    Text(bot.name).foregroundStyle(isSelected || canSelectMore ? .primary : .secondary)
-                                    Spacer()
+                                    Text(bot.name).font(.body)
+                                        .foregroundStyle(isSelected || canSelectMore ? .primary : .secondary)
+                                    Spacer(minLength: 0)
                                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                                         .foregroundStyle(isSelected ? Color.accentColor : (canSelectMore ? Color.secondary : Color.secondary.opacity(0.5)))
                                 }
                             }
                             .buttonStyle(.plain)
+                            .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
                             .disabled(!isSelected && !canSelectMore)
                             .accessibilityHint(isSelected ? "取消选择" : (canSelectMore ? "选择" : BotProductLimits.groupSelectionFullMessage))
                         }
