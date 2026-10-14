@@ -1,5 +1,20 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-14 · Bot 数量限制与创建群聊 UI 跟进
+
+- PR #35（已合入）：iOS UI 层落实账号最多 10 个 Bot、群聊创建选择 2～5 个 Bot；上限集中在 `BotProductLimits`，不改 Runtime / DB / API。规格见 [bot-limits](superpowers/specs/2026-10-14-bot-limits.md)。
+- PR #36（进行中）：按 Boss 去掉助理列表「我的 Bot（n/10）」展示（保留上限校验与提示）；创建群聊页去掉底部提示卡片，说明改到选择区 footer。变更细节见规格「变更记录」。
+
+## 2026-10-14 · 离线提示统一（PR #34，已合入）
+
+- 各主页面统一用单个 `ConnectionNotice` / 连接横幅展示失败，避免助理页双条提示。
+- `AppState.message(for:)` 对传输失败与 HTTP 5xx 返回友好文案「暂时连接不上」，未知错误为「这次没能完成，请稍后再试。」；已是中文的服务端文案原样保留。登录 / CreateBot / BotEdit / AvatarPicker / NoticeLab / 后端未改。
+
+## 2026-10-14 · SQL 分层收尾（PR #33，已合入）
+
+- 将 services / routes / actions 中剩余直连 SQLite 查询迁入 `backend/verabot/db/` 各 store；行为与 schema 不变。
+- `sql_layer_check.py` 恢复严格：`db/` 以外出现 `.execute` 或 SQL 字符串即失败；离线 `run_offline.py` 在合入时通过。遗留说明见 [known-issues](testing/2026-10-14-known-issues.md)。
+
 ## 2026-10-14 · 对话持续执行与本地通知（集成分支，未合并）
 
 - 普通私聊改为持久回复任务：离开页面不取消已接收的工作，列表显示工作状态和未读。
