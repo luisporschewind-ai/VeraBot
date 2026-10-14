@@ -323,9 +323,10 @@ def confirm(user_id: int, action_id: int) -> dict:
     except Exception as exc:
         summary = f"执行异常：{type(exc).__name__}"
         with db.tx() as c:
-            c.execute(
-                "UPDATE pending_actions SET status=?, result=?, decided_at=? WHERE id=? AND user_id=?",
-                ("unknown" if row.get("owned_task_id") or row.get("chat_task_id") else "failed", summary, db.now_iso(), action_id, user_id),
+            action_store.record_result(
+                c, user_id, action_id,
+                "unknown" if row.get("owned_task_id") or row.get("chat_task_id") else "failed",
+                summary, db.now_iso(),
             )
         db.audit(user_id, row.get("bot_id"), "mcp_action_failed", {
             "action_id": action_id, "server": server.get("slug"),
@@ -344,10 +345,7 @@ def confirm(user_id: int, action_id: int) -> dict:
     summary = _result_summary(result)
     final_status = _status_from_result(result)
     with db.tx() as c:
-        c.execute(
-            "UPDATE pending_actions SET status=?, result=?, decided_at=? WHERE id=? AND user_id=?",
-            (final_status, summary, db.now_iso(), action_id, user_id),
-        )
+        action_store.record_result(c, user_id, action_id, final_status, summary, db.now_iso())
     db.audit(user_id, row.get("bot_id"), "mcp_action_confirmed" if final_status == "done" else "mcp_action_failed", {
         "action_id": action_id,
         "server": server.get("slug"),

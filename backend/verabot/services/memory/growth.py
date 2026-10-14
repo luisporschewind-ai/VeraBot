@@ -7,7 +7,7 @@ from datetime import datetime
 
 from ... import db
 from ...core import config, crypto
-from ...db import memory_store, message_store, review_store
+from ...db import bot_store, delegation_store, memory_store, message_store, review_store, usage_store
 from ...services import llm
 from . import policy, repository as memrepo
 
@@ -25,34 +25,31 @@ def aggregate(user_id: int, month: str | None = None):
     end=(dt.replace(year=dt.year+1,month=1) if dt.month==12 else dt.replace(month=dt.month+1)).strftime("%Y-%m-%d")
     with db.tx() as c:
         memory_store.expire_stale(c,user_id)
-        bots = c.execute("SELECT id FROM bots WHERE user_id=?", (user_id,)).fetchall()
+        bots = bot_store.ids_for_user(c, user_id)
         ids = [r[0] for r in bots]
         if not ids: return {"month":month,"assisted_count":0,"capabilities":{},"new_memories":[],"candidate_count":0}
-        q = ",".join("?"*len(ids))
-        first = c.execute(f"SELECT MIN(created_at) FROM messages WHERE user_id=? AND bot_id IN ({q})", (user_id,*ids)).fetchone()[0]
-        assisted = c.execute(f"SELECT COUNT(*) FROM messages WHERE user_id=? AND bot_id IN ({q}) AND role='assistant' AND created_at>=? AND created_at<?",
-                             (user_id,*ids,start,end)).fetchone()[0]
-        delegated = c.execute("SELECT COUNT(*) FROM delegations WHERE user_id=? AND status='ok' AND created_at>=? AND created_at<?",(user_id,start,end)).fetchone()[0]
-        caps = c.execute(f"SELECT kind,COUNT(*) n FROM usage_log WHERE user_id=? AND bot_id IN ({q}) AND created_at>=? AND created_at<? GROUP BY kind",
-                         (user_id,*ids,start,end)).fetchall()
-        rows = c.execute("SELECT id,scope,bot_id,type,content,source,status,sensitivity,action,confidence,use_count,last_used_at,confirmed_at,created_at,updated_at FROM memories WHERE user_id=? AND status='active' AND confirmed_at>=? AND confirmed_at<? AND sensitivity='normal' ORDER BY confirmed_at DESC LIMIT 20",(user_id,start,end)).fetchall()
+        first = message_store.min_created_for_bots(c, user_id, ids)
+        assisted = message_store.count_assistant_between(c, user_id, ids, start, end)
+        delegated = delegation_store.count_ok_between(c, user_id, start, end)
+        caps = usage_store.counts_by_kind(c, user_id, ids, start, end)
+        rows = memory_store.confirmed_in_range(c, user_id, start, end)
         memories=[]
         for raw in rows:
             r=dict(raw); memories.append(r)
-        candidates = c.execute("SELECT COUNT(*) FROM memories WHERE user_id=? AND status='candidate' AND sensitivity='normal'",(user_id,)).fetchone()[0]
+        candidates = memory_store.normal_candidate_count(c, user_id)
     return {"month":month,"assisted_count":assisted+delegated,"assistant_messages":assisted,"successful_delegations":delegated,
             "first_conversation_at":first,"capabilities":{r["kind"]:r["n"] for r in caps},"new_memories":memories,"candidate_count":candidates}
 
 def for_bot(user_id: int, bot_id: int):
     with db.tx() as c:
-        bot=c.execute("SELECT id FROM bots WHERE id=? AND user_id=?",(bot_id,user_id)).fetchone()
+        bot=bot_store.owned_id(c, user_id, bot_id)
         if not bot: return None
-        access=c.execute("SELECT memory_access FROM bots WHERE id=? AND user_id=?",(bot_id,user_id)).fetchone()[0]
-        counts=c.execute("SELECT type,COUNT(*) n FROM memories WHERE user_id=? AND status='active' AND ((scope IN ('bot','summary') AND bot_id=?) OR (scope='global' AND ?='bot_and_global')) GROUP BY type",(user_id,bot_id,access)).fetchall()
-        messages=c.execute("SELECT COUNT(*) FROM messages WHERE user_id=? AND bot_id=? AND role='assistant'",(user_id,bot_id)).fetchone()[0]
-        delegations=c.execute("SELECT COUNT(*) FROM delegations WHERE user_id=? AND from_bot_id=? AND status='ok'",(user_id,bot_id)).fetchone()[0]
-        first=c.execute("SELECT MIN(created_at) FROM messages WHERE user_id=? AND bot_id=?",(user_id,bot_id)).fetchone()[0]
-        recent=c.execute("SELECT id,scope,bot_id,type,content,source,status,sensitivity,action,confidence,use_count,last_used_at,confirmed_at,created_at,updated_at FROM memories WHERE user_id=? AND status='active' AND sensitivity='normal' AND ((scope IN ('bot','summary') AND bot_id=?) OR (scope='global' AND ?='bot_and_global')) ORDER BY confirmed_at DESC LIMIT 3",(user_id,bot_id,access)).fetchall()
+        access=bot_store.memory_access_of(c, user_id, bot_id)[0]
+        counts=memory_store.type_counts_for_bot(c, user_id, bot_id, access)
+        messages=message_store.count_assistant(c, user_id, bot_id)
+        delegations=delegation_store.count_ok_from(c, user_id, bot_id)
+        first=message_store.min_created_for_bot(c, user_id, bot_id)
+        recent=memory_store.recent_for_bot(c, user_id, bot_id, access)
     return {"bot_id":bot_id,"memory_counts":{r["type"]:r["n"] for r in counts},"assisted_count":messages+delegations,
             "first_conversation_at":first,"recent_memories":[dict(r) for r in recent]}
 
@@ -98,13 +95,13 @@ async def run_review(job:dict):
         # Recheck every memory ID immediately before caching.
         ids=[m["id"] for m in allow["new_memories"]]
         if ids:
-            valid={r[0] for r in c.execute(f"SELECT id FROM memories WHERE user_id=? AND status='active' AND sensitivity='normal' AND id IN ({','.join('?'*len(ids))})",(user_id,*ids)).fetchall()}
+            valid=memory_store.active_normal_ids(c, user_id, ids)
             allow["new_memories"]=[m for m in allow["new_memories"] if m["id"] in valid]
         review_store.save(c,user_id,month,"ready",json.dumps({"suggestion":suggestion,"new_memory_ids":[m["id"] for m in allow["new_memories"]]},ensure_ascii=False),int(usage.get("total_tokens") or 0))
     return "done",None
 
 def export_memories(user_id:int):
-    with db.tx() as c: rows=c.execute("SELECT * FROM memories WHERE user_id=? ORDER BY id",(user_id,)).fetchall()
+    with db.tx() as c: rows=memory_store.export_rows(c, user_id)
     out=[]
     for rr in rows:
         r=dict(rr); content=(crypto.decrypt(r.get("content_enc")) or policy.SENSITIVE_PLACEHOLDER.get(r.get("sensitivity"),"[敏感信息]") ) if r.get("sensitivity")!="normal" else (r.get("content") or "")
@@ -115,9 +112,9 @@ def message_memories(user_id:int,message_id:int):
     with db.tx() as c:
         m=message_store.get_owned(c,user_id,message_id)
         if not m or m["role"]!="assistant": return None
-        bot=c.execute("SELECT id,memory_access FROM bots WHERE id=? AND user_id=?",(m["bot_id"],user_id)).fetchone()
+        bot=bot_store.id_and_memory_access(c, user_id, m["bot_id"])
         if not bot:return None
-        full=c.execute("SELECT memory_ids FROM messages WHERE id=? AND user_id=?",(message_id,user_id)).fetchone()
+        full=message_store.memory_ids_json(c, message_id, user_id)
         try: ids=json.loads(full["memory_ids"] or "[]")
         except (TypeError,ValueError): ids=[]
         if not isinstance(ids,list):ids=[]

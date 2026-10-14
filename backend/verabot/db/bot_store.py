@@ -51,5 +51,25 @@ def set_image_updated(c, user_id: int, bot_id: int, updated_at: str) -> None:
     c.execute("UPDATE bots SET image_updated_at=? WHERE id=? AND user_id=?", (updated_at, bot_id, user_id))
 
 
+def ids_for_user(c, user_id: int):
+    return c.execute("SELECT id FROM bots WHERE user_id=?", (user_id,)).fetchall()
+
+
+def owned_id(c, user_id: int, bot_id: int):
+    return c.execute("SELECT id FROM bots WHERE id=? AND user_id=?", (bot_id, user_id)).fetchone()
+
+
+def memory_access_of(c, user_id: int, bot_id: int):
+    return c.execute("SELECT memory_access FROM bots WHERE id=? AND user_id=?", (bot_id, user_id)).fetchone()
+
+
+def id_and_memory_access(c, user_id: int, bot_id: int):
+    return c.execute("SELECT id,memory_access FROM bots WHERE id=? AND user_id=?", (bot_id, user_id)).fetchone()
+
+
+def exists(c, user_id: int, bot_id: int):
+    return c.execute("SELECT 1 FROM bots WHERE id=? AND user_id=?", (bot_id, user_id)).fetchone()
+
+
 def clear_image_updated(c, user_id: int, bot_id: int) -> None:
     c.execute("UPDATE bots SET image_updated_at=NULL WHERE id=? AND user_id=?", (bot_id, user_id))

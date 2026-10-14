@@ -40,9 +40,7 @@ python scripts/dev/primary_bot_manual.py --data-dir /tmp/verabot-primary-manual 
 
 ### SQL 分层
 
-`sql_layer_check.py` 仍会扫描 `verabot/` 里 `db/` 以外的全部模块。把 `services/memory/` 以及 `api/routers/bots.py`、`services/actions/__init__.py`、`services/mcp/oauth.py` 里的查询整批搬进 store 改动面太大，这次没有搬。
-
-检查改为：PR #31 新写出或改过、当时没有 SQL 的模块（`ENFORCE`，含 `services/chat_tasks/`、`services/notify/`、任务投递、`agents/runtime.py` 等）一旦出现 `execute` 或 SQL 字符串就失败。上面那些更早的命中只打印为 `known`，不失败。这些历史文件是：
+这些查询后来已收进 `db/`（见 `refactor/sql-layer-cleanup`）。`sql_layer_check.py` 重新对 `db/` 以外的全部模块严格检查，不再保留 known 名单。当时留下的位置是：
 
 - `api/routers/bots.py`（`bot_tool_calls`）
 - `services/actions/__init__.py`（`confirm`）

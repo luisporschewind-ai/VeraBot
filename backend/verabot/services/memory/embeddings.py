@@ -8,6 +8,7 @@ import threading
 
 from ... import db
 from ...core import config
+from ...db import memory_vector_store
 
 log = logging.getLogger("verabot.memory.embeddings")
 _MODEL = None
@@ -62,10 +63,8 @@ def score(user_id: int, memories: list[dict], query: str) -> dict[int, float] | 
         stale: list[dict] = []
         model_name = config.MEMORY_VECTOR_MODEL
         with db.tx() as c:
-            cached = {r["memory_id"]: r for r in c.execute(
-                f"SELECT memory_id, content_hash, dim, vector FROM memory_vectors "
-                f"WHERE user_id=? AND model=? AND memory_id IN ({','.join('?' * len(eligible))})",
-                (user_id, model_name, *(m["id"] for m in eligible))).fetchall()}
+            cached = {r["memory_id"]: r for r in memory_vector_store.cached(
+                c, user_id, model_name, [m["id"] for m in eligible])}
         for memory in eligible:
             row = cached.get(memory["id"])
             if row and row["content_hash"] == memory.get("content_hash"):
@@ -80,13 +79,8 @@ def score(user_id: int, memories: list[dict], query: str) -> dict[int, float] | 
         with db.tx() as c:
             for memory, vector in updates:
                 blob = _pack(vector)
-                c.execute("""INSERT INTO memory_vectors(memory_id,user_id,model,dim,content_hash,vector,updated_at)
-                    SELECT m.id,m.user_id,?,?,m.content_hash,?,?
-                    FROM memories m WHERE m.id=? AND m.user_id=? AND m.status='active'
-                      AND m.content_hash=? AND m.sensitivity='normal' AND m.scope IN ('global','bot')
-                    ON CONFLICT(memory_id) DO UPDATE SET user_id=excluded.user_id,model=excluded.model,
-                      dim=excluded.dim,content_hash=excluded.content_hash,vector=excluded.vector,updated_at=excluded.updated_at""",
-                    (model_name, len(vector), blob, db.now_iso(), memory["id"], user_id, memory.get("content_hash")))
+                memory_vector_store.upsert(
+                    c, model_name, len(vector), blob, db.now_iso(), memory["id"], user_id, memory.get("content_hash"))
                 existing[memory["id"]] = vector
         return {mid: max(-1.0, min(1.0, sum(a * b for a, b in zip(query_vector, vector))))
                 for mid, vector in existing.items()}

@@ -54,8 +54,5 @@ def for_bot(user_id: int, bot_id: int) -> list[str]:
         return []
     cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     with db.tx() as c:
-        messages = c.execute(
-            "SELECT role,content FROM messages WHERE user_id=? AND bot_id=? AND role='user' AND created_at>=? ORDER BY id DESC LIMIT 1000",
-            (user_id, bot_id, cutoff),
-        ).fetchall()
+        messages = message_store.recent_user_contents(c, user_id, bot_id, cutoff)
     return build([dict(m) for m in messages], allowed_tools=bot.get("allowed_tools") or [], limit=6)

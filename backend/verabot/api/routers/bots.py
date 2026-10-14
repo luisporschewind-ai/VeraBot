@@ -5,7 +5,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 
 from ... import db
-from ...db import bot_store, delegation_store, message_store
+from ...db import audit_store, bot_store, delegation_store, message_store
 from ...core.config import MAX_BOTS_PER_USER
 from ...services import memory
 from ...services.memory import growth
@@ -109,14 +109,8 @@ def bot_tool_calls(bot_id: int, limit: int = 50, user=Depends(current_user)):
         "mcp_action_cancelled", "mcp_action_expired", "mcp_action_failed",
     )
     lim = min(max(limit, 1), 200)
-    placeholders = ",".join("?" * len(kinds))
     with db.tx() as c:
-        rows = c.execute(
-            f"""SELECT id, kind, detail, created_at FROM audit_log
-                WHERE user_id=? AND bot_id=? AND kind IN ({placeholders})
-                ORDER BY id DESC LIMIT ?""",
-            (user["id"], bot_id, *kinds, lim),
-        ).fetchall()
+        rows = audit_store.list_kinds(c, user["id"], bot_id, kinds, lim)
     out = []
     for r in rows:
         try:

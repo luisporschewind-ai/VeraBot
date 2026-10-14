@@ -3,6 +3,7 @@ import json
 import re
 
 from ... import db
+from ...db import delegation_store, message_store
 from .policy import render_safe
 
 
@@ -30,11 +31,7 @@ def prompt_hints(user_id: int, bot: dict) -> list[str]:
     if not eligible:
         return []
     with db.tx() as c:
-        rows = c.execute(
-            "SELECT m.traces, f.rating FROM messages m JOIN message_feedback f "
-            "ON f.user_id=m.user_id AND f.message_id=m.id "
-            "WHERE m.user_id=? AND m.bot_id=? AND m.role='assistant' AND m.traces IS NOT NULL "
-            "ORDER BY f.created_at DESC LIMIT 500", (user_id, bot["id"])).fetchall()
+        rows = message_store.rated_assistant_traces(c, user_id, bot["id"])
         stats = {}
         feedback_count = 0
         for row in rows:
@@ -53,10 +50,7 @@ def prompt_hints(user_id: int, bot: dict) -> list[str]:
                         delegation_ids.append(did)
             if not delegation_ids:
                 continue
-            records = c.execute(
-                f"SELECT id,to_bot_id,question FROM delegations WHERE user_id=? AND from_bot_id=? "
-                f"AND status='ok' AND depth=1 AND id IN ({','.join('?' * len(delegation_ids))})",
-                (user_id, bot["id"], *delegation_ids)).fetchall()
+            records = delegation_store.ok_depth_one(c, user_id, bot["id"], delegation_ids)
             records = [d for d in records if d["to_bot_id"] in eligible]
             # 一条助手回答只有一份评分；多目标委派时无法可靠归因，因此整条反馈不参与协作统计。
             if len(records) != 1:

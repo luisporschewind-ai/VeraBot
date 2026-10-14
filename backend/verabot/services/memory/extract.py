@@ -127,18 +127,13 @@ def enqueue_if_due(user_id: int, bot_id: int, after_message_id: int) -> bool:
         return False
     now = datetime.now(timezone.utc)
     with db.tx() as c:
-        current = c.execute("SELECT id,created_at FROM messages WHERE id=? AND user_id=? AND bot_id=? AND role='user'",
-                             (after_message_id, user_id, bot_id)).fetchone()
+        current = message_store.user_message_stamp(c, after_message_id, user_id, bot_id)
         if not current:
             return False
-        pending = c.execute("SELECT id FROM memory_jobs WHERE user_id=? AND bot_id=? AND kind='extract' AND status='pending' LIMIT 1",
-                            (user_id, bot_id)).fetchone()
-        watermark = c.execute("SELECT COALESCE(MAX(after_message_id),0) FROM memory_jobs WHERE user_id=? AND bot_id=? "
-                              "AND kind='extract' AND status IN ('done','skipped','failed')", (user_id, bot_id)).fetchone()[0]
-        count = c.execute("SELECT COUNT(*) FROM messages WHERE user_id=? AND bot_id=? AND role='user' AND id>? AND id<=?",
-                          (user_id, bot_id, watermark or 0, after_message_id)).fetchone()[0]
-        prior = c.execute("SELECT role,created_at FROM messages WHERE user_id=? AND bot_id=? AND id<? ORDER BY id DESC LIMIT 1",
-                          (user_id, bot_id, after_message_id)).fetchone()
+        pending = memory_job_store.pending_extract(c, user_id, bot_id)
+        watermark = memory_job_store.extract_watermark(c, user_id, bot_id)
+        count = message_store.count_user_messages_through(c, user_id, bot_id, watermark or 0, after_message_id)
+        prior = message_store.previous_message(c, user_id, bot_id, after_message_id)
         idle = False
         if prior:
             try:
@@ -215,8 +210,7 @@ def _save_candidates(user_id: int, bot_id: int, messages: list[dict], candidates
             ids = [mid for mid in item["evidence_ids"] if mid in input_users]
             valid = []
             for mid in ids:
-                row = c.execute("SELECT id,role,created_at FROM messages WHERE id=? AND user_id=? AND bot_id=? AND role='user'",
-                                (mid, user_id, bot_id)).fetchone()
+                row = message_store.user_message_role(c, mid, user_id, bot_id)
                 if row:
                     valid.append({"message_id": mid, "date": row["created_at"][:10], "role": "user"})
             if not valid:

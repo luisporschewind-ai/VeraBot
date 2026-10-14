@@ -67,6 +67,18 @@ def get(c, job_id: int) -> dict | None:
     return row(c.execute("SELECT * FROM memory_jobs WHERE id=?", (job_id,)).fetchone())
 
 
+def pending_extract(c, user_id: int, bot_id: int):
+    return c.execute(
+        "SELECT id FROM memory_jobs WHERE user_id=? AND bot_id=? AND kind='extract' AND status='pending' LIMIT 1",
+        (user_id, bot_id)).fetchone()
+
+
+def extract_watermark(c, user_id: int, bot_id: int) -> int:
+    return c.execute(
+        "SELECT COALESCE(MAX(after_message_id),0) FROM memory_jobs WHERE user_id=? AND bot_id=? "
+        "AND kind='extract' AND status IN ('done','skipped','failed')", (user_id, bot_id)).fetchone()[0]
+
+
 def list_for(c, user_id: int, bot_id: int, kind: str) -> list[dict]:
     return rows(c.execute(
         "SELECT * FROM memory_jobs WHERE user_id=? AND bot_id=? AND kind=? ORDER BY id",

@@ -150,6 +150,14 @@ def claim_for_execution(user_id: int, action_id: int) -> tuple[str, dict | None]
         return ("already_decided" if row is not None else "missing"), _row(row)
 
 
+def record_result(c, user_id: int, action_id: int, status: str, result: str | None, decided_at: str) -> None:
+    """写执行结果。不检查原状态：调用方已经认领过这条操作。"""
+    c.execute(
+        "UPDATE pending_actions SET status=?, result=?, decided_at=? WHERE id=? AND user_id=?",
+        (status, result, decided_at, action_id, user_id),
+    )
+
+
 def mark_expired(user_id: int, action_id: int, decided_at: str | None = None) -> dict | None:
     return decide(user_id, action_id, from_status="pending", to_status="expired",
                   result="已过期", decided_at=decided_at)

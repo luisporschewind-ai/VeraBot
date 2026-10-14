@@ -27,5 +27,36 @@ def list_for_bot(c, user_id: int, bot_id: int, limit: int) -> list[dict]:
         (user_id, bot_id, bot_id, limit)).fetchall())
 
 
+def ok_depth_one(c, user_id: int, from_bot_id: int, ids: list[int]):
+    if not ids:
+        return []
+    marks = ",".join("?" * len(ids))
+    return c.execute(
+        f"SELECT id,to_bot_id,question FROM delegations WHERE user_id=? AND from_bot_id=? "
+        f"AND status='ok' AND depth=1 AND id IN ({marks})",
+        (user_id, from_bot_id, *ids)).fetchall()
+
+
+def count_ok_between(c, user_id: int, start: str, end: str) -> int:
+    return c.execute(
+        "SELECT COUNT(*) FROM delegations WHERE user_id=? AND status='ok' AND created_at>=? AND created_at<?",
+        (user_id, start, end)).fetchone()[0]
+
+
+def count_ok_from(c, user_id: int, bot_id: int) -> int:
+    return c.execute(
+        "SELECT COUNT(*) FROM delegations WHERE user_id=? AND from_bot_id=? AND status='ok'",
+        (user_id, bot_id)).fetchone()[0]
+
+
+def frequent_targets(c, user_id: int, from_bot_id: int, cutoff: str):
+    return c.execute(
+        "SELECT d.to_bot_id, COUNT(*) AS n, MAX(d.created_at) AS latest, b.name AS target_name "
+        "FROM delegations d JOIN bots b ON b.id=d.to_bot_id AND b.user_id=d.user_id "
+        "WHERE d.user_id=? AND d.from_bot_id=? AND d.created_at>=? "
+        "GROUP BY d.to_bot_id HAVING COUNT(*)>=3",
+        (user_id, from_bot_id, cutoff)).fetchall()
+
+
 def count_for_user(c, user_id: int) -> int:
     return c.execute("SELECT COUNT(*) FROM delegations WHERE user_id=?", (user_id,)).fetchone()[0]
