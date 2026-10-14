@@ -23,7 +23,23 @@ struct GroupInfoView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("群聊名称") { TextField("名称", text: $name) }
+                Section {
+                    VStack(spacing: 14) {
+                        GroupMemberAvatarStack(
+                            members: model.group.members.filter(\.available),
+                            size: 72,
+                            overlap: 22
+                        )
+                        .frame(maxWidth: .infinity)
+                        .accessibilityHidden(true)
+                        TextField("名称", text: $name)
+                            .font(.title3.bold())
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 12, trailing: 20))
+                }
                 memberSection
                 if model.busy { Section { Button("先停止当前讨论") { Task { await model.stop() } }.disabled(model.confirmingStop) } }
                 Section {

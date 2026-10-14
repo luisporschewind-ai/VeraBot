@@ -73,3 +73,4 @@ Boss 参考（群信息页成员卡，三张截图）：成员行 = 头像 + 名
 - `removeMember` / `addMember` 先返回服务端群快照、不立刻改 `group`；视图在成功后 `withAnimation { applyGroup }` 做 List 原生增删动画；失败保持原列表（添加则为部分成功后的快照）并提示错误。
 - 添加成员 sheet：去掉底部 hint/footer；改为多选 +「添加」；`addMembers` 顺序 POST，部分失败保留成功项。
 - 同 PR：未读「新」分隔线样式对齐 Boss 参考（见 [chat-continuity](2026-10-14-chat-continuity-design.md) 变更记录）。
+- 群设置页：顶部居中群头像；去掉「群聊名称」分区标题；群名输入居中、加粗、字号大一号。
