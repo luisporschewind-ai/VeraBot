@@ -115,6 +115,7 @@ def create_mcp_pending(
         tool_def_hash=tool.get("def_hash") or tool.get("accepted_hash"),
         expires_at=expires,
         owned_step=getattr(ctx, "owned_step", None),
+        chat_task=ctx.chat_execution.task if getattr(ctx,"chat_execution",None) else None,
     )
     ctx.turn.pending_created = getattr(ctx.turn, "pending_created", 0) + 1
     db.audit(ctx.user_id, ctx.bot.get("id"), "mcp_action_requested", {
@@ -259,12 +260,17 @@ def cancel(user_id: int, action_id: int) -> dict:
     })
     from ..owned_tasks import approvals
     approvals.resolve(user_id, action_id)
+    from ..chat_tasks import approvals as chat_approvals
+    chat_approvals.resolve(user_id,action_id)
     return public_action(updated)
 
 
 def confirm(user_id: int, action_id: int) -> dict:
     from ..owned_tasks import approvals
-    try: approvals.preflight(user_id, action_id)
+    from ..chat_tasks import approvals as chat_approvals
+    try:
+        approvals.preflight(user_id, action_id)
+        chat_approvals.preflight(user_id, action_id)
     except ValueError as exc: raise ActionError(409, str(exc), "task_changed") from exc
     row = action_store.get(user_id, action_id)
     if row is None:
@@ -319,7 +325,7 @@ def confirm(user_id: int, action_id: int) -> dict:
         with db.tx() as c:
             c.execute(
                 "UPDATE pending_actions SET status=?, result=?, decided_at=? WHERE id=? AND user_id=?",
-                ("unknown" if row.get("owned_task_id") else "failed", summary, db.now_iso(), action_id, user_id),
+                ("unknown" if row.get("owned_task_id") or row.get("chat_task_id") else "failed", summary, db.now_iso(), action_id, user_id),
             )
         db.audit(user_id, row.get("bot_id"), "mcp_action_failed", {
             "action_id": action_id, "server": server.get("slug"),
@@ -331,6 +337,10 @@ def confirm(user_id: int, action_id: int) -> dict:
         from ...db import owned_task_store
         encoded = _encrypt({'content': str(result.get('content') or '')[:12000]})
         with db.tx(immediate=True) as c: owned_task_store.checkpoint_action(c, user_id, action_id, encoded)
+    if row.get('chat_task_id'):
+        with db.tx(immediate=True) as c:
+            from ...db import chat_reply_store
+            chat_reply_store.checkpoint_action(c,user_id,action_id,_encrypt(result))
     summary = _result_summary(result)
     final_status = _status_from_result(result)
     with db.tx() as c:
@@ -347,9 +357,10 @@ def confirm(user_id: int, action_id: int) -> dict:
         "code": result.get("code"),
     })
     note = f"用户已确认并执行 {tool.get('title') or tool.get('mcp_name') or tool['full_name']}：{summary}"
-    if row.get("bot_id") and not row.get("owned_task_id"):
+    if row.get("bot_id") and not row.get("owned_task_id") and not row.get("chat_task_id"):
         db.add_message(user_id, row["bot_id"], "assistant", note, traces=None)
     approvals.resolve(user_id, action_id)
+    chat_approvals.resolve(user_id,action_id)
     fresh = action_store.get(user_id, action_id)
     out = public_action(fresh)
     out["execution"] = {

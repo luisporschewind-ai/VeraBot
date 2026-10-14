@@ -95,5 +95,8 @@ extension ChatMessage {
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
         attachments = try c.decodeIfPresent([Attachment].self, forKey: .attachments) ?? []
         feedback = try c.decodeIfPresent(MessageFeedback.self, forKey: .feedback)
+        generation = try c.decodeIfPresent(Int.self, forKey: .generation)
+        publicationRevision = try c.decodeIfPresent(Int.self, forKey: .publicationRevision)
+        messageStatus = try c.decodeIfPresent(String.self, forKey: .messageStatus)
     }
 }

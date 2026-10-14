@@ -3,6 +3,16 @@ import VeraBotCore
 
 /// VeraBot 后端 API 抽象（Service protocol）。App 只依赖此协议，便于替换实现（Mock / 预览 / 其他传输层）。
 public protocol VeraBotAPI: Sendable {
+    func submitChatInput(botID: Int, input: ChatInputRequest) async throws -> ChatInputReceipt
+    func chatInputReceipt(botID: Int, requestID: String) async throws -> ChatInputReceipt
+    func chatExecution(botID: Int) async throws -> ChatExecutionSnapshot
+    func stopChatTask(botID: Int, taskID: Int, version: Int, requestID: String) async throws -> ChatTaskControl
+    func answerChatTask(botID: Int, taskID: Int, version: Int, waitID: String, message: String, requestID: String) async throws -> ChatTaskControl
+    func conversationActivity() async throws -> ConversationActivitySnapshot
+    func readConversation(kind: String, id: Int, generation: Int, messages: [MessagePublication]) async throws -> ConversationReadResponse
+    func conversationEvents(afterID: Int) -> AsyncThrowingStream<DurableEvent, Error>
+    func chatEvents(botID: Int, afterID: Int) -> AsyncThrowingStream<DurableEvent, Error>
+
     func login(_ c: Credentials) async throws -> AuthResponse
     func register(_ c: Credentials) async throws -> AuthResponse
     /// v9 账号：identifier = 邮箱 / 手机号 / 用户名
@@ -94,6 +104,8 @@ public protocol VeraBotAPI: Sendable {
     func restoreReminder(_ id: Int) async throws -> Reminder
     func deleteReminder(_ id: Int, scope: String) async throws -> Reminder
     func notifications(unread: Bool, category: String?) async throws -> NotificationsResponse
+    func localNotificationState(ids: [Int]) async throws -> [InboxNotification]
+    func notificationEvents(after: Int?, through: Int?) async throws -> NotificationEventPage
     func notificationSummary() async throws -> NotificationSummary
     func markNotificationRead(_ id: Int) async throws -> InboxNotification
     func markNotificationUnread(_ id: Int) async throws -> InboxNotification
@@ -204,5 +216,21 @@ struct DeliveryEventBody: Encodable {
     enum CodingKeys: String, CodingKey {
         case event, channel
         case deviceId = "device_id"
+    }
+}
+
+// Older test clients compile safely; unsupported durable chat never falls back to request-bound generation.
+public extension VeraBotAPI {
+    func submitChatInput(botID: Int, input: ChatInputRequest) async throws -> ChatInputReceipt { throw APIError(status: 501, message: "后端尚未支持持续对话") }
+    func chatInputReceipt(botID: Int, requestID: String) async throws -> ChatInputReceipt { throw APIError(status: 501, message: "后端尚未支持持续对话") }
+    func chatExecution(botID: Int) async throws -> ChatExecutionSnapshot { throw APIError(status: 501, message: "后端尚未支持持续对话") }
+    func stopChatTask(botID: Int, taskID: Int, version: Int, requestID: String) async throws -> ChatTaskControl { throw APIError(status: 501, message: "后端尚未支持持续对话") }
+    func answerChatTask(botID: Int, taskID: Int, version: Int, waitID: String, message: String, requestID: String) async throws -> ChatTaskControl { throw APIError(status: 501, message: "后端尚未支持持续对话") }
+    func conversationActivity() async throws -> ConversationActivitySnapshot { throw APIError(status: 501, message: "后端尚未支持会话同步") }
+    func readConversation(kind: String, id: Int, generation: Int, messages: [MessagePublication]) async throws -> ConversationReadResponse { throw APIError(status: 501, message: "后端尚未支持阅读同步") }
+    func conversationEvents(afterID: Int) -> AsyncThrowingStream<DurableEvent, Error> { AsyncThrowingStream { $0.finish(throwing: APIError(status: 501, message: "后端尚未支持会话同步")) } }
+    func chatEvents(botID: Int, afterID: Int) -> AsyncThrowingStream<DurableEvent, Error> { AsyncThrowingStream { $0.finish(throwing: APIError(status: 501, message: "后端尚未支持持续对话")) } }
+    func notificationEvents(after: Int?, through: Int?) async throws -> NotificationEventPage {
+        throw APIError(status: 501, message: "通知同步暂不可用")
     }
 }

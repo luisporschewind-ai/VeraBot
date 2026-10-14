@@ -48,6 +48,19 @@ final class AppState {
     private(set) var primaryBotRepository: PrimaryBotRepository?
     private(set) var ownedTaskRepository: OwnedTaskRepository?
     private(set) var scheduledTaskRepository: ScheduledTaskRepository?
+    var conversationActivities: [String: ConversationActivity] = [:]
+    var activitySuccessIDs: Set<String> = []
+    private var activitySuccessSerial: [String: Int] = [:]
+    var activityNeedsSync = true
+    var activityRepository: ConversationActivityRepository?
+    private var activityObservation: Task<Void, Never>?
+    private var activityCursor = 0
+    private var appIsForeground = true
+    @ObservationIgnored var reminderRequests = NotificationRequestGate()
+    func isCurrentReminderRequest(_ token: NotificationRequestToken) -> Bool {
+        reminderRequests.isCurrent(token, session: sessionGeneration)
+    }
+    @ObservationIgnored lazy var notificationEvents = NotificationEventSync(app: self)
     var unreadCount = 0
     var selectedTab = 0
     var pendingLink: DeepLink?
@@ -126,6 +139,9 @@ final class AppState {
     func isCurrentAuthAttempt(_ generation: UInt64) -> Bool { authSession.isCurrentAuthAttempt(generation) }
 
     func saveBaseURL() {
+        _ = reminderRequests.begin(session: sessionGeneration)
+        notificationEvents.invalidate()
+        NotificationCoordinator.shared.clearAll()
         invalidatePersistenceScope()
         UserDefaults.standard.set(baseURLString, forKey: Keys.baseURL)
         activatePersistenceScope()
@@ -227,6 +243,7 @@ final class AppState {
     }
 
     func signOut() {
+        notificationEvents.invalidate()
         let oldRepository = conversationRepository
         let oldDatabaseURL = conversationDatabaseURL
         primaryBotRepository?.close(); ownedTaskRepository?.close(); scheduledTaskRepository?.close()
@@ -257,7 +274,7 @@ final class AppState {
         let device = DeviceIdentity.current()
         let uid = userID
         let api = self.api
-        if let uid { ReminderOutboxStore.remove(userID: uid) }
+        if let uid { ReminderOutboxStore.remove(userID: uid, server: baseURLString) }
         NotificationCoordinator.shared.clearAll()
         DeviceIdentity.rotate()
         // 先注销设备，再吊销刷新令牌。失败不影响本地退出。
@@ -310,6 +327,7 @@ final class AppState {
         let session = authSession
         let database = LocalDatabase(url: url)
         conversationDatabase = database
+        activityRepository = ConversationActivityRepository(database: database, sessionIsCurrent: { session.isCurrent(generation) })
         Task {
             try? database.open()
         }
@@ -322,9 +340,14 @@ final class AppState {
         conversationRepository = ConversationRepository(store: store, api: api, groupAPI: api,
                                                         sessionIsCurrent: { session.isCurrent(generation) })
         conversationDatabaseURL = url
+        setActivityForeground(appIsForeground)
     }
 
     private func invalidatePersistenceScope() {
+        activityObservation?.cancel(); activityObservation = nil
+        let oldActivity = activityRepository
+        activityRepository = nil; conversationActivities = [:]; activitySuccessIDs = []; activitySuccessSerial = [:]; activityCursor = 0; activityNeedsSync = true
+        if let oldActivity { Task { await oldActivity.invalidate() } }
         let old = conversationRepository
         primaryBotRepository?.close(); ownedTaskRepository?.close(); scheduledTaskRepository?.close()
         primaryBotRepository = nil; ownedTaskRepository = nil; scheduledTaskRepository = nil
@@ -342,5 +365,91 @@ final class AppState {
             signOut()
         }
         return error.localizedDescription
+    }
+}
+
+
+extension AppState {
+    func activity(kind: String, id: Int) -> ConversationActivity? { conversationActivities["\(kind):\(id)"] }
+    func setActivityForeground(_ foreground: Bool) {
+        appIsForeground = foreground
+        activityObservation?.cancel(); activityObservation = nil
+        guard foreground, token != nil, let repository = activityRepository else { return }
+        let generation = sessionGeneration
+        let client = api
+        activityObservation = Task { [weak self] in
+            guard let self else { return }
+            if let cached = try? await repository.cached(ConversationActivitySnapshot.self, key: "activity"), self.isCurrentSession(generation) {
+                self.conversationActivities = Dictionary(uniqueKeysWithValues: cached.conversations.map { ($0.id, $0) })
+            }
+            while !Task.isCancelled && self.isCurrentSession(generation) {
+                do {
+                    let snapshot = try await client.conversationActivity()
+                    guard !Task.isCancelled, self.isCurrentSession(generation) else { return }
+                    self.conversationActivities = Dictionary(uniqueKeysWithValues: snapshot.conversations.map { ($0.id, $0) })
+                    self.activityCursor = snapshot.cursor; self.activityNeedsSync = false
+                    try await repository.save(snapshot, key: "activity")
+                    await self.flushReadOutbox()
+                    for try await event in client.conversationEvents(afterID: snapshot.cursor) {
+                        guard !Task.isCancelled, self.isCurrentSession(generation) else { return }
+                        let update = try JSONDecoder().decode(ConversationActivityEvent.self, from: event.data)
+                        let key = "\(update.kind):\(update.conversationID)"
+                        if let conversation = update.conversation {
+                            if event.name == "message_published", conversation.state == "idle", self.conversationActivities[key]?.state != "idle" { self.showActivitySuccess(key, session: generation) }
+                            if (self.conversationActivities[key]?.revision ?? 0) <= conversation.revision { self.conversationActivities[key] = conversation }
+                        } else { self.conversationActivities.removeValue(forKey: key) }
+                        self.activityCursor = event.id
+                        // Save summaries and cursor atomically as one Codable snapshot.
+                        let data = try JSONSerialization.data(withJSONObject: ["cursor": event.id, "conversations": try self.conversationActivities.values.map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) }])
+                        try await repository.save(JSONDecoder().decode(ConversationActivitySnapshot.self, from: data), key: "activity")
+                    }
+                } catch {
+                    guard !Task.isCancelled, self.isCurrentSession(generation) else { return }
+                    self.activityNeedsSync = true
+                }
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            }
+        }
+    }
+    private func showActivitySuccess(_ key: String, session: UInt64) {
+        let serial = (activitySuccessSerial[key] ?? 0) + 1
+        activitySuccessSerial[key] = serial; activitySuccessIDs.insert(key)
+        Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
+            guard let self, self.isCurrentSession(session), self.activitySuccessSerial[key] == serial else { return }
+            self.activitySuccessIDs.remove(key)
+        }
+    }
+    func refreshActivityForEntry() async {
+        let session = sessionGeneration
+        guard let repository = activityRepository else { return }
+        do {
+            let snapshot = try await api.conversationActivity()
+            guard isCurrentSession(session), !Task.isCancelled else { return }
+            for row in snapshot.conversations where (conversationActivities[row.id]?.revision ?? 0) <= row.revision { conversationActivities[row.id] = row }
+            try await repository.save(snapshot, key: "activity")
+        } catch { activityNeedsSync = true }
+    }
+    func markVisible(kind: String, id: Int, generation: Int, message: MessagePublication) async {
+        guard appIsForeground, let repository = activityRepository else { return }
+        try? await repository.enqueueRead(kind: kind, id: id, generation: generation, message: message)
+        await flushReadOutbox()
+    }
+    func flushReadOutbox() async {
+        guard appIsForeground, let repository = activityRepository else { return }
+        let session = sessionGeneration
+        for row in conversationActivities.values {
+            guard isCurrentSession(session), !Task.isCancelled else { return }
+            guard let messages = try? await repository.readOutbox(kind: row.kind, id: row.conversationID, generation: row.generation), !messages.isEmpty else { continue }
+            do {
+                let result = try await api.readConversation(kind: row.kind, id: row.conversationID, generation: row.generation, messages: messages)
+                guard isCurrentSession(session) else { return }
+                if (conversationActivities[row.id]?.revision ?? 0) <= result.conversation.revision { conversationActivities[row.id] = result.conversation }
+                try await repository.acknowledgeReads(kind: row.kind, id: row.conversationID, generation: row.generation, messages: messages)
+            } catch let error as APIError where error.code == "generation_changed" || error.code == "publication_changed" {
+                // Discard only the rejected revisions, not newer entries queued during the HTTP request.
+                try? await repository.acknowledgeReads(kind: row.kind, id: row.conversationID, generation: row.generation, messages: messages)
+            } catch { activityNeedsSync = true }
+        }
     }
 }

@@ -425,16 +425,23 @@ private struct LinkedChat: Identifiable, Hashable {
 
 struct BotRow: View {
     let bot: Bot
+    @Environment(AppState.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var activity: ConversationActivity? { app.activity(kind: "private", id: bot.id) }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
                            hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt,
-                           animated: true, appearance: bot.supportedAppearance)
+                           action: app.activitySuccessIDs.contains("private:\(bot.id)") ? .success : activity?.avatarAction ?? .idle,
+                           animated: !reduceMotion, appearance: bot.supportedAppearance)
                 .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .center, spacing: 6) {
-                    Text(bot.name).font(.headline).lineLimit(1).layoutPriority(1)
+                ConversationRowHeader(
+                    name: bot.name,
+                    timestamp: (ListTimestamp.parse(activity?.latestMessage?.createdAt) ?? ListTimestamp.rowDate(for: bot))
+                        .map { ListTimestamp.label(for: $0) }
+                ) {
                     if bot.isPinned {
                         Image(systemName: "pin.fill")
                             .font(.caption2)
@@ -443,23 +450,19 @@ struct BotRow: View {
                             .accessibilityLabel("已置顶")
                     }
                     BotTagChip(tags: bot.tags)   // 一个浅灰圆角矩形，「搜索, 查询, 调研」，放不下尾部截断
-                    Spacer(minLength: 8)
-                    if let date = ListTimestamp.rowDate(for: bot) {
-                        Text(ListTimestamp.label(for: date))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                            .layoutPriority(1)
-                    }
                 }
-                Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                Text(activity?.statusText.isEmpty == false ? activity!.statusText : preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                if let count = activity?.workItems.filter({ ["running", "queued", "awaiting_user", "awaiting_approval"].contains($0.state) }).count, count > 1 { Text("另有 \(count - 1) 项进行中").font(.caption2).foregroundStyle(.secondary) }
+                if app.activityNeedsSync { Text("待同步").font(.caption2).foregroundStyle(.secondary) }
             }
         }
+        .padding(.trailing, (activity?.unreadCount ?? 0) > 0 ? 36 : 0)
+        .overlay(alignment: .topTrailing) { if let count = activity?.unreadCount, count > 0 { Text(ConversationActivity.unreadLabel(count)).font(.caption2.bold()).foregroundStyle(.white).padding(4).background(Color.accentColor, in: Capsule()).offset(x: 5, y: -5).accessibilityLabel("\(count) 条未读回复") } }
         .padding(.vertical, 2)
     }
 
     private var preview: String {
-        let raw = bot.lastMessage?.content ?? (bot.persona.isEmpty ? "点击开始私聊" : bot.persona)
+        let raw = activity?.latestMessage?.content ?? bot.lastMessage?.content ?? (bot.persona.isEmpty ? "点击开始私聊" : bot.persona)
         return raw.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "\n", with: " ")
     }
 }
@@ -487,28 +490,64 @@ private enum ConversationItem: Identifiable {
 
 struct GroupConversationRow: View {
     let group: ChatGroup
+    @Environment(AppState.self) private var app
+    private var activity: ConversationActivity? { app.activity(kind: "group", id: group.id) }
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             GroupConversationAvatar(members: group.members)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .center, spacing: 6) {
-                    Text(group.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+                ConversationRowHeader(
+                    name: group.name,
+                    timestamp: (ListTimestamp.parse(activity?.latestMessage?.createdAt)
+                        ?? ListTimestamp.parse(group.lastMessage?.createdAt)
+                        ?? ListTimestamp.parse(group.updatedAt))
+                        .map { ListTimestamp.label(for: $0) }
+                ) {
                     Text("群聊").font(.caption2.weight(.medium)).foregroundStyle(.secondary)
                         .padding(.horizontal, 6).padding(.vertical, 2).background(Color.sectionFill, in: Capsule())
-                    Spacer(minLength: 8)
-                    if let date = ListTimestamp.parse(group.lastMessage?.createdAt) ?? ListTimestamp.parse(group.updatedAt) {
-                        Text(ListTimestamp.label(for: date)).font(.footnote).foregroundStyle(.secondary).monospacedDigit().layoutPriority(1)
-                    }
                 }
-                Text(preview)
+                Text(activity?.statusText.isEmpty == false ? activity!.statusText : preview)
                     .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                if let ownerID = activity?.workItems.first(where: { $0.source == "group" && $0.ownerMemberID != nil })?.ownerMemberID,
+                   let owner = group.members.first(where: { $0.id == ownerID }) { Text("负责人：\(owner.name)").font(.caption2).foregroundStyle(.secondary) }
+                if let count = activity?.workItems.filter({ ["running", "queued", "awaiting_user", "awaiting_approval"].contains($0.state) }).count, count > 1 { Text("另有 \(count - 1) 项进行中").font(.caption2).foregroundStyle(.secondary) }
+                if app.activityNeedsSync { Text("待同步").font(.caption2).foregroundStyle(.secondary) }
             }
-        }.padding(.vertical, 2)
+        }.padding(.trailing, (activity?.unreadCount ?? 0) > 0 ? 36 : 0).overlay(alignment: .topTrailing) { if let count = activity?.unreadCount, count > 0 { Text(ConversationActivity.unreadLabel(count)).font(.caption2.bold()).foregroundStyle(.white).padding(4).background(Color.accentColor, in: Capsule()).offset(x: 5, y: -5).accessibilityLabel("\(count) 条未读回复") } }.padding(.vertical, 2)
     }
 
     private var preview: String {
+        if let content = activity?.latestMessage?.content, !content.isEmpty { return content }
         if let message = group.lastMessage, !message.content.isEmpty { return message.content }
         if let attachment = group.lastMessage?.attachments.first { return attachment.isFile ? "发送了一个文件" : "发送了一张图片" }
         return "从一句话开始讨论"
+    }
+}
+
+/// Shared title line for Bot and group conversations: title and badge stay vertically centered,
+/// while timestamps share the same trailing edge and compression behavior.
+private struct ConversationRowHeader<Accessory: View>: View {
+    let name: String
+    let timestamp: String?
+    @ViewBuilder let accessory: Accessory
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 6) {
+            Text(name)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .layoutPriority(1)
+            accessory
+            Spacer(minLength: 8)
+            if let timestamp {
+                Text(timestamp)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .layoutPriority(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

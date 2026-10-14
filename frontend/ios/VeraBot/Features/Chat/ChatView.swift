@@ -7,8 +7,19 @@ import VeraBotTTS
 import VeraBotData
 
 struct ChatView: View {
+    @State private var notificationViewport: CGSize = .zero
+    @State private var notificationFrames: [Int: CGRect] = [:]
     @State private var vm: ChatViewModel
     @State private var speech = SpeechInput()
+    @State private var viewport: CGRect = .zero
+    @State private var composerViewport: CGRect = .zero
+    @State private var pageVisible = false
+    @State private var browserCovered = false
+    @State private var reading = ConversationReadingSession()
+    @State private var entered = false
+    @State private var initialPositionReady = false
+    @State private var followsBottom = true
+    @State private var hasNewReply = false
     @State private var input = ""
     @State private var draftSaveTask: Task<Void, Never>?
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
@@ -41,6 +52,26 @@ struct ChatView: View {
         _attachment = State(initialValue: ComposerAttachmentModel(botID: bot.id, api: api))
     }
 
+    @ViewBuilder
+    private func messageCell(_ item: ChatViewModel.Item) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let id = item.messageID, reading.newMessageIDs.count > 1, id == reading.newMessageIDs.sorted().first { Text("以下是新消息").font(.caption).foregroundStyle(.secondary) }
+            if let id = item.messageID, reading.newMessageIDs.contains(id), !item.isUser { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
+            MessageRow(item: item, bot: vm.bot, vm: vm)
+                .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && !item.isUser, revision: item.publicationRevision) {
+                    guard let id = item.messageID else { return }
+                    await app.markVisible(kind: "private", id: vm.bot.id, generation: item.generation, message: MessagePublication(messageID: id, publicationRevision: item.publicationRevision))
+                }
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: ChatNotificationFrames.self,
+                            value: item.messageID.map { [$0: geometry.frame(in: .named("notificationChatViewport"))] } ?? [:])
+                    }
+                }
+        }
+        .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -54,8 +85,7 @@ struct ChatView: View {
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                     ForEach(vm.items) { item in
-                        MessageRow(item: item, bot: vm.bot, vm: vm)
-                            .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
+                        messageCell(item)
                     }
                     ForEach(vm.memorySuggestions) { suggestion in
                         MemorySuggestionCard(suggestion: suggestion, vm: vm)
@@ -64,28 +94,46 @@ struct ChatView: View {
                         Text(e).font(.footnote).foregroundStyle(.red)
                     }
                     Color.clear.frame(height: 1).id("bottom")
+                        .background(GeometryReader { geometry in Color.clear.preference(key: ConversationBottomKey.self, value: geometry.frame(in: .global)) })
                 }
                 .padding()
+            }
+            .conversationViewport($viewport)
+            .onPreferenceChange(ConversationBottomKey.self) { rect in followsBottom = rect.minY <= viewport.maxY + 40 && rect.maxY >= viewport.minY }
+            .coordinateSpace(name: "notificationChatViewport")
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.onAppear { notificationViewport = geometry.size; updateNotificationVisibility() }
+                        .onChange(of: geometry.size) { _, size in notificationViewport = size; updateNotificationVisibility() }
+                }
+            }
+            .onPreferenceChange(ChatNotificationFrames.self) { frames in
+                notificationFrames = frames; updateNotificationVisibility()
             }
             .bottomAnchoredScrolling()                    // 初次进入 & 键盘弹出时保持贴底（iOS 18+；17 由 keyboardDidShow 滚动兜底）
             .scrollDismissesKeyboard(.interactively)      // 下拉消息列表可交互式收起键盘
             .onTapGesture { focused = false }             // 点空白处收起键盘（气泡内按钮优先响应）
             .background(Color.appBackground)
             .onChange(of: vm.scrollTick) {
-                if let mid = highlightMessageID, vm.items.contains(where: { $0.messageID == mid }) {
-                    proxy.scrollTo("m\(mid)", anchor: .center)
-                } else {
-                    proxy.scrollTo("bottom", anchor: .bottom)
-                }
+                guard initialPositionReady else { return }
+                if !entered && !vm.items.isEmpty {
+                    if let target = highlightMessageID ?? reading.newMessageIDs.sorted().first, vm.items.contains(where: { $0.messageID == target }) { proxy.scrollTo("m\(target)", anchor: .center) }
+                    else { proxy.scrollTo("bottom", anchor: .bottom) }
+                    entered = true
+                } else if followsBottom { proxy.scrollTo("bottom", anchor: .bottom) }
+                else { hasNewReply = true }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if hasNewReply && !followsBottom { Button("有新回复 ↓") { proxy.scrollTo("bottom", anchor: .bottom); hasNewReply = false }.buttonStyle(.borderedProminent).padding() }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
                 // 只响应本页输入框的键盘；sheet（Bot 详情）里的键盘不应滚动对话页
-                guard focused, !showInfo else { return }
+                guard focused, !showInfo, followsBottom else { return }
                 proxy.scrollTo("bottom", anchor: .bottom)   // 键盘弹出后：确保最后一条可见
             }
         }
-        .bottomBar { composer }   // iOS 26 safeAreaBar：消息滚到输入栏下方有系统滚动边缘效果（同顶部导航栏）；旧系统 safeAreaInset
-        .inAppBrowser()   // 消息里的 http/https 链接在 App 内 SFSafariViewController 打开；tel: / mailto: 交给系统
+        .bottomBar { composer.conversationComposer($composerViewport) }   // iOS 26 safeAreaBar：消息滚到输入栏下方有系统滚动边缘效果（同顶部导航栏）；旧系统 safeAreaInset
+        .inAppBrowser(isPresented: $browserCovered)   // 消息里的 http/https 链接在 App 内 SFSafariViewController 打开；tel: / mailto: 交给系统
         .navigationTitle(vm.bot.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -119,7 +167,7 @@ struct ChatView: View {
         }
         // Bot 详情：系统默认 sheet（page sheet 卡片，非 push / 非全屏），下滑关闭
         .sheet(isPresented: $showInfo, onDismiss: {
-            vm.scrollTick += 1   // sheet 关闭后重新贴底（无动画），确保布局与滚动位置一致
+            // Preserve the reading position after dismissing Bot details.
         }) {
             NavigationStack {
                 BotInfoView(vm: vm)
@@ -145,8 +193,20 @@ struct ChatView: View {
         .sheet(isPresented:$showTasks){NavigationStack{TaskListView(botID:vm.bot.id,botName:vm.bot.name)}}
         .task {
             input = await vm.loadDraft()
+            pageVisible = true; vm.activityRepository = app.activityRepository
+            await app.refreshActivityForEntry()
+            if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
             await vm.load()
+            if !entered, let target = highlightMessageID ?? reading.newMessageIDs.sorted().first { await vm.ensureMessageLoaded(target) }
+            initialPositionReady = true; vm.scrollTick += 1
             if quickPromptsEnabled { await vm.refreshQuickPrompts() }
+        }
+        .onChange(of: notificationModalShown) { _, _ in updateNotificationVisibility() }
+        .onChange(of: scenePhase) { _, _ in updateNotificationVisibility() }
+        .onDisappear {
+            if app.notificationEvents.visibleBotID == vm.bot.id {
+                app.notificationEvents.visibleBotID = nil; app.notificationEvents.visibleMessageIDs = []
+            }
         }
         .onChange(of: quickPromptsEnabled) { _, enabled in
             if enabled { Task { await vm.refreshQuickPrompts() } }
@@ -177,13 +237,33 @@ struct ChatView: View {
         } message: {
             Text("请在「设置」中允许 VeraBot 使用相机。")
         }
+        .onChange(of: app.activity(kind: "private", id: vm.bot.id)?.revision) { _, _ in
+            guard pageVisible else { return }
+            let activity = app.activity(kind: "private", id: vm.bot.id)
+            if let generation = activity?.generation, generation != vm.conversationGeneration { reading.leave() }
+            reading.include(activity?.unreadMessages ?? [])
+            if let generation = activity?.generation, generation != vm.conversationGeneration { Task { await vm.recoverExecution() } }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { vm.leave() } else if pageVisible { Task { await vm.recoverExecution() } }
+        }
+        .onChange(of: app.sessionGeneration) { _, _ in pageVisible = false; reading.leave(); vm.leave() }
         .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）
         .onDisappear {
+            pageVisible = false; vm.leave()
+            if !hasTemporaryCover { reading.leave(); entered = false }
             focused = false
             // 全屏相机临时遮盖对话，仍属于当前对话；返回列表才结束朗读。
             if !showCamera { player.stop() }
         }
     }
+
+    private var effectiveViewport: CGRect {
+        guard !composerViewport.isEmpty else { return viewport }
+        return CGRect(x: viewport.minX, y: viewport.minY, width: viewport.width, height: max(0, min(viewport.maxY, composerViewport.minY) - viewport.minY))
+    }
+    private var hasTemporaryCover: Bool { showInfo || showTasks || showMemoryList || showPhotos || showFiles || showCamera || cameraDenied || browserCovered || travelTripToShow != nil || confirmClearConversation || confirmDeleteBot }
+    private var canRead: Bool { pageVisible && scenePhase == .active && app.selectedTab == 0 && !hasTemporaryCover }
 
     /// 先查相机权限：未决定时系统弹窗；已拒绝则提示前往设置
     private func openCamera() {
@@ -217,6 +297,16 @@ struct ChatView: View {
             }
         }
         .accessibilityLabel("\(vm.bot.name)，\(action.title)，查看 Bot 详情")
+    }
+
+    private var notificationModalShown: Bool {
+        showInfo || showTasks || showMemoryList || showPhotos || showCamera || showFiles || travelTripToShow != nil
+    }
+    private func updateNotificationVisibility() {
+        app.notificationEvents.visibleBotID = vm.bot.id
+        guard scenePhase == .active, !notificationModalShown else { app.notificationEvents.visibleMessageIDs = []; return }
+        let viewport = CGRect(origin: .zero, size: notificationViewport)
+        app.notificationEvents.visibleMessageIDs = Set(notificationFrames.filter { $0.value.intersects(viewport) }.keys)
     }
 
     /// 底部浮动输入栏（Liquid Glass）：[＋ 圆形玻璃按钮] [胶囊玻璃：输入框 … 🎙]。
@@ -257,6 +347,14 @@ struct ChatView: View {
 
     private var regularComposer: some View {
         VStack(spacing: 6) {
+            ForEach(vm.replyTasks.filter(\.isActive)) { task in
+                HStack {
+                    Text(task.state == "queued" ? "排队中" : task.state == "awaiting_user" ? "等你补充" : task.state == "awaiting_approval" ? "待你确认" : "正在回复").font(.caption)
+                    if task.state == "awaiting_user" { Button(vm.selectedWaitTaskID == task.id ? "退出关联" : "回复此问题") { vm.selectedWaitTaskID = vm.selectedWaitTaskID == task.id ? nil : task.id }.font(.caption) }
+                    Spacer()
+                    Button(task.state == "queued" ? "取消排队" : "停止") { Task { await vm.stop(task) } }.font(.caption).disabled(vm.controlBusy.contains(task.id))
+                }
+            }
             if let userID = app.userID,
                vm.candidateMemoryCount > 0,
                input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -401,13 +499,14 @@ struct ChatView: View {
 
     private static let barHeight: CGFloat = 48
 
-    /// 发送：键盘 return 键触发；空内容或上一条仍在回复时忽略（文字保留）。
+    /// 发送：键盘 return 键触发；只在提交中暂缓，后续独立消息由服务端排队。
     /// 有图时可以只发图片；图片处理 / 上传中或上传失败时不发送（输入栏上方显示状态）。
     private func send() {
         guard travelStore.activeTrip(botID: vm.bot.id) == nil else { return }
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !vm.sending, !attachment.blocksSend else { return }
         guard !text.isEmpty || attachment.ready != nil else { return }
+        if vm.selectedWaitTaskID != nil && attachment.ready != nil { vm.errorText = "请先退出问题关联，再发送附件。"; return }
         if speech.isRecording { speech.stop() }
         let image = attachment.consume()
         input = ""
@@ -427,4 +526,9 @@ struct ChatView: View {
         // 权限弹窗可能等待很久，真正开启麦克风前再次停止朗读。
         Task { await speech.toggle(beforeRecording: { player.stop() }) }
     }
+}
+
+private struct ChatNotificationFrames: PreferenceKey {
+    static let defaultValue: [Int: CGRect] = [:]
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) { value.merge(nextValue(), uniquingKeysWith: { _, new in new }) }
 }

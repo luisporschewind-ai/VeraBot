@@ -18,9 +18,9 @@ def last_message(c, user_id: int, bot_id: int) -> dict | None:
 def list_recent(c, user_id: int, bot_id: int, limit: int) -> list[dict]:
     """最近 limit 条消息（新的在前；调用方负责反转）。附带本人对 assistant 消息的反馈（没有则为 NULL）。"""
     return rows(c.execute(
-        "SELECT m.id, m.role, m.content, m.traces, m.created_at, m.source_kind, m.source_id, f.rating AS feedback_rating, f.reason AS feedback_reason "
+        "SELECT m.id, m.role, m.content, m.traces, m.created_at, m.message_status, m.source_kind, m.source_id, f.rating AS feedback_rating, f.reason AS feedback_reason "
         "FROM messages m LEFT JOIN message_feedback f ON f.message_id=m.id AND f.user_id=m.user_id "
-        "WHERE m.user_id=? AND m.bot_id=? ORDER BY m.id DESC LIMIT ?",
+        "WHERE m.user_id=? AND m.bot_id=? AND m.message_status NOT IN ('queued','running') ORDER BY m.id DESC LIMIT ?",
         (user_id, bot_id, limit)).fetchall())
 
 
@@ -59,15 +59,18 @@ def list_for_extraction(c, user_id: int, bot_id: int, after_message_id: int, lim
 
 def clear_conversation(c, user_id: int, bot_id: int) -> None:
     """清空对话：先删该 Bot 的附件行，再删消息（同一事务）。磁盘文件由调用方在提交后删除。"""
+    from . import conversation_activity_store
+    conversation_activity_store.clear(c,user_id,"private",bot_id)
     attachment_store.delete_for_bot(c, user_id, bot_id)
     c.execute("DELETE FROM messages WHERE user_id=? AND bot_id=?", (user_id, bot_id))
 
 
 def add_scheduled(c, user_id: int, bot_id: int, run_id: int, content: str, created_at: str) -> int:
+    from .conversation_activity_store import generation
     return c.execute(
-        "INSERT INTO messages(user_id,bot_id,role,content,created_at,source_kind,source_id) "
-        "VALUES(?,?,'assistant',?,?,'scheduled_task',?)",
-        (user_id,bot_id,content,created_at,run_id)).lastrowid
+        "INSERT INTO messages(user_id,bot_id,role,content,created_at,source_kind,source_id,conversation_generation) "
+        "VALUES(?,?,'assistant',?,?,'scheduled_task',?,?)",
+        (user_id,bot_id,content,created_at,run_id,generation(c,user_id,"private",bot_id))).lastrowid
 
 
 class ConversationSyncConflict(Exception):
@@ -79,15 +82,17 @@ def sync_messages(user_id: int, bot_id: int, limit: int = 100,
     from ..services.attachments import repo as attachments
     with tx() as c:
         c.execute("BEGIN")
+        from .conversation_activity_store import generation
+        gen=generation(c,user_id,"private",bot_id)
         row = c.execute("SELECT revision FROM conversation_revisions WHERE user_id=? AND kind='private' AND conversation_id=?",
                         (user_id, bot_id)).fetchone()
         revision = int(row[0]) if row else 0
         if expected_revision is not None and expected_revision != revision:
             raise ConversationSyncConflict()
         if before_id is None and expected_revision == revision:
-            return {"revision": revision, "messages": [], "next_before_id": None, "unchanged": True}
+            return {"generation":gen, "revision": revision, "messages": [], "next_before_id": None, "unchanged": True}
         cursor = before_id if before_id is not None else 9223372036854775807
-        found = c.execute("""SELECT m.id,m.role,m.content,m.traces,m.created_at,
+        found = c.execute("""SELECT m.id,m.role,m.content,m.traces,m.created_at,m.message_status,m.conversation_generation,
                               f.rating AS feedback_rating,f.reason AS feedback_reason
                            FROM messages m LEFT JOIN message_feedback f
                              ON f.message_id=m.id AND f.user_id=m.user_id
@@ -107,8 +112,11 @@ def sync_messages(user_id: int, bot_id: int, limit: int = 100,
             rating, reason = item["feedback_rating"], item["feedback_reason"]
             messages.append({"id": item["id"], "role": item["role"], "content": item["content"],
                              "traces": json.loads(item["traces"]) if item["traces"] else [],
+                             "message_status":item["message_status"], "generation":item["conversation_generation"],
+                             "publication_revision":(c.execute("SELECT publication_revision FROM message_publications WHERE user_id=? AND kind='private' AND conversation_id=? AND generation=? AND message_id=?",(user_id,bot_id,item["conversation_generation"],item["id"])).fetchone() or [0])[0],
                              "created_at": item["created_at"], "attachments": att_map.get(int(item["id"]), []),
                              "feedback": {"rating": rating, "reason": reason}
                              if item["role"] == "assistant" and rating is not None else None})
         next_before_id = int(page[0]["id"]) if more and page else None
-        return {"revision": revision, "messages": messages, "next_before_id": next_before_id, "unchanged": False}
+        from .conversation_activity_store import generation
+        return {"generation":generation(c,user_id,"private",bot_id), "revision": revision, "messages": messages, "next_before_id": next_before_id, "unchanged": False}

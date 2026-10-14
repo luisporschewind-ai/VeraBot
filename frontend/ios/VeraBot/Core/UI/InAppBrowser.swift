@@ -6,20 +6,22 @@ import VeraBotCore
 /// http / https → 全屏 SFSafariViewController（系统原生，带「完成」/ 分享 / 在 Safari 中打开）；
 /// tel: / mailto: 等其他链接 → .systemAction 交给系统（电话 / 邮件）。
 extension View {
-    func inAppBrowser() -> some View { modifier(InAppBrowserModifier()) }
+    func inAppBrowser(isPresented: Binding<Bool> = .constant(false)) -> some View { modifier(InAppBrowserModifier(isPresented: isPresented)) }
 }
 
 private struct InAppBrowserModifier: ViewModifier {
+    @Binding var isPresented: Bool
     @State private var page: BrowserPage?
 
     func body(content: Content) -> some View {
         content
             .environment(\.openURL, OpenURLAction { url in
                 guard url.opensInAppBrowser else { return .systemAction }
+                isPresented = true
                 page = BrowserPage(url: url)
                 return .handled
             })
-            .fullScreenCover(item: $page) { p in
+            .fullScreenCover(item: $page, onDismiss: { isPresented = false }) { p in
                 SafariView(url: p.url) { page = nil }
                     .ignoresSafeArea()
             }

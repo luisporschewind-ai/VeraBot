@@ -81,6 +81,7 @@ def messages_delete(bot_id: int, message_id: int, user=Depends(current_user)):
 async def chat(bot_id: int, body: ChatIn, user=Depends(current_user)):
     """SSE 流式对话。事件：delta / tool_start / tool_result / error / done（done 含 message_id、user_message_id、usage、memory_ids）"""
     bot = require_bot(user, bot_id)
+    from ...db import chat_reply_store
     used, budget = db.token_budget(user["id"])
     if used >= budget:   # BUG-06：每用户每日 Token 预算（Token budget）服务端强制
         raise HTTPException(429, f"今日 Token 额度已用完（{used:,} / {budget:,}），请明天再试")
@@ -88,6 +89,12 @@ async def chat(bot_id: int, body: ChatIn, user=Depends(current_user)):
         attachments.check_pending(user["id"], bot_id, body.attachment_ids)
     except attachments.AttachmentError as e:
         raise HTTPException(e.status, e.message)
+
+    try:
+        with db.tx(immediate=True) as c:
+            legacy_token = chat_reply_store.reserve_legacy(c,user['id'],bot_id)
+    except chat_reply_store.ChatTaskError as e:
+        raise HTTPException(e.status,{'code':e.code,'message':e.message})
 
     async def gen():
         from ...services.notify import hub
@@ -99,6 +106,8 @@ async def chat(bot_id: int, body: ChatIn, user=Depends(current_user)):
                     yield f"event: notification\ndata: {json.dumps(note, ensure_ascii=False)}\n\n"
         finally:
             hub.unsubscribe(user["id"], queue)
+            with db.tx(immediate=True) as c:
+                chat_reply_store.release_legacy(c,user["id"],bot_id,legacy_token)
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

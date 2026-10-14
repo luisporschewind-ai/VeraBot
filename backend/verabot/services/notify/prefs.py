@@ -10,10 +10,11 @@ from ...core.config import TIMEZONE
 from ...db import reminder_store as store
 from ..reminders import clock
 
-CATEGORIES = ("reminder", "bot_message", "delegation", "plugin", "system")
+CATEGORIES = ("reminder", "bot_message", "task_result", "delegation", "plugin", "system")
 DEFAULT_CATEGORIES = {
     "reminder": True,
     "bot_message": True,
+    "task_result": True,
     "delegation": True,
     "plugin": False,
     "system": True,
@@ -32,6 +33,7 @@ def _loads(text, default):
 def defaults() -> dict:
     return {
         "enabled": True,
+        "sound_enabled": True,
         "categories": dict(DEFAULT_CATEGORIES),
         "muted_bots": [],
         "quiet_enabled": False,
@@ -58,6 +60,7 @@ def _merge(row) -> dict:
         muted = []
     base.update({
         "enabled": bool(row["enabled"]),
+        "sound_enabled": bool(row.get("sound_enabled", 1)),
         "categories": cats,
         "muted_bots": [int(x) for x in muted if str(x).lstrip("-").isdigit()],
         "quiet_enabled": bool(row["quiet_enabled"]),
@@ -90,6 +93,8 @@ def _hhmm(text: str) -> str:
 
 def update_prefs(user_id: int, patch: dict) -> dict:
     current = get_prefs(user_id)
+    if "sound_enabled" in patch:
+        current["sound_enabled"] = bool(patch["sound_enabled"])
     if "enabled" in patch:
         current["enabled"] = bool(patch["enabled"])
     if "categories" in patch and isinstance(patch["categories"], dict):
@@ -126,6 +131,7 @@ def update_prefs(user_id: int, patch: dict) -> dict:
             json.dumps(current["muted_bots"]), 1 if current["quiet_enabled"] else 0,
             current["quiet_start"], current["quiet_end"], current["quiet_timezone"], current["preview"], now,
         )
+        store.set_notification_sound(c, user_id, current["sound_enabled"])
     return current
 
 

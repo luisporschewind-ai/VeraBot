@@ -16,9 +16,9 @@ def deliver(c,run,now):
         mid=add_scheduled(c,run['user_id'],bot_id,run['id'],
             '定时任务：'+snapshot['title']+'\n\n'+(run['result_text'] or ''),clock.iso(now))
     state_title={'succeeded':'已完成','interrupted':'执行中断','failed':'执行失败'}.get(run['state'],'执行结束')
-    note=notify(run['user_id'],category='bot_message',title=snapshot['title']+'：'+state_title,
-        body=None,bot_id=bot_id,message_id=mid,link=f'bot/{bot_id}' if bot_id else None,
-        thread_id=f"scheduled-task:{run['task_id']}",dedupe_key=f"scheduled_task:{run['id']}",conn=c)
+    note=notify(run['user_id'],category='task_result',title=snapshot['title']+'：'+state_title,
+        body=None,bot_id=bot_id,message_id=mid,link=f'bot/{bot_id}/chat?message={mid}' if mid else 'inbox',
+        thread_id=f"scheduled-task:{run['task_id']}",dedupe_key=f"scheduled_task:{run['id']}",source_kind="scheduled_task",source_id=str(run["id"]),source_state=run["state"],conn=c)
     runs.set_delivery(c,run['id'],mid,note['id'],now)
 
 def complete_once(c,run):

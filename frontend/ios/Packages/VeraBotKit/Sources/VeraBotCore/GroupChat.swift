@@ -61,6 +61,8 @@ public enum GroupTurnStatus: String, Codable, Sendable { case running, completed
 public enum GroupChatMode: String, Codable, Sendable { case auto, single, round }
 
 public struct GroupMessage: Codable, Sendable, Hashable, Identifiable {
+    public var generation: Int?
+    public var publicationRevision: Int?
     public let id: Int
     public let groupID: Int
     public let turnID: Int
@@ -79,6 +81,7 @@ public struct GroupMessage: Codable, Sendable, Hashable, Identifiable {
     public let attachments: [Attachment]
     enum CodingKeys: String, CodingKey {
         case id, role, content, status, usage
+        case generation, publicationRevision = "publication_revision"
         case taskID = "task_id", taskVersion = "task_version"
         case retryOfMessageID = "retry_of_message_id"
         case groupID = "group_id", turnID = "turn_id", memberID = "member_id", senderName = "sender_name"
@@ -86,6 +89,8 @@ public struct GroupMessage: Codable, Sendable, Hashable, Identifiable {
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        generation = try c.decodeIfPresent(Int.self, forKey: .generation)
+        publicationRevision = try c.decodeIfPresent(Int.self, forKey: .publicationRevision)
         id = try c.decode(Int.self, forKey: .id)
         groupID = try c.decodeIfPresent(Int.self, forKey: .groupID) ?? 0
         turnID = try c.decodeIfPresent(Int.self, forKey: .turnID) ?? 0
@@ -105,6 +110,7 @@ public struct GroupMessage: Codable, Sendable, Hashable, Identifiable {
     }
     public init(id: Int, memberID: Int?, content: String, status: GroupMessageStatus = .completed,
                 groupID: Int = 0, turnID: Int = 0, role: GroupMessageRole? = nil, attachments: [Attachment] = [], taskID: Int? = nil, taskVersion: Int? = nil) {
+        self.generation = nil; self.publicationRevision = nil
         self.id = id; self.memberID = memberID; self.content = content; self.status = status
         self.groupID = groupID; self.turnID = turnID; self.role = role ?? (memberID == nil ? .user : .bot)
         retryOfMessageID = nil; senderName = nil; senderAppearance = nil; usage = nil; createdAt = nil; finishedAt = nil

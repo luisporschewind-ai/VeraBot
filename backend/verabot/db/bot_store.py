@@ -33,9 +33,14 @@ def update_fields(c, user_id: int, bot_id: int, fields: dict, pin_at: str | None
 def delete(c, user_id: int, bot_id: int) -> None:
     from .primary_bot_store import clear_bot
     clear_bot(c, user_id, bot_id)
+    from .chat_reply_store import cancel_bot_actions
+    cancel_bot_actions(c,user_id,bot_id)
     from . import owned_task_store
     owned_task_store.delete_bot(c, user_id, bot_id)
-    c.execute("DELETE FROM bots WHERE id=? AND user_id=?", (bot_id, user_id))
+    deleted=c.execute("DELETE FROM bots WHERE id=? AND user_id=?", (bot_id, user_id)).rowcount
+    if deleted:
+        from .conversation_activity_store import remove
+        remove(c,user_id,"private",bot_id)
 
 
 def set_delegate_to(c, bot_id: int, delegate_to_json: str) -> None:

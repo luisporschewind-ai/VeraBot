@@ -25,7 +25,9 @@ struct GroupInfoView: View {
                 if let error { Section { Text(error).foregroundStyle(.secondary) } }
             }.navigationTitle("群设置").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    DismissToolbarButton(kind: .close) { dismiss() }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { Task { await perform {
                         try await model.update(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -64,7 +66,7 @@ private struct GroupInfoMemberRow: View {
     let member: ChatGroupMember
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             GroupMemberAvatar(member: member, size: 30).accessibilityHidden(true)
             Text(member.name).font(.body)
             Spacer(minLength: 0)

@@ -8,7 +8,7 @@ struct NotificationSettingsView: View {
     @Environment(AppState.self) private var app
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage(SettingsKeys.notificationsEnabled) private var notificationsEnabled = false
+    @State private var authorization: UNAuthorizationStatus = .notDetermined
     @State private var settings = NotificationSettings()
     @State private var bots: [Bot] = []
     @State private var quietStart = Date()
@@ -20,23 +20,25 @@ struct NotificationSettingsView: View {
     var body: some View {
         ThemedForm {
             Section {
-                CompactToggle(isOn: $notificationsEnabled) {
+                CompactToggle(isOn: Binding(get: { settings.enabled }, set: { enabled in
+                    settings.enabled = enabled
+                    Task { if enabled { await requestAuthorization() }; await save() }
+                })) {
                     Label("允许通知", systemImage: "bell.badge")
                 }
-                .onChange(of: notificationsEnabled) { _, isOn in
-                    if isOn {
-                        Task { await requestAuthorization() }
-                    } else {
-                        settings.enabled = false
-                        Task { await save() }
-                    }
-                }
+                LabeledContent("系统权限", value: authorization == .denied ? "已关闭" : authorization == .notDetermined ? "尚未开启" : "已允许")
+                if authorization == .denied { Button("前往系统设置") { openNotificationSettings() } }
             } footer: {
                 Text("系统不允许时，通知只会留在收件箱。")
+            }
+            Section {
+                Toggle("通知声音", isOn: $settings.soundEnabled)
+                    .onChange(of: settings.soundEnabled) { _, _ in Task { await save() } }
             }
             Section("分类") {
                 categoryToggle("提醒", key: "reminder")
                 categoryToggle("Bot 消息", key: "bot_message")
+                categoryToggle("任务结果", key: "task_result")
                 categoryToggle("协作完成", key: "delegation")
                 categoryToggle("插件", key: "plugin")
                 LabeledContent("系统") { Text("安全通知不能关闭").font(.footnote).foregroundStyle(.secondary) }
@@ -74,6 +76,16 @@ struct NotificationSettingsView: View {
                     Button("取消静音 \(bot.name)") { Task { await unmute(bot.id) } }
                 }
             }
+            Section("本机提醒") {
+                LabeledContent("已排程", value: "\(app.notificationEvents.pendingReminderCount) 条")
+                if let end = app.notificationEvents.reminderCoverageEnd {
+                    LabeledContent("一次性排程覆盖至", value: end.formatted(date: .abbreviated, time: .shortened))
+                }
+                Text("复杂重复提醒会在打开 App 时补排。新消息与任务结果在 App 关闭期间暂不支持即时通知。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                if let error = app.notificationEvents.scheduleErrorText { Text(error).font(.footnote) }
+                if let error = app.notificationEvents.errorText { Text(error).font(.footnote) }
+            }
             if let errorText { Text(errorText).foregroundStyle(.red) }
         }
         .navigationTitle("通知")
@@ -105,7 +117,6 @@ struct NotificationSettingsView: View {
             bots = try await app.api.bots().bots
             quietStart = parse(settings.quietStart)
             quietEnd = parse(settings.quietEnd)
-            notificationsEnabled = settings.enabled
             loaded = true
             errorText = nil
         } catch {
@@ -116,7 +127,6 @@ struct NotificationSettingsView: View {
 
     private func save() async {
         guard loaded else { return }
-        settings.enabled = notificationsEnabled
         settings.quietTimeZone = TimeZone.current.identifier
         do {
             settings = try await app.api.updateNotificationSettings(settings)
@@ -134,29 +144,20 @@ struct NotificationSettingsView: View {
     private func requestAuthorization() async {
         let center = UNUserNotificationCenter.current()
         let status = await center.notificationSettings().authorizationStatus
+        authorization = status
         switch status {
-        case .authorized, .provisional, .ephemeral:
-            settings.enabled = true
-            await save()
-        case .denied:
-            notificationsEnabled = false
-            showDeniedAlert = true
+        case .authorized, .provisional, .ephemeral: break
+        case .denied: showDeniedAlert = true
         default:
-            let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
-            notificationsEnabled = granted
-            if granted {
-                settings.enabled = true
-                await save()
-            } else {
-                showDeniedAlert = true
-            }
+            _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+            authorization = await center.notificationSettings().authorizationStatus
+            if authorization == .denied { showDeniedAlert = true }
         }
     }
 
     private func syncSystemStatus() async {
-        guard notificationsEnabled else { return }
-        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-        if status == .denied { notificationsEnabled = false }
+        authorization = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        await app.syncReminders()
     }
 
     private func openNotificationSettings() {

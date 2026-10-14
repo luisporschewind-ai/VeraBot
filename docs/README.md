@@ -5,6 +5,10 @@
 
 当前整合状态见 [2026-10-12 Main 集成交付](testing/2026-10-12-main-integration.md)。下方设计文档与旧验证记录保留其历史范围；当前功能与验收以 STATUS 和本轮交付为准。
 
+当前功能与并行开发状态见 [2026-10-13 功能盘点](testing/2026-10-13-project-inventory.md)，上轮整合/设备证据见 [2026-10-12 Main 集成交付](testing/2026-10-12-main-integration.md)。下方设计文档与旧验证记录保留其历史范围；当前功能与验收以 STATUS 和最新盘点为准。
+
+本日稍后群v2已由`a01b2d7`合入main，源码schema v25，真实验收仍待用户判定；主Bot方案已获确认，具体[实施计划](superpowers/plans/2026-10-13-primary-bot.md)待审阅和选择执行方式。
+
 所有文档使用中文，技术术语附英文。代码与文档在同一个 commit 更新 (见 [CONTRIBUTING.md](../CONTRIBUTING.md))。
 
 | 目录 | 文档 | 内容 |
@@ -16,14 +20,17 @@
 | product/ | [2026-10-08-playful-world-discussion.md](product/2026-10-08-playful-world-discussion.md) | Vera Bot 私人小世界、游乐场玩法、三 Tab 与阶段性产品讨论；含 3D 魔方候选方案（未实现） |
 | superpowers/specs/ | [2026-10-09-bot-travel-design.md](superpowers/specs/2026-10-09-bot-travel-design.md) | Bot 旅行第一版：真实地点轻探索、分阶段揭晓、旅行相册与五分钟 iOS 原型范围 |
 | superpowers/specs/ | [2026-10-11-bot-group-chat-design.md](superpowers/specs/2026-10-11-bot-group-chat-design.md) | Bot 群聊第一版设计：伙伴讨论、点名、群历史与执行边界 |
-| superpowers/specs/ | [2026-10-12-group-intent-and-handoff-design.md](superpowers/specs/2026-10-12-group-intent-and-handoff-design.md) | 群聊意图分配、动态澄清与任务交接；已确认并在隔离 worktree 实施，尚未合入/部署 |
-| superpowers/plans/ | [2026-10-12-group-intent-and-handoff.md](superpowers/plans/2026-10-12-group-intent-and-handoff.md) | 群聊意图与接力实施计划：迁移、澄清、结构化协作、服务端执行、v2 API 与 iOS；待评审和选择执行方式 |
+| superpowers/specs/ | [2026-10-12-group-intent-and-handoff-design.md](superpowers/specs/2026-10-12-group-intent-and-handoff-design.md) | 群聊后续设计：移除默认回应者、按意图分配、动态澄清与任务交接；全文已确认，隔离工作树已实施/修复并待用户验收，尚未合入 main |
+| superpowers/plans/ | [2026-10-12-group-intent-and-handoff.md](superpowers/plans/2026-10-12-group-intent-and-handoff.md) | 群聊意图与接力实施计划：迁移、澄清、结构化协作、服务端执行、v2 API 与 iOS；本地副本保留原计划，实际工作树进度见最新盘点 |
+| superpowers/specs/ | [2026-10-13-primary-bot-design.md](superpowers/specs/2026-10-13-primary-bot-design.md) | 主 Bot 接入讨论稿：身份/默认任务入口、持续步骤、阻塞求助、确认续跑、群边界及修改难度；待评审，未实施 |
+| testing/ | [2026-10-13-project-inventory.md](testing/2026-10-13-project-inventory.md) | 主线 v23、独立群 v2 开发、执行/权限边界与本轮 36+2 离线验证 |
 | superpowers/plans/ | [2026-10-11-bot-group-chat.md](superpowers/plans/2026-10-11-bot-group-chat.md) | 群聊 G0–G3 任务；当前完成 G0/G1/G2，G3 待验收 |
 | testing/ | [2026-10-11-bot-group-chat-g2.md](testing/2026-10-11-bot-group-chat-g2.md) | 顺序执行、停止/恢复/重试、iOS 正式接线与验证 |
 | testing/ | [2026-10-11-bot-group-chat-g1.md](testing/2026-10-11-bot-group-chat-g1.md) | 群管理 API、轮次存储、Swift 协议与验证边界 |
 | testing/ | [2026-10-11-bot-group-chat-preview.md](testing/2026-10-11-bot-group-chat-preview.md) | Debug 群聊预览入口、范围、构建结果和用户验收边界 |
 | superpowers/plans/ | [2026-10-09-bot-travel.md](superpowers/plans/2026-10-09-bot-travel.md) | Bot 旅行第一版实现步骤与核对清单 |
 | design/ | [CHAT_SPEECH_PLAYBACK.md](design/CHAT_SPEECH_PLAYBACK.md) | **已确认并修复，待设备验收**：对话朗读退出规则、临时弹层例外、音频会话释放、旧回调隔离与回归证据 |
+| design/ | [2026-10-13-ui-consistency-follow-up.md](design/2026-10-13-ui-consistency-follow-up.md) | UI 一致性后续方案：弹出页高度与结构、列表行密度和跨页面核对范围；本轮未实施 |
 | design/ | [ARCHITECTURE.md](design/ARCHITECTURE.md) | 两个项目的架构、模块、依赖规则、依赖管理 (SPM / uv)、数据模型 |
 | design/ | [MULTI_AGENT_DESIGN.md](design/MULTI_AGENT_DESIGN.md) | 多 Agent 权限模型、上下文隔离、护栏、审计、迁移、设置页 / TTS 扩展 |
 | design/ | [MCP_CAPABILITY.md](design/MCP_CAPABILITY.md) | **设计 v1.0 已批准；M1–M4 已实现，真实 OAuth 待验收**（schema v8：免授权 Learn / AWS、按服务同意、会话复用、审计、后台同步、熔断。字段对照见 §18）。其上的插件 P1 见下一行。M3 确认卡片已按用户指定模拟器标准验收；M4 OAuth 实现与真实授权验收分开跟踪。`frontend/web` 冻结，没有 MCP 界面 |

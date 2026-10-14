@@ -17,6 +17,7 @@ class DeviceIn(BaseModel):
     os_version: str | None = None
     timezone: str | None = None
     local_reminders: bool = True
+    local_events: bool = False
 
 
 @router.post("/api/devices")

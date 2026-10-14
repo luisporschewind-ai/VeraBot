@@ -15,6 +15,7 @@ struct LiveBotAvatar: View {
     var appearance: BotAppearance?
 
     @Environment(AppState.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let photo = app.avatars.image(forBot: botID)
@@ -31,9 +32,13 @@ struct LiveBotAvatar: View {
             case .figure:
                 RobotAvatarView(action: action, size: size,
                                 color: selectedColor?.swiftUIColor ?? Color(hex: color),
-                                ambient: animated, appearance: selectedAppearance)
+                                ambient: animated, appearance: selectedAppearance,
+                                staticPreview: action == .warning || action == .failure || action == .error)
                     .accessibilityLabel("Bot，\(action.title)")
             }
+        }
+        .overlay(alignment: .topLeading) {
+            if photo != nil, action != .idle { Image(systemName: action == .awaitingConfirmation ? "questionmark.circle.fill" : action == .success ? "checkmark.circle.fill" : action == .warning ? "exclamationmark.circle.fill" : "ellipsis.circle.fill").font(.caption).foregroundStyle(Color.accentColor, Color.appBackground).accessibilityLabel(action.title) }
         }
         .overlay(alignment:.bottomTrailing) {
             if app.primaryBotID == botID {
@@ -43,5 +48,14 @@ struct LiveBotAvatar: View {
         .task(id: "\(botID)|\(hasAvatar)|\(updatedAt ?? "")") {
             await app.avatars.ensureBot(id: botID, hasAvatar: hasAvatar, updatedAt: updatedAt, api: app.api)
         }
+    }
+}
+
+
+extension ConversationActivity {
+    var avatarAction: BotAvatarState {
+        if state == "awaiting_user" || state == "awaiting_approval" { return .awaitingConfirmation }
+        if ["failed", "interrupted", "stopped"].contains(state) { return .warning }
+        switch phase { case "recalling": return .recalling; case "thinking", "retry_wait": return .thinking; case "tool": return .working; case "delegating": return .delegating; case "replying": return .replying; default: return .idle }
     }
 }

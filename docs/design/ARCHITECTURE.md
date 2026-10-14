@@ -282,3 +282,9 @@ iOS 以 UUID 提交结构化群输入，服务端返回持久任务回执；单�
 iOS 依赖链为 VeraBotCore → VeraBotNetworking / VeraBotPersistence → VeraBotData → App。VeraBotPersistence 封装 SQLite 连接、事务、快照暂存与本地消息；VeraBotData 协调网络与账号作用域。服务端 v21 修订号与分页一致性支撑完整历史同步，v22 关联群附件，v23 保存 scheduled_tasks/runs/attempts 与任务来源消息。定时任务 API 只管理，独立 Scheduler/Worker 持有持久租约执行并投递，不使用每用户 cron。
 
 当前仓库仍有 API/服务层 SQL 的既有分层违规；本轮私聊同步 SQL 已归入 db/message_store；不能把架构目标“全部 SQL 在 db 层”当成全库现状或已通过检查。当前验证边界见 [Main 集成交付](../testing/2026-10-12-main-integration.md)。
+
+### 2026-10-13 持续执行边界
+
+主线定时任务 v1 只读执行，不委派、写入或等待用户；排程 resume 不恢复执行步骤。现有 MCP action 确认只执行被冻结操作，尚无业务任务回接；iOS 离线持久化不承担服务端调度，APNs 未实现。
+
+群协议 v2 的持久目标/步骤/澄清/事件与 Worker 已在独立工作树开发并修复、待用户验收，尚未合入 main。拟议主 Bot 应参考这些基础模式并保持私聊、群聊和定时任务各自权限/上下文；不是简单把 run_chat 放进 scheduler。当前盘点与拟议改动见 [2026-10-13 盘点](../testing/2026-10-13-project-inventory.md)和 [主 Bot 讨论稿](../superpowers/specs/2026-10-13-primary-bot-design.md)。

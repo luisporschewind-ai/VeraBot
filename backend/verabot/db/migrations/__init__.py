@@ -21,7 +21,11 @@ from . import v027_owned_tasks
 
 from . import v028_owned_schedule_bridge, v029_owned_task_actions
 
-SCHEMA_VERSION = 29  # v24 群聊持久任务、澄清与交接
+from . import v030_chat_continuity
+
+from . import v031_notification_events
+
+SCHEMA_VERSION = 31  # v30 对话持续执行与阅读；v31 通知事件
 
 STEPS = (
     v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned, v007_mcp, v008_mcp_sync,
@@ -31,7 +35,7 @@ STEPS = (
     v024_group_execution, v025_group_execution_safety,
 )
 
-STEPS = (*STEPS, v026_primary_bot, v027_owned_tasks, v028_owned_schedule_bridge, v029_owned_task_actions)
+STEPS = (*STEPS, v026_primary_bot, v027_owned_tasks, v028_owned_schedule_bridge, v029_owned_task_actions, v030_chat_continuity, v031_notification_events)
 
 def apply(c) -> None:
     """在调用方的事务连接上执行全部迁移步骤。"""
