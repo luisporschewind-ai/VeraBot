@@ -92,3 +92,7 @@ class WorkerTests(DBTest):
                 self.assertEqual(runs.attempts(c,job['id'])[0]['usage_unknown'],1)
                 self.assertEqual(c.execute('SELECT COUNT(*) FROM notifications').fetchone()[0],0)
                 self.assertEqual(c.execute('SELECT SUM(total_tokens) FROM usage_log').fetchone()[0],3)
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()

@@ -304,6 +304,7 @@ struct ChatView: View {
     }
     private func updateNotificationVisibility() {
         app.notificationEvents.visibleBotID = vm.bot.id
+        app.notificationEvents.visibleGroupID = nil
         guard scenePhase == .active, !notificationModalShown else { app.notificationEvents.visibleMessageIDs = []; return }
         let viewport = CGRect(origin: .zero, size: notificationViewport)
         app.notificationEvents.visibleMessageIDs = Set(notificationFrames.filter { $0.value.intersects(viewport) }.keys)

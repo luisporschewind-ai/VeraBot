@@ -82,3 +82,7 @@ class APITests(DBTest):
         self.client.post(path+'/pause',json={'expected_version':2})
         r=self.client.patch(path,json={'expected_version':3,'start_at':'2026-10-13T09:00:00+08:00'})
         self.assertEqual(r.json()['state'],'paused')
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()

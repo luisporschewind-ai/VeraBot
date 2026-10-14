@@ -65,3 +65,7 @@ class DeliveryTests(DBTest):
         scheduler=importlib.import_module('verabot.services.scheduled_tasks.scheduler')
         scheduler.tick(NOW+timedelta(days=1))
         with db.tx() as c: self.assertEqual(c.execute('SELECT COUNT(*) FROM scheduled_task_runs').fetchone()[0],1)
+
+if __name__ == '__main__':
+    import unittest
+    unittest.main()
