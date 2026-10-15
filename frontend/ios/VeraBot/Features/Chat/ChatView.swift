@@ -201,6 +201,7 @@ struct ChatView: View {
         .task {
             input = await vm.loadDraft()
             pageVisible = true; vm.activityRepository = app.activityRepository
+            vm.preferredAddress = app.displayName
             await app.refreshActivityForEntry()
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
             await vm.load()

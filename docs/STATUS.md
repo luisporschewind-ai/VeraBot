@@ -1,4 +1,8 @@
-# 项目状态 (STATUS) — 2026-10-14
+# 项目状态 (STATUS) — 2026-10-15
+
+## 2026-10-15 · Bot 动态开场词 Phase 1
+
+- 空对话开场词改为混合生成：后端一次出人设模板，iOS 本地按时段/日子/关系阶段组装。规格 [bot-opening-message](specs/bot-opening-message.md)；验证 [testing](testing/2026-10-15-bot-opening-message.md)。天气维度属 Phase 2。Web 冻结未改。
 
 ## 2026-10-15 · 列表行状态不再误显「工作暂未完成」
 
