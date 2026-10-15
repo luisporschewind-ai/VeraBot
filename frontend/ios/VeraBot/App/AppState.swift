@@ -425,7 +425,8 @@ extension AppState {
                         let update = try JSONDecoder().decode(ConversationActivityEvent.self, from: event.data)
                         let key = "\(update.kind):\(update.conversationID)"
                         if let conversation = update.conversation {
-                            if event.name == "message_published", conversation.state == "idle", self.conversationActivities[key]?.state != "idle" { self.showActivitySuccess(key, session: generation) }
+                            let previous = self.conversationActivities[key]
+                            if event.name == "message_published", conversation.displayState == "idle", previous?.displayState != "idle", !conversation.hasNewlyFailedWork(since: previous) { self.showActivitySuccess(key, session: generation) }
                             if (self.conversationActivities[key]?.revision ?? 0) <= conversation.revision { self.conversationActivities[key] = conversation }
                         } else { self.conversationActivities.removeValue(forKey: key) }
                         self.activityCursor = event.id
