@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Observation
 import Network
 import UIKit
@@ -34,9 +35,10 @@ private struct LibraryDownloadJob: Codable, Sendable {
     private var failures = Set<String>()
 
     nonisolated static func configuration(identifier: String, manual: Bool) -> URLSessionConfiguration {
-        let config=URLSessionConfiguration.background(withIdentifier:identifier)
+        // Explicit taps must start in the foreground instead of waiting for the background daemon.
+        let config = manual ? URLSessionConfiguration.ephemeral : URLSessionConfiguration.background(withIdentifier:identifier)
         config.allowsCellularAccess=manual;config.allowsExpensiveNetworkAccess=manual;config.allowsConstrainedNetworkAccess=manual
-        config.waitsForConnectivity=true;config.httpMaximumConnectionsPerHost=2
+        config.waitsForConnectivity = !manual;config.httpMaximumConnectionsPerHost=2
         config.urlCache=nil;config.requestCachePolicy = .reloadIgnoringLocalCacheData
         return config
     }
@@ -76,6 +78,11 @@ private struct LibraryDownloadJob: Codable, Sendable {
         items=list
         if complete {
             try? files.reconcile(items:list)
+            let previews = Set(list.filter(\.isImage).map { thumbnailURL(item: $0).lastPathComponent })
+            let directory = files.root.deletingLastPathComponent().appendingPathComponent("Thumbnails")
+            for url in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] where !previews.contains(url.lastPathComponent) {
+                try? FileManager.default.removeItem(at: url)
+            }
             let allowed=Set(list.map(\.id))
             for id in active where !allowed.contains(id) { cancel(id:id) }
         }
@@ -84,7 +91,11 @@ private struct LibraryDownloadJob: Codable, Sendable {
     func enqueue(items list: [VeraBotCore.LibraryItem], mode: LibraryDownloadMode) {
         guard valid,sessionIsCurrent(),LibraryDownloadPolicy.mayStart(mode:mode,isWiFi:isWiFi,paused:paused) else { return }
         var started=false
-        for item in list where item.availability == "available" && files.localURL(item:item) == nil && !active.contains(item.id) {
+        for item in list where item.availability == "available" && files.localURL(item:item) == nil {
+            if active.contains(item.id) {
+                guard mode == .manualCellularAllowed, jobs[item.id]?.mode == .automaticWiFi else { continue }
+                cancel(id: item.id)
+            }
             if mode == .automaticWiFi && failures.contains(item.id) { continue }
             errors[item.id]=nil;failures.remove(item.id)
             if let available=(try? files.root.deletingLastPathComponent().resourceValues(forKeys:[.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage,available<Int64(item.bytes) {
@@ -108,11 +119,35 @@ private struct LibraryDownloadJob: Codable, Sendable {
         if let item=items.first(where:{$0.id==id}) { enqueue(items:[item],mode:userInitiated ? .manualCellularAllowed:.automaticWiFi) }
         return localURL(id:id)
     }
+    private func thumbnailURL(item: VeraBotCore.LibraryItem) -> URL {
+        let digest = SHA256.hash(data: Data((item.id + ":" + item.resourceVersion).utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        return files.root.deletingLastPathComponent().appendingPathComponent("Thumbnails").appendingPathComponent(digest + ".jpg")
+    }
+    func previewURL(item: VeraBotCore.LibraryItem) async throws -> URL? {
+        guard valid, sessionIsCurrent(), !Task.isCancelled else { return nil }
+        if let original = localURL(id: item.id) { return original }
+        let url = thumbnailURL(item: item)
+        if FileManager.default.fileExists(atPath: url.path) { return url }
+        let data = try await api.libraryThumbnail(id: item.id)
+        guard valid, sessionIsCurrent(), !Task.isCancelled,
+              items.contains(where: { $0.id == item.id && $0.resourceVersion == item.resourceVersion }) else { return nil }
+        guard data.count <= 2 * 1024 * 1024, UIImage(data: data) != nil else { throw URLError(.cannotDecodeContentData) }
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        return url
+    }
     func clearDownloaded(item: VeraBotCore.LibraryItem) {
         paused=true;cancel(id:item.id);try? files.remove(item:item);revision += 1
     }
     private func cancel(id: String) {
-        for session in [automatic!,manual!] { session.getAllTasks { tasks in tasks.filter { $0.taskDescription?.contains("\"\(id)\"") == true }.forEach { $0.cancel() } } }
+        let identifier = jobs[id]?.identifier
+        for session in [automatic!,manual!] { session.getAllTasks { tasks in
+            tasks.filter { task in
+                guard let identifier else { return false }
+                return task.taskDescription?.contains(identifier) == true
+            }.forEach { $0.cancel() }
+        } }
         active.remove(id);jobs[id]=nil;try? store.set(key:"download.job.\(id)",value:"")
     }
     private func cancelAutomatic() {

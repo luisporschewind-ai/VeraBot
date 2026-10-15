@@ -5,6 +5,18 @@ import FoundationNetworking
 import VeraBotCore
 
 extension APIClient: LibraryAPI {
+    /// Preview bytes use the library lifetime and the same authenticated/refreshing transport as REST.
+    public func libraryThumbnail(id: String) async throws -> Data {
+        let path = "/api/library/items/\(id)/thumb"
+        let (data, status) = try await send(path) { token in
+            var request = makeRequest(path, method: "GET", body: nil, token: token)
+            request.timeoutInterval = 30
+            return request
+        }
+        guard status == 200 else { throw Self.apiError(status: status, data: data) }
+        return data
+    }
+
     public func libraryPage(cursor: String?) async throws -> LibraryPage {
         try await call("/api/library/items", query: cursor.map { [URLQueryItem(name: "cursor", value: $0)] } ?? [])
     }

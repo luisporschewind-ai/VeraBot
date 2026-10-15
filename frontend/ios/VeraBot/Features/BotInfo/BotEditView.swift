@@ -17,6 +17,7 @@ struct BotEditView: View {
     /// 清空对话；参数 includeMemories = true 时同时删除该 Bot 的记忆与对话摘要
     var onClear: (@MainActor (_ includeMemories: Bool) async -> Void)? = nil
 
+    @State private var contentTab = "settings"
     @State private var confirmClear = false
     private enum Field: Hashable { case persona, instructions }
     @FocusState private var focus: Field?
@@ -71,228 +72,29 @@ struct BotEditView: View {
 
     var body: some View {
         ThemedForm {
-            Section {
-                Button(app.primaryBotID == bot.id ? "取消主 Bot":"设为主 Bot") {Task{await app.setPrimaryBot(app.primaryBotID == bot.id ? nil:bot.id)}}
-                NavigationLink("任务"){TaskListView(botID:bot.id,botName:bot.name)}
-            }
-            Menu {
-                Button { endEditing(); showPhotoPicker = true } label: {
-                    Label("从相册选择", systemImage: "photo")
-                }
-                if draft.canUseDefaultLook {
-                    Button("使用默认形象") { draft.useDefaultLook(); pendingImage = nil }
-                }
-            } label: {
-                cardAvatar
-            }
-            .accessibilityLabel("更换头像")
-            .frame(maxWidth: .infinity)
-            .frame(height: 88)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
-            .listRowSeparator(.hidden)
+            profileSections
 
-            Section {
-                Button { nameInput = draft.name; showNameAlert = true } label: {
-                    Text(draft.name).font(.body)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("修改昵称")
-                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
-                .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
-                Button { tagsInput = draft.tagsText; showTagsAlert = true } label: {
-                    Text(draft.tags.isEmpty ? "如：搜索, 查询, 调研" : draft.tagsText)
-                        .font(.body).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("修改标签")
-                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
-                .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
-            }
-
-            Section {
-                BotAvatarShapePicker(selection:Binding(get:{ shape },set:{ shape = $0; shapeChanged = true }),color:color)
-                BotAvatarColorPicker(selection: $color)
-                if savedBot.hasAvatar && draft.photo != .remove {
-                    Text("照片头像优先显示；切换为默认形象后使用所选形状。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-            }
-
-            Section {
-                TextField("例如：资深研究员，擅长资料检索与总结", text: $persona, axis: .vertical)
-                    .lineLimit(3...8)
-                    .focused($focus, equals: .persona)
-            } header: {
-                Text("人设")
-            } footer: {
-                Text("对其他 Bot 公开，协作时用来介绍自己。")
-            }
-
-            Section {
-                TextField("例如：先给结论，再给要点，不超过 200 字", text: $instructions, axis: .vertical).lineLimit(3...8)
-                    .focused($focus, equals: .instructions)
-            } header: {
-                Text("自定义指令")
-            } footer: {
-                Text("仅本 Bot 使用，不对其他 Bot 公开。")
-            }
-
-            Section {
-                Picker(selection: $memoryAccess) {
-                    ForEach(MemoryAccess.allCases) { a in Text(a.title).tag(a) }
-                } label: {
-                    Label("记忆", systemImage: "brain")
-                }
-                NavigationLink {
-                    MemoryListView(botFilter: botForMemoryList)
-                        .toolbar(.hidden, for: .tabBar)
-                } label: {
-                    LabeledContent {
-                        if let memoryCount { Text("\(memoryCount)") }
-                    } label: {
-                        Text("\(draft.name) 记住的内容")
-                    }
-                }
-                if let growth=memoryGrowth {
-                    LabeledContent("已协助",value:"\(growth.assistedCount) 次")
-                    if let date=ListTimestamp.parse(growth.firstConversationAt) { LabeledContent("开始对话",value:date.formatted(date:.abbreviated,time:.omitted)) }
-                    let counts=growth.memoryCounts.sorted{$0.key<$1.key}.map{"\(MemoryType(rawValue:$0.key)?.title ?? "其他") \($0.value)"}.joined(separator:" · ")
-                    if !counts.isEmpty { Text("记忆：\(counts)").font(.footnote).foregroundStyle(.secondary) }
-                    ForEach(growth.recentMemories) { memory in Text("最近记住：\(memory.content)").font(.footnote).lineLimit(2) }
-                }
-            } header: {
-                Text("记忆")
-            } footer: {
-                Text("「本 Bot + 共享资料」还会读取「关于你」里所有 Bot 共享的资料。被其他 Bot 委派时，不会读取或写入你的记忆。")
-            }
-
-            Section {
-                ForEach(tools.filter { !$0.isMCP }) { t in
-                    CompactToggle(isOn: binding(for: t.name)) {
-                        Text(t.displayName)
-                    }
-                }
-            } header: {
-                Text("工具权限")
-            } footer: {
-                Text("未勾选的工具不会提供给模型。开启联网查询后，无需搜索 API key，必要查询词会发送到公开搜索引擎，结果会交给模型生成回答；请勿在查询词中包含隐私或凭据。")
-            }
-
-            Section {
-                if installedPlugins.isEmpty {
-                    Text("还没有安装插件").foregroundStyle(.secondary)
-                }
-                ForEach(installedPlugins) { plugin in
-                    let rows = pluginTools.filter { $0.pluginId == plugin.pluginId }
-                    Text(plugin.name).font(.subheadline)
-                    if !plugin.enabled || plugin.state == "disabled" {
-                        Text("已停用，可在设置中开启")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    } else if plugin.state == "needs_auth" {
-                        Text("需先在插件页连接")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    } else if plugin.state == "needs_consent" {
-                        Text("需先在设置中同意")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    } else if plugin.state != "ready" && rows.isEmpty {
-                        Text(plugin.stateTitle).font(.footnote).foregroundStyle(.secondary)
-                    } else if rows.isEmpty {
-                        Text("还没有工具").font(.footnote).foregroundStyle(.secondary)
-                    } else {
-                        Button("开启全部只读") {
-                            allowedTools = Set(MCPToolRules.addingReadOnly(current: Array(allowedTools), tools: rows))
-                        }
-                        ForEach(rows) { tool in
-                            CompactToggle(isOn: binding(for: tool.fullName)) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(tool.label)
-                                    Text(tool.riskText).font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                            .disabled(tool.status != "active")
-                        }
-                    }
-                }
-            } header: {
-                Text("插件")
-            } footer: {
-                Text("按插件分组，默认关闭。每个 Bot 最多 \(MCPToolRules.maxPerBot) 个。「开启全部只读」只写入当前这些只读工具的名字。")
-            }
-
-            Section {
-                if others.isEmpty {
-                    Text("暂无其他 Bot").foregroundStyle(.secondary)
-                }
-                ForEach(others) { o in
-                    CompactToggle(isOn: targetBinding(o.id)) {
-                        HStack {
-                            LiveBotAvatar(botID: o.id, emoji: o.avatar, color: o.color,
-                                           hasAvatar: o.hasAvatar, updatedAt: o.avatarUpdatedAt, size: 26,
-                                           appearance: o.supportedAppearance)
-                            Text(o.name)
-                            if !o.acceptDelegation {
-                                Text("未开放委派").font(.caption2).foregroundStyle(.orange)
-                            }
-                        }
-                    }
-                    .disabled(!canDelegate)
-                }
-                CompactToggle("接受其他 Bot 的委派", isOn: $acceptDelegation)
-            } header: {
-                Text("委派")
-            } footer: {
-                Text(delegationFooter)
-            }
-
-            Section {
-                CompactToggle(isOn: Binding(get: { notificationsMuted }, set: { on in
-                    notificationsMuted = on
-                    Task { await setMuted(on) }
-                })) {
-                    Label("静音通知", systemImage: "bell.slash")
-                }
-                .disabled(notificationPrefs == nil)
-            } footer: {
-                Text("静音后，这个 Bot 的消息不再推送。你自己创建的提醒仍会响。")
-            }
-
-            Section("协作记录") {
-                NavigationLink {
-                    DelegationLogView(bot: bot)
-                        .toolbar(.hidden, for: .tabBar)
-                } label: {
-                    Label("查看协作记录", systemImage: "list.bullet.rectangle")
-                }
-            }
-
-            if let errorText {
-                Text(errorText).foregroundStyle(.red)
-            }
-
-            if let onClear {
+            if infoMode {
                 Section {
-                    Button(role: .destructive) { endEditing(); confirmClear = true } label: {
-                        Label("清空对话", systemImage: "trash").foregroundStyle(.red)
+                    Picker("Bot 内容", selection: $contentTab) {
+                        Text("设置").tag("settings")
+                        Text("文件").tag("file")
+                        Text("图片").tag("image")
                     }
-                    .disabled(clearDisabled)
-                    .confirmationDialog("清空与「\(bot.name)」的全部对话？", isPresented: $confirmClear, titleVisibility: .visible) {
-                        Button("仅清空对话", role: .destructive) {
-                            Task { await onClear(false); endEditing(); dismiss() }   // 清空后关闭 sheet，回到对话页
-                        }
-                        Button("清空对话和「\(bot.name)」的记忆", role: .destructive) {
-                            Task { await onClear(true); endEditing(); dismiss() }
-                        }
-                        Button("取消", role: .cancel) {}
-                    } message: {
-                        Text("对话内容和该 Bot 的对话摘要将被删除，此操作不可撤销。已确认的记忆默认保留（可在「Vera 了解的你」中管理）；选择第二项会同时删除仅「\(bot.name)」可用的记忆，所有 Bot 共享的资料不受影响。")
-                    }
-                } footer: {
-                    Text("清空后该 Bot 将忘记此前的对话，并删除对话摘要；已确认的记忆默认保留。")
+                    .pickerStyle(.segmented)
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+            }
+
+            if contentTab == "settings" {
+                settingsSections
+            } else {
+                Section {
+                    LibraryView(scope: .bot(id: bot.id), initialKind: contentTab, embedded: true)
+                        .id(contentTab)
+                }
+                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
             }
         }
         .listSectionSpacing(12)
@@ -304,14 +106,16 @@ struct BotEditView: View {
         .keyboardDoneButton(enabled: !infoMode) { focus = nil }
         // 两个入口都是 sheet：禁止下滑关闭，只能点「关闭」/「取消」或「保存」退出（未保存改动不会被误丢）
         .interactiveDismissDisabled()
-        .onDisappear { endEditing() }   // push 协作记录 / 关闭 sheet 时收起键盘
+        .onDisappear { endEditing() }   // push 子页面 / 关闭 sheet 时收起键盘
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 DismissToolbarButton(kind: infoMode ? .close : .cancel) { endEditing(); dismiss() }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("保存") { endEditing(); Task { await save() } }
-                    .disabled(saving || !loaded)
+            if contentTab == "settings" {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") { endEditing(); Task { await save() } }
+                        .disabled(saving || !loaded)
+                }
             }
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
@@ -340,6 +144,229 @@ struct BotEditView: View {
             Text(inputError ?? "")
         }
         .task { await load() }
+    }
+
+    @ViewBuilder private var profileSections: some View {
+        Menu {
+            Button { endEditing(); showPhotoPicker = true } label: {
+                Label("从相册选择", systemImage: "photo")
+            }
+            if draft.canUseDefaultLook {
+                Button("使用默认形象") { draft.useDefaultLook(); pendingImage = nil }
+            }
+        } label: {
+            cardAvatar
+        }
+        .accessibilityLabel("更换头像")
+        .frame(maxWidth: .infinity)
+        .frame(height: 88)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
+        .listRowSeparator(.hidden)
+
+        Section {
+            Button { nameInput = draft.name; showNameAlert = true } label: {
+                Text(draft.name).font(.body)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("修改昵称")
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+            .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
+            Button { tagsInput = draft.tagsText; showTagsAlert = true } label: {
+                Text(draft.tags.isEmpty ? "如：搜索, 查询, 调研" : draft.tagsText)
+                    .font(.body).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("修改标签")
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+            .alignmentGuide(.listRowSeparatorTrailing) { dimensions in dimensions.width }
+            Button(app.primaryBotID == bot.id ? "取消主 Bot" : "设为主 Bot") {
+                Task { await app.setPrimaryBot(app.primaryBotID == bot.id ? nil : bot.id) }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    @ViewBuilder private var settingsSections: some View {
+        Section {
+            NavigationLink("任务") { TaskListView(botID: bot.id, botName: bot.name) }
+        }
+        Section {
+            BotAvatarShapePicker(selection:Binding(get:{ shape },set:{ shape = $0; shapeChanged = true }),color:color,compact:true)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            BotAvatarColorPicker(selection: $color)
+            if savedBot.hasAvatar && draft.photo != .remove {
+                Text("照片头像优先显示；切换为默认形象后使用所选形状。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+
+        Section {
+            TextField("例如：资深研究员，擅长资料检索与总结", text: $persona, axis: .vertical)
+                .lineLimit(3...8)
+                .focused($focus, equals: .persona)
+        } header: {
+            Text("人设")
+        } footer: {
+            Text("对其他 Bot 公开，协作时用来介绍自己。")
+        }
+
+        Section {
+            TextField("例如：先给结论，再给要点，不超过 200 字", text: $instructions, axis: .vertical).lineLimit(3...8)
+                .focused($focus, equals: .instructions)
+        } header: {
+            Text("自定义指令")
+        } footer: {
+            Text("仅本 Bot 使用，不对其他 Bot 公开。")
+        }
+
+        Section {
+            Picker(selection: $memoryAccess) {
+                ForEach(MemoryAccess.allCases) { a in Text(a.title).tag(a) }
+            } label: {
+                Label("记忆", systemImage: "brain")
+            }
+            NavigationLink {
+                MemoryListView(botFilter: botForMemoryList)
+                    .toolbar(.hidden, for: .tabBar)
+            } label: {
+                LabeledContent {
+                    if let memoryCount { Text("\(memoryCount)") }
+                } label: {
+                    Text("\(draft.name) 记住的内容")
+                }
+            }
+            if let growth=memoryGrowth {
+                LabeledContent("已协助",value:"\(growth.assistedCount) 次")
+                if let date=ListTimestamp.parse(growth.firstConversationAt) { LabeledContent("开始对话",value:date.formatted(date:.abbreviated,time:.omitted)) }
+                let counts=growth.memoryCounts.sorted{$0.key<$1.key}.map{"\(MemoryType(rawValue:$0.key)?.title ?? "其他") \($0.value)"}.joined(separator:" · ")
+                if !counts.isEmpty { Text("记忆：\(counts)").font(.footnote).foregroundStyle(.secondary) }
+                ForEach(growth.recentMemories) { memory in Text("最近记住：\(memory.content)").font(.footnote).lineLimit(2) }
+            }
+        } header: {
+            Text("记忆")
+        } footer: {
+            Text("「本 Bot + 共享资料」还会读取「关于你」里所有 Bot 共享的资料。被其他 Bot 委派时，不会读取或写入你的记忆。")
+        }
+
+        Section {
+            ForEach(tools.filter { !$0.isMCP }) { t in
+                CompactToggle(isOn: binding(for: t.name)) {
+                    Text(t.displayName)
+                }
+            }
+        } header: {
+            Text("工具权限")
+        } footer: {
+            Text("未勾选的工具不会提供给模型。开启联网查询后，无需搜索 API key，必要查询词会发送到公开搜索引擎，结果会交给模型生成回答；请勿在查询词中包含隐私或凭据。")
+        }
+
+        Section {
+            if installedPlugins.isEmpty {
+                Text("还没有安装插件").foregroundStyle(.secondary)
+            }
+            ForEach(installedPlugins) { plugin in
+                let rows = pluginTools.filter { $0.pluginId == plugin.pluginId }
+                Text(plugin.name).font(.subheadline)
+                if !plugin.enabled || plugin.state == "disabled" {
+                    Text("已停用，可在设置中开启")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else if plugin.state == "needs_auth" {
+                    Text("需先在插件页连接")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else if plugin.state == "needs_consent" {
+                    Text("需先在设置中同意")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else if plugin.state != "ready" && rows.isEmpty {
+                    Text(plugin.stateTitle).font(.footnote).foregroundStyle(.secondary)
+                } else if rows.isEmpty {
+                    Text("还没有工具").font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    Button("开启全部只读") {
+                        allowedTools = Set(MCPToolRules.addingReadOnly(current: Array(allowedTools), tools: rows))
+                    }
+                    ForEach(rows) { tool in
+                        CompactToggle(isOn: binding(for: tool.fullName)) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(tool.label)
+                                Text(tool.riskText).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(tool.status != "active")
+                    }
+                }
+            }
+        } header: {
+            Text("插件")
+        } footer: {
+            Text("按插件分组，默认关闭。每个 Bot 最多 \(MCPToolRules.maxPerBot) 个。「开启全部只读」只写入当前这些只读工具的名字。")
+        }
+
+        Section {
+            if others.isEmpty {
+                Text("暂无其他 Bot").foregroundStyle(.secondary)
+            }
+            ForEach(others) { o in
+                CompactToggle(isOn: targetBinding(o.id)) {
+                    HStack {
+                        LiveBotAvatar(botID: o.id, emoji: o.avatar, color: o.color,
+                                       hasAvatar: o.hasAvatar, updatedAt: o.avatarUpdatedAt, size: 26,
+                                       appearance: o.supportedAppearance)
+                        Text(o.name)
+                        if !o.acceptDelegation {
+                            Text("未开放委派").font(.caption2).foregroundStyle(.orange)
+                        }
+                    }
+                }
+                .disabled(!canDelegate)
+            }
+            CompactToggle("接受其他 Bot 的委派", isOn: $acceptDelegation)
+        } header: {
+            Text("委派")
+        } footer: {
+            Text(delegationFooter)
+        }
+
+        Section {
+            CompactToggle(isOn: Binding(get: { notificationsMuted }, set: { on in
+                notificationsMuted = on
+                Task { await setMuted(on) }
+            })) {
+                Label("静音通知", systemImage: "bell.slash")
+            }
+            .disabled(notificationPrefs == nil)
+        } footer: {
+            Text("静音后，这个 Bot 的消息不再推送。你自己创建的提醒仍会响。")
+        }
+
+        if let errorText {
+            Text(errorText).foregroundStyle(.red)
+        }
+
+        if let onClear {
+            Section {
+                Button(role: .destructive) { endEditing(); confirmClear = true } label: {
+                    Label("清空对话", systemImage: "trash").foregroundStyle(.red)
+                }
+                .disabled(clearDisabled)
+                .confirmationDialog("清空与「\(bot.name)」的全部对话？", isPresented: $confirmClear, titleVisibility: .visible) {
+                    Button("仅清空对话", role: .destructive) {
+                        Task { await onClear(false); endEditing(); dismiss() }   // 清空后关闭 sheet，回到对话页
+                    }
+                    Button("清空对话和「\(bot.name)」的记忆", role: .destructive) {
+                        Task { await onClear(true); endEditing(); dismiss() }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text("对话内容和该 Bot 的对话摘要将被删除，此操作不可撤销。已确认的记忆默认保留（可在「Vera 了解的你」中管理）；选择第二项会同时删除仅「\(bot.name)」可用的记忆，所有 Bot 共享的资料不受影响。")
+                }
+            } footer: {
+                Text("清空后该 Bot 将忘记此前的对话，并删除对话摘要；已确认的记忆默认保留。资料库中的文件和图片仍会保留。")
+            }
+        }
     }
 
     /// 卡片头像：未保存的新照片 > 待删除（显示默认形象）> 已保存的照片 / 默认形象。

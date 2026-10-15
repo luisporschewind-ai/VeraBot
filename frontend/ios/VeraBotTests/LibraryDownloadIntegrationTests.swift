@@ -9,5 +9,8 @@ final class LibraryDownloadIntegrationTests: XCTestCase {
         XCTAssertFalse(automatic.allowsExpensiveNetworkAccess)
         XCTAssertFalse(automatic.allowsConstrainedNetworkAccess)
         XCTAssertTrue(manual.allowsCellularAccess)
+        XCTAssertNil(manual.identifier, "A manual tap must not wait for the background download service")
+        XCTAssertFalse(manual.waitsForConnectivity)
+        XCTAssertNotNil(automatic.identifier)
     }
 }

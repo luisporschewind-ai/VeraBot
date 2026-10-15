@@ -15,6 +15,7 @@ struct LibraryItemDetailView: View {
         let item=app.libraryDownloads?.items.first(where:{$0.id==self.item.id}) ?? self.item
         return List {
             Section {
+                if item.isImage { LibraryImageTile(item: item) }
                 LibraryFileRow(item:item)
                 if let url=app.libraryDownloads?.localURL(id:item.id) {
                     Button("打开原件",systemImage:"doc.viewfinder") { preview=url }

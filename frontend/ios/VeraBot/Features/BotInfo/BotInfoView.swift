@@ -1,11 +1,12 @@
 import SwiftUI
 import VeraBotCore
 
-/// Bot home owns navigation; editing keeps the existing explicit-save form.
+/// Preserve the original Bot profile form; its library tabs share the existing header.
 struct BotInfoView: View {
-    @Environment(\.dismiss) private var dismiss
     let vm: ChatViewModel
     var body: some View {
-        BotHomeView(bot:vm.bot,onSaved:{vm.bot=$0},onStartChat:{dismiss()},clearDisabled:vm.sending,onClear:{includeMemories in await vm.clear(includeMemories:includeMemories)})
+        BotEditView(bot: vm.bot, onSaved: { vm.bot = $0 }, infoMode: true,
+                    clearDisabled: vm.sending,
+                    onClear: { await vm.clear(includeMemories: $0) })
     }
 }

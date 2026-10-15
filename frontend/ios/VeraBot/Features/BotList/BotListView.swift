@@ -30,7 +30,6 @@ struct BotListView: View {
         NavigationStack {
             // 沉浸式平铺列表：白底、无圆角分组、无分隔线（plainListRow 见 Theme）
             List {
-                NavigationLink { LibraryView(scope:.all) } label: { Label("资料库",systemImage:"folder") }.plainListRow()
                 if !conversations.isEmpty, let connectionIssue {
                     BotConnectionView(issue: connectionIssue, retrying: loading, compact: true) {
                         Task { await load() }

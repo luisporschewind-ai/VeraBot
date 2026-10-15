@@ -15,6 +15,11 @@ struct SettingsView: View {
     var body: some View {
         ThemedForm {
             AccountSettingsSection()   // 账号置顶
+            Section {
+                NavigationLink { LibraryView(scope: .all) } label: {
+                    Label("资料库", systemImage: "folder")
+                }
+            }
             UsageSettingsSection()     // 用量（push 用量看板）
             MemorySettingsSection()    // 记忆：「Vera 了解的你」+ 允许 Bot 记住（Features/Memory）
             PluginsSettingsSection()   // 插件（内置 + 外部）。新用户不预装外部插件
