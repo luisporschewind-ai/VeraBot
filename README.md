@@ -1,5 +1,9 @@
 # VeraBot — 私人 AI 助理团队 (Personal AI Agent Team)
 
+## 独立资料库（2026-10-15）
+
+全局资料库汇总 Bot 私聊与群聊的文件和图片；Bot 主页分别展示文件、图片。清空对话后资料保留，已下载原件支持本地复用。后端 schema v34 已部署，模拟器与 iPhone 11 已安装 0.1.0 (2026101501)，待用户交互验收。见 [交付记录](docs/testing/2026-10-15-independent-library.md)。
+
 ## 本地对话阅读（2026-10-15）
 
 iOS 私聊与群聊进入时先恢复 SQLite 历史和草稿、完成消息定位，再同步后端；断网时仍可翻阅已保存的消息。验证见 [离线进入记录](docs/testing/2026-10-15-offline-chat-entry.md)。
