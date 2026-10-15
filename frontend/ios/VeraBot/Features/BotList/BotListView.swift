@@ -480,13 +480,16 @@ struct BotRow: View {
                     }
                     BotTagChip(tags: bot.tags)   // 一个浅灰圆角矩形，「搜索, 查询, 调研」，放不下尾部截断
                 }
-                Text(activity?.statusText.isEmpty == false ? activity!.statusText : preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                // 未读点位于尾列、时间正下方：右缘与时间右缘对齐，垂直居中于预览行
+                HStack(alignment: .center, spacing: 8) {
+                    Text(activity?.statusText.isEmpty == false ? activity!.statusText : preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if let count = activity?.unreadCount, count > 0 { Circle().fill(Color.accentColor).frame(width: 9, height: 9).accessibilityLabel("\(count) 条未读回复") }
+                }
                 if let count = activity?.workItems.filter({ ["running", "queued", "awaiting_user", "awaiting_approval"].contains($0.state) }).count, count > 1 { Text("另有 \(count - 1) 项进行中").font(.caption2).foregroundStyle(.secondary) }
                 if app.activityNeedsSync { Text("待同步").font(.caption2).foregroundStyle(.secondary) }
             }
         }
-        .padding(.trailing, (activity?.unreadCount ?? 0) > 0 ? 20 : 0)
-        .overlay(alignment: .topTrailing) { if let count = activity?.unreadCount, count > 0 { Circle().fill(Color.accentColor).frame(width: 9, height: 9).offset(x: 5, y: 2).accessibilityLabel("\(count) 条未读回复") } }
         .padding(.vertical, 2)
     }
 
@@ -535,14 +538,18 @@ struct GroupConversationRow: View {
                     Text("群聊").font(.caption2.weight(.medium)).foregroundStyle(.secondary)
                         .padding(.horizontal, 6).padding(.vertical, 2).background(Color.sectionFill, in: Capsule())
                 }
-                Text(activity?.statusText.isEmpty == false ? activity!.statusText : preview)
-                    .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                HStack(alignment: .center, spacing: 8) {
+                    Text(activity?.statusText.isEmpty == false ? activity!.statusText : preview)
+                        .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if let count = activity?.unreadCount, count > 0 { Circle().fill(Color.accentColor).frame(width: 9, height: 9).accessibilityLabel("\(count) 条未读回复") }
+                }
                 if let ownerID = activity?.workItems.first(where: { $0.source == "group" && $0.ownerMemberID != nil })?.ownerMemberID,
                    let owner = group.members.first(where: { $0.id == ownerID }) { Text("负责人：\(owner.name)").font(.caption2).foregroundStyle(.secondary) }
                 if let count = activity?.workItems.filter({ ["running", "queued", "awaiting_user", "awaiting_approval"].contains($0.state) }).count, count > 1 { Text("另有 \(count - 1) 项进行中").font(.caption2).foregroundStyle(.secondary) }
                 if app.activityNeedsSync { Text("待同步").font(.caption2).foregroundStyle(.secondary) }
             }
-        }.padding(.trailing, (activity?.unreadCount ?? 0) > 0 ? 20 : 0).overlay(alignment: .topTrailing) { if let count = activity?.unreadCount, count > 0 { Circle().fill(Color.accentColor).frame(width: 9, height: 9).offset(x: 5, y: 2).accessibilityLabel("\(count) 条未读回复") } }.padding(.vertical, 2)
+        }.padding(.vertical, 2)
     }
 
     private var preview: String {
