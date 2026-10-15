@@ -128,8 +128,9 @@ struct MessageRow: View {
                         }
                     }
                     if !item.text.isEmpty || item.streaming {
-                        // 朗读按钮放在气泡右下角：内层 VStack 宽度跟随气泡，按钮与气泡右边缘对齐
-                        VStack(alignment: .trailing, spacing: 6) {
+                        // 气泡、中断提示与操作行（朗读 / 👍👎）统一左对齐，紧贴头像右侧；
+                        // 原先 .trailing 对齐会在操作行比短气泡宽时把气泡推到右边，与头像之间出现空隙。
+                        VStack(alignment: .leading, spacing: 6) {
                             // 不再追加「▍」光标字符：首个 token 到达前气泡里只有它，显示成回复开头的一根黑色竖条。
                             // 等待首个 token 时用系统 ProgressView；之后正文逐字出现即可表示正在生成。
                             Group {

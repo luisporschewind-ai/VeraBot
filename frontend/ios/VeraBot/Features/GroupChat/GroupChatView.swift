@@ -157,6 +157,7 @@ struct GroupChatView: View {
             }
             initialPositionReady = true
             updateNotificationVisibility()
+            await app.markConversationRead(kind: "group", id: model.group.id)
         }
         .onChange(of: model.draft) { _, new in
             if new.isEmpty {
@@ -190,7 +191,7 @@ struct GroupChatView: View {
                 app.notificationEvents.visibleGroupID = nil
                 app.notificationEvents.visibleMessageIDs = []
             }
-            if !hasTemporaryCover { reading.leave(); entered = false }
+            if !hasTemporaryCover { reading.leave(); entered = false; let groupID = model.group.id; Task { await app.markConversationRead(kind: "group", id: groupID) } }
             inputFocused = false
             draftSaveTask?.cancel()
             let finalDraft = model.draft
@@ -317,6 +318,8 @@ struct GroupChatView: View {
                             }
                             .buttonStyle(.plain).accessibilityLabel("停止讨论")
                             .disabled(model.confirmingStop)
+                        } else if model.busy {
+                            ProgressView().frame(width: 36, height: Self.barHeight).accessibilityLabel("正在回复")
                         } else {
                             Button(action: toggleSpeech) {
                                 Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic")
@@ -499,7 +502,7 @@ struct GroupChatView: View {
     }
 
     private func send() {
-        guard !model.loading,!model.sending else { return }
+        guard !model.loading,!model.sending,!model.busy else { return }   // 回复进行中不能再发
         if model.hasUnconfirmedInput {model.recoverPendingSubmission();return}
         let text = model.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (!text.isEmpty || attachment.ready != nil), text.count <= 2000, !attachment.blocksSend else { return }

@@ -38,6 +38,8 @@ final class ChatViewModel {
     var items: [Item] = []
     var activityRepository: ConversationActivityRepository?
     var replyTasks: [ChatReplyTask] = []
+    /// 正在排队或生成的回复：此时输入栏右侧显示忙碌 / 停止按钮，不允许再发新消息。
+    var replyInProgress: ChatReplyTask? { replyTasks.first { $0.state == "queued" || $0.state == "running" } }
     var conversationGeneration = 1
     var controlBusy: Set<Int> = []
     var selectedWaitTaskID: Int?

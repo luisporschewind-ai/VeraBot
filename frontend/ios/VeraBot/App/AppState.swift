@@ -465,6 +465,14 @@ extension AppState {
         try? await repository.enqueueRead(kind: kind, id: id, generation: generation, message: message)
         await flushReadOutbox()
     }
+    /// 打开（或正在看）对话时把该对话全部未读回复标为已读：先写本地已读队列，再上报服务端。
+    func markConversationRead(kind: String, id: Int) async {
+        guard appIsForeground, let repository = activityRepository, let row = activity(kind: kind, id: id) else { return }
+        let batch = row.entryReadBatch
+        guard !batch.isEmpty else { return }
+        for message in batch { try? await repository.enqueueRead(kind: kind, id: id, generation: row.generation, message: message) }
+        await flushReadOutbox()
+    }
     func flushReadOutbox() async {
         guard appIsForeground, let repository = activityRepository else { return }
         let session = sessionGeneration

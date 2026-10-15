@@ -1,5 +1,11 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · Bot 回复对齐、回复中输入栏忙碌态、打开即已读
+
+- 私聊 Bot 回复：气泡、中断提示与操作行（朗读 / 👍👎）改为左对齐，短气泡不再被操作行推离头像。
+- 输入栏：私聊回复排队或生成中，右侧麦克风换成忙碌态停止按钮（转圈 + 停止方块），点按停止本次回复；此时不能发送新消息，去掉「排队中 / 取消排队 / 正在回复」状态行（「等你补充 / 待你确认」保留）。群聊回复中同样禁止发送，可停止时显示停止按钮，否则显示转圈。完成或失败后恢复麦克风。
+- 已读：进入对话、从后台回到前台、离开对话时把该对话全部未读回复写入本地已读队列并上报服务端（`AppState.markConversationRead`，`ConversationActivity.entryReadBatch`），列表圆点与「新」分隔线随之清除；之后只有离开期间新到的回复才会再提示。
+
 ## 2026-10-15 · Worker 环境变量、SSE 事件派发与新消息提示
 
 - 后端：独立启动的 worker（`python -m verabot.services.chat_tasks` / `owned_tasks` / `scheduled_tasks`）此前不读取 `backend/.env`，缺少 `DEEPSEEK_API_KEY` 时每条私聊回复都失败，并显示「⚠️ 模型没有返回内容（已自动重试）」。新增 `verabot/core/envfile.py`，三个入口在导入配置前加载 `.env`（不覆盖已导出变量），缺少 Key 时直接退出并给出提示。回归 `scripts/test/worker_env_test.py`。
