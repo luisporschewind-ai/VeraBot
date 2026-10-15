@@ -11,7 +11,6 @@ struct CreateGroupSheet: View {
     @State private var loading = true
     @State private var saving = false
     @State private var error: String?
-    @State private var selectionHint: String?
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canSubmit: Bool {
         !saving && !loading && !trimmed.isEmpty && trimmed.count <= 64
@@ -29,24 +28,25 @@ struct CreateGroupSheet: View {
                         Button {
                             toggle(bot.id, isSelected: isSelected, canSelectMore: canSelectMore)
                         } label: {
-                            HStack {
-                                LiveBotAvatar(botID:bot.id,emoji:bot.avatar,color:bot.color,
-                                              hasAvatar:bot.hasAvatar,updatedAt:bot.avatarUpdatedAt,size:40,
-                                              appearance:bot.supportedAppearance)
-                                Text(bot.name).foregroundStyle(isSelected || canSelectMore ? .primary : .secondary)
-                                Spacer()
+                            // 行高对齐 GroupInfoMemberRow：头像 30、间距 10、相同 listRowInsets。
+                            HStack(alignment: .center, spacing: 10) {
+                                LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
+                                              hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 30,
+                                              appearance: bot.supportedAppearance)
+                                Text(bot.name).font(.body)
+                                    .foregroundStyle(isSelected || canSelectMore ? .primary : .secondary)
+                                Spacer(minLength: 0)
                                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                                     .foregroundStyle(isSelected ? Color.accentColor : (canSelectMore ? Color.secondary : Color.secondary.opacity(0.5)))
                             }
                         }
                         .buttonStyle(.plain)
+                        .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
                         .disabled(!isSelected && !canSelectMore)
                         .accessibilityHint(isSelected ? "取消选择" : (canSelectMore ? "选择" : BotProductLimits.groupSelectionFullMessage))
                     }
                 } header: {
                     Text(BotProductLimits.groupSelectionTitle(selectedCount: selected.count))
-                } footer: {
-                    Text(selectionHint ?? BotProductLimits.groupSelectionHint)
                 }
                 if let error { Section { Text(error).foregroundStyle(.secondary); Button("重新加载伙伴") { Task { await load() } } } }
             }.disabled(saving)
@@ -64,15 +64,11 @@ struct CreateGroupSheet: View {
     }
 
     private func toggle(_ botID: Int, isSelected: Bool, canSelectMore: Bool) {
-        selectionHint = nil
         if isSelected {
             selected.remove(botID)
             return
         }
-        guard canSelectMore else {
-            selectionHint = BotProductLimits.groupSelectionFullMessage
-            return
-        }
+        guard canSelectMore else { return }
         selected.insert(botID)
     }
 
@@ -88,10 +84,7 @@ struct CreateGroupSheet: View {
     private func create() async {
         guard !saving else { return }
         // 提交时二次校验：防止重复触发绕过 2～5 范围。
-        guard BotProductLimits.canCreateGroup(selectedBotCount: selected.count) else {
-            selectionHint = BotProductLimits.groupSelectionHint
-            return
-        }
+        guard BotProductLimits.canCreateGroup(selectedBotCount: selected.count) else { return }
         saving = true
         let generation = app.sessionGeneration
         defer { if generation == app.sessionGeneration { saving = false } }

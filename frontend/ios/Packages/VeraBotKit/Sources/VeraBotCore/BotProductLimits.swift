@@ -10,10 +10,6 @@ public enum BotProductLimits {
     public static let accountLimitReachedMessage =
         "最多可创建 \(maxBotsPerAccount) 个 Bot，请删除不再使用的 Bot 后重试。"
 
-    /// 群聊创建页说明文案。
-    public static let groupSelectionHint =
-        "每个群聊需要选择 \(minBotsPerGroup)～\(maxBotsPerGroup) 个 Bot"
-
     /// 群聊满额时点击未选 Bot 的提示。
     public static let groupSelectionFullMessage =
         "每个群聊最多选择 \(maxBotsPerGroup) 个 Bot"

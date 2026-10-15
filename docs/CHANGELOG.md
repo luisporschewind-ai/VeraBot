@@ -1,5 +1,10 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · 创建群聊去掉说明文案、选择行紧凑化
+
+- iOS `CreateGroupSheet`：去掉选择区 footer「每个群聊需要选择 2～5 个 Bot」，弹窗内不再有任何说明文案；2～5 选择校验保留（满 5 个禁用未选行、不足 2 个或超过 5 个时「创建」不可用、提交前二次校验）。`BotProductLimits.groupSelectionHint` 已删除，`BotProductLimitsTests` 仍覆盖 2～5 边界。
+- Bot 选择行对齐群设置成员行与「添加成员」弹窗：头像 30、间距 10、`listRowInsets(top: 2, leading: 20, bottom: 2, trailing: 20)`。其他 UI 未改。
+
 ## 2026-10-15 · 「回到最新」按钮显隐修正
 
 - 私聊 / 群聊：「回到最新」按钮原来显隐完全反了（贴底时显示、上滑时隐藏）。现在只在滚离底部时显示，贴底或接近底部（40pt 内）时隐藏；新消息自动跟随同样使用该判定。贴底判定抽为 `VeraBotCore.ScrollBottomDetector`，回归测试 `ScrollBottomDetectorTests`。
