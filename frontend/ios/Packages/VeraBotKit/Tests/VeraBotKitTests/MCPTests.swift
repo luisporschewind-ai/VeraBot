@@ -96,6 +96,19 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
     #expect(MCPToolRules.addingReadOnly(current: full, tools: tools) == full)
 }
 
+@Test func slimmedMCPTraceKeepsOriginalContentLength() throws {
+    let capped = String(repeating: "x", count: 2000) + "…[truncated]"
+    let slim = try decode(ToolTrace.self, """
+    {"id":"m1","name":"mcp__learn__microsoft_docs_search","args":{},
+     "result":{"content":"\(capped)","code":null,"is_error":false,"truncated":false,"trace_truncated":{"content":8123}}}
+    """)
+    let result = try #require(slim.result)
+    #expect(MCPTraceText.contentLength(result) == 8123)
+    #expect(MCPTraceText.summary(contentLength: MCPTraceText.contentLength(result), truncated: false).contains("约 8123 字"))
+    let old = try decode(ToolTrace.self, #"{"id":"m2","name":"mcp__x__y","args":{},"result":{"content":"abc","truncated":false}}"#)
+    #expect(MCPTraceText.contentLength(try #require(old.result)) == 3)
+}
+
 @Test func mcpTraceTitleUsesChineseLabelsAndNeverRawText() {
     #expect(MCPTraceText.title(for: "mcp__learn__microsoft_docs_search") == "🔌 Microsoft Learn · 搜索微软文档")
     #expect(MCPTraceText.title(for: "mcp__aws__aws___list_regions") == "🔌 AWS Knowledge · 列出 AWS 区域")

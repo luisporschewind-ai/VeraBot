@@ -126,7 +126,7 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 
 修复（仅 iOS）：`ConversationActivity.displayState` / `displayPhase`：`latest_message` 有可读正文时，终态不代表当前状态，按空闲处理并显示最新消息预览（失败/中断的回复本身会发布可读正文，如「回复暂时无法完成」）；没有任何可读消息时才显示「工作暂未完成」。`retry_wait` 属内部重试，显示「正在思考」。`statusText`、列表头像 `avatarAction`、`AppState` 完成动画判断都改用展示状态；本轮任务从进行中变为 failed/interrupted 时（`hasNewlyFailedWork(since:)`）不播完成动画。「等你补充 / 待你确认」保持显示。回归：`listRowShowsReplyPreviewOverStaleInterruptedWork`。
 
-后端未改：摘要仍会把旧的失败/中断任务留在 `work_items`、`state` 里，其他客户端需同样按 `latest_message` 处理，或后端改为只在最新一轮失败时上报终态。
+后端已修复（schema v33，`fix/backend-stale-tasks-slim-traces`）：`chat_reply_tasks`、`owned_tasks` 新增 `superseded_at`。同一会话同一代里，失败 / 中断之后又有一条正常完成的助手回复（`role='assistant'`、`message_status='completed'`、`source_kind` 为空：持久回复完成、旧版流式写入、操作结果说明），或之后有主动任务完成，旧任务即由触发器标记 `superseded_at`；`conversation_activity_store.summary()` 的私聊 `work_items` 排除已标记的任务，行状态回到 `idle`。持久回复只标记 `output_message_id` 小于该回复的任务；主动任务自己的投递消息（`source_kind='owned_task'`）和定时任务结果不算，避免把真实的失败当成过时。任务重新进入非终态（如继续执行）时清除标记。真正最新的一次失败 / 中断照常上报。v33 迁移按同一规则一次性回填存量任务，只写标记，不删任何消息或任务。回归：`backend/scripts/test/stale_work_trace_slim_test.py`（STALE-01～08、MIG-01～04）。iOS 的 `latest_message` 兜底保留，对旧后端仍有效。
 
 ## 动态开场词 Phase 1（2026-10-15）
 
@@ -155,7 +155,7 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 
 回归：`LongReplyCollapseTests`（`realMarkdownRepliesOverOneScreenCollapse`、`realMarkdownReplyUnderOneScreenStaysExpanded`、`readFileTraceSummaryOmitsFileText`、`fallbackTraceSummaryIsBounded` 等）。未运行，需在 Mac 上 `swift test`。规格见 [long-reply-collapse](../specs/long-reply-collapse.md)。
 
-后端未改：`read_file` 的完整结果（含文件文本）仍原样存进消息 `traces`，每次同步历史都会下发并解码这 32 KB。客户端已不再显示，后端可在落库或下发时去掉 `text`，只留 `filename` / `offset` / `next_offset` / `has_more` / `text_chars`。
+后端已修复（schema v33，`fix/backend-stale-tasks-slim-traces`）：工具 trace 在落库和同步时瘦身（`verabot/core/trace_slim.py`）。`read_file` 去掉 `text`，保留 `filename` / `offset` / `next_offset` / `has_more` / `text_chars` / `text_status`，新增 `length`（本次读到的字数）和 `text_omitted: true`；其他工具结果里超过 2000 字的字符串截到 2000 字并接 `…[truncated]`，原长度记在 `result.trace_truncated`（如 `{"content": 8123}`）。写入点：`chat_reply_store.save_partial` / `finish` / `event`（`tool_result`、`message_updated`、`task_updated`）、`repository.add_message`、旧版流式 SSE 的 `tool_result`。模型在本轮仍拿到完整结果（tool 消息由未瘦身的结果生成；持久回复的加密检查点也保留完整结果）。v33 迁移改写存量 `messages.traces` 和 `chat_reply_events` 里的工具结果，迁移前备份 `verabot.db.bak-before-v33-<时间戳>`。影响：后续轮次从历史重建工具调用时，`read_file` 只剩元数据（原来是结果 JSON 前 1500 字），联网结果每个字段最多 2000 字。iOS：`read_file` 卡片照常解码显示；MCP 卡片「约 N 字」改用 `trace_truncated.content`（`MCPTraceText.contentLength`）。回归：`stale_work_trace_slim_test.py`（TRACE-01～04、LOOP-01～03、MIG-03）；Swift `slimmedReadFileTraceFromBackendDecodesAndSummarizes`、`slimmedMCPTraceKeepsOriginalContentLength`。
 
 ## 后续再做
 

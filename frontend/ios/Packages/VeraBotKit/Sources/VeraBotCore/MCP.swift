@@ -261,6 +261,12 @@ public enum MCPTraceText {
         return "🔌 \(server) · \(toolLabels[tool] ?? tool)"
     }
 
+    /// 外部资料字数。后端落库的 trace 把 content 截到约 2000 字，原长度在 trace_truncated.content。
+    public static func contentLength(_ result: JSONValue) -> Int {
+        if case .number(let n)? = result["trace_truncated"]?["content"] { return Int(n) }
+        return result["content"]?.text.count ?? 0
+    }
+
     /// 成功结果的一行说明，不显示外部原文。
     public static func summary(contentLength: Int, truncated: Bool) -> String {
         "已读取外部资料（约 \(contentLength) 字\(truncated ? "，已截断" : "")），内容只作为参考信息"

@@ -101,7 +101,7 @@ struct TraceView: View {
             return ToolTraceSummary.readFile(r)
         default:
             if MCPTraceText.isMCP(trace.name) {
-                return MCPTraceText.summary(contentLength: r["content"]?.text.count ?? 0,
+                return MCPTraceText.summary(contentLength: MCPTraceText.contentLength(r),
                                             truncated: r["truncated"]?.text == "true")
             }
             return ToolTraceSummary.fallback(r)

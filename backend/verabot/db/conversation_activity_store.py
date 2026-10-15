@@ -41,8 +41,9 @@ def summary(c,uid,kind,cid):
  WHERE p.user_id=? AND p.kind=? AND p.conversation_id=? AND p.generation=?
  AND p.publication_revision>COALESCE(r.publication_revision,0) ORDER BY p.message_id''',(uid,kind,cid,gen))]
     if kind=='private':
-        work=[dict(r) for r in c.execute("SELECT id,state,phase,version,wait_id,'chat' AS source FROM chat_reply_tasks WHERE user_id=? AND bot_id=? AND generation=? AND state NOT IN ('completed','stopped') ORDER BY id",(uid,cid,gen))]
-        work += [dict(r) for r in c.execute("SELECT id,state,state AS phase,version,NULL AS wait_id,'owned' AS source FROM owned_tasks WHERE user_id=? AND owner_bot_id=? AND delivery_generation=? AND state NOT IN ('completed','stopped') ORDER BY id",(uid,cid,gen))]
+        # superseded_at: failed/interrupted work followed by a later completed reply or task (v33 triggers).
+        work=[dict(r) for r in c.execute("SELECT id,state,phase,version,wait_id,'chat' AS source FROM chat_reply_tasks WHERE user_id=? AND bot_id=? AND generation=? AND state NOT IN ('completed','stopped') AND superseded_at IS NULL ORDER BY id",(uid,cid,gen))]
+        work += [dict(r) for r in c.execute("SELECT id,state,state AS phase,version,NULL AS wait_id,'owned' AS source FROM owned_tasks WHERE user_id=? AND owner_bot_id=? AND delivery_generation=? AND state NOT IN ('completed','stopped') AND superseded_at IS NULL ORDER BY id",(uid,cid,gen))]
         latest=c.execute("SELECT id,content,created_at FROM messages WHERE user_id=? AND bot_id=? AND conversation_generation=? AND message_status NOT IN ('queued','running') ORDER BY id DESC LIMIT 1",(uid,cid,gen)).fetchone()
     else:
         work=[dict(r) for r in c.execute("SELECT id,state,state AS phase,version,NULL AS wait_id,'group' AS source,owner_member_id FROM chat_group_tasks WHERE user_id=? AND group_id=? AND state NOT IN ('completed','stopped') ORDER BY id",(uid,cid))]

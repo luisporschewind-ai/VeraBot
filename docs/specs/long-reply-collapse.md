@@ -72,9 +72,9 @@
 - `read_file` 的结果带最多 3 万字文件内容（`text`），之前走默认分支 `JSONValue.text` 把整个结果拼成一段字符串、无行数限制地放进 `Text`，每次进入视口都要排版整段文件。现在标题为「📄 读取文件」，说明由 `ToolTraceSummary.readFile` 生成，例如「已读取「方案.md」第 1–30000 字，共 52000 字，未读完」，不含文件内容。
 - 其他未专门处理的工具用 `ToolTraceSummary.fallback`：格式同 `JSONValue.text`，最多 160 字素，超出补「…」，写满即停，不会先拼出整段原文。
 - `ask_bot` 协作回答先截到 400 字素再做行内 Markdown 解析（原来只有 `lineLimit(8)`，解析的仍是全文）。
-- MCP 工具原本就只显示「已读取外部资料（约 N 字）」，未改。
+- MCP 工具只显示「已读取外部资料（约 N 字）」；N 由 `MCPTraceText.contentLength` 给出，后端截断过的 trace 取 `trace_truncated.content`（原长度），否则数 `content`。
 
-trace JSON 本身仍随历史下发并解码（一条 32 KB），这是后端存储问题，见 [known-issues](../testing/2026-10-14-known-issues.md)。
+后端自 schema v33 起在落库与同步时瘦身 trace（`backend/verabot/core/trace_slim.py`）：`read_file` 不带 `text`，只留 `filename` / `offset` / `length` / `next_offset` / `has_more` / `text_chars` / `text_status` 和 `text_omitted`；其他工具结果里超过 2000 字的字符串截到 2000 字并接 `…[truncated]`，原长度记在 `result.trace_truncated`（点分路径 → 字数）。模型在本轮仍拿到完整结果，只有存下来、同步出去的 trace 变小。存量数据由 v33 迁移改写，见 [known-issues](../testing/2026-10-14-known-issues.md)。
 
 ## 测试
 
@@ -83,7 +83,7 @@ trace JSON 本身仍随历史下发并解码（一条 32 KB），这是后端存
 - 真实形状回归：594 字 / 24 行、716 字 / 30 行的标题 + 表格 + 列表回复折叠，预览为标题 + 第一段；329 字 / 14 行的回复不折叠。
 - 阈值上下界（恰好 28 行、恰好 500 加权字不折叠）、`\r\n`、列表折行而表格不折行、空行与标题计入高度、中文按 2 倍权重。
 - 截断：按行数 / 字数行尾截断、行内截断条件与长度、开头空行、末尾标题与无数据行表格去掉、代码块退回与补闭合、字素（家庭 emoji、组合字符、国旗）不被切开。
-- trace：`read_file` 说明不含文件内容；兜底说明有上限，短结果与 `JSONValue.text` 一致。
+- trace：`read_file` 说明不含文件内容；兜底说明有上限，短结果与 `JSONValue.text` 一致；后端瘦身后的 `read_file` trace（无 `text`）照常解码和显示。`MCPTests.slimmedMCPTraceKeepsOriginalContentLength` 覆盖 MCP 原长度。
 
 本次未运行，需在 Mac 上 `swift test`。
 

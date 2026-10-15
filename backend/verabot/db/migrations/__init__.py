@@ -27,7 +27,9 @@ from . import v031_notification_events
 
 from . import v032_opening_templates
 
-SCHEMA_VERSION = 32  # v31 通知事件；v32 Bot 开场词模板
+from . import v033_stale_work_slim_traces
+
+SCHEMA_VERSION = 33  # v31 通知事件；v32 Bot 开场词模板；v33 过时失败任务标记 + trace 瘦身
 
 STEPS = (
     v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned, v007_mcp, v008_mcp_sync,
@@ -38,7 +40,7 @@ STEPS = (
 )
 
 STEPS = (*STEPS, v026_primary_bot, v027_owned_tasks, v028_owned_schedule_bridge, v029_owned_task_actions,
-         v030_chat_continuity, v031_notification_events, v032_opening_templates)
+         v030_chat_continuity, v031_notification_events, v032_opening_templates, v033_stale_work_slim_traces)
 
 def apply(c) -> None:
     """在调用方的事务连接上执行全部迁移步骤。"""

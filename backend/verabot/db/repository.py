@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timezone
 
 from ..core.tags import coerce_stored_tags
+from ..core.trace_slim import slim_traces
 from .database import now_iso, tx
 
 
@@ -85,7 +86,7 @@ def add_message(user_id, bot_id, role, content, traces=None, memory_ids=None, *,
     def insert(c):
         cur = c.execute(
             "INSERT INTO messages(user_id,bot_id,role,content,traces,created_at,memory_ids,conversation_generation) VALUES (?,?,?,?,?,?,?,?)",
-            (user_id, bot_id, role, content, json.dumps(traces, ensure_ascii=False) if traces else None, now_iso(),
+            (user_id, bot_id, role, content, json.dumps(slim_traces(traces), ensure_ascii=False) if traces else None, now_iso(),
              json.dumps(memory_ids) if memory_ids else None, generation(c, user_id, "private", bot_id)),
         )
         return cur.lastrowid
