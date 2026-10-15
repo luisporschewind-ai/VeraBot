@@ -24,11 +24,29 @@ public struct ConversationActivity: Codable, Sendable, Identifiable {
     }
     public struct LatestMessage: Codable, Sendable { public let id: Int; public let content: String; public let createdAt: String?; enum CodingKeys: String, CodingKey { case id, content; case createdAt = "created_at" } }
     public static func unreadLabel(_ count: Int) -> String { count > 99 ? "99+" : String(max(0, count)) }
+    public var hasReadableLatestMessage: Bool {
+        !(latestMessage?.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+    /// 服务端 `work_items` 只排除 completed/stopped，本代历史上 failed/interrupted 的任务会一直留着；
+    /// 最新一轮完成后 `state` 会落回这些旧记录。失败/中断的回复本身也会发布可读正文，
+    /// 所以只要最新消息有正文，终态就不代表当前状态，列表按空闲处理、显示预览。
+    public var displayState: String {
+        if ["failed", "interrupted", "stopped"].contains(state), hasReadableLatestMessage { return "idle" }
+        return state
+    }
+    public var displayPhase: String { displayState == state ? phase : "idle" }
+    /// 上一快照里尚未结束的任务这次落为 failed/interrupted：本轮没有成功完成。
+    public func hasNewlyFailedWork(since previous: ConversationActivity?) -> Bool {
+        let terminal: Set<String> = ["failed", "interrupted"]
+        return workItems.contains { item in
+            terminal.contains(item.state) && (previous?.workItems.contains { $0.id == item.id && $0.source == item.source && !terminal.contains($0.state) } ?? false)
+        }
+    }
     public var statusText: String {
-        if state == "awaiting_user" { return "等你补充" }
-        if state == "awaiting_approval" { return "待你确认" }
-        if ["failed", "interrupted", "stopped"].contains(state) { return "工作暂未完成" }
-        switch phase { case "queued": return "排队中"; case "recalling": return "正在整理上下文"; case "thinking": return "正在思考"; case "tool": return "正在查询／处理"; case "delegating": return "正在协作"; case "replying": return "正在回复"; case "retry_wait": return "正在重连"; default: return "" }
+        if displayState == "awaiting_user" { return "等你补充" }
+        if displayState == "awaiting_approval" { return "待你确认" }
+        if ["failed", "interrupted", "stopped"].contains(displayState) { return "工作暂未完成" }
+        switch displayPhase { case "queued": return "排队中"; case "recalling": return "正在整理上下文"; case "thinking", "retry_wait": return "正在思考"; case "tool": return "正在查询／处理"; case "delegating": return "正在协作"; case "replying": return "正在回复"; default: return "" }
     }
     enum CodingKeys: String, CodingKey { case kind, generation, revision, state, phase; case conversationID = "conversation_id", unreadCount = "unread_count", pendingCount = "pending_count", unreadMessages = "unread_messages", workItems = "work_items", latestMessage = "latest_message" }
 }

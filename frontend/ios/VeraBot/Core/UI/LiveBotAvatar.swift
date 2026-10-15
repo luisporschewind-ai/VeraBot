@@ -54,8 +54,8 @@ struct LiveBotAvatar: View {
 
 extension ConversationActivity {
     var avatarAction: BotAvatarState {
-        if state == "awaiting_user" || state == "awaiting_approval" { return .awaitingConfirmation }
-        if ["failed", "interrupted", "stopped"].contains(state) { return .warning }
-        switch phase { case "recalling": return .recalling; case "thinking", "retry_wait": return .thinking; case "tool": return .working; case "delegating": return .delegating; case "replying": return .replying; default: return .idle }
+        if displayState == "awaiting_user" || displayState == "awaiting_approval" { return .awaitingConfirmation }
+        if ["failed", "interrupted", "stopped"].contains(displayState) { return .warning }
+        switch displayPhase { case "recalling": return .recalling; case "thinking", "retry_wait": return .thinking; case "tool": return .working; case "delegating": return .delegating; case "replying": return .replying; default: return .idle }
     }
 }

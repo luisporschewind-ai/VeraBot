@@ -61,3 +61,34 @@ import Testing
     reading.enter([])
     #expect(reading.dividerMessageID == nil)
 }
+
+private func activityRow(state: String, phase: String, workItems: String, latest: String?) throws -> ConversationActivity {
+    let json = """
+    {"kind":"private","conversation_id":7,"generation":1,"revision":40,"state":"\(state)","phase":"\(phase)","unread_count":1,"pending_count":0,
+     "unread_messages":[],"work_items":[\(workItems)],"latest_message":\(latest.map { "{\"id\":52,\"content\":\"\($0)\",\"created_at\":\"2026-10-15T03:00:00+00:00\"}" } ?? "null")}
+    """
+    return try JSONDecoder().decode(ConversationActivity.self, from: Data(json.utf8))
+}
+
+/// 2026-10-15：私聊发问后立刻回列表，Bot 已正常回复，列表行却显示「工作暂未完成」。
+/// 服务端摘要保留本代历史上 interrupted 的旧任务，最新任务 completed 后 state 落回那条旧记录。
+@Test func listRowShowsReplyPreviewOverStaleInterruptedWork() throws {
+    let stale = #"{"id":3,"state":"interrupted","phase":"interrupted","version":2,"wait_id":null,"source":"chat"}"#
+    let running = #"{"id":9,"state":"running","phase":"retry_wait","version":1,"wait_id":null,"source":"chat"}"#
+    let during = try activityRow(state: "running", phase: "retry_wait", workItems: "\(stale),\(running)", latest: "帮我查一下天气")
+    #expect(during.statusText == "正在思考")
+    let done = try activityRow(state: "interrupted", phase: "interrupted", workItems: stale, latest: "明天晴，最高 22 度。")
+    #expect(done.displayState == "idle" && done.displayPhase == "idle")
+    #expect(done.statusText == "")
+    #expect(!done.hasNewlyFailedWork(since: during))
+    // 没有任何可读消息时才用状态短句兜底
+    let empty = try activityRow(state: "interrupted", phase: "interrupted", workItems: stale, latest: nil)
+    #expect(empty.statusText == "工作暂未完成")
+    // 当前这一轮真的失败：列表显示失败正文预览，但不算成功完成
+    let failed = try activityRow(state: "failed", phase: "failed", workItems: "\(stale),{\"id\":9,\"state\":\"failed\",\"phase\":\"failed\",\"version\":1,\"wait_id\":null,\"source\":\"chat\"}", latest: "回复暂时无法完成")
+    #expect(failed.statusText == "")
+    #expect(failed.hasNewlyFailedWork(since: during))
+    // 等待用户的状态是可操作的，仍然显示
+    let waiting = try activityRow(state: "awaiting_user", phase: "awaiting_user", workItems: stale, latest: "要查哪个城市？")
+    #expect(waiting.statusText == "等你补充")
+}
