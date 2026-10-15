@@ -1,5 +1,10 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · 保存工作区改动
+
+- iOS 助理列表移除顶部重复的「主 Bot：名称」导航行；Bot 仍通过原会话列表进入，主 Bot 身份与任务能力保留。
+- 主工作区及工作树盘点见 [提交记录](testing/2026-10-15-workspace-submit.md)。
+
 ## 2026-10-15 · 创建群聊去掉说明文案、选择行紧凑化
 
 - iOS `CreateGroupSheet`：去掉选择区 footer「每个群聊需要选择 2～5 个 Bot」，弹窗内不再有任何说明文案；2～5 选择校验保留（满 5 个禁用未选行、不足 2 个或超过 5 个时「创建」不可用、提交前二次校验）。`BotProductLimits.groupSelectionHint` 已删除，`BotProductLimitsTests` 仍覆盖 2～5 边界。
