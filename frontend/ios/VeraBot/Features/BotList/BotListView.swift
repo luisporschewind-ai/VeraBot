@@ -485,8 +485,6 @@ struct BotRow: View {
                 if app.activityNeedsSync { Text("待同步").font(.caption2).foregroundStyle(.secondary) }
             }
         }
-        .padding(.trailing, (activity?.unreadCount ?? 0) > 0 ? 36 : 0)
-        .overlay(alignment: .topTrailing) { if let count = activity?.unreadCount, count > 0 { Text(ConversationActivity.unreadLabel(count)).font(.caption2.bold()).foregroundStyle(.white).padding(4).background(Color.accentColor, in: Capsule()).offset(x: 5, y: -5).accessibilityLabel("\(count) 条未读回复") } }
         .padding(.vertical, 2)
     }
 
@@ -542,7 +540,7 @@ struct GroupConversationRow: View {
                 if let count = activity?.workItems.filter({ ["running", "queued", "awaiting_user", "awaiting_approval"].contains($0.state) }).count, count > 1 { Text("另有 \(count - 1) 项进行中").font(.caption2).foregroundStyle(.secondary) }
                 if app.activityNeedsSync { Text("待同步").font(.caption2).foregroundStyle(.secondary) }
             }
-        }.padding(.trailing, (activity?.unreadCount ?? 0) > 0 ? 36 : 0).overlay(alignment: .topTrailing) { if let count = activity?.unreadCount, count > 0 { Text(ConversationActivity.unreadLabel(count)).font(.caption2.bold()).foregroundStyle(.white).padding(4).background(Color.accentColor, in: Capsule()).offset(x: 5, y: -5).accessibilityLabel("\(count) 条未读回复") } }.padding(.vertical, 2)
+        }.padding(.vertical, 2)
     }
 
     private var preview: String {
