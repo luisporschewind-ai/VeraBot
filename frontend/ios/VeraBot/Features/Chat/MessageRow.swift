@@ -52,6 +52,13 @@ struct MessageRow: View {
     /// 只有已落库（有 messageID）且不在流式输出中的消息可删除；欢迎语、正在生成的回复不显示「删除」
     private var canDelete: Bool { item.messageID != nil && !item.streaming }
 
+    /// 长回复收起时只排版这段预览，不解析全文 Markdown；用户消息、流式中的回复不折叠
+    private var collapsePreview: String? {
+        item.isUser || item.streaming ? nil : LongReplyCollapse.preview(item.text)
+    }
+
+    private var collapseKey: String { item.messageID.map { "m\($0)" } ?? item.id.uuidString }
+
     var body: some View {
         content
             .confirmationDialog("删除这条消息？", isPresented: $confirmDelete, titleVisibility: .visible) {
@@ -136,6 +143,23 @@ struct MessageRow: View {
                             Group {
                                 if item.text.isEmpty {
                                     ProgressView().accessibilityLabel("正在回复")
+                                } else if let preview = collapsePreview {
+                                    let expanded = vm.expandedReplies.contains(collapseKey)
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        if expanded {
+                                            MessageContentView(text: item.text)
+                                        } else {
+                                            MessageContentView(text: preview)
+                                                .mask {
+                                                    VStack(spacing: 0) {
+                                                        Rectangle()
+                                                        LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                                                            .frame(height: 44)
+                                                    }
+                                                }
+                                        }
+                                        collapseToggle(expanded: expanded)
+                                    }
                                 } else {
                                     MessageContentView(text: item.text)
                                 }
@@ -176,6 +200,18 @@ struct MessageRow: View {
                 Button("取消", role: .cancel) {}
             }
         }
+    }
+
+    private func collapseToggle(expanded: Bool) -> some View {
+        Button {
+            if expanded { vm.expandedReplies.remove(collapseKey) } else { vm.expandedReplies.insert(collapseKey) }
+        } label: {
+            Label(expanded ? "收起" : "展开", systemImage: expanded ? "chevron.up" : "chevron.down")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Color.brand)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(expanded ? "收起长回复" : "展开全文")
     }
 
     /// 气泡下方、朗读按钮旁的 👍 / 👎。选中用填充图标；再点一次撤销。👎 先选原因。

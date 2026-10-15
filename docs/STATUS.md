@@ -1,5 +1,9 @@
 # 项目状态 (STATUS) — 2026-10-15
 
+## 2026-10-15 · 私聊长回复折叠
+
+- `feat/collapse-long-bot-replies`：超过 1500 字或 40 行的 Bot 回复默认只渲染截断预览，「展开 / 收起」切换，规格 [long-reply-collapse](specs/long-reply-collapse.md)。未构建、未跑 `swift test`、未在模拟器验收。
+
 ## 2026-10-15 · 创建群聊去掉说明文案、选择行紧凑化
 
 - `fix/create-group-compact`：创建群聊弹窗去掉「每个群聊需要选择 2～5 个 Bot」，2～5 校验不变；Bot 选择行与群成员行、添加成员行同高（头像 30、间距 10、相同行边距）。未在模拟器验收。

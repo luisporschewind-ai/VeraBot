@@ -1,5 +1,10 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · 私聊长回复折叠
+
+- iOS 私聊：Bot 回复超过 1500 字或 40 行时默认收起，气泡只渲染截断预览（≤ 300 字 / 10 行，底部渐隐），点「展开 / 收起」切换。收起时不解析、不排版全文 Markdown，缓解超长回复导致的卡顿。展开状态按消息保留到离开对话页。用户消息与流式中的回复不折叠。
+- 阈值与截断（行尾优先、不切代码块、不切字素）抽为 `VeraBotCore.LongReplyCollapse`，测试 `LongReplyCollapseTests`（未运行）。规格 [long-reply-collapse](specs/long-reply-collapse.md)。`frontend/web` 未动。
+
 ## 2026-10-15 · 创建群聊去掉说明文案、选择行紧凑化
 
 - iOS `CreateGroupSheet`：去掉选择区 footer「每个群聊需要选择 2～5 个 Bot」，弹窗内不再有任何说明文案；2～5 选择校验保留（满 5 个禁用未选行、不足 2 个或超过 5 个时「创建」不可用、提交前二次校验）。`BotProductLimits.groupSelectionHint` 已删除，`BotProductLimitsTests` 仍覆盖 2～5 边界。
