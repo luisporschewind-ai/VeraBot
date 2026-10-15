@@ -63,7 +63,16 @@ extension APIClient {
                         throw Self.apiError(status: status, data: data)
                     }
                     var parser = DurableSSEParser()
-                    for try await line in bytes.lines { try checkScope(); if let event = parser.line(line) { continuation.yield(event) } }
+                    // 不能用 bytes.lines：AsyncLineSequence 会丢掉空行，而 SSE 以空行结束一个事件，
+                    // 结果事件永远不派发（任务早已失败/完成，客户端仍停在「排队中」）。
+                    var buffer = Data()
+                    for try await byte in bytes {
+                        if byte == 0x0A {
+                            try checkScope()
+                            if let event = parser.line(String(decoding: buffer, as: UTF8.self)) { continuation.yield(event) }
+                            buffer.removeAll(keepingCapacity: true)
+                        } else { buffer.append(byte) }
+                    }
                     #endif
                     continuation.finish()
                 } catch { continuation.finish(throwing: error) }
@@ -89,6 +98,13 @@ public struct DurableSSEParser: Sendable {
             return DurableEvent(id: id, name: name, data: Data(data.joined(separator: "\n").utf8))
         }
         if line.hasPrefix(":") { return nil }
+        // 兜底：上一事件未收到空行就开始下一事件（某些行读取方式会吞空行）时，先派发上一事件。
+        if line.hasPrefix("id:"), let pending = id, !data.isEmpty {
+            let event = DurableEvent(id: pending, name: name, data: Data(data.joined(separator: "\n").utf8))
+            name = "message"; data.removeAll()
+            id = Int(line.dropFirst(3).trimmingCharacters(in: .whitespaces))
+            return event
+        }
         let pair = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
         guard pair.count == 2 else { return nil }
         let value = pair[1].hasPrefix(" ") ? String(pair[1].dropFirst()) : String(pair[1])

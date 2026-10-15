@@ -19,7 +19,6 @@ struct ChatView: View {
     @State private var entered = false
     @State private var initialPositionReady = false
     @State private var followsBottom = true
-    @State private var hasNewReply = false
     @State private var input = ""
     @State private var draftSaveTask: Task<Void, Never>?
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
@@ -55,10 +54,9 @@ struct ChatView: View {
     @ViewBuilder
     private func messageCell(_ item: ChatViewModel.Item) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let id = item.messageID, reading.newMessageIDs.count > 1, id == reading.newMessageIDs.sorted().first {
+            if let id = item.messageID, id == reading.dividerMessageID {
                 NewMessagesDivider()
             }
-            if let id = item.messageID, reading.newMessageIDs.contains(id), !item.isUser { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
             MessageRow(item: item, bot: vm.bot, vm: vm)
                 .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && !item.isUser, revision: item.publicationRevision) {
                     guard let id = item.messageID else { return }
@@ -112,14 +110,10 @@ struct ChatView: View {
             .onChange(of: vm.scrollTick) {
                 guard initialPositionReady else { return }
                 if !entered && !vm.items.isEmpty {
-                    if let target = highlightMessageID ?? reading.newMessageIDs.sorted().first, vm.items.contains(where: { $0.messageID == target }) { proxy.scrollTo("m\(target)", anchor: .center) }
+                    if let target = highlightMessageID ?? reading.dividerMessageID, vm.items.contains(where: { $0.messageID == target }) { proxy.scrollTo("m\(target)", anchor: .center) }
                     else { proxy.scrollTo("bottom", anchor: .bottom) }
                     entered = true
                 } else if followsBottom { proxy.scrollTo("bottom", anchor: .bottom) }
-                else { hasNewReply = true }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if hasNewReply && !followsBottom { Button("有新回复 ↓") { proxy.scrollTo("bottom", anchor: .bottom); hasNewReply = false }.buttonStyle(.borderedProminent).padding() }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
                 // 只响应本页输入框的键盘；sheet（Bot 详情）里的键盘不应滚动对话页
@@ -201,7 +195,7 @@ struct ChatView: View {
             await app.refreshActivityForEntry()
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
             await vm.load()
-            if !entered, let target = highlightMessageID ?? reading.newMessageIDs.sorted().first { await vm.ensureMessageLoaded(target) }
+            if !entered, let target = highlightMessageID ?? reading.dividerMessageID { await vm.ensureMessageLoaded(target) }
             initialPositionReady = true; vm.scrollTick += 1
             if quickPromptsEnabled { await vm.refreshQuickPrompts() }
         }
@@ -249,7 +243,13 @@ struct ChatView: View {
             if let generation = activity?.generation, generation != vm.conversationGeneration { Task { await vm.recoverExecution() } }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { vm.leave() } else if pageVisible { Task { await vm.recoverExecution() } }
+            if phase != .active { vm.leave() } else if pageVisible {
+                Task {
+                    await app.refreshActivityForEntry()
+                    reading.resume(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? [])
+                    await vm.recoverExecution()
+                }
+            }
         }
         .onChange(of: app.sessionGeneration) { _, _ in pageVisible = false; reading.leave(); vm.leave() }
         .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）

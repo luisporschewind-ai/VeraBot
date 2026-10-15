@@ -79,6 +79,24 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 
 原则：Bot↔Bot 路由、action kind、校验错误、step/task 状态与重试原因不得进入用户 UI。实现：`group_execution_store._public_message_status` 在 commit/interrupt/recover 时，非空正文消息对外 `completed`（步骤仍可失败）；iOS `presentsIncompleteReply` 仅空正文显示失败 footer。历史库中「有正文 + failed」由客户端门控兼容。回归见 `group_execution_store_test` / `GroupMessagePresentsIncompleteReplyOnlyWhenBotContentEmpty`。
 
+### Worker 未加载 .env，私聊回复全部失败（2026-10-15）
+
+现象：私聊「大管家」发送「早上好」得到「⚠️ 模型没有返回内容（已自动重试）」；「调查员」一直显示「排队中」。
+
+根因：`chat_reply_events` 记录的错误是「服务器未配置 DEEPSEEK_API_KEY」。API 由 `start.sh` 启动，会导出 `backend/.env`；chat worker 则在 screen 中直接执行 `python -m verabot.services.chat_tasks`，没有这些变量。`verabot.core.config` 在导入时读取环境变量，因此 worker 中 Key 为空，任务在 1 秒内失败。界面文案把配置错误也显示为「模型没有返回内容」。
+
+修复：新增 `verabot/core/envfile.py`（仅标准库）。`chat_tasks`、`owned_tasks`、`scheduled_tasks` 的 `__main__` 在导入其他模块前调用 `load_env_file()`（不覆盖已导出变量），并 `require("DEEPSEEK_API_KEY")`，缺失时直接退出并提示。回归：`scripts/test/worker_env_test.py`。
+
+### 失败任务在客户端停在「排队中」（2026-10-15）
+
+`APIClient.durableEvents` 用 `bytes.lines` 读 SSE；`AsyncLineSequence` 会丢弃空行，而 SSE 以空行结束一个事件，`DurableSSEParser` 因此从不派发事件。服务端快照已是 `failed`，客户端仍显示「排队中 / 取消排队」与转圈，直到流超时。现改为按字节切行保留空行；解析器在遇到下一条 `id:` 时兜底派发上一事件。回归：`ChatContinuityRegressionTests`。
+
+### 新消息提示规则调整（2026-10-15）
+
+- 「新」分隔线只在进入对话、或从后台回到前台时，标在当时第一条未读回复上方（单条也显示）；正在看对话时到达的回复不显示；离开即清除，看过后再次进入不会再出现（`ConversationReadingSession.dividerMessageID` / `resume`）。
+- 去掉 Bot 头像上方的「新消息」标签与「有新回复 ↓」按钮（私聊、群聊）。
+- 会话列表的未读数字改为强调色小圆点（无数字，无障碍标签仍读出条数）。
+
 ## 后续再做
 
 这些不在本分支里实现：

@@ -1,4 +1,7 @@
 """Run a separately supervised scheduler/worker; --once supports operational scans."""
+from verabot.core.envfile import load_env_file, require
+load_env_file()
+require("DEEPSEEK_API_KEY")
 import argparse
 import asyncio
 import logging

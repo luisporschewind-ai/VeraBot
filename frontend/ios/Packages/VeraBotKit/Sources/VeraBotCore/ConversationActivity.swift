@@ -39,11 +39,19 @@ public struct ConversationReadResponse: Codable, Sendable { public let cursor: I
 /// Entry labels are frozen until leave. Visibility is tracked per message AND publication revision.
 public struct ConversationReadingSession: Sendable {
     public private(set) var newMessageIDs: Set<Int> = []
+    /// 「新」分隔线所在的消息：只在进入对话或从后台回到前台时，按当时仍未读的第一条回复确定；
+    /// 正在看对话时到达的回复不产生分隔线。离开对话即清除；已读后再次进入不会再出现。
+    public private(set) var dividerMessageID: Int?
     private var visibleSince: [String: TimeInterval] = [:]
     public init() {}
-    public mutating func enter(_ unread: [MessagePublication]) { leave(); include(unread) }
+    public mutating func enter(_ unread: [MessagePublication]) { leave(); include(unread); dividerMessageID = unread.map(\.messageID).min() }
     public mutating func include(_ unread: [MessagePublication]) { newMessageIDs.formUnion(unread.map(\.messageID)) }
-    public mutating func leave() { newMessageIDs.removeAll(); visibleSince.removeAll() }
+    /// 从后台回到前台：期间到达且仍未读的回复上方显示一次分隔线（已有分隔线时不移动）。
+    public mutating func resume(_ unread: [MessagePublication]) {
+        include(unread)
+        if dividerMessageID == nil { dividerMessageID = unread.map(\.messageID).min() }
+    }
+    public mutating func leave() { newMessageIDs.removeAll(); dividerMessageID = nil; visibleSince.removeAll() }
     public mutating func suspend() { visibleSince.removeAll() }
     public mutating func observe(messageID: Int, revision: Int, visibleFraction: Double, foreground: Bool, pageVisible: Bool, now: TimeInterval) -> Bool {
         let key = "\(messageID):\(revision)"
