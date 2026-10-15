@@ -112,8 +112,14 @@ final class ChatViewModel {
         self.repository = repository
     }
 
-    func load() async {
+    func load(localReady: @MainActor () async -> Void = {}) async {
         await restoreLocal()
+        if items.isEmpty && !historyIncomplete {
+            items = [Item(isUser: false, text: openingText())]
+        }
+        // Reading and initial positioning must never wait for the network.
+        await localReady()
+        guard !Task.isCancelled else { return }
         if let repository {
             do {
                 try await repository.syncPrivate(botID: bot.id)
@@ -183,9 +189,10 @@ final class ChatViewModel {
     private func restoreLocal() async -> Bool {
         guard let repository else { return true }
         do {
-            let stored = try await repository.privateMessages(botID: bot.id, limit: 101)
-            hasOlderMessages = stored.count > 100
-            items = stored.suffix(100).map { row in
+            let visibleLimit = max(100, items.count)
+            let stored = try await repository.privateMessages(botID: bot.id, limit: visibleLimit + 1)
+            hasOlderMessages = stored.count > visibleLimit
+            items = stored.suffix(visibleLimit).map { row in
                 let message = row.value
                 return Item(id: message.id, isUser: message.role == "user", text: message.content,
                             traces: message.traces, streaming: false, messageID: message.remoteID,

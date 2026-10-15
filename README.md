@@ -1,5 +1,9 @@
 # VeraBot — 私人 AI 助理团队 (Personal AI Agent Team)
 
+## 本地对话阅读（2026-10-15）
+
+iOS 私聊与群聊进入时先恢复 SQLite 历史和草稿、完成消息定位，再同步后端；断网时仍可翻阅已保存的消息。验证见 [离线进入记录](docs/testing/2026-10-15-offline-chat-entry.md)。
+
 ## 主 Bot 第一版
 
 `codex/primary-bot`基于本地main `b81caed`实现日常负责人、明确交办/周期任务、持久求助与MCP确认续跑；schema v29。2026-10-14已提交并合入本地main（b68dfc4）；真实UI/模型与后台部署仍需验收。见[交付记录](docs/testing/2026-10-13-primary-bot.md)及[后台运行说明](backend/verabot/services/owned_tasks/README.md)。

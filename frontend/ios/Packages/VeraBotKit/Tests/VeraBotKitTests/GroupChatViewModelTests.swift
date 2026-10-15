@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import VeraBotCore
 import VeraBotData
+import VeraBotPersistence
 @testable import VeraBotNetworking
 
 private actor GroupVMFixture: GroupChatAPI {
@@ -148,4 +149,43 @@ private actor GroupVMFixture: GroupChatAPI {
     } catch {
         #expect(model.group.members.map(\.id) == before.map(\.id))
     }
+}
+
+@MainActor @Test func cachedGroupHistoryCanPageWhileServerIsUnavailable() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let database = LocalDatabase(url: directory.appendingPathComponent("conversation.sqlite"))
+    defer { database.close(); try? FileManager.default.removeItem(at: directory) }
+    let api = GroupVMFixture(delayed: true)
+    let store = ConversationStore(database: database)
+    let unusedPrivateAPI = APIClient(baseURL: URL(string: "http://unused.test")!, token: "fixture")
+    let repository = ConversationRepository(store: store, api: unusedPrivateAPI, groupAPI: api, sessionIsCurrent: { true })
+    for id in 1...105 {
+        try await repository.saveGroupMessage(GroupMessage(id: id, memberID: 21, content: "local \(id)", groupID: 7, turnID: 9, role: .bot), groupID: 7, status: "completed")
+    }
+    try await repository.saveDraft("offline draft", kind: .group, id: 7)
+    let model = GroupChatViewModel(group: GroupVMFixture.group, api: api, repository: repository)
+    var localReadyCalled = false
+    let load = Task {
+        await model.load {
+            #expect(await api.calls == 0)
+            #expect(model.state.messages.count == 100)
+            #expect(model.draft == "offline draft")
+            localReadyCalled = true
+        }
+    }
+    // The server holds the request open; local reading must remain usable.
+    for _ in 0..<1000 {
+        if await api.calls > 0 { break }
+        try await Task.sleep(for: .milliseconds(1))
+    }
+    #expect(localReadyCalled)
+    #expect(await api.calls == 1)
+    #expect(model.state.messages.count == 100)
+    #expect(model.draft == "offline draft")
+    await model.loadOlder()
+    #expect(model.state.messages.count == 105)
+    #expect(model.state.messages.first?.content == "local 1")
+    await api.resumeLoad()
+    await load.value
+    model.leave()
 }

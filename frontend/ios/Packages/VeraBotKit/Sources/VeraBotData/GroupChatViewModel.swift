@@ -10,6 +10,7 @@ public final class GroupChatViewModel {
     public var draft = ""
     public var errorMessage: String?
     public private(set) var loading = false
+    public private(set) var loadingOlder = false
     public private(set) var historyIncomplete = false
     public private(set) var nextBeforeID: Int?
     public private(set) var confirmingStop = false
@@ -70,16 +71,17 @@ public final class GroupChatViewModel {
         try await repository?.saveGroupExecution(execution.snapshot,messages:execution.messages,groupID:group.id)
         try valid(stamp)
     }
-    public func load() async {
+    public func load(localReady: @MainActor () async -> Void = {}) async {
         let stamp = epoch;loading = true
         defer {if stamp == epoch {loading = false}}
         do {
             if let repository {
                 let cached = try await repository.cachedGroup(id:group.id)
                 try valid(stamp);if let cached {group = cached}
-                let local = try await repository.groupMessages(groupID:group.id,limit:101)
-                try valid(stamp);state.messages = local.suffix(100).map(\.value)
-                nextBeforeID = local.count > 100 ? state.messages.first?.id : nil
+                let visibleLimit = max(100, state.messages.count)
+                let local = try await repository.groupMessages(groupID:group.id,limit:visibleLimit + 1)
+                try valid(stamp);state.messages = local.suffix(visibleLimit).map(\.value)
+                nextBeforeID = local.count > visibleLimit ? state.messages.first?.id : nil
                 let savedDraft = try await repository.draft(kind:.group,id:group.id)
                 try valid(stamp);draft = savedDraft
                 let pending = try await repository.pendingGroupInput(groupID:group.id)
@@ -89,17 +91,26 @@ public final class GroupChatViewModel {
                 }
             }
             execution.messages = state.messages
+            if let repository {
+                historyIncomplete = !(try await repository.isHistoryComplete(kind: .group, id: group.id))
+            }
+            displayExecution()
+            try valid(stamp)
+            await localReady()
             try valid(stamp)
             let updated = try await api.group(id:group.id)
-            let page = try await api.groupMessages(groupID:group.id,beforeID:nil)
             try valid(stamp);group = updated
             if let repository {
                 try await repository.syncGroup(groupID:group.id)
-                let local = try await repository.groupMessages(groupID:group.id,limit:101)
-                try valid(stamp);state.messages = local.suffix(100).map(\.value)
-                nextBeforeID = local.count > 100 ? state.messages.first?.id : nil
+                let visibleLimit = max(100, state.messages.count)
+                let local = try await repository.groupMessages(groupID:group.id,limit:visibleLimit + 1)
+                try valid(stamp);state.messages = local.suffix(visibleLimit).map(\.value)
+                nextBeforeID = local.count > visibleLimit ? state.messages.first?.id : nil
                 historyIncomplete = !((try? await repository.isHistoryComplete(kind:.group,id:group.id)) ?? false)
-            } else {state.messages = page.messages;nextBeforeID = page.nextBeforeID}
+            } else {
+                let page = try await api.groupMessages(groupID:group.id,beforeID:nil)
+                try valid(stamp);state.messages = page.messages;nextBeforeID = page.nextBeforeID
+            }
             let snapshot = try await api.groupExecution(groupID:group.id)
             try valid(stamp);acceptSnapshot(snapshot);try await persistExecution(stamp)
             errorMessage = nil
@@ -112,9 +123,9 @@ public final class GroupChatViewModel {
         } catch is CancellationError {} catch {if stamp == epoch && sessionIsCurrent() {errorMessage = friendly(error)}}
     }
     public func loadOlder() async {
-        guard let cursor = nextBeforeID,!loading else {return}
-        let stamp = epoch;loading = true
-        defer {if stamp == epoch {loading = false}}
+        guard let cursor = nextBeforeID,!loadingOlder,(!loading || repository != nil) else {return}
+        let stamp = epoch;loadingOlder = true
+        defer {if stamp == epoch {loadingOlder = false}}
         do {
             let older: [GroupMessage]
             if let repository {
@@ -239,7 +250,7 @@ public final class GroupChatViewModel {
     }
     public func leave() {
         epoch += 1;task?.cancel();task = nil;observerTask?.cancel();observerTask = nil
-        loading = false;sending = false
+        loading = false;loadingOlder = false;sending = false
     }
     public func update(name: String? = nil) async throws {
         let stamp = epoch;let updated = try await api.updateGroup(id:group.id,request:.init(name:name))
@@ -321,6 +332,7 @@ public final class GroupChatViewModel {
                         guard GroupExecutionReducer.apply(event,to:&execution,groupID:group.id) else {continue}
                         if event.kind == "group_cleared" {
                             task?.cancel();task = nil;sending = false;pendingInput = nil;draft = ""
+                            displayExecution()
                             try await repository?.clearGroup(groupID:group.id)
                             try valid(stamp)
                         }

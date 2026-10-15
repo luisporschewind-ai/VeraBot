@@ -205,11 +205,13 @@ struct ChatView: View {
             input = await vm.loadDraft()
             pageVisible = true; vm.activityRepository = app.activityRepository
             vm.preferredAddress = app.displayName
-            await app.refreshActivityForEntry()
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
-            await vm.load()
-            if !entered, let target = highlightMessageID ?? reading.dividerMessageID { await vm.ensureMessageLoaded(target) }
-            initialPositionReady = true; vm.scrollTick += 1
+            async let activityRefresh: Void = app.refreshActivityForEntry()
+            await vm.load {
+                if !entered, let target = highlightMessageID ?? reading.dividerMessageID { await vm.ensureMessageLoaded(target) }
+                initialPositionReady = true; vm.scrollTick += 1
+            }
+            await activityRefresh
             await app.markConversationRead(kind: "private", id: vm.bot.id)
             if quickPromptsEnabled { await vm.refreshQuickPrompts() }
         }
@@ -364,6 +366,35 @@ struct ChatView: View {
         }
     }
 
+    private var quickPromptBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            GlassGroup(spacing: 4) {
+                HStack(spacing: 8) {
+                    ForEach(vm.quickPrompts, id: \.self) { prompt in
+                        Button {
+                            input = prompt
+                            focused = true
+                        } label: {
+                            Text(prompt)
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .glassSurface(in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("填入快捷提问：\(prompt)")
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        // Glass shadows extend beyond the capsules; clipping creates a rectangular band.
+        .scrollClipDisabled()
+    }
+
     private var regularComposer: some View {
         VStack(spacing: 6) {
             // 排队 / 生成中不再显示状态行（由输入栏右侧的停止按钮表示）；只保留需要用户处理的等待状态。
@@ -404,23 +435,7 @@ struct ChatView: View {
             }
             if quickPromptsEnabled && input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !focused && !vm.quickPrompts.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(vm.quickPrompts, id: \.self) { prompt in
-                            Button {
-                                input = prompt
-                                focused = true
-                            } label: {
-                                Text(prompt).lineLimit(1)
-                                    .font(.caption)
-                                    .padding(.horizontal, 12).padding(.vertical, 8)
-                                    .glassSurface(in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("填入快捷提问：\(prompt)")
-                        }
-                    }
-                }
+                quickPromptBar
             }
             GlassGroup(spacing: 10) {
                 HStack(alignment: .bottom, spacing: 10) {
