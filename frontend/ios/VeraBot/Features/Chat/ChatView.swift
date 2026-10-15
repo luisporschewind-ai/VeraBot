@@ -120,6 +120,15 @@ struct ChatView: View {
                 guard focused, !showInfo, followsBottom else { return }
                 proxy.scrollTo("bottom", anchor: .bottom)   // 键盘弹出后：确保最后一条可见
             }
+            .overlay(alignment: .bottomTrailing) {
+                JumpToLatestButton(visible: !followsBottom) {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo("bottom", anchor: .bottom)
+                    }
+                }
+                .padding(.trailing, 16)
+                .padding(.bottom, 8)
+            }
         }
         .bottomBar {
             VStack(spacing: 8) {

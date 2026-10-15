@@ -101,6 +101,15 @@ struct GroupChatView: View {
                     entered = true
                 }
                 .onChange(of: model.state.messages.count) { old, new in if new > old && model.busy && followsBottom { proxy.scrollTo("bottom", anchor: .bottom) } }
+                .overlay(alignment: .bottomTrailing) {
+                    JumpToLatestButton(visible: !followsBottom) {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            proxy.scrollTo("bottom", anchor: .bottom)
+                        }
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 8)
+                }
             }
             if model.confirmingStop { Text("正在确认讨论已停止…").font(.caption).foregroundStyle(.secondary) }
         }
