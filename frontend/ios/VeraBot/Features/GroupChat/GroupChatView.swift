@@ -59,7 +59,7 @@ struct GroupChatView: View {
                     VStack(spacing: 16) {
                         LazyVStack(spacing: 16) {
                             GroupExecutionStatusView(model: model)
-                            if model.nextBeforeID != nil { Button("加载更早的消息") { Task { await model.loadOlder() } }.disabled(model.loading) }
+                            if model.nextBeforeID != nil { Button("加载更早的消息") { Task { await model.loadOlder() } }.disabled(model.loadingOlder) }
                             if model.loading && model.state.messages.isEmpty { BotLoadingView() }
                             if !model.loading && model.state.messages.isEmpty && !model.historyIncomplete && model.errorMessage == nil {
                                 RobotAvatarView(action: .waiting, size: 90, color: .brandFill, ambient: false)
@@ -159,16 +159,20 @@ struct GroupChatView: View {
             Button("取消", role: .cancel) {}
         } message: { Text("请在「设置」中允许 VeraBot 使用相机。") }
         .task {
-            pageVisible = true; await app.refreshActivityForEntry()
+            pageVisible = true
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "group", id: model.group.id)?.unreadMessages ?? []) }
-            UserDefaults.standard.removeObject(forKey: legacyPreferenceKey); await model.load()
-            if !entered, let target = reading.dividerMessageID {
-                while !model.state.messages.contains(where: { $0.id == target }), model.nextBeforeID != nil {
-                    let before = model.nextBeforeID; await model.loadOlder(); if model.nextBeforeID == before { break }
+            UserDefaults.standard.removeObject(forKey: legacyPreferenceKey)
+            async let activityRefresh: Void = app.refreshActivityForEntry()
+            await model.load {
+                if !entered, let target = reading.dividerMessageID {
+                    while !model.state.messages.contains(where: { $0.id == target }), model.nextBeforeID != nil {
+                        let before = model.nextBeforeID; await model.loadOlder(); if model.nextBeforeID == before { break }
+                    }
                 }
+                initialPositionReady = true
+                updateNotificationVisibility()
             }
-            initialPositionReady = true
-            updateNotificationVisibility()
+            await activityRefresh
             await app.markConversationRead(kind: "group", id: model.group.id)
         }
         .onChange(of: model.draft) { _, new in
