@@ -1,3 +1,6 @@
+from verabot.core.envfile import load_env_file, require
+load_env_file()
+require("DEEPSEEK_API_KEY")
 import argparse,asyncio,uuid
 from ... import db
 from .worker import process_one

@@ -20,7 +20,6 @@ struct GroupChatView: View {
     @State private var entered = false
     @State private var initialPositionReady = false
     @State private var followsBottom = true
-    @State private var hasNewReply = false
     @State private var showPhotos = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showCamera = false
@@ -90,20 +89,16 @@ struct GroupChatView: View {
                 .onChange(of: model.state.messages.last?.content) { _, _ in
                     guard initialPositionReady else { return }
                     if !entered && !model.state.messages.isEmpty {
-                        if let first = reading.newMessageIDs.sorted().first { proxy.scrollTo(first, anchor: .center) }
+                        if let first = reading.dividerMessageID { proxy.scrollTo(first, anchor: .center) }
                         else { proxy.scrollTo("bottom", anchor: .bottom) }
                         entered = true
                     } else if followsBottom { proxy.scrollTo("bottom", anchor: .bottom) }
-                    else { hasNewReply = true }
                 }
                 .onChange(of: initialPositionReady) { _, ready in
                     guard ready, !entered else { return }
-                    if let first = reading.newMessageIDs.sorted().first { proxy.scrollTo(first, anchor: .center) }
+                    if let first = reading.dividerMessageID { proxy.scrollTo(first, anchor: .center) }
                     else { proxy.scrollTo("bottom", anchor: .bottom) }
                     entered = true
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if hasNewReply && !followsBottom { Button("有新回复 ↓") { proxy.scrollTo("bottom", anchor: .bottom); hasNewReply = false }.buttonStyle(.borderedProminent).padding() }
                 }
                 .onChange(of: model.state.messages.count) { old, new in if new > old && model.busy && followsBottom { proxy.scrollTo("bottom", anchor: .bottom) } }
             }
@@ -155,7 +150,7 @@ struct GroupChatView: View {
             pageVisible = true; await app.refreshActivityForEntry()
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "group", id: model.group.id)?.unreadMessages ?? []) }
             UserDefaults.standard.removeObject(forKey: legacyPreferenceKey); await model.load()
-            if !entered, let target = reading.newMessageIDs.sorted().first {
+            if !entered, let target = reading.dividerMessageID {
                 while !model.state.messages.contains(where: { $0.id == target }), model.nextBeforeID != nil {
                     let before = model.nextBeforeID; await model.loadOlder(); if model.nextBeforeID == before { break }
                 }
@@ -226,10 +221,9 @@ struct GroupChatView: View {
 
     private func messageCell(_ message: GroupMessage) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if reading.newMessageIDs.count > 1, message.id == reading.newMessageIDs.sorted().first {
+            if message.id == reading.dividerMessageID {
                 NewMessagesDivider()
             }
-            if reading.newMessageIDs.contains(message.id), message.role != .user { Text("新消息").font(.caption2).foregroundStyle(Color.accentColor) }
             bubble(message)
                 .conversationReadVisibility(viewport: effectiveViewport, enabled: canRead && message.role != .user, revision: message.publicationRevision ?? 0) {
                     let activity = app.activity(kind: "group", id: model.group.id)

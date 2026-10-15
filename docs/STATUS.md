@@ -1,5 +1,10 @@
 # 项目状态 (STATUS) — 2026-10-14
 
+## 2026-10-15 · Worker 加载 .env、事件流修复与新消息提示
+
+- 根因：chat worker 由人工在 screen 中直接启动，未经 `start.sh` 导出 `.env`，`DEEPSEEK_API_KEY` 为空，私聊回复全部失败。现 worker 入口自行加载 `.env` 并在缺 Key 时拒绝启动。
+- iOS 私聊事件流因空行被吞而不派发，失败任务停在「排队中」；已改为按字节读取。新消息只保留一次性的「新」分隔线，列表未读改为圆点。详见 [known-issues](testing/2026-10-14-known-issues.md)。
+
 ## 2026-10-14 · 群聊成员增删
 
 - PR #37 已合入：已有群可增删 Bot 成员。跟进 `fix/group-member-remove`（PR #38）：左滑确认前不移走行（`.tint(.red)`）、成功后再动画移除；添加成员多选且无 footer；未读「新」分隔线样式；群设置顶栏头像/群名样式；群 `await_user` 空 `missing_information` 不再误失败完整回复；编排内部状态不对用户暴露（有正文则公开 `completed`，仅空正文显示未完成/重试）。规格 [group-member-edit](superpowers/specs/2026-10-14-group-member-edit.md)。

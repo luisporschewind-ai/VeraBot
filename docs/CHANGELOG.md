@@ -1,5 +1,11 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · Worker 环境变量、SSE 事件派发与新消息提示
+
+- 后端：独立启动的 worker（`python -m verabot.services.chat_tasks` / `owned_tasks` / `scheduled_tasks`）此前不读取 `backend/.env`，缺少 `DEEPSEEK_API_KEY` 时每条私聊回复都失败，并显示「⚠️ 模型没有返回内容（已自动重试）」。新增 `verabot/core/envfile.py`，三个入口在导入配置前加载 `.env`（不覆盖已导出变量），缺少 Key 时直接退出并给出提示。回归 `scripts/test/worker_env_test.py`。
+- iOS：持久事件流不再用 `bytes.lines`（会丢弃 SSE 事件结束用的空行，事件一直不派发），改为按字节切行；解析器在下一事件开始时兜底派发上一事件。修复任务已失败/完成而对话仍停在「排队中 / 取消排队」。
+- iOS 新消息提示：只在进入对话或从后台回到前台时，于当时第一条未读回复上方显示一次细蓝线「新」；正在看对话时到达的回复不显示；看过后再次进入不再显示。去掉头像上方「新消息」标签与「有新回复 ↓」按钮；会话列表未读数字改为小圆点。规格见 [chat-continuity](superpowers/specs/2026-10-14-chat-continuity-design.md)。
+
 ## 2026-10-14 · 群成员移除确认与动画
 
 - 修复左滑 `role: .destructive` 导致确认前行被系统移走的问题；改为非 destructive + 显式 `.tint(.red)`，确认「移除」后才调 API，并以 `withAnimation` 从数据源移除该行。取消保留原行。
