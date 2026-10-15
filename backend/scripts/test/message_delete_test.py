@@ -140,9 +140,9 @@ r = cli.delete(url(bot["id"], m_img), headers=h)
 codes = [cli.get(f"/api/attachments/{g['id']}{s}", headers=h).status_code for s in ("", "/content", "/thumb")]
 with db.tx() as c:
     rows = c.execute("SELECT COUNT(*) FROM attachments WHERE id=?", (g["id"],)).fetchone()[0]
-check("MSG-DEL-10", "删除带图消息：附件行删除，原图 / 缩略图 / 第一帧文件立即删除，接口 404；其他消息的图片保留",
-      before and r.status_code == 200 and rows == 0 and not any(store.exists(k) for k in keys)
-      and codes == [404, 404, 404] and att_repo.get(uid, p2["id"]) is not None
+check("MSG-DEL-10", "删除带图消息：消息附件关联删除，独立资料原件保留；其他消息的图片保留",
+      before and r.status_code == 200 and rows == 0 and all(store.exists(k) for k in keys)
+      and codes == [200, 200, 200] and att_repo.get(uid, p2["id"]) is not None
       and all(store.exists(k) for k in att_repo.file_keys(p2))
       and cli.get(f"/api/attachments/{p2['id']}/thumb", headers=h).status_code == 200)
 

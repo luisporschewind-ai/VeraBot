@@ -16,6 +16,8 @@ def is_permitted(bot: dict, name: str, depth: int) -> tuple[bool, str]:
         return False, "web_not_delegable"
     if name in REMINDER_TOOLS and depth >= 1:    # 被委派的 Bot 不能读写提醒（与记忆相同）
         return False, "reminder_not_delegable"
+    if t.kind == "library":
+        return True, ""  # Per-item authorization is enforced by the handler.
     if t.kind == "memory":                       # 记忆工具：不看 allowed_tools，看 memory_access；被委派时一律禁止
         if depth >= 1:
             return False, "memory_not_delegable"
@@ -36,7 +38,7 @@ def get_schemas(bot: dict, depth: int, memory_on: bool = False) -> list[dict]:
     """只向模型暴露该 Bot 有权使用的工具（最小暴露面）；真正的拦截在 run_tool。
     memory_on = VERABOT_MEMORY 且用户总开关打开（run_chat 开头读一次）；False 时不暴露记忆工具。"""
     return [t.schema() for t in REGISTRY.values()
-            if is_permitted(bot, t.name, depth)[0] and (t.kind != "memory" or memory_on) and t.kind != "attachment"]
+            if is_permitted(bot, t.name, depth)[0] and (t.kind != "memory" or memory_on) and t.kind not in {"attachment", "library"}]
 
 
 def delegation_targets(user_id: int, bot: dict) -> list[dict]:

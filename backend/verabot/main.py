@@ -110,3 +110,7 @@ app.include_router(owned_tasks.router)
 from .api.routers import chat_tasks, conversation_activity
 app.include_router(chat_tasks.router)
 app.include_router(conversation_activity.router)
+
+# Durable user library; independent of message/attachment retention.
+from .api.routers import library as library_router
+app.include_router(library_router.router)

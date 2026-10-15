@@ -136,6 +136,9 @@ async def ensure_captions(user_id: int, bot_id: int, rows: list[dict]):
        "required": ["attachment_id"]},
       kind="attachment")
 async def view_image(ctx: ToolContext, attachment_id: str):
+    from .. import library
+    if not library.bot_can_read(ctx.user_id,ctx.bot["id"],attachment_id):
+        return {"error":"图片未授权给当前 Bot","code":"attachment_not_found"}
     r = repo.get(ctx.user_id, attachment_id)
     if not r or r["status"] != "attached" or r["bot_id"] != ctx.bot.get("id"):
         return {"error": "找不到这张图片", "code": "attachment_not_found"}
@@ -159,6 +162,9 @@ def schema_for_history(has_images: bool, has_files: bool = False) -> list[dict]:
       {"type": "object", "properties": {"attachment_id": {"type": "string"}, "offset": {"type": "integer", "minimum": 0},
        "length": {"type": "integer", "minimum": 1, "maximum": 30000}}, "required": ["attachment_id"]}, kind="attachment")
 async def read_file(ctx: ToolContext, attachment_id: str, offset: int = 0, length: int = 30000):
+    from .. import library
+    if not library.bot_can_read(ctx.user_id,ctx.bot["id"],attachment_id):
+        return {"error":"文件未授权给当前 Bot","code":"attachment_not_found"}
     if attachment_id not in getattr(ctx.turn, "file_ids", []):
         return {"error": "文件未授权给当前对话", "code": "attachment_not_found"}
     if ctx.turn.file_reads >= 2:

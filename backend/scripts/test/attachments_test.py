@@ -326,8 +326,8 @@ if __name__ == '__main__':
     tr = [d for e, d in evs if e == "tool_result" and d["name"] == "ask_bot"]
     audit = [json.loads(x[0]) for x in sqlite3.connect(os.environ["VERABOT_DB"]).execute(
         "SELECT detail FROM audit_log WHERE kind='delegation_attachments'").fetchall()]
-    check("ATT-11", "委派：被委派 Bot 的 user 消息带同一图片 base64；结果与审计含 attachment_ids；不带对话历史",
-          has_image(deleg_user) and tr and tr[0]["result"].get("attachment_ids") == [d_att]
+    check("ATT-11", "委派：未共享时不自动传图片；发起方审计保留引用；不带对话历史",
+          not has_image(deleg_user) and tr and tr[0]["result"].get("attachment_ids") == [d_att]
           and audit and audit[-1]["attachment_ids"] == [d_att] and len(COMPLETES[0]) == 2,
           f"{str(deleg_user)[:120]} {tr and tr[0]['result']}")
 
@@ -455,15 +455,15 @@ if __name__ == '__main__':
     # ---------------------------------------------------------------- ATT-17 / ATT-08 删除
     sent = repo.get(UID, d_att)
     r_del = cli.delete(f"/api/bots/{bot['id']}/messages/{sent['message_id']}", headers=H)
-    gone_row = repo.get(UID, d_att) is None
-    files_gone = not STORE.exists(sent["storage_key"]) and not STORE.exists(sent["thumb_key"])   # 立即删除，不等对账
+    gone_row = repo.get(UID, d_att) is not None
+    files_gone = STORE.exists(sent["storage_key"]) and STORE.exists(sent["thumb_key"])   # 立即删除，不等对账
     gone_api = [cli.get(f"/api/attachments/{d_att}{s}", headers=H).status_code for s in ("", "/content", "/thumb")]
-    check("ATT-17", "删除单条消息（DELETE /api/bots/{id}/messages/{mid}）：附件行与原图 / 缩略图立即删除，元数据 / 原图 / 缩略图接口 404",
-          r_del.status_code == 200 and gone_row and files_gone and gone_api == [404, 404, 404], f"api={gone_api}")
+    check("ATT-17", "删除单条消息（DELETE /api/bots/{id}/messages/{mid}）：独立资料和原件保留，原消息不再存在",
+          r_del.status_code == 200 and gone_row and files_gone and gone_api == [200, 200, 200], f"api={gone_api}")
     keys_bot = [k for r in repo.for_messages(UID, [m["id"] for m in cli.get(f"/api/bots/{bot['id']}/messages", headers=H).json()["messages"]]).values() for x in r for k in repo.file_keys(x)]
     cli.delete(f"/api/bots/{bot['id']}/messages", headers=H)
     n_bot = sqlite3.connect(os.environ["VERABOT_DB"]).execute("SELECT COUNT(*) FROM attachments WHERE bot_id=?", (bot["id"],)).fetchone()[0]
-    clear_ok = keys_bot and n_bot == 0 and not any(STORE.exists(k) for k in keys_bot)
+    clear_ok = keys_bot and n_bot == 0 and all(STORE.exists(k) for k in keys_bot)
     h_att = upload(webp(), bot_id=helper["id"]).json()["id"]
     h_row = repo.get(UID, h_att)
     cli.delete(f"/api/bots/{helper['id']}", headers=H)
@@ -474,7 +474,7 @@ if __name__ == '__main__':
         c.execute("DELETE FROM users WHERE id=?", (UID2,))
     repo.reconcile(now=time.time() + 7200)
     acct_ok = bob_rows and not any(STORE.exists(r["storage_key"]) for r in bob_rows)
-    check("ATT-08", "清空对话 / 删除 Bot：行与文件立即删除；删除账号：行级联删除、文件由对账清理",
+    check("ATT-08", "清空对话保留资料；未发送附件随 Bot 删除；账号删除后文件对账清理",
           clear_ok and bot_del_ok and acct_ok, f"clear={clear_ok} bot={bot_del_ok} acct={acct_ok}")
 
     # ---------------------------------------------------------------- ATT-18 GIF

@@ -277,6 +277,9 @@ def claim_turn(user_id: int, group_id: int, request: GroupChatInput, *, retry_of
                 if updated != 1: raise GroupStoreError(409,"attachment_already_sent","附件已经发送")
                 c.execute("INSERT INTO chat_group_attachments(attachment_id,user_id,group_id,message_id,created_at) VALUES (?,?,?,?,?)",
                           (row["id"],user_id,group_id,mid,now))
+                from ..services.library import ingest_attachment
+                ingest_attachment(c,user_id=user_id,attachment_id=row["id"],source_kind="group",source_id=group_id,bot_id=None)
+                c.execute("UPDATE library_sources SET message_id=? WHERE item_id=? AND user_id=? AND kind='group'",(mid,row["id"],user_id))
             context_end = mid
         else:
             if target['id'] != original['member_id']:

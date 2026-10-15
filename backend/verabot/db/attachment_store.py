@@ -14,7 +14,9 @@ def count_since(c, user_id: int, since: str) -> int:
 
 
 def bytes_used(c, user_id: int) -> int:
-    return c.execute("SELECT COALESCE(SUM(bytes + COALESCE(text_bytes,0)),0) FROM attachments WHERE user_id=?", (user_id,)).fetchone()[0]
+    attached = c.execute("SELECT COALESCE(SUM(bytes + COALESCE(text_bytes,0)),0) FROM attachments WHERE user_id=?", (user_id,)).fetchone()[0]
+    retained = c.execute("SELECT COALESCE(SUM(json_extract(payload,'$.bytes') + COALESCE(json_extract(payload,'$.text_bytes'),0)),0) FROM library_items l WHERE user_id=? AND deleted=0 AND NOT EXISTS(SELECT 1 FROM attachments a WHERE a.id=l.id AND a.user_id=l.user_id)",(user_id,)).fetchone()[0]
+    return attached + retained
 
 
 def insert_pending(c, *, att_id: str, user_id: int, bot_id: int | None, mime: str, nbytes: int, width: int,
@@ -54,6 +56,9 @@ def attach(c, user_id: int, att_id: str, message_id: int, bot_id: int) -> None:
     """pending → attached（只改 pending 的行）。"""
     c.execute("UPDATE attachments SET status='attached', message_id=?, bot_id=?, expires_at=NULL"
               " WHERE id=? AND user_id=? AND status='pending'", (message_id, bot_id, att_id, user_id))
+    from .library_store import ingest
+    row = c.execute("SELECT * FROM attachments WHERE id=? AND user_id=? AND status='attached'", (att_id,user_id)).fetchone()
+    if row: ingest(c,row,"private",bot_id,bot_id)
 
 
 def set_caption(c, user_id: int, att_id: str, caption: str | None, status: str) -> None:

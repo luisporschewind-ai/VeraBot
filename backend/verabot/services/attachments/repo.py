@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import json
 import logging
 import os
 import time
@@ -64,7 +65,12 @@ def file_keys(r: dict) -> list[str]:
 
 def delete_files(keys) -> None:
     store = get_store()
+    from ...db.library_store import live_resource_keys
+    with db.tx() as c:
+        protected = live_resource_keys(c)
     for k in keys:
+        if k in protected:
+            continue
         try:
             store.delete(k)
         except OSError as e:   # 留给对账
@@ -123,12 +129,12 @@ def create_file(user_id: int, bot_id: int | None, data: bytes, filename: str) ->
         used = store_sql.bytes_used(c, user_id)
     text_data = parsed.text.encode("utf-8")
     if used + len(data) + len(text_data) > ATTACHMENT_USER_QUOTA_BYTES:
-        raise AttachmentError(413, "附件存储空间已满，请清理旧对话后再试", "attachment_storage_full")
+        raise AttachmentError(413, "附件存储空间已满，请在资料库中删除不需要的资料", "attachment_storage_full")
     if n_today >= ATTACHMENTS_PER_DAY:
         raise AttachmentError(429, f"今天的附件已达上限（{ATTACHMENTS_PER_DAY} 个），请明天再试", "attachment_daily_limit")
     att_id = new_id()
     base = f"u{user_id}/{att_id[4:6]}/{att_id}"
-    key, text_key = f"{base}.{parsed.extension}", f"{base}.txt"
+    key, text_key = f"{base}.{parsed.extension}", f"{base}_text.txt"
     store = get_store(); written = []
     try:
         store.put(key, data); written.append(key)
@@ -168,7 +174,10 @@ def get(user_id: int, att_id: str) -> dict | None:
     if not isinstance(att_id, str) or not att_id.startswith("att_") or len(att_id) > 40:
         return None
     with db.tx() as c:
-        return store_sql.get(c, user_id, att_id)
+        saved = c.execute("SELECT payload,deleted FROM library_items WHERE id=? AND user_id=?",(att_id,user_id)).fetchone()
+        if saved and saved["deleted"]: return None
+        row = store_sql.get(c, user_id, att_id)
+        return row or (json.loads(saved["payload"]) if saved else None)
 
 
 def get_public(user_id: int, att_id: str) -> dict | None:
@@ -286,6 +295,8 @@ def reconcile(now: float | None = None) -> dict:
     with db.tx() as c:
         rs = store_sql.all_keys(c)
     known = {k for r in rs for k in file_keys(r)}
+    from ...db.library_store import live_resource_keys
+    with db.tx() as c: known.update(live_resource_keys(c))
     cutoff = (now or time.time()) - ORPHAN_GRACE_SECONDS
     for key, mtime in list(store.iter_keys()):
         if key not in known and mtime < cutoff:

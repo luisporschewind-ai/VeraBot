@@ -250,6 +250,9 @@ def create_input(user_id: int, group_id: int, request: dict):
                                 (att_id, user_id)).rowcount
             if changed != 1:
                 raise GroupExecutionError(409, "attachment_already_sent", "附件已经发送")
+            from ..services.library import ingest_attachment
+            ingest_attachment(c,user_id=user_id,attachment_id=att_id,source_kind="group",source_id=group_id,bot_id=None)
+            c.execute("UPDATE library_sources SET message_id=? WHERE item_id=? AND user_id=? AND kind='group'",(message_id,att_id,user_id))
         _event(c, group_id, user_id, task_id, version, "input_accepted", {"input_id": input_id, "turn_id": turn_id, "message_id": message_id})
         _message_event(c,{"group_id":group_id,"user_id":user_id,"task_id":task_id,"version":version},"message_done",message_id)
         _state_events(c,group_id,user_id,task_id,version)
