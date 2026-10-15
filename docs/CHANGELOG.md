@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · 对话「回到最新」按钮
+
+- 私聊 / 群聊：列表滚离底部时，在输入栏上方右侧显示圆形玻璃「向下」按钮（仅 SF Symbol，无文案、无未读数）；点按动画滚到最新消息，贴底时淡出隐藏。规格见 [chat-continuity](superpowers/specs/2026-10-14-chat-continuity-design.md)。
+
 ## 2026-10-15 · 会话列表在正常回复后不再显示「工作暂未完成」
 
 - iOS：服务端活动摘要会保留本代对话历史上失败/中断的任务，最新一轮完成后行状态落回旧记录，列表一直显示「工作暂未完成」与警告头像。现在最新消息有正文时按空闲处理、显示最新回复预览；只有完全没有可读消息时才显示「工作暂未完成」。内部重试阶段 `retry_wait` 显示为「正在思考」。完成动画不会在本轮失败时播放。仅改 iOS，后端未改。回归 `listRowShowsReplyPreviewOverStaleInterruptedWork`，根因见 [known-issues](testing/2026-10-14-known-issues.md)。
