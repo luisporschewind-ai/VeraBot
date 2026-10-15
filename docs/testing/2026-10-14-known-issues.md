@@ -139,6 +139,24 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 
 根因：视口与底部锚点用 `PreferenceKey` 上报，`reduce` 写成 `value = nextValue()`，未设置该 key 的兄弟子树会把已测得的矩形覆盖成 `.zero`，视口始终为空，贴底判定 `anchor.minY <= viewport.maxY + 40` 在贴底时为假，按钮反而显示；底部锚点又放在 `LazyVStack` 内，上滑远离后不再上报几何，`followsBottom` 停在旧值，按钮隐藏。修复：改用 `onGeometryChange` 直接测量视口、输入栏与锚点；锚点移出 `LazyVStack`；判定抽为 `ScrollBottomDetector.followsBottom`（未测量时保留当前值）。回归：`ScrollBottomDetectorTests`。
 
+### 「思考助手」长回复不折叠（2026-10-15）
+
+现象：PR #48 上线长回复折叠后，「思考助手」对话里一两屏长的回复仍然整段展开。
+
+根因：
+
+- 阈值按原文量定，脱离手机上的实际高度。`LongReplyCollapse` 要求超过 1500 字或 40 个 `\n` 行才折叠，规格按「17pt 中文一行约 15 字」把 1500 字算成 3～4 屏。本地库里这个 Bot 的回复是 329 / 594 / 716 字、14 / 24 / 30 行，最长的离两个阈值都还差一半以上，所以一条都不会折叠。而这些回复是重 Markdown（标题、表格、列表、空行），标题字号大、块间有间距，列表与段落按气泡宽度折行：594 字那条在手机上约 45 行、1.6 屏，716 字约 57 行、2 屏。按 `\n` 计行看不到折行，按字数计又没算标题、空行和表格的高度。
+- 同一行上还有 trace 卡片在排版大段原文。594 字那条的 traces 有 32 KB：一次 `read_file`，结果里带约 3 万字文件内容。`TraceView` 没有处理 `read_file`，走默认分支 `r.text`，把整个结果对象拼成 `filename: …; has_more: …; text: <3 万字>` 放进不限行数的 `Text`。回复上方这张卡片本身就有很多屏长，每次进入视口都要重新拼接并排版；它不属于气泡，不受折叠影响。
+
+修复（仅 iOS）：
+
+- 折叠改为估算排版高度：宽度按半宽单位（ASCII 1、其他 2，一行 30），段落 / 列表按宽度折行，标题多算半行，表格行、代码行不折行，表格分隔行、``` 边框、空行各半行。超过 28 行（6.1 英寸 iPhone 约一屏）或 500 加权字（中文 1、ASCII 0.5）即折叠；预览 ≤ 200 字且 ≤ 8 行。594 / 716 字两条折叠，329 字（约 24 行）不折叠。
+- `read_file` trace 只显示「已读取「文件名」第 a–b 字，共 N 字」；其他工具兜底说明用 `ToolTraceSummary.fallback`，最多 160 字，写满即停；`ask_bot` 回答先截到 400 字再解析 Markdown。
+
+回归：`LongReplyCollapseTests`（`realMarkdownRepliesOverOneScreenCollapse`、`realMarkdownReplyUnderOneScreenStaysExpanded`、`readFileTraceSummaryOmitsFileText`、`fallbackTraceSummaryIsBounded` 等）。未运行，需在 Mac 上 `swift test`。规格见 [long-reply-collapse](../specs/long-reply-collapse.md)。
+
+后端未改：`read_file` 的完整结果（含文件文本）仍原样存进消息 `traces`，每次同步历史都会下发并解码这 32 KB。客户端已不再显示，后端可在落库或下发时去掉 `text`，只留 `filename` / `offset` / `next_offset` / `has_more` / `text_chars`。
+
 ## 后续再做
 
 这些不在本分支里实现：
