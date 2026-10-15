@@ -21,6 +21,23 @@ class MigrationTests(unittest.TestCase):
             self.assertIn(aid, [r[0] for r in after])
             self.assertNotIn(pending, [r[0] for r in after])
 
+    def test_legacy_text_metadata_matches_preserved_server_bytes(self):
+        import json,hashlib
+        aid,_=attached(self.uid,self.bots[0],b'original text')
+        row=repo.get(self.uid,aid)
+        stored=b'original\n\ntext'
+        repo.get_store().put(row['storage_key'],stored)
+        with db.tx() as c:
+            raw=json.loads(c.execute('SELECT payload FROM library_items WHERE id=?',(aid,)).fetchone()[0])
+            raw['text_key']=raw['storage_key']
+            c.execute('UPDATE library_items SET payload=? WHERE id=?',(json.dumps(raw),aid))
+        from verabot.db.migrations.v034_legacy_text_metadata import migrate
+        with db.tx() as c: migrate(c,33)
+        from verabot.services import library
+        item=library.get_item(self.uid,aid)
+        self.assertEqual(item['bytes'],len(stored))
+        self.assertEqual(item['sha256'],hashlib.sha256(stored).hexdigest())
+        self.assertEqual(repo.get_store().path(row['storage_key']).read_bytes(),stored)
     def test_upgrade_backup_restores_pre_v33_database(self):
         import sqlite3,tempfile
         from pathlib import Path
