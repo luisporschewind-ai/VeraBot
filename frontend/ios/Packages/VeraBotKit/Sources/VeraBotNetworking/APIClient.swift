@@ -194,6 +194,10 @@ public struct APIClient: VeraBotAPI {
         try await call("/api/bots/\(id)", method: "PATCH", body: try encode(patch))
     }
 
+    public func ensureOpeningTemplates(botID: Int) async throws -> Bot {
+        try await call("/api/bots/\(botID)/opening-templates/ensure", method: "POST")
+    }
+
     public func tools() async throws -> ToolsResponse { try await call("/api/tools") }
 
     public func mcpCatalog() async throws -> MCPCatalogResponse { try await call("/api/mcp/catalog") }

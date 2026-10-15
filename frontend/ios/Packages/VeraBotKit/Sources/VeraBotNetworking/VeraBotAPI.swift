@@ -37,6 +37,8 @@ public protocol VeraBotAPI: Sendable {
     func createBot(_ b: BotCreate) async throws -> Bot
     func deleteBot(_ id: Int) async throws -> OKResponse
     func updateBot(_ id: Int, _ patch: BotPatch) async throws -> Bot
+    /// 懒生成开场词模板（存量 Bot）；已有则原样返回。
+    func ensureOpeningTemplates(botID: Int) async throws -> Bot
     func tools() async throws -> ToolsResponse
     func mcpCatalog() async throws -> MCPCatalogResponse
     func mcpServers() async throws -> MCPServersResponse
@@ -232,5 +234,8 @@ public extension VeraBotAPI {
     func chatEvents(botID: Int, afterID: Int) -> AsyncThrowingStream<DurableEvent, Error> { AsyncThrowingStream { $0.finish(throwing: APIError(status: 501, message: "后端尚未支持持续对话")) } }
     func notificationEvents(after: Int?, through: Int?) async throws -> NotificationEventPage {
         throw APIError(status: 501, message: "通知同步暂不可用")
+    }
+    func ensureOpeningTemplates(botID: Int) async throws -> Bot {
+        throw APIError(status: 501, message: "开场词模板接口暂不可用")
     }
 }

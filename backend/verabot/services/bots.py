@@ -7,12 +7,14 @@ from .. import db
 from ..core.config import MCP_MAX_TOOLS_PER_BOT
 from ..db import bot_store, mcp_store
 from ..tools import REGISTRY
+from .opening import generate as opening_generate
+from .opening import address as opening_address
 
 PUBLIC_FIELDS = ("id", "name", "avatar", "color", "appearance", "persona", "instructions", "created_at",
                  "allowed_tools", "delegate_to", "accept_delegation", "memory_access", "tags", "pinned_at")
 
 
-def public_bot(b: dict, memory_count: int | None = None) -> dict:
+def public_bot(b: dict, memory_count: int | None = None, *, include_opening_address: bool = True) -> dict:
     """memory_count：该 Bot 的生效「本 Bot 记忆」条数（不含全局资料）；None 时按需查询。"""
     out = {k: b[k] for k in PUBLIC_FIELDS}
     if memory_count is None:
@@ -22,6 +24,11 @@ def public_bot(b: dict, memory_count: int | None = None) -> dict:
     updated = b.get("image_updated_at")
     out["has_avatar"] = bool(updated)
     out["avatar_updated_at"] = updated
+    out["opening_templates"] = opening_generate.load_stored(b)
+    if include_opening_address:
+        out["opening_address"] = opening_address.preferred_address(b["user_id"], b["id"])
+    else:
+        out["opening_address"] = None
     return out
 
 

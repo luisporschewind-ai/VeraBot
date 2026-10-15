@@ -141,15 +141,42 @@ final class ChatViewModel {
                 if notice?.offline == true { notice = nil }
             } catch { notice = .fromLoad(error, message: UserFacingError.message(for: error)) }
         }
-        if items.isEmpty && !historyIncomplete {
-            items = [Item(isUser: false, text: "你好，我是 **\(bot.name)**。试试：「石家庄天气怎么样」「明早 9 点提醒我开会」「记住我不吃香菜」")]
-        }
         await recoverExecution()
+        if items.isEmpty && !historyIncomplete {
+            items = [Item(isUser: false, text: openingText())]
+            Task { await ensureOpeningTemplatesIfNeeded() }
+        }
         scrollTick += 1
         await refreshMemoryStates()
         await refreshPendingActions()
         await refreshCandidateMemories()
         await refreshMemorySuggestions()
+    }
+
+    /// 空对话开场词：本地组装，不调模型。见 docs/specs/bot-opening-message.md。
+    var preferredAddress: String?
+
+    private func openingText() -> String {
+        let fromMemory = OpeningMessageComposer.cleanedAddress(bot.openingAddress)
+        let fromAccount = OpeningMessageComposer.cleanedAddress(preferredAddress)
+        let address = fromMemory.isEmpty ? (fromAccount.isEmpty ? nil : fromAccount) : fromMemory
+        return OpeningMessageComposer.compose(
+            botName: bot.name,
+            persona: bot.persona,
+            templates: bot.openingTemplates,
+            address: address,
+            conversationGeneration: conversationGeneration
+        )
+    }
+
+    private func ensureOpeningTemplatesIfNeeded() async {
+        guard bot.openingTemplates == nil else { return }
+        do {
+            let updated = try await api.ensureOpeningTemplates(botID: bot.id)
+            bot = bot.replacingOpening(templates: updated.openingTemplates, address: updated.openingAddress ?? bot.openingAddress)
+        } catch {
+            // 兜底已展示；后台生成失败不影响本次空对话。
+        }
     }
 
     @discardableResult

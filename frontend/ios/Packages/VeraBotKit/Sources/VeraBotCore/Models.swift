@@ -153,10 +153,21 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
     /// 置顶时间（UTC ISO 8601）；旧后端缺失或 null 时未置顶。
     public private(set) var pinnedAt: String?
     public var isPinned: Bool { pinnedAt != nil }
+    /// 开场词模板（schema v32）；旧后端或尚未生成时为 nil，客户端用内置兜底。
+    public private(set) var openingTemplates: OpeningTemplates?
+    /// 轻量称呼（记忆解析）；列表接口可能为 nil。
+    public private(set) var openingAddress: String?
 
     public func replacingPinnedAt(_ value: String?) -> Bot {
         var copy = self
         copy.pinnedAt = value
+        return copy
+    }
+
+    public func replacingOpening(templates: OpeningTemplates?, address: String?) -> Bot {
+        var copy = self
+        copy.openingTemplates = templates
+        copy.openingAddress = address
         return copy
     }
 
@@ -173,6 +184,8 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         case memoryCount = "memory_count"
         case tags
         case pinnedAt = "pinned_at"
+        case openingTemplates = "opening_templates"
+        case openingAddress = "opening_address"
     }
 
     public init(from decoder: Decoder) throws {
@@ -196,6 +209,8 @@ public struct Bot: Codable, Sendable, Hashable, Identifiable {
         memoryCount = try c.decodeIfPresent(Int.self, forKey: .memoryCount)
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         pinnedAt = try c.decodeIfPresent(String.self, forKey: .pinnedAt)
+        openingTemplates = try c.decodeIfPresent(OpeningTemplates.self, forKey: .openingTemplates)
+        openingAddress = try c.decodeIfPresent(String.self, forKey: .openingAddress)
     }
 }
 

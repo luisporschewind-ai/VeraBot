@@ -20,6 +20,14 @@ def _bot(r):
     b["accept_delegation"] = bool(b.get("accept_delegation"))
     b["memory_access"] = b.get("memory_access") or "bot_and_global"
     b["tags"] = coerce_stored_tags(json.loads(b.get("tags") or "[]"))   # 旧数据超出当前上限时按规则收敛
+    raw_opening = b.get("opening_templates")
+    if isinstance(raw_opening, str) and raw_opening.strip():
+        try:
+            b["opening_templates"] = json.loads(raw_opening)
+        except (ValueError, TypeError):
+            b["opening_templates"] = None
+    elif not isinstance(raw_opening, dict):
+        b["opening_templates"] = None
     return b
 
 

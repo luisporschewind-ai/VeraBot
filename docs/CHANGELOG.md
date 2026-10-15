@@ -1,5 +1,12 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · Bot 动态开场词 Phase 1
+
+- 规格：[bot-opening-message](specs/bot-opening-message.md)。空对话开场气泡不再硬编码「石家庄天气…」功能清单。
+- 后端 schema v32：`bots.opening_templates`；创建 Bot / 改人设后后台用 DeepSeek 一次生成人设模板；`POST /api/bots/{id}/opening-templates/ensure` 懒生成；失败不阻断，客户端兜底。公开字段增加 `opening_templates`、`opening_address`（记忆轻量称呼）。
+- iOS：`OpeningMessageComposer` 按时段、周一/周五/周末、节假日、二十四节气、关系阶段与称呼本地组装；深夜追加「早点休息」。无 UI 布局改动；`frontend/web` 未动。
+- 测试：`opening_message_test.py`（mock 模型）；Swift `OpeningMessageTests`（本 Linux 环境未跑）。
+
 ## 2026-10-15 · 对话「回到最新」按钮
 
 - 私聊 / 群聊：列表滚离底部时，在输入栏上方右侧显示圆形玻璃「向下」按钮（仅 SF Symbol，无文案、无未读数）；点按动画滚到最新消息，贴底时淡出隐藏。规格见 [chat-continuity](superpowers/specs/2026-10-14-chat-continuity-design.md)。
