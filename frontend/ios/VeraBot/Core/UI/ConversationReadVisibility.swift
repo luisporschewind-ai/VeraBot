@@ -1,19 +1,6 @@
 import SwiftUI
 import VeraBotCore
 
-struct ConversationViewportKey: PreferenceKey {
-    static let defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
-}
-struct ConversationComposerKey: PreferenceKey {
-    static let defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
-}
-struct ConversationBottomKey: PreferenceKey {
-    static let defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
-}
-
 /// Measures rendered content against the actual scroll viewport. Lazy prefetch is never proof of reading.
 private struct ConversationReadVisibility: ViewModifier {
     let viewport: CGRect
@@ -47,14 +34,18 @@ private struct ConversationReadVisibility: ViewModifier {
         }
     }
 }
+// Not a PreferenceKey: a `value = nextValue()` reduce lets sibling subtrees that never set the key
+// overwrite the measured frame with `.zero`, so the viewport always read as empty.
 extension View {
     func conversationComposer(_ rect: Binding<CGRect>) -> some View {
-        background(GeometryReader { geometry in Color.clear.preference(key: ConversationComposerKey.self, value: geometry.frame(in: .global)) })
-            .onPreferenceChange(ConversationComposerKey.self) { rect.wrappedValue = $0 }
+        onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { rect.wrappedValue = $0 }
     }
     func conversationViewport(_ rect: Binding<CGRect>) -> some View {
-        background(GeometryReader { geometry in Color.clear.preference(key: ConversationViewportKey.self, value: geometry.frame(in: .global)) })
-            .onPreferenceChange(ConversationViewportKey.self) { rect.wrappedValue = $0 }
+        onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { rect.wrappedValue = $0 }
+    }
+    /// The anchor must sit outside any LazyVStack: lazy rows stop reporting geometry once scrolled far away.
+    func conversationBottomAnchor(_ action: @escaping (CGRect) -> Void) -> some View {
+        onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }, action: action)
     }
     func conversationReadVisibility(viewport: CGRect, enabled: Bool, revision: Int, onRead: @escaping () async -> Void) -> some View {
         modifier(ConversationReadVisibility(viewport: viewport, enabled: enabled, revision: revision, onRead: onRead))

@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · 「回到最新」按钮显隐修正
+
+- 私聊 / 群聊：「回到最新」按钮原来显隐完全反了（贴底时显示、上滑时隐藏）。现在只在滚离底部时显示，贴底或接近底部（40pt 内）时隐藏；新消息自动跟随同样使用该判定。贴底判定抽为 `VeraBotCore.ScrollBottomDetector`，回归测试 `ScrollBottomDetectorTests`。
+
 ## 2026-10-15 · Bot 动态开场词 Phase 1
 
 - 规格：[bot-opening-message](specs/bot-opening-message.md)。空对话开场气泡不再硬编码「石家庄天气…」功能清单。
