@@ -14,7 +14,7 @@ def count_since(c, user_id: int, since: str) -> int:
 
 
 def bytes_used(c, user_id: int) -> int:
-    attached = c.execute("SELECT COALESCE(SUM(bytes + COALESCE(text_bytes,0)),0) FROM attachments WHERE user_id=?", (user_id,)).fetchone()[0]
+    attached = c.execute("SELECT COALESCE(SUM(bytes + COALESCE(text_bytes,0)),0) FROM attachments a WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM library_items l WHERE l.id=a.id AND l.user_id=a.user_id AND l.deleted=1)", (user_id,)).fetchone()[0]
     retained = c.execute("SELECT COALESCE(SUM(json_extract(payload,'$.bytes') + COALESCE(json_extract(payload,'$.text_bytes'),0)),0) FROM library_items l WHERE user_id=? AND deleted=0 AND NOT EXISTS(SELECT 1 FROM attachments a WHERE a.id=l.id AND a.user_id=l.user_id)",(user_id,)).fetchone()[0]
     return attached + retained
 

@@ -7,216 +7,1098 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BB0000000000000000000001 /* VeraBotCore in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000001 /* VeraBotCore */; };
-		BB0000000000000000000002 /* VeraBotNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000002 /* VeraBotNetworking */; };
-		BB0000000000000000000003 /* VeraBotTTS in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000003 /* VeraBotTTS */; };
-		BB0000000000000000000004 /* VeraBotPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000004 /* VeraBotPersistence */; };
-		BB0000000000000000000005 /* VeraBotData in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000005 /* VeraBotData */; };
+		01546C3F3EC0867D185B79FE /* ReminderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C70953955C92C9F418EABDA8 /* ReminderDetailView.swift */; };
+		0164D2255AD7BB5BA6096A5E /* PluginsSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C24E71491B936FFF8C68EF74 /* PluginsSettingsSection.swift */; };
+		0427DB0C498FD7A184DBBB16 /* BotHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4887619CF83D42CA11EED643 /* BotHomeView.swift */; };
+		04E189D44749229376BD783B /* AttachmentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2C0EE4C4696F262A48A1E0 /* AttachmentViews.swift */; };
+		0548210DA4931BF47FEDC2BB /* BottomPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E48FF7A467FA3858322918 /* BottomPanel.swift */; };
+		0D937DF3D9861DE1163AA1E0 /* BotAvatarShapePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F927DA8896E7CB58D6BE1EA /* BotAvatarShapePicker.swift */; };
+		0EFB222FD84335CCE86B54F6 /* LibraryItemDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997F9E3F77BD98D7AA974F46 /* LibraryItemDetailView.swift */; };
+		1541AC55DC33581F6199CE18 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018E0547CD9DEAEA350B90F9 /* SettingsView.swift */; };
+		178CA326EA102D7F48C613BE /* CreateBotSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE174E554FBF6F3E59113C3B /* CreateBotSheet.swift */; };
+		1AE2518B84C09B9A9F34889B /* ImagePreparer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC3329EDA197622902BD2BF4 /* ImagePreparer.swift */; };
+		1CC3CCC6F16D8B1C7931F023 /* ScheduledTaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C116643A86A80A4B0126F3B /* ScheduledTaskDetailView.swift */; };
+		1D659D66649D68D24B9B17CC /* BotAvatarWorkMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240A17C68083A8F055A6C48B /* BotAvatarWorkMotion.swift */; };
+		1E5329919C29C40AF386F3EF /* NotificationEventSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DEE9A94C3D87FF9185C17C /* NotificationEventSync.swift */; };
+		1F1C5EF7E47E0E34DC7C156D /* QuotaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43329B3D6D52AE8DF8D0A2F8 /* QuotaView.swift */; };
+		1F4FC4A538EFB531A749ACB7 /* LibraryImageGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06CFE7327824CF4C3E2A085 /* LibraryImageGrid.swift */; };
+		230A19987E405EA66FC7446E /* RobotAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEA028D698331EC23C8D8C74 /* RobotAvatarView.swift */; };
+		25B1A34CBD5BAD8249DC3350 /* AvatarLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C68DB24E2C716CDE2220936 /* AvatarLabView.swift */; };
+		26EA444E4B6208FE5B6966AC /* VeraBotCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0DCA35D571E134537EA5FCC2 /* VeraBotCore */; };
+		27494F7ABBEB25CC75180BEA /* MessageRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7479B2D43EA47BBA5F588E41 /* MessageRow.swift */; };
+		2C540C8613D1C7DF7B3C493D /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 53844451640BC069A307EBFE /* InfoPlist.xcstrings */; };
+		2C690E1A4DEA093AC0A20B8D /* BotNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12D22598F75A223C2B529CA7 /* BotNotice.swift */; };
+		2E6E026E4A257A0353B52C33 /* GroupChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764C905756C724ED54B3143B /* GroupChatView.swift */; };
+		30EF35DBE1C11346A255F5FE /* ComposerAttachmentModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46888CF33751979D5784FE4C /* ComposerAttachmentModel.swift */; };
+		31EB01F16AFAA4C3D2293B50 /* GroupConversationAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF663872873FA1D121AF63F /* GroupConversationAvatar.swift */; };
+		32F7B11CEBFE895C32B05A37 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF049F5381D31CF3805F0836 /* LoginView.swift */; };
+		3336189805981EA81432748F /* BotAvatarState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CBDBDDF881B23288C5B2DE /* BotAvatarState.swift */; };
+		338520DCF09E9B94D45D925C /* NoticeLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7353A6D8932F27AC02F00CC /* NoticeLabView.swift */; };
+		33FEA16D62B3CD3B48BC4480 /* JumpToLatestButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69AA5EB92F7C7B8734E2038 /* JumpToLatestButton.swift */; };
+		365E39BB77A1CFCE78DF75EF /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE260C4E5EB41009E152A189 /* InboxView.swift */; };
+		37B5ED773C90358FA1A851AB /* NoticeQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AB8826FC5C5DC28DC83486B /* NoticeQueue.swift */; };
+		3AB259937EE0DBB2F35B1A59 /* DismissToolbarButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E41B39232EE3F793E7132D /* DismissToolbarButton.swift */; };
+		3AF7ADDA1EE83313DC02EAE0 /* NewMessagesDivider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 011DD7DBD6A07F36ED7537A6 /* NewMessagesDivider.swift */; };
+		3BA7561EE87822DBD0BDAE03 /* RemindersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86DAA18566A4B082944D826A /* RemindersView.swift */; };
+		41CDF09C4143F3EE52CF5BF6 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE1DAA0B1601A83E92620BE /* AppState.swift */; };
+		43176ED9726D4AC82C06AB9E /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB15FEF299D62BAFD03F845F /* NotificationSettingsView.swift */; };
+		44EFC09AD100B1F489902DFB /* TaskApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D01143695E3733485422DE85 /* TaskApprovalView.swift */; };
+		463F8513E6AB62BDE6C1B2EA /* TetrisCompanionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE791D5EAF47FCBCA1F7DB50 /* TetrisCompanionViews.swift */; };
+		49DB00276FB885421CACE3D7 /* AttachmentImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53F0FA68AD930D249BC63D00 /* AttachmentImageStore.swift */; };
+		4BEC1D841B2590F2D6EC69E9 /* RobotAvatarGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C857E44D200F1829630E8B93 /* RobotAvatarGeometry.swift */; };
+		537492497C9BAB342493431E /* VeraBotPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = A35283AC7AC95EF39FB99F89 /* VeraBotPersistence */; };
+		5AD585D0D208A4A7B50A5A4D /* VeraBotNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = 79C21D574A0CD53982BAE0E3 /* VeraBotNetworking */; };
+		5D4818D92C47BE1F3D9D8828 /* GroupInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8315574B2BE38E4B08F2F0 /* GroupInfoView.swift */; };
+		5F5972A4843DFE6F846122E1 /* TaskListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841345AB52B290CA7FA3C8B7 /* TaskListView.swift */; };
+		5F6CD1791885FBB08ADDE97B /* SpeakButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB55B77A324DAF02CA91A074 /* SpeakButton.swift */; };
+		5FC2583ADE983456227AE227 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AFCFB9752B7AD58FB43B3D4 /* Theme.swift */; };
+		62B091DFF1AD9FDC2A836A17 /* LibraryUploadSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 743B45B3E6813674A2CDA778 /* LibraryUploadSheet.swift */; };
+		62F651FA398142EBDA8D041C /* GroupListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584ED3E78ACE219E84BCEAE9 /* GroupListView.swift */; };
+		630543AFC2E0558CF3958272 /* NoticeInteractionLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AA6E0435B1F49D96208C0F /* NoticeInteractionLabView.swift */; };
+		63F59E43B84A17F54F919495 /* BotEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946514525FCD2F7410EB6D2D /* BotEditView.swift */; };
+		675B4423CB476171F3CFB696 /* ToolConfirmationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC83BA1CFB125196681F434 /* ToolConfirmationCard.swift */; };
+		688EF1332D253528B28CB729 /* MemoryReferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48255BB2DD9434EC8EF7EF4D /* MemoryReferencesView.swift */; };
+		68E9B0EE25A252A2DC1E8CC2 /* BotAvatarAppearanceLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C74F96AE22F26AA5E81E35F /* BotAvatarAppearanceLabView.swift */; };
+		69AF560E64357B2B8B958D71 /* ReminderEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E38B55E95E3B2A626D322D3 /* ReminderEditorView.swift */; };
+		6DDE036133D2F559E641FAA0 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96EEC45C05A7BDFB00E91862 /* ChatView.swift */; };
+		6E1AFA1868BB4484555EBF0F /* RobotAvatarSpecialMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 479516A7F112FA54443696F6 /* RobotAvatarSpecialMotion.swift */; };
+		6E7DA0FEC549DE813F08A4F0 /* AvatarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F5B329D6005F03C23B240C /* AvatarStore.swift */; };
+		6F9CBC6F654520C6AFA81D31 /* LibraryDownloadIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA6DFA586CE6F55E2EE20D4 /* LibraryDownloadIntegrationTests.swift */; };
+		7232EB8176EF63046BE39C04 /* GroupMemberAvatarStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 854E88B05E8C44B240FBBDC2 /* GroupMemberAvatarStack.swift */; };
+		74707C57F8692B022EBCAACB /* AppearanceMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA743A9910FE6795808FAF02 /* AppearanceMode.swift */; };
+		74C3C68DFC1A96B3DE6F63C1 /* PluginCatalogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A120DE173DB5CFE117F4EEF /* PluginCatalogView.swift */; };
+		74E5B8682C8A0880B66BCC91 /* BotTravelViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2564D082318084A4C23F1920 /* BotTravelViews.swift */; };
+		77F3C0E2BB3860538F135486 /* MessageContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDA7FF86E22171794D5463E9 /* MessageContentView.swift */; };
+		78FB40DC2C5D2CA60888A81D /* BotTravelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5C449AFCEF9298A046CB11 /* BotTravelStore.swift */; };
+		792CF7FE06EFBF6A0D72F4C9 /* WorldViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6A67954DB498F6B2CA1947 /* WorldViews.swift */; };
+		7CEC491156A5D2125EF27826 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1FFF22B6EE7DE9CD0EB981 /* CameraPicker.swift */; };
+		810972481FB2D2C35D159AEA /* BotAppearanceLabStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52AC790F451DDE980A54F6B7 /* BotAppearanceLabStore.swift */; };
+		8223C55ECB48ED95C44AAC79 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9110D78522E01B54EE921E4D /* AppConfig.swift */; };
+		8344C5E60763592A78432CCA /* BotInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CD337E570EAB438A3FFB1E /* BotInfoView.swift */; };
+		8655E35AF7BF93729873C315 /* NoticeScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4A8964DA547AAFA3DDF45E /* NoticeScenario.swift */; };
+		86E4503FF1C7178BA3E6BB31 /* MemoryProposalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A9F42D58854EC52344DD91 /* MemoryProposalCard.swift */; };
+		879ADDA69524DA013A017926 /* DelegationLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82FE46070A1C055EA45932DF /* DelegationLogView.swift */; };
+		88F55501313C9192D2B32DCC /* LibraryFileList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C13062B1AA887E66BAAFDF /* LibraryFileList.swift */; };
+		8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6508701B3F97F7E98B01C00C /* MiniGameViews.swift */; };
+		90DE63991A28ECA890EAEC90 /* RobotAvatarLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35A8BF6FB6F9B69E3FCF260 /* RobotAvatarLabView.swift */; };
+		9218258188FF7E412112926B /* NoticeWorkbenchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3627B57D948744FB00258E /* NoticeWorkbenchView.swift */; };
+		92470A703C2920832344A5E2 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB9ED27A9D63CD4F97247CE7 /* ChatViewModel.swift */; };
+		985796BC38EAF067F72C5450 /* VeraBotData in Frameworks */ = {isa = PBXBuildFile; productRef = F4446D9F4BA51E4895890BB9 /* VeraBotData */; };
+		98D3B9774087A6F2A11BCFE1 /* BotAvatarTemplateGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD3A4147D7206BD8D995515 /* BotAvatarTemplateGeometry.swift */; };
+		997DD07D89CBC7B46991760D /* MentionTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0361FE4D9E037AEF2F03FE /* MentionTextEditor.swift */; };
+		9A8371CEAB239509161A209C /* MemorySettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED18CB21A56DD778E9202E8D /* MemorySettingsSection.swift */; };
+		9C27B4822D6C0472B253EB8B /* MemoryEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA10F358EA5A129B9D8B4A9 /* MemoryEditView.swift */; };
+		A2380F9C15D86950B3FC57C4 /* BotAvatarTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86EF42DCE76C56C6E925620E /* BotAvatarTemplate.swift */; };
+		A558FBA91C2983B96B16B61E /* RobotAvatarAccessoryRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30C91C1F9D53E1DEC89CA1B4 /* RobotAvatarAccessoryRendering.swift */; };
+		A5960819F291FCDDF7646590 /* UserAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B967A331970CB0CB2F10E288 /* UserAvatar.swift */; };
+		A67851B25BD9584E7FB4AC2E /* BotAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA16BCEBD661B93BB2BF139 /* BotAvatar.swift */; };
+		A87A9F5B42E0CC03235DEC16 /* BotNoticeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D0B8A3DE55E8987540B985E /* BotNoticeCard.swift */; };
+		AC8DDD55E13818EC124D6E71 /* AvatarImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F08EE811CFBA337BAE7A21E /* AvatarImage.swift */; };
+		AF9CAF3360CE91944172C3E9 /* TetrisCompanionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37D62CE6269DD45B58CEA286 /* TetrisCompanionModel.swift */; };
+		B14E46373B437C3C185BA300 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7227481F2AD38DA86774FEB /* Haptics.swift */; };
+		B2C3C6ADBC4F0D71F2918720 /* AppearanceWindowSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099F8E62AF6A110797D644D8 /* AppearanceWindowSync.swift */; };
+		B3138C96BCE23CE7F1A8A5E7 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147270BEA714DD581BF63138 /* KeychainStore.swift */; };
+		B33C8D1C0512BDE4810F83B4 /* PlaygroundAssistant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 469972256A4D27DA4A31462A /* PlaygroundAssistant.swift */; };
+		B3D99C106145F44A3CE739F8 /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C910691509604C35D073FD /* TaskDetailView.swift */; };
+		B605AFC38584CD21873F5755 /* LiveBotAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 928A38EBE534F3CEE8CAB9D7 /* LiveBotAvatar.swift */; };
+		B698EAABBA162547650C13BC /* InAppBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6F1E843EA28A08B8E15E700 /* InAppBrowser.swift */; };
+		B7B0782C8B16AA06169F82C4 /* RobotAvatarSkinRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC09FB3B407FCF12BEE8AF4 /* RobotAvatarSkinRendering.swift */; };
+		B9FAAC1C9B389770D7304CA1 /* RobotAvatarMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E023D66FA3B1A69E0533729 /* RobotAvatarMotion.swift */; };
+		B9FAE634215AB1387AA7FC4A /* ConversationReadVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC02FFEE70BE6F556F014DD /* ConversationReadVisibility.swift */; };
+		BD4229116A1F32B4BE0529BC /* PluginListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A069403A3B56FF75C177363B /* PluginListView.swift */; };
+		BF950EAC4398543CEA7FFF0F /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A75AE23121AAC9E10989DA7A /* DebugView.swift */; };
+		C16E615BB12632CFEB3372AA /* VeraBotApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958561563633C92F21FFD29F /* VeraBotApp.swift */; };
+		C17937A9B367AAB99957EC97 /* BotTagViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB6A189B13C4F2D96281ED14 /* BotTagViews.swift */; };
+		C27209AA606DBB5B0D7F4EE1 /* AvatarPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C57FDB9124DA5929858E01E /* AvatarPicker.swift */; };
+		C684C406F8E37DEB2D4D59D2 /* VeraBotTTS in Frameworks */ = {isa = PBXBuildFile; productRef = 909DF8AF7A080B4448FDF54C /* VeraBotTTS */; };
+		C756AF0B5D30CED1F6EA1207 /* AppState+Reminders.swift in Sources */ = {isa = PBXBuildFile; fileRef = F258A75A155690347B38F5D4 /* AppState+Reminders.swift */; };
+		C94FFEF2ABA96F6BA4373761 /* RobotAvatarInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50403B438362C1632FC6D8E8 /* RobotAvatarInteraction.swift */; };
+		CA60B012B5F549D3CC5DCC4F /* TaskEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F6598764912A69D30533D7 /* TaskEditorView.swift */; };
+		CA67141A594FD89490C720F2 /* AvatarLabCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC023CD71CD0F58088DC17A0 /* AvatarLabCharacterView.swift */; };
+		CA7375A31D7D2D3E06BDEAA8 /* BotWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A833D366AA4080024C520A /* BotWelcomeView.swift */; };
+		D0EF60DC4F40A3140C6C0984 /* MemoryMonthlyReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1561EC16CBF6602ECFCC00DF /* MemoryMonthlyReviewView.swift */; };
+		D3D81668E19B9C7F0AF6CE33 /* UserProfileEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C67F31D068CF5C96A39B3B /* UserProfileEditor.swift */; };
+		D3E2331D1D3A55E21BB21288 /* BotListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46523360EF76E81DB53A5CDE /* BotListView.swift */; };
+		D49E56A6D3FA6A25ADE158AD /* LibraryBotSharingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DFAEF0932A3F215EB3DEF61 /* LibraryBotSharingSheet.swift */; };
+		D5EAE68666D0F866C30379A3 /* BotConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B03E999B7CBAC51C81FAFF /* BotConnectionView.swift */; };
+		D668FDBACAD2208DC075F959 /* BotAvatarAppearanceSaveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5053F9300A57949ABBFF3F5 /* BotAvatarAppearanceSaveView.swift */; };
+		D74BCBA5529D8CD41CEF17E5 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD2732277B251947B3842046 /* LibraryView.swift */; };
+		DC45CE9AE39E9407F01758BF /* GeneralSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79754DC360D5A8BAA6A50273 /* GeneralSettingsSection.swift */; };
+		E01735FF5B567C482FAEABC1 /* NoticeSourceIndex.json in Resources */ = {isa = PBXBuildFile; fileRef = E168EA8883D7A127984AB6B4 /* NoticeSourceIndex.json */; };
+		E15570FCCF2494DA42F7FA60 /* SpeechInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E2631B814C11F5160C8D17 /* SpeechInput.swift */; };
+		E5F54F22EFB905AE30907C43 /* RobotAvatarFamilyGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125237F9E24F9F9665F2AFAA /* RobotAvatarFamilyGeometry.swift */; };
+		E7BCADABF7994ECA2A05D134 /* DefaultBotFigure.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B37A62E664594298BAA145 /* DefaultBotFigure.swift */; };
+		E970ABE5EADBB6DAD72A841D /* WebSourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 370447F3EAFB9569AE7388B6 /* WebSourcesView.swift */; };
+		EA3A9B3D881F0BD54751E8E3 /* MemoryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 515FA1CF04DB89841010389E /* MemoryListView.swift */; };
+		EC8837613CF0EC14C42A5F41 /* PluginDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C77589E05C7B8DAE6246CB /* PluginDetailView.swift */; };
+		EF17BC2BCDF3AFFBC9D6CECD /* GroupMemberAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32FBF20B170B7E52B42F6CCB /* GroupMemberAvatar.swift */; };
+		EF3F3042CA9859B15C0E3156 /* TraceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CF4DCCF59659EF30A92860 /* TraceView.swift */; };
+		F0626A1E8F50C012F3DA1BA6 /* CreateGroupSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C5D4BF177CE569E20682AD /* CreateGroupSheet.swift */; };
+		F2C6FC27565BEF39869A1CE0 /* LibraryDownloadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1BF1E515F06F846F060286 /* LibraryDownloadCoordinator.swift */; };
+		F38340D9708B4B8ADADD32B6 /* CircleAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6712BB8C926AEE82AC619C9 /* CircleAvatar.swift */; };
+		F39F8FEE9A670C7632E5F9F8 /* GroupExecutionStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1623FDA2A9EC8E1C4724B7D4 /* GroupExecutionStatusView.swift */; };
+		F434630C048D6D88D2DE3B2A /* BotAvatarLabPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = E74608DB8A82935CF4C9FF6D /* BotAvatarLabPlayback.swift */; };
+		F7090A04AD12F38A02F5691D /* ConnectorTokenSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7584F53D3F1EBB42251BBEFF /* ConnectorTokenSheet.swift */; };
+		F7D894C796113C610B5147A0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BD018E46B9DECE36E52911C3 /* Assets.xcassets */; };
+		F9666CF59FBDA0EDF5ABEC8F /* Keyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E334E7E0334062AF62A5A9 /* Keyboard.swift */; };
+		FBFD184C38A778981F754DA8 /* ConnectorKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50ACAAE4B54B5882CA5461B /* ConnectorKeychain.swift */; };
+		FD7FA96AE1D36F14238827A4 /* MemoryExportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25ADABD01B42B7872753141B /* MemoryExportDocument.swift */; };
+		FF6EB69948A939C5ECCE0B0E /* NotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C216EA6AC64E15D38EAB59 /* NotificationCoordinator.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		D880001D887C9845F1A4C824 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 589367FBD6C541C4CF3C0D68 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0614BA21221A55A356BAEA74;
+			remoteInfo = VeraBot;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
-		AA0000000000000000000001 /* VeraBot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VeraBot.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA0000000000000000000010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		011DD7DBD6A07F36ED7537A6 /* NewMessagesDivider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewMessagesDivider.swift; sourceTree = "<group>"; };
+		018E0547CD9DEAEA350B90F9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		04B03E999B7CBAC51C81FAFF /* BotConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotConnectionView.swift; sourceTree = "<group>"; };
+		07CD337E570EAB438A3FFB1E /* BotInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotInfoView.swift; sourceTree = "<group>"; };
+		099F8E62AF6A110797D644D8 /* AppearanceWindowSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceWindowSync.swift; sourceTree = "<group>"; };
+		0F927DA8896E7CB58D6BE1EA /* BotAvatarShapePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarShapePicker.swift; sourceTree = "<group>"; };
+		125237F9E24F9F9665F2AFAA /* RobotAvatarFamilyGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarFamilyGeometry.swift; sourceTree = "<group>"; };
+		12D22598F75A223C2B529CA7 /* BotNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotNotice.swift; sourceTree = "<group>"; };
+		147270BEA714DD581BF63138 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		14C910691509604C35D073FD /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
+		1561EC16CBF6602ECFCC00DF /* MemoryMonthlyReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryMonthlyReviewView.swift; sourceTree = "<group>"; };
+		1623FDA2A9EC8E1C4724B7D4 /* GroupExecutionStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupExecutionStatusView.swift; sourceTree = "<group>"; };
+		1A120DE173DB5CFE117F4EEF /* PluginCatalogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginCatalogView.swift; sourceTree = "<group>"; };
+		1FC09FB3B407FCF12BEE8AF4 /* RobotAvatarSkinRendering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarSkinRendering.swift; sourceTree = "<group>"; };
+		22E2631B814C11F5160C8D17 /* SpeechInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechInput.swift; sourceTree = "<group>"; };
+		240A17C68083A8F055A6C48B /* BotAvatarWorkMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarWorkMotion.swift; sourceTree = "<group>"; };
+		24E41B39232EE3F793E7132D /* DismissToolbarButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DismissToolbarButton.swift; sourceTree = "<group>"; };
+		2564D082318084A4C23F1920 /* BotTravelViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotTravelViews.swift; sourceTree = "<group>"; };
+		25ADABD01B42B7872753141B /* MemoryExportDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryExportDocument.swift; sourceTree = "<group>"; };
+		2D0B8A3DE55E8987540B985E /* BotNoticeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotNoticeCard.swift; sourceTree = "<group>"; };
+		2DFAEF0932A3F215EB3DEF61 /* LibraryBotSharingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryBotSharingSheet.swift; sourceTree = "<group>"; };
+		2F08EE811CFBA337BAE7A21E /* AvatarImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarImage.swift; sourceTree = "<group>"; };
+		30C91C1F9D53E1DEC89CA1B4 /* RobotAvatarAccessoryRendering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarAccessoryRendering.swift; sourceTree = "<group>"; };
+		32FBF20B170B7E52B42F6CCB /* GroupMemberAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupMemberAvatar.swift; sourceTree = "<group>"; };
+		35DEE9A94C3D87FF9185C17C /* NotificationEventSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationEventSync.swift; sourceTree = "<group>"; };
+		370447F3EAFB9569AE7388B6 /* WebSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSourcesView.swift; sourceTree = "<group>"; };
+		37D62CE6269DD45B58CEA286 /* TetrisCompanionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TetrisCompanionModel.swift; sourceTree = "<group>"; };
+		3AB8826FC5C5DC28DC83486B /* NoticeQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoticeQueue.swift; sourceTree = "<group>"; };
+		3C74F96AE22F26AA5E81E35F /* BotAvatarAppearanceLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarAppearanceLabView.swift; sourceTree = "<group>"; };
+		40E48FF7A467FA3858322918 /* BottomPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomPanel.swift; sourceTree = "<group>"; };
+		43329B3D6D52AE8DF8D0A2F8 /* QuotaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaView.swift; sourceTree = "<group>"; };
+		43A9F42D58854EC52344DD91 /* MemoryProposalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryProposalCard.swift; sourceTree = "<group>"; };
+		46523360EF76E81DB53A5CDE /* BotListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotListView.swift; sourceTree = "<group>"; };
+		46888CF33751979D5784FE4C /* ComposerAttachmentModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerAttachmentModel.swift; sourceTree = "<group>"; };
+		469972256A4D27DA4A31462A /* PlaygroundAssistant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaygroundAssistant.swift; sourceTree = "<group>"; };
+		46F5B329D6005F03C23B240C /* AvatarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarStore.swift; sourceTree = "<group>"; };
+		479516A7F112FA54443696F6 /* RobotAvatarSpecialMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarSpecialMotion.swift; sourceTree = "<group>"; };
+		48255BB2DD9434EC8EF7EF4D /* MemoryReferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryReferencesView.swift; sourceTree = "<group>"; };
+		4887619CF83D42CA11EED643 /* BotHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotHomeView.swift; sourceTree = "<group>"; };
+		4B0361FE4D9E037AEF2F03FE /* MentionTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionTextEditor.swift; sourceTree = "<group>"; };
+		4C68DB24E2C716CDE2220936 /* AvatarLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarLabView.swift; sourceTree = "<group>"; };
+		50403B438362C1632FC6D8E8 /* RobotAvatarInteraction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarInteraction.swift; sourceTree = "<group>"; };
+		515FA1CF04DB89841010389E /* MemoryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryListView.swift; sourceTree = "<group>"; };
+		52AC790F451DDE980A54F6B7 /* BotAppearanceLabStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAppearanceLabStore.swift; sourceTree = "<group>"; };
+		53844451640BC069A307EBFE /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		53F0FA68AD930D249BC63D00 /* AttachmentImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentImageStore.swift; sourceTree = "<group>"; };
+		584ED3E78ACE219E84BCEAE9 /* GroupListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupListView.swift; sourceTree = "<group>"; };
+		58C13062B1AA887E66BAAFDF /* LibraryFileList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFileList.swift; sourceTree = "<group>"; };
+		5D6A67954DB498F6B2CA1947 /* WorldViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldViews.swift; sourceTree = "<group>"; };
+		5E3627B57D948744FB00258E /* NoticeWorkbenchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoticeWorkbenchView.swift; sourceTree = "<group>"; };
+		5E38B55E95E3B2A626D322D3 /* ReminderEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderEditorView.swift; sourceTree = "<group>"; };
+		5F1BF1E515F06F846F060286 /* LibraryDownloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryDownloadCoordinator.swift; sourceTree = "<group>"; };
+		6508701B3F97F7E98B01C00C /* MiniGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGameViews.swift; sourceTree = "<group>"; };
+		66CBDBDDF881B23288C5B2DE /* BotAvatarState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarState.swift; sourceTree = "<group>"; };
+		66CF4DCCF59659EF30A92860 /* TraceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceView.swift; sourceTree = "<group>"; };
+		6A2C0EE4C4696F262A48A1E0 /* AttachmentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViews.swift; sourceTree = "<group>"; };
+		743B45B3E6813674A2CDA778 /* LibraryUploadSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryUploadSheet.swift; sourceTree = "<group>"; };
+		7479B2D43EA47BBA5F588E41 /* MessageRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRow.swift; sourceTree = "<group>"; };
+		7584F53D3F1EBB42251BBEFF /* ConnectorTokenSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectorTokenSheet.swift; sourceTree = "<group>"; };
+		764C905756C724ED54B3143B /* GroupChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChatView.swift; sourceTree = "<group>"; };
+		79754DC360D5A8BAA6A50273 /* GeneralSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsSection.swift; sourceTree = "<group>"; };
+		7AE1DAA0B1601A83E92620BE /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		7AFCFB9752B7AD58FB43B3D4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		7C57FDB9124DA5929858E01E /* AvatarPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarPicker.swift; sourceTree = "<group>"; };
+		7E023D66FA3B1A69E0533729 /* RobotAvatarMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarMotion.swift; sourceTree = "<group>"; };
+		82FE46070A1C055EA45932DF /* DelegationLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DelegationLogView.swift; sourceTree = "<group>"; };
+		841345AB52B290CA7FA3C8B7 /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListView.swift; sourceTree = "<group>"; };
+		854E88B05E8C44B240FBBDC2 /* GroupMemberAvatarStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupMemberAvatarStack.swift; sourceTree = "<group>"; };
+		86DAA18566A4B082944D826A /* RemindersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersView.swift; sourceTree = "<group>"; };
+		86EF42DCE76C56C6E925620E /* BotAvatarTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarTemplate.swift; sourceTree = "<group>"; };
+		9110D78522E01B54EE921E4D /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		928A38EBE534F3CEE8CAB9D7 /* LiveBotAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveBotAvatar.swift; sourceTree = "<group>"; };
+		946514525FCD2F7410EB6D2D /* BotEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotEditView.swift; sourceTree = "<group>"; };
+		94C67F31D068CF5C96A39B3B /* UserProfileEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileEditor.swift; sourceTree = "<group>"; };
+		958561563633C92F21FFD29F /* VeraBotApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VeraBotApp.swift; sourceTree = "<group>"; };
+		96EEC45C05A7BDFB00E91862 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		997F9E3F77BD98D7AA974F46 /* LibraryItemDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryItemDetailView.swift; sourceTree = "<group>"; };
+		99C5D4BF177CE569E20682AD /* CreateGroupSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGroupSheet.swift; sourceTree = "<group>"; };
+		9AC83BA1CFB125196681F434 /* ToolConfirmationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolConfirmationCard.swift; sourceTree = "<group>"; };
+		9C116643A86A80A4B0126F3B /* ScheduledTaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledTaskDetailView.swift; sourceTree = "<group>"; };
+		9D8EB86A257C58B0B241CC14 /* VeraBot.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VeraBot.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9FC02FFEE70BE6F556F014DD /* ConversationReadVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationReadVisibility.swift; sourceTree = "<group>"; };
+		A069403A3B56FF75C177363B /* PluginListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginListView.swift; sourceTree = "<group>"; };
+		A1AA6E0435B1F49D96208C0F /* NoticeInteractionLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoticeInteractionLabView.swift; sourceTree = "<group>"; };
+		A4A833D366AA4080024C520A /* BotWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotWelcomeView.swift; sourceTree = "<group>"; };
+		A50ACAAE4B54B5882CA5461B /* ConnectorKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectorKeychain.swift; sourceTree = "<group>"; };
+		A75AE23121AAC9E10989DA7A /* DebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugView.swift; sourceTree = "<group>"; };
+		A8E334E7E0334062AF62A5A9 /* Keyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keyboard.swift; sourceTree = "<group>"; };
+		AB6A189B13C4F2D96281ED14 /* BotTagViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotTagViews.swift; sourceTree = "<group>"; };
+		AB9ED27A9D63CD4F97247CE7 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		AC023CD71CD0F58088DC17A0 /* AvatarLabCharacterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarLabCharacterView.swift; sourceTree = "<group>"; };
+		AE4A8964DA547AAFA3DDF45E /* NoticeScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoticeScenario.swift; sourceTree = "<group>"; };
+		AFA6DFA586CE6F55E2EE20D4 /* LibraryDownloadIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryDownloadIntegrationTests.swift; sourceTree = "<group>"; };
+		B7227481F2AD38DA86774FEB /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		B967A331970CB0CB2F10E288 /* UserAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAvatar.swift; sourceTree = "<group>"; };
+		BAC9541ED3351BC43708A427 /* VeraBotTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VeraBotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BD018E46B9DECE36E52911C3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BDD3A4147D7206BD8D995515 /* BotAvatarTemplateGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarTemplateGeometry.swift; sourceTree = "<group>"; };
+		BE174E554FBF6F3E59113C3B /* CreateBotSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateBotSheet.swift; sourceTree = "<group>"; };
+		BE260C4E5EB41009E152A189 /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
+		BF049F5381D31CF3805F0836 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		C06CFE7327824CF4C3E2A085 /* LibraryImageGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryImageGrid.swift; sourceTree = "<group>"; };
+		C24E71491B936FFF8C68EF74 /* PluginsSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginsSettingsSection.swift; sourceTree = "<group>"; };
+		C3C77589E05C7B8DAE6246CB /* PluginDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginDetailView.swift; sourceTree = "<group>"; };
+		C69AA5EB92F7C7B8734E2038 /* JumpToLatestButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpToLatestButton.swift; sourceTree = "<group>"; };
+		C6F1E843EA28A08B8E15E700 /* InAppBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppBrowser.swift; sourceTree = "<group>"; };
+		C70953955C92C9F418EABDA8 /* ReminderDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderDetailView.swift; sourceTree = "<group>"; };
+		C7353A6D8932F27AC02F00CC /* NoticeLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoticeLabView.swift; sourceTree = "<group>"; };
+		C857E44D200F1829630E8B93 /* RobotAvatarGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarGeometry.swift; sourceTree = "<group>"; };
+		CC7A36896307A69B4BDB5D33 /* VeraBotKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = VeraBotKit; path = Packages/VeraBotKit; sourceTree = SOURCE_ROOT; };
+		CDA7FF86E22171794D5463E9 /* MessageContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageContentView.swift; sourceTree = "<group>"; };
+		D01143695E3733485422DE85 /* TaskApprovalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskApprovalView.swift; sourceTree = "<group>"; };
+		D35A8BF6FB6F9B69E3FCF260 /* RobotAvatarLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarLabView.swift; sourceTree = "<group>"; };
+		D6712BB8C926AEE82AC619C9 /* CircleAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleAvatar.swift; sourceTree = "<group>"; };
+		DA743A9910FE6795808FAF02 /* AppearanceMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceMode.swift; sourceTree = "<group>"; };
+		DB15FEF299D62BAFD03F845F /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
+		DD2732277B251947B3842046 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		DD5C449AFCEF9298A046CB11 /* BotTravelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotTravelStore.swift; sourceTree = "<group>"; };
+		DDF663872873FA1D121AF63F /* GroupConversationAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupConversationAvatar.swift; sourceTree = "<group>"; };
+		E168EA8883D7A127984AB6B4 /* NoticeSourceIndex.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = NoticeSourceIndex.json; sourceTree = "<group>"; };
+		E5F6598764912A69D30533D7 /* TaskEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorView.swift; sourceTree = "<group>"; };
+		E74608DB8A82935CF4C9FF6D /* BotAvatarLabPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarLabPlayback.swift; sourceTree = "<group>"; };
+		EC3329EDA197622902BD2BF4 /* ImagePreparer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreparer.swift; sourceTree = "<group>"; };
+		ED18CB21A56DD778E9202E8D /* MemorySettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemorySettingsSection.swift; sourceTree = "<group>"; };
+		EDA16BCEBD661B93BB2BF139 /* BotAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatar.swift; sourceTree = "<group>"; };
+		EE791D5EAF47FCBCA1F7DB50 /* TetrisCompanionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TetrisCompanionViews.swift; sourceTree = "<group>"; };
+		EEA028D698331EC23C8D8C74 /* RobotAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarView.swift; sourceTree = "<group>"; };
+		F0B37A62E664594298BAA145 /* DefaultBotFigure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultBotFigure.swift; sourceTree = "<group>"; };
+		F258A75A155690347B38F5D4 /* AppState+Reminders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Reminders.swift"; sourceTree = "<group>"; };
+		F2C216EA6AC64E15D38EAB59 /* NotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCoordinator.swift; sourceTree = "<group>"; };
+		F5053F9300A57949ABBFF3F5 /* BotAvatarAppearanceSaveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarAppearanceSaveView.swift; sourceTree = "<group>"; };
+		FB55B77A324DAF02CA91A074 /* SpeakButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakButton.swift; sourceTree = "<group>"; };
+		FC1FFF22B6EE7DE9CD0EB981 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
+		FD8315574B2BE38E4B08F2F0 /* GroupInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInfoView.swift; sourceTree = "<group>"; };
+		FFA10F358EA5A129B9D8B4A9 /* MemoryEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryEditView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		AA0000000000000000000002 /* VeraBot */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VeraBot;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
-		AA0000000000000000000003 /* Frameworks */ = {
+		DAD5EFAEFD2BC8FE25392532 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BB0000000000000000000001 /* VeraBotCore in Frameworks */,
-				BB0000000000000000000002 /* VeraBotNetworking in Frameworks */,
-				BB0000000000000000000003 /* VeraBotTTS in Frameworks */,
-				BB0000000000000000000004 /* VeraBotPersistence in Frameworks */,
-				BB0000000000000000000005 /* VeraBotData in Frameworks */,
+				26EA444E4B6208FE5B6966AC /* VeraBotCore in Frameworks */,
+				5AD585D0D208A4A7B50A5A4D /* VeraBotNetworking in Frameworks */,
+				537492497C9BAB342493431E /* VeraBotPersistence in Frameworks */,
+				985796BC38EAF067F72C5450 /* VeraBotData in Frameworks */,
+				C684C406F8E37DEB2D4D59D2 /* VeraBotTTS in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		AA0000000000000000000004 = {
+		091C2A2A2EBC7903A60B3479 /* NoticeLab */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000002 /* VeraBot */,
-				AA0000000000000000000011 /* Config */,
-				AA0000000000000000000005 /* Products */,
+				A1AA6E0435B1F49D96208C0F /* NoticeInteractionLabView.swift */,
+				C7353A6D8932F27AC02F00CC /* NoticeLabView.swift */,
+				AE4A8964DA547AAFA3DDF45E /* NoticeScenario.swift */,
+				E168EA8883D7A127984AB6B4 /* NoticeSourceIndex.json */,
+				5E3627B57D948744FB00258E /* NoticeWorkbenchView.swift */,
+			);
+			path = NoticeLab;
+			sourceTree = "<group>";
+		};
+		11B2A9217AE39BE88C13F997 /* Tasks */ = {
+			isa = PBXGroup;
+			children = (
+				9C116643A86A80A4B0126F3B /* ScheduledTaskDetailView.swift */,
+				D01143695E3733485422DE85 /* TaskApprovalView.swift */,
+				14C910691509604C35D073FD /* TaskDetailView.swift */,
+				E5F6598764912A69D30533D7 /* TaskEditorView.swift */,
+				841345AB52B290CA7FA3C8B7 /* TaskListView.swift */,
+			);
+			path = Tasks;
+			sourceTree = "<group>";
+		};
+		1506243C7BEE3475880C2B82 /* GroupChat */ = {
+			isa = PBXGroup;
+			children = (
+				99C5D4BF177CE569E20682AD /* CreateGroupSheet.swift */,
+				764C905756C724ED54B3143B /* GroupChatView.swift */,
+				DDF663872873FA1D121AF63F /* GroupConversationAvatar.swift */,
+				1623FDA2A9EC8E1C4724B7D4 /* GroupExecutionStatusView.swift */,
+				FD8315574B2BE38E4B08F2F0 /* GroupInfoView.swift */,
+				584ED3E78ACE219E84BCEAE9 /* GroupListView.swift */,
+				32FBF20B170B7E52B42F6CCB /* GroupMemberAvatar.swift */,
+				854E88B05E8C44B240FBBDC2 /* GroupMemberAvatarStack.swift */,
+				4B0361FE4D9E037AEF2F03FE /* MentionTextEditor.swift */,
+			);
+			path = GroupChat;
+			sourceTree = "<group>";
+		};
+		1674C91A064AA0017DD61567 /* Speech */ = {
+			isa = PBXGroup;
+			children = (
+				22E2631B814C11F5160C8D17 /* SpeechInput.swift */,
+			);
+			path = Speech;
+			sourceTree = "<group>";
+		};
+		20DAF297FC3958A1958D84F5 = {
+			isa = PBXGroup;
+			children = (
+				C16C9565C314C640FC719AAC /* Packages */,
+				C034AB778D8A76E7BB6D1E3C /* VeraBot */,
+				735234101D2743A96B96B1DB /* VeraBotTests */,
+				F8F0EF8DFAC179AAAD32305B /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		AA0000000000000000000005 /* Products */ = {
+		255F44647A10C1AE7A613055 /* Playground */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000001 /* VeraBot.app */,
+				DD5C449AFCEF9298A046CB11 /* BotTravelStore.swift */,
+				2564D082318084A4C23F1920 /* BotTravelViews.swift */,
+				6508701B3F97F7E98B01C00C /* MiniGameViews.swift */,
+				469972256A4D27DA4A31462A /* PlaygroundAssistant.swift */,
+				37D62CE6269DD45B58CEA286 /* TetrisCompanionModel.swift */,
+				EE791D5EAF47FCBCA1F7DB50 /* TetrisCompanionViews.swift */,
+				5D6A67954DB498F6B2CA1947 /* WorldViews.swift */,
+			);
+			path = Playground;
+			sourceTree = "<group>";
+		};
+		2DBC7666FB26E644620B13D6 /* Memory */ = {
+			isa = PBXGroup;
+			children = (
+				FFA10F358EA5A129B9D8B4A9 /* MemoryEditView.swift */,
+				25ADABD01B42B7872753141B /* MemoryExportDocument.swift */,
+				515FA1CF04DB89841010389E /* MemoryListView.swift */,
+				1561EC16CBF6602ECFCC00DF /* MemoryMonthlyReviewView.swift */,
+				43A9F42D58854EC52344DD91 /* MemoryProposalCard.swift */,
+				48255BB2DD9434EC8EF7EF4D /* MemoryReferencesView.swift */,
+				ED18CB21A56DD778E9202E8D /* MemorySettingsSection.swift */,
+			);
+			path = Memory;
+			sourceTree = "<group>";
+		};
+		2DC42541D605C1163EE6212F /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				DA743A9910FE6795808FAF02 /* AppearanceMode.swift */,
+				AC023CD71CD0F58088DC17A0 /* AvatarLabCharacterView.swift */,
+				4C68DB24E2C716CDE2220936 /* AvatarLabView.swift */,
+				3C74F96AE22F26AA5E81E35F /* BotAvatarAppearanceLabView.swift */,
+				F5053F9300A57949ABBFF3F5 /* BotAvatarAppearanceSaveView.swift */,
+				E74608DB8A82935CF4C9FF6D /* BotAvatarLabPlayback.swift */,
+				66CBDBDDF881B23288C5B2DE /* BotAvatarState.swift */,
+				86EF42DCE76C56C6E925620E /* BotAvatarTemplate.swift */,
+				BDD3A4147D7206BD8D995515 /* BotAvatarTemplateGeometry.swift */,
+				240A17C68083A8F055A6C48B /* BotAvatarWorkMotion.swift */,
+				A75AE23121AAC9E10989DA7A /* DebugView.swift */,
+				79754DC360D5A8BAA6A50273 /* GeneralSettingsSection.swift */,
+				DB15FEF299D62BAFD03F845F /* NotificationSettingsView.swift */,
+				30C91C1F9D53E1DEC89CA1B4 /* RobotAvatarAccessoryRendering.swift */,
+				125237F9E24F9F9665F2AFAA /* RobotAvatarFamilyGeometry.swift */,
+				C857E44D200F1829630E8B93 /* RobotAvatarGeometry.swift */,
+				50403B438362C1632FC6D8E8 /* RobotAvatarInteraction.swift */,
+				D35A8BF6FB6F9B69E3FCF260 /* RobotAvatarLabView.swift */,
+				7E023D66FA3B1A69E0533729 /* RobotAvatarMotion.swift */,
+				1FC09FB3B407FCF12BEE8AF4 /* RobotAvatarSkinRendering.swift */,
+				479516A7F112FA54443696F6 /* RobotAvatarSpecialMotion.swift */,
+				EEA028D698331EC23C8D8C74 /* RobotAvatarView.swift */,
+				018E0547CD9DEAEA350B90F9 /* SettingsView.swift */,
+				94C67F31D068CF5C96A39B3B /* UserProfileEditor.swift */,
+				091C2A2A2EBC7903A60B3479 /* NoticeLab */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		309C652CCE8B09A1BB4F0BDB /* Attachments */ = {
+			isa = PBXGroup;
+			children = (
+				53F0FA68AD930D249BC63D00 /* AttachmentImageStore.swift */,
+				EC3329EDA197622902BD2BF4 /* ImagePreparer.swift */,
+			);
+			path = Attachments;
+			sourceTree = "<group>";
+		};
+		3200ADBA2B357CFEAD3646A8 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				099F8E62AF6A110797D644D8 /* AppearanceWindowSync.swift */,
+				2F08EE811CFBA337BAE7A21E /* AvatarImage.swift */,
+				7C57FDB9124DA5929858E01E /* AvatarPicker.swift */,
+				EDA16BCEBD661B93BB2BF139 /* BotAvatar.swift */,
+				0F927DA8896E7CB58D6BE1EA /* BotAvatarShapePicker.swift */,
+				04B03E999B7CBAC51C81FAFF /* BotConnectionView.swift */,
+				AB6A189B13C4F2D96281ED14 /* BotTagViews.swift */,
+				40E48FF7A467FA3858322918 /* BottomPanel.swift */,
+				A4A833D366AA4080024C520A /* BotWelcomeView.swift */,
+				D6712BB8C926AEE82AC619C9 /* CircleAvatar.swift */,
+				9FC02FFEE70BE6F556F014DD /* ConversationReadVisibility.swift */,
+				F0B37A62E664594298BAA145 /* DefaultBotFigure.swift */,
+				24E41B39232EE3F793E7132D /* DismissToolbarButton.swift */,
+				B7227481F2AD38DA86774FEB /* Haptics.swift */,
+				C6F1E843EA28A08B8E15E700 /* InAppBrowser.swift */,
+				C69AA5EB92F7C7B8734E2038 /* JumpToLatestButton.swift */,
+				928A38EBE534F3CEE8CAB9D7 /* LiveBotAvatar.swift */,
+				CDA7FF86E22171794D5463E9 /* MessageContentView.swift */,
+				011DD7DBD6A07F36ED7537A6 /* NewMessagesDivider.swift */,
+				7AFCFB9752B7AD58FB43B3D4 /* Theme.swift */,
+				B967A331970CB0CB2F10E288 /* UserAvatar.swift */,
+				4C1A47946A720FF6D873E76E /* Notices */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		39F8A5E6BC641A0B19924B99 /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				6A2C0EE4C4696F262A48A1E0 /* AttachmentViews.swift */,
+				FC1FFF22B6EE7DE9CD0EB981 /* CameraPicker.swift */,
+				96EEC45C05A7BDFB00E91862 /* ChatView.swift */,
+				AB9ED27A9D63CD4F97247CE7 /* ChatViewModel.swift */,
+				46888CF33751979D5784FE4C /* ComposerAttachmentModel.swift */,
+				7479B2D43EA47BBA5F588E41 /* MessageRow.swift */,
+				FB55B77A324DAF02CA91A074 /* SpeakButton.swift */,
+				9AC83BA1CFB125196681F434 /* ToolConfirmationCard.swift */,
+				66CF4DCCF59659EF30A92860 /* TraceView.swift */,
+				370447F3EAFB9569AE7388B6 /* WebSourcesView.swift */,
+			);
+			path = Chat;
+			sourceTree = "<group>";
+		};
+		44AA06FD1D9D6DD3323E867C /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				309C652CCE8B09A1BB4F0BDB /* Attachments */,
+				4AA1F4216E65C7C25D1FA2A0 /* Avatar */,
+				640CDB0824A16C2249AF4ED4 /* Keyboard */,
+				63D68BC06DD17C6641A0DD7D /* Library */,
+				AADBB52623060C9E1F2CA392 /* Notifications */,
+				1674C91A064AA0017DD61567 /* Speech */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		49674979A583B542894E00E9 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				2DFAEF0932A3F215EB3DEF61 /* LibraryBotSharingSheet.swift */,
+				58C13062B1AA887E66BAAFDF /* LibraryFileList.swift */,
+				C06CFE7327824CF4C3E2A085 /* LibraryImageGrid.swift */,
+				997F9E3F77BD98D7AA974F46 /* LibraryItemDetailView.swift */,
+				743B45B3E6813674A2CDA778 /* LibraryUploadSheet.swift */,
+				DD2732277B251947B3842046 /* LibraryView.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		4AA1F4216E65C7C25D1FA2A0 /* Avatar */ = {
+			isa = PBXGroup;
+			children = (
+				46F5B329D6005F03C23B240C /* AvatarStore.swift */,
+				52AC790F451DDE980A54F6B7 /* BotAppearanceLabStore.swift */,
+			);
+			path = Avatar;
+			sourceTree = "<group>";
+		};
+		4C1A47946A720FF6D873E76E /* Notices */ = {
+			isa = PBXGroup;
+			children = (
+				12D22598F75A223C2B529CA7 /* BotNotice.swift */,
+				2D0B8A3DE55E8987540B985E /* BotNoticeCard.swift */,
+				3AB8826FC5C5DC28DC83486B /* NoticeQueue.swift */,
+			);
+			path = Notices;
+			sourceTree = "<group>";
+		};
+		5125B3302980F2B1DF91A6E6 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				9110D78522E01B54EE921E4D /* AppConfig.swift */,
+				7AE1DAA0B1601A83E92620BE /* AppState.swift */,
+				F258A75A155690347B38F5D4 /* AppState+Reminders.swift */,
+				A50ACAAE4B54B5882CA5461B /* ConnectorKeychain.swift */,
+				147270BEA714DD581BF63138 /* KeychainStore.swift */,
+				958561563633C92F21FFD29F /* VeraBotApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		51271D6D93AE91DC9A78F68E /* Plugins */ = {
+			isa = PBXGroup;
+			children = (
+				7584F53D3F1EBB42251BBEFF /* ConnectorTokenSheet.swift */,
+				1A120DE173DB5CFE117F4EEF /* PluginCatalogView.swift */,
+				C3C77589E05C7B8DAE6246CB /* PluginDetailView.swift */,
+				A069403A3B56FF75C177363B /* PluginListView.swift */,
+				C24E71491B936FFF8C68EF74 /* PluginsSettingsSection.swift */,
+			);
+			path = Plugins;
+			sourceTree = "<group>";
+		};
+		5409E65A23105182321FACDC /* BotList */ = {
+			isa = PBXGroup;
+			children = (
+				46523360EF76E81DB53A5CDE /* BotListView.swift */,
+				BE174E554FBF6F3E59113C3B /* CreateBotSheet.swift */,
+			);
+			path = BotList;
+			sourceTree = "<group>";
+		};
+		63D68BC06DD17C6641A0DD7D /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				5F1BF1E515F06F846F060286 /* LibraryDownloadCoordinator.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		640CDB0824A16C2249AF4ED4 /* Keyboard */ = {
+			isa = PBXGroup;
+			children = (
+				A8E334E7E0334062AF62A5A9 /* Keyboard.swift */,
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		65B22ECF799B64EDA38BF314 /* BotInfo */ = {
+			isa = PBXGroup;
+			children = (
+				946514525FCD2F7410EB6D2D /* BotEditView.swift */,
+				4887619CF83D42CA11EED643 /* BotHomeView.swift */,
+				07CD337E570EAB438A3FFB1E /* BotInfoView.swift */,
+				82FE46070A1C055EA45932DF /* DelegationLogView.swift */,
+			);
+			path = BotInfo;
+			sourceTree = "<group>";
+		};
+		735234101D2743A96B96B1DB /* VeraBotTests */ = {
+			isa = PBXGroup;
+			children = (
+				AFA6DFA586CE6F55E2EE20D4 /* LibraryDownloadIntegrationTests.swift */,
+			);
+			path = VeraBotTests;
+			sourceTree = "<group>";
+		};
+		824FD317D53272A5041F3ABF /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				AEBC4B17BC953FE28416CC63 /* Auth */,
+				65B22ECF799B64EDA38BF314 /* BotInfo */,
+				5409E65A23105182321FACDC /* BotList */,
+				39F8A5E6BC641A0B19924B99 /* Chat */,
+				1506243C7BEE3475880C2B82 /* GroupChat */,
+				49674979A583B542894E00E9 /* Library */,
+				2DBC7666FB26E644620B13D6 /* Memory */,
+				255F44647A10C1AE7A613055 /* Playground */,
+				51271D6D93AE91DC9A78F68E /* Plugins */,
+				EF59F33462133789F2A5171E /* Quota */,
+				B72AD43E7C0109DA3573038F /* Reminders */,
+				2DC42541D605C1163EE6212F /* Settings */,
+				11B2A9217AE39BE88C13F997 /* Tasks */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		AADBB52623060C9E1F2CA392 /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				F2C216EA6AC64E15D38EAB59 /* NotificationCoordinator.swift */,
+				35DEE9A94C3D87FF9185C17C /* NotificationEventSync.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
+		AEBC4B17BC953FE28416CC63 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				BF049F5381D31CF3805F0836 /* LoginView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		B72AD43E7C0109DA3573038F /* Reminders */ = {
+			isa = PBXGroup;
+			children = (
+				BE260C4E5EB41009E152A189 /* InboxView.swift */,
+				C70953955C92C9F418EABDA8 /* ReminderDetailView.swift */,
+				5E38B55E95E3B2A626D322D3 /* ReminderEditorView.swift */,
+				86DAA18566A4B082944D826A /* RemindersView.swift */,
+			);
+			path = Reminders;
+			sourceTree = "<group>";
+		};
+		C034AB778D8A76E7BB6D1E3C /* VeraBot */ = {
+			isa = PBXGroup;
+			children = (
+				BD018E46B9DECE36E52911C3 /* Assets.xcassets */,
+				53844451640BC069A307EBFE /* InfoPlist.xcstrings */,
+				5125B3302980F2B1DF91A6E6 /* App */,
+				F261C483BE3629EDEE71C8DD /* Core */,
+				824FD317D53272A5041F3ABF /* Features */,
+				44AA06FD1D9D6DD3323E867C /* Services */,
+			);
+			path = VeraBot;
+			sourceTree = "<group>";
+		};
+		C16C9565C314C640FC719AAC /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				CC7A36896307A69B4BDB5D33 /* VeraBotKit */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		EF59F33462133789F2A5171E /* Quota */ = {
+			isa = PBXGroup;
+			children = (
+				43329B3D6D52AE8DF8D0A2F8 /* QuotaView.swift */,
+			);
+			path = Quota;
+			sourceTree = "<group>";
+		};
+		F261C483BE3629EDEE71C8DD /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				3200ADBA2B357CFEAD3646A8 /* UI */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		F8F0EF8DFAC179AAAD32305B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9D8EB86A257C58B0B241CC14 /* VeraBot.app */,
+				BAC9541ED3351BC43708A427 /* VeraBotTests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000011 /* Config */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000010 /* Info.plist */,
-			);
-			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AA0000000000000000000006 /* VeraBot */ = {
+		0614BA21221A55A356BAEA74 /* VeraBot */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AA0000000000000000000007 /* Build configuration list for PBXNativeTarget "VeraBot" */;
+			buildConfigurationList = 2EAFC9CB5F149CFCEADA392C /* Build configuration list for PBXNativeTarget "VeraBot" */;
 			buildPhases = (
-				AA0000000000000000000008 /* Sources */,
-				AA0000000000000000000003 /* Frameworks */,
-				AA0000000000000000000009 /* Resources */,
+				3C1FBCD3E3E7E6AC71AD4EB3 /* Sources */,
+				66C4A346B39F30B034A231A7 /* Resources */,
+				DAD5EFAEFD2BC8FE25392532 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				AA0000000000000000000002 /* VeraBot */,
-			);
 			name = VeraBot;
 			packageProductDependencies = (
-				CC0000000000000000000001 /* VeraBotCore */,
-				CC0000000000000000000002 /* VeraBotNetworking */,
-				CC0000000000000000000003 /* VeraBotTTS */,
-				CC0000000000000000000004 /* VeraBotPersistence */,
-				CC0000000000000000000005 /* VeraBotData */,
+				0DCA35D571E134537EA5FCC2 /* VeraBotCore */,
+				79C21D574A0CD53982BAE0E3 /* VeraBotNetworking */,
+				A35283AC7AC95EF39FB99F89 /* VeraBotPersistence */,
+				F4446D9F4BA51E4895890BB9 /* VeraBotData */,
+				909DF8AF7A080B4448FDF54C /* VeraBotTTS */,
 			);
 			productName = VeraBot;
-			productReference = AA0000000000000000000001 /* VeraBot.app */;
+			productReference = 9D8EB86A257C58B0B241CC14 /* VeraBot.app */;
 			productType = "com.apple.product-type.application";
+		};
+		C68E4D238C747950ABC4578E /* VeraBotTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1914483B14E461AA8B31AD93 /* Build configuration list for PBXNativeTarget "VeraBotTests" */;
+			buildPhases = (
+				9334F58375589E91282C0A4B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				22292DDC88C7108EAECECEAD /* PBXTargetDependency */,
+			);
+			name = VeraBotTests;
+			packageProductDependencies = (
+			);
+			productName = VeraBotTests;
+			productReference = BAC9541ED3351BC43708A427 /* VeraBotTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		AA000000000000000000000A /* Project object */ = {
+		589367FBD6C541C4CF3C0D68 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2600;
-				LastUpgradeCheck = 2600;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
-					AA0000000000000000000006 = {
-						CreatedOnToolsVersion = 26.0;
+					0614BA21221A55A356BAEA74 = {
+						DevelopmentTeam = 4M4EACBGAJ;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
-			buildConfigurationList = AA000000000000000000000B /* Build configuration list for PBXProject "VeraBot" */;
-			developmentRegion = "zh-Hans";
+			buildConfigurationList = 36305B9D7592572347F31062 /* Build configuration list for PBXProject "VeraBot" */;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				en,
 				"zh-Hans",
 			);
-			mainGroup = AA0000000000000000000004;
+			mainGroup = 20DAF297FC3958A1958D84F5;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */,
+				49149792C9C08ED57B795E9D /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = AA0000000000000000000005 /* Products */;
+			productRefGroup = F8F0EF8DFAC179AAAD32305B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				AA0000000000000000000006 /* VeraBot */,
+				0614BA21221A55A356BAEA74 /* VeraBot */,
+				C68E4D238C747950ABC4578E /* VeraBotTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		AA0000000000000000000009 /* Resources */ = {
+		66C4A346B39F30B034A231A7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F7D894C796113C610B5147A0 /* Assets.xcassets in Resources */,
+				2C540C8613D1C7DF7B3C493D /* InfoPlist.xcstrings in Resources */,
+				E01735FF5B567C482FAEABC1 /* NoticeSourceIndex.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		AA0000000000000000000008 /* Sources */ = {
+		3C1FBCD3E3E7E6AC71AD4EB3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8223C55ECB48ED95C44AAC79 /* AppConfig.swift in Sources */,
+				C756AF0B5D30CED1F6EA1207 /* AppState+Reminders.swift in Sources */,
+				41CDF09C4143F3EE52CF5BF6 /* AppState.swift in Sources */,
+				74707C57F8692B022EBCAACB /* AppearanceMode.swift in Sources */,
+				B2C3C6ADBC4F0D71F2918720 /* AppearanceWindowSync.swift in Sources */,
+				49DB00276FB885421CACE3D7 /* AttachmentImageStore.swift in Sources */,
+				04E189D44749229376BD783B /* AttachmentViews.swift in Sources */,
+				AC8DDD55E13818EC124D6E71 /* AvatarImage.swift in Sources */,
+				CA67141A594FD89490C720F2 /* AvatarLabCharacterView.swift in Sources */,
+				25B1A34CBD5BAD8249DC3350 /* AvatarLabView.swift in Sources */,
+				C27209AA606DBB5B0D7F4EE1 /* AvatarPicker.swift in Sources */,
+				6E7DA0FEC549DE813F08A4F0 /* AvatarStore.swift in Sources */,
+				810972481FB2D2C35D159AEA /* BotAppearanceLabStore.swift in Sources */,
+				A67851B25BD9584E7FB4AC2E /* BotAvatar.swift in Sources */,
+				68E9B0EE25A252A2DC1E8CC2 /* BotAvatarAppearanceLabView.swift in Sources */,
+				D668FDBACAD2208DC075F959 /* BotAvatarAppearanceSaveView.swift in Sources */,
+				F434630C048D6D88D2DE3B2A /* BotAvatarLabPlayback.swift in Sources */,
+				0D937DF3D9861DE1163AA1E0 /* BotAvatarShapePicker.swift in Sources */,
+				3336189805981EA81432748F /* BotAvatarState.swift in Sources */,
+				A2380F9C15D86950B3FC57C4 /* BotAvatarTemplate.swift in Sources */,
+				98D3B9774087A6F2A11BCFE1 /* BotAvatarTemplateGeometry.swift in Sources */,
+				1D659D66649D68D24B9B17CC /* BotAvatarWorkMotion.swift in Sources */,
+				D5EAE68666D0F866C30379A3 /* BotConnectionView.swift in Sources */,
+				63F59E43B84A17F54F919495 /* BotEditView.swift in Sources */,
+				0427DB0C498FD7A184DBBB16 /* BotHomeView.swift in Sources */,
+				8344C5E60763592A78432CCA /* BotInfoView.swift in Sources */,
+				D3E2331D1D3A55E21BB21288 /* BotListView.swift in Sources */,
+				2C690E1A4DEA093AC0A20B8D /* BotNotice.swift in Sources */,
+				A87A9F5B42E0CC03235DEC16 /* BotNoticeCard.swift in Sources */,
+				C17937A9B367AAB99957EC97 /* BotTagViews.swift in Sources */,
+				78FB40DC2C5D2CA60888A81D /* BotTravelStore.swift in Sources */,
+				74E5B8682C8A0880B66BCC91 /* BotTravelViews.swift in Sources */,
+				CA7375A31D7D2D3E06BDEAA8 /* BotWelcomeView.swift in Sources */,
+				0548210DA4931BF47FEDC2BB /* BottomPanel.swift in Sources */,
+				7CEC491156A5D2125EF27826 /* CameraPicker.swift in Sources */,
+				6DDE036133D2F559E641FAA0 /* ChatView.swift in Sources */,
+				92470A703C2920832344A5E2 /* ChatViewModel.swift in Sources */,
+				F38340D9708B4B8ADADD32B6 /* CircleAvatar.swift in Sources */,
+				30EF35DBE1C11346A255F5FE /* ComposerAttachmentModel.swift in Sources */,
+				FBFD184C38A778981F754DA8 /* ConnectorKeychain.swift in Sources */,
+				F7090A04AD12F38A02F5691D /* ConnectorTokenSheet.swift in Sources */,
+				B9FAE634215AB1387AA7FC4A /* ConversationReadVisibility.swift in Sources */,
+				178CA326EA102D7F48C613BE /* CreateBotSheet.swift in Sources */,
+				F0626A1E8F50C012F3DA1BA6 /* CreateGroupSheet.swift in Sources */,
+				BF950EAC4398543CEA7FFF0F /* DebugView.swift in Sources */,
+				E7BCADABF7994ECA2A05D134 /* DefaultBotFigure.swift in Sources */,
+				879ADDA69524DA013A017926 /* DelegationLogView.swift in Sources */,
+				3AB259937EE0DBB2F35B1A59 /* DismissToolbarButton.swift in Sources */,
+				DC45CE9AE39E9407F01758BF /* GeneralSettingsSection.swift in Sources */,
+				2E6E026E4A257A0353B52C33 /* GroupChatView.swift in Sources */,
+				31EB01F16AFAA4C3D2293B50 /* GroupConversationAvatar.swift in Sources */,
+				F39F8FEE9A670C7632E5F9F8 /* GroupExecutionStatusView.swift in Sources */,
+				5D4818D92C47BE1F3D9D8828 /* GroupInfoView.swift in Sources */,
+				62F651FA398142EBDA8D041C /* GroupListView.swift in Sources */,
+				EF17BC2BCDF3AFFBC9D6CECD /* GroupMemberAvatar.swift in Sources */,
+				7232EB8176EF63046BE39C04 /* GroupMemberAvatarStack.swift in Sources */,
+				B14E46373B437C3C185BA300 /* Haptics.swift in Sources */,
+				1AE2518B84C09B9A9F34889B /* ImagePreparer.swift in Sources */,
+				B698EAABBA162547650C13BC /* InAppBrowser.swift in Sources */,
+				365E39BB77A1CFCE78DF75EF /* InboxView.swift in Sources */,
+				33FEA16D62B3CD3B48BC4480 /* JumpToLatestButton.swift in Sources */,
+				F9666CF59FBDA0EDF5ABEC8F /* Keyboard.swift in Sources */,
+				B3138C96BCE23CE7F1A8A5E7 /* KeychainStore.swift in Sources */,
+				D49E56A6D3FA6A25ADE158AD /* LibraryBotSharingSheet.swift in Sources */,
+				F2C6FC27565BEF39869A1CE0 /* LibraryDownloadCoordinator.swift in Sources */,
+				88F55501313C9192D2B32DCC /* LibraryFileList.swift in Sources */,
+				1F4FC4A538EFB531A749ACB7 /* LibraryImageGrid.swift in Sources */,
+				0EFB222FD84335CCE86B54F6 /* LibraryItemDetailView.swift in Sources */,
+				62B091DFF1AD9FDC2A836A17 /* LibraryUploadSheet.swift in Sources */,
+				D74BCBA5529D8CD41CEF17E5 /* LibraryView.swift in Sources */,
+				B605AFC38584CD21873F5755 /* LiveBotAvatar.swift in Sources */,
+				32F7B11CEBFE895C32B05A37 /* LoginView.swift in Sources */,
+				9C27B4822D6C0472B253EB8B /* MemoryEditView.swift in Sources */,
+				FD7FA96AE1D36F14238827A4 /* MemoryExportDocument.swift in Sources */,
+				EA3A9B3D881F0BD54751E8E3 /* MemoryListView.swift in Sources */,
+				D0EF60DC4F40A3140C6C0984 /* MemoryMonthlyReviewView.swift in Sources */,
+				86E4503FF1C7178BA3E6BB31 /* MemoryProposalCard.swift in Sources */,
+				688EF1332D253528B28CB729 /* MemoryReferencesView.swift in Sources */,
+				9A8371CEAB239509161A209C /* MemorySettingsSection.swift in Sources */,
+				997DD07D89CBC7B46991760D /* MentionTextEditor.swift in Sources */,
+				77F3C0E2BB3860538F135486 /* MessageContentView.swift in Sources */,
+				27494F7ABBEB25CC75180BEA /* MessageRow.swift in Sources */,
+				8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */,
+				3AF7ADDA1EE83313DC02EAE0 /* NewMessagesDivider.swift in Sources */,
+				630543AFC2E0558CF3958272 /* NoticeInteractionLabView.swift in Sources */,
+				338520DCF09E9B94D45D925C /* NoticeLabView.swift in Sources */,
+				37B5ED773C90358FA1A851AB /* NoticeQueue.swift in Sources */,
+				8655E35AF7BF93729873C315 /* NoticeScenario.swift in Sources */,
+				9218258188FF7E412112926B /* NoticeWorkbenchView.swift in Sources */,
+				FF6EB69948A939C5ECCE0B0E /* NotificationCoordinator.swift in Sources */,
+				1E5329919C29C40AF386F3EF /* NotificationEventSync.swift in Sources */,
+				43176ED9726D4AC82C06AB9E /* NotificationSettingsView.swift in Sources */,
+				B33C8D1C0512BDE4810F83B4 /* PlaygroundAssistant.swift in Sources */,
+				74C3C68DFC1A96B3DE6F63C1 /* PluginCatalogView.swift in Sources */,
+				EC8837613CF0EC14C42A5F41 /* PluginDetailView.swift in Sources */,
+				BD4229116A1F32B4BE0529BC /* PluginListView.swift in Sources */,
+				0164D2255AD7BB5BA6096A5E /* PluginsSettingsSection.swift in Sources */,
+				1F1C5EF7E47E0E34DC7C156D /* QuotaView.swift in Sources */,
+				01546C3F3EC0867D185B79FE /* ReminderDetailView.swift in Sources */,
+				69AF560E64357B2B8B958D71 /* ReminderEditorView.swift in Sources */,
+				3BA7561EE87822DBD0BDAE03 /* RemindersView.swift in Sources */,
+				A558FBA91C2983B96B16B61E /* RobotAvatarAccessoryRendering.swift in Sources */,
+				E5F54F22EFB905AE30907C43 /* RobotAvatarFamilyGeometry.swift in Sources */,
+				4BEC1D841B2590F2D6EC69E9 /* RobotAvatarGeometry.swift in Sources */,
+				C94FFEF2ABA96F6BA4373761 /* RobotAvatarInteraction.swift in Sources */,
+				90DE63991A28ECA890EAEC90 /* RobotAvatarLabView.swift in Sources */,
+				B9FAAC1C9B389770D7304CA1 /* RobotAvatarMotion.swift in Sources */,
+				B7B0782C8B16AA06169F82C4 /* RobotAvatarSkinRendering.swift in Sources */,
+				6E1AFA1868BB4484555EBF0F /* RobotAvatarSpecialMotion.swift in Sources */,
+				230A19987E405EA66FC7446E /* RobotAvatarView.swift in Sources */,
+				1CC3CCC6F16D8B1C7931F023 /* ScheduledTaskDetailView.swift in Sources */,
+				1541AC55DC33581F6199CE18 /* SettingsView.swift in Sources */,
+				5F6CD1791885FBB08ADDE97B /* SpeakButton.swift in Sources */,
+				E15570FCCF2494DA42F7FA60 /* SpeechInput.swift in Sources */,
+				44EFC09AD100B1F489902DFB /* TaskApprovalView.swift in Sources */,
+				B3D99C106145F44A3CE739F8 /* TaskDetailView.swift in Sources */,
+				CA60B012B5F549D3CC5DCC4F /* TaskEditorView.swift in Sources */,
+				5F5972A4843DFE6F846122E1 /* TaskListView.swift in Sources */,
+				AF9CAF3360CE91944172C3E9 /* TetrisCompanionModel.swift in Sources */,
+				463F8513E6AB62BDE6C1B2EA /* TetrisCompanionViews.swift in Sources */,
+				5FC2583ADE983456227AE227 /* Theme.swift in Sources */,
+				675B4423CB476171F3CFB696 /* ToolConfirmationCard.swift in Sources */,
+				EF3F3042CA9859B15C0E3156 /* TraceView.swift in Sources */,
+				A5960819F291FCDDF7646590 /* UserAvatar.swift in Sources */,
+				D3D81668E19B9C7F0AF6CE33 /* UserProfileEditor.swift in Sources */,
+				C16E615BB12632CFEB3372AA /* VeraBotApp.swift in Sources */,
+				E970ABE5EADBB6DAD72A841D /* WebSourcesView.swift in Sources */,
+				792CF7FE06EFBF6A0D72F4C9 /* WorldViews.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9334F58375589E91282C0A4B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6F9CBC6F654520C6AFA81D31 /* LibraryDownloadIntegrationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin XCBuildConfiguration section */
-		AA000000000000000000000C /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-			};
-			name = Debug;
+/* Begin PBXTargetDependency section */
+		22292DDC88C7108EAECECEAD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0614BA21221A55A356BAEA74 /* VeraBot */;
+			targetProxy = D880001D887C9845F1A4C824 /* PBXContainerItemProxy */;
 		};
-		AA000000000000000000000D /* Release */ = {
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		23B9192B9CE722EA6F266A61 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2026101501;
+				DEVELOPMENT_TEAM = 4M4EACBGAJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Vera Bot";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.verabot.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		35AC5573A67D663B14F396F1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				VALIDATE_PRODUCT = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
-		AA000000000000000000000E /* Debug */ = {
+		80B20C611075EF75AF62C539 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		9BF6C11E93F3173096E481AD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026101201;
+				CURRENT_PROJECT_VERSION = 2026101501;
 				DEVELOPMENT_TEAM = 4M4EACBGAJ;
-				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Vera Bot";
@@ -231,106 +1113,106 @@
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.verabot.app;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
+				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		AA000000000000000000000F /* Release */ = {
+		A13D1019976090366F1262F5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026101201;
-				DEVELOPMENT_TEAM = 4M4EACBGAJ;
-				ENABLE_PREVIEWS = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Config/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Vera Bot";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.verabot.app;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.verabot.VeraBotTests;
+				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VeraBot.app/VeraBot";
+			};
+			name = Debug;
+		};
+		E1010B504F627A38B0A7631D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.verabot.VeraBotTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VeraBot.app/VeraBot";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AA0000000000000000000007 /* Build configuration list for PBXNativeTarget "VeraBot" */ = {
+		1914483B14E461AA8B31AD93 /* Build configuration list for PBXNativeTarget "VeraBotTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AA000000000000000000000E /* Debug */,
-				AA000000000000000000000F /* Release */,
+				A13D1019976090366F1262F5 /* Debug */,
+				E1010B504F627A38B0A7631D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
-		AA000000000000000000000B /* Build configuration list for PBXProject "VeraBot" */ = {
+		2EAFC9CB5F149CFCEADA392C /* Build configuration list for PBXNativeTarget "VeraBot" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AA000000000000000000000C /* Debug */,
-				AA000000000000000000000D /* Release */,
+				9BF6C11E93F3173096E481AD /* Debug */,
+				23B9192B9CE722EA6F266A61 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
+		};
+		36305B9D7592572347F31062 /* Build configuration list for PBXProject "VeraBot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				80B20C611075EF75AF62C539 /* Debug */,
+				35AC5573A67D663B14F396F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */ = {
+		49149792C9C08ED57B795E9D /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/VeraBotKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		CC0000000000000000000001 /* VeraBotCore */ = {
+		0DCA35D571E134537EA5FCC2 /* VeraBotCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */;
 			productName = VeraBotCore;
 		};
-		CC0000000000000000000002 /* VeraBotNetworking */ = {
+		79C21D574A0CD53982BAE0E3 /* VeraBotNetworking */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */;
 			productName = VeraBotNetworking;
 		};
-		CC0000000000000000000003 /* VeraBotTTS */ = {
+		909DF8AF7A080B4448FDF54C /* VeraBotTTS */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */;
 			productName = VeraBotTTS;
 		};
-		CC0000000000000000000004 /* VeraBotPersistence */ = {
+		A35283AC7AC95EF39FB99F89 /* VeraBotPersistence */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */;
 			productName = VeraBotPersistence;
 		};
-		CC0000000000000000000005 /* VeraBotData */ = {
+		F4446D9F4BA51E4895890BB9 /* VeraBotData */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = DD0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/VeraBotKit" */;
 			productName = VeraBotData;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = AA000000000000000000000A /* Project object */;
+	rootObject = 589367FBD6C541C4CF3C0D68 /* Project object */;
 }

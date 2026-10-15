@@ -65,6 +65,7 @@ struct ComposerAttachmentChip: View {
 
 /// 消息气泡里的图片：始终显示真实图片（GIF 播放动画），点按用 Quick Look 全屏查看（自带分享）。
 struct AttachmentBubble: View {
+    @Environment(AppState.self) private var app
     let attachment: Attachment
     let api: any VeraBotAPI
     @State private var image: UIImage?
@@ -107,7 +108,11 @@ struct AttachmentBubble: View {
                 .foregroundStyle(.secondary)
                 .padding(8)
             } else {
-                ProgressView()
+                VStack(spacing:8) {
+                    Image(systemName:"photo")
+                    Text(app.libraryDownloads?.active.contains(attachment.id) == true ? "正在下载…":"图片尚未下载").font(.caption)
+                    Button("下载原件") { Task { await load(userInitiated:true) } }.font(.caption)
+                }.foregroundStyle(.secondary)
             }
         }
         .frame(width: width, height: height)
@@ -121,15 +126,17 @@ struct AttachmentBubble: View {
         .accessibilityAddTraits(.isButton)
         .quickLookPreview($previewURL)
         .onChange(of: previewURL) { old, new in
-            if new == nil, let old { AttachmentPreviewFiles.remove(old) }
+            if new == nil, let old, old.path.hasPrefix(AttachmentPreviewFiles.directory.path) { AttachmentPreviewFiles.remove(old) }
         }
         .task(id: attachment.id) { await load() }
+        .onChange(of:app.libraryDownloads?.revision) { _,_ in if data==nil {Task {await load()}} }
     }
 
-    private func load() async {
+    private func load(userInitiated: Bool = false) async {
         failed = false
         do {
-            let bytes = attachment.isFile ? try await api.attachmentContent(id: attachment.id) : try await AttachmentImageStore.shared.load(attachment.id, api: api)
+            guard let url=await app.libraryDownloads?.prepare(id:attachment.id,userInitiated:userInitiated) else { return }
+            let bytes = try Data(contentsOf:url)
             if attachment.isFile { data = bytes; return }
             let decoded = await Task.detached(priority: .userInitiated) {
                 DecodedImage(image: AttachmentImageDecoder.image(from: bytes))
@@ -145,7 +152,8 @@ struct AttachmentBubble: View {
     }
 
     private func openPreview() {
-        guard let data else { return }
+        if let url=app.libraryDownloads?.localURL(id:attachment.id) { previewURL=url;return }
+        guard let data else { Task {await load(userInitiated:true)};return }
         previewURL = AttachmentPreviewFiles.write(data, id: attachment.id, ext: attachment.isFile ? (attachment.ext ?? "txt") : nil)
     }
 }

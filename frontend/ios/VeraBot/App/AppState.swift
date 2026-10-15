@@ -307,6 +307,19 @@ final class AppState {
         d.removeObject(forKey: Keys.userID)
     }
 
+    var libraryRepository: LibraryRepository?
+    var libraryDownloads: LibraryDownloadCoordinator?
+
+    func refreshLibrary() async {
+        guard let repository=libraryRepository else { return }
+        if let cached=try? await repository.cachedItems() { libraryDownloads?.updateCatalog(cached,complete:false) }
+        do {
+            try await repository.synchronize()
+            let list=try await repository.cachedItems()
+            libraryDownloads?.updateCatalog(list,complete:true)
+        } catch { /* Keep the offline catalog and originals. Pages display refresh failures. */ }
+    }
+
     private func activatePersistenceScope() {
         guard token != nil, let userID else { conversationRepository = nil; return }
         let endpoint = (URL(string: baseURLString)?.absoluteString ?? baseURLString)
@@ -327,6 +340,10 @@ final class AppState {
         let session = authSession
         let database = LocalDatabase(url: url)
         conversationDatabase = database
+        let libraryStore=LibraryStore(database:database)
+        let libraryAPI=groupAPI
+        libraryRepository=LibraryRepository(store:libraryStore,api:libraryAPI,sessionIsCurrent:{session.isCurrent(generation)})
+        libraryDownloads=LibraryDownloadCoordinator(root:root,scope:name,store:libraryStore,api:libraryAPI,sessionIsCurrent:{session.isCurrent(generation)})
         activityRepository = ConversationActivityRepository(database: database, sessionIsCurrent: { session.isCurrent(generation) })
         Task {
             try? database.open()
@@ -344,6 +361,8 @@ final class AppState {
     }
 
     private func invalidatePersistenceScope() {
+        libraryDownloads?.invalidateSession()
+        libraryDownloads=nil;libraryRepository=nil
         activityObservation?.cancel(); activityObservation = nil
         let oldActivity = activityRepository
         activityRepository = nil; conversationActivities = [:]; activitySuccessIDs = []; activitySuccessSerial = [:]; activityCursor = 0; activityNeedsSync = true

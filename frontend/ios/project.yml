@@ -27,8 +27,6 @@ targets:
         product: VeraBotData
       - package: VeraBotKit
         product: VeraBotTTS
-    info:
-      path: Config/Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.verabot.app
@@ -39,4 +37,25 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 2026101201
+        CURRENT_PROJECT_VERSION: 2026101501
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 4M4EACBGAJ
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+  VeraBotTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [VeraBotTests]
+    dependencies:
+      - target: VeraBot
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  VeraBot:
+    build:
+      targets:
+        VeraBot: all
+    test:
+      targets: [VeraBotTests]

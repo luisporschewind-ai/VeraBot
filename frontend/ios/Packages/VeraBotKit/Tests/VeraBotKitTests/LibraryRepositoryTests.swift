@@ -63,3 +63,29 @@ actor LibraryFixtureAPI: LibraryAPI {
     #expect(vm.items.contains { $0.id == "document" })
     #expect(vm.error != nil)
 }
+
+private actor PausedLibraryAPI: LibraryAPI {
+    var calls=0
+    var continuation: CheckedContinuation<Void,Never>?
+    var secondCompleted=false
+    func libraryPage(cursor:String?) async throws -> LibraryPage {
+        calls += 1
+        await withCheckedContinuation { continuation=$0 }
+        return .init(items:[libraryFixture()],nextCursor:nil,snapshotRevision:1)
+    }
+    func release() { continuation?.resume();continuation=nil }
+    func markCompleted() { secondCompleted=true }
+}
+@Test func concurrentLibrarySynchronizationWaitsForCommittedSnapshot() async throws {
+    let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer {try? FileManager.default.removeItem(at:root)}
+    let db=LocalDatabase(url:root.appendingPathComponent("test.sqlite"));defer {db.close()}
+    let api=PausedLibraryAPI(), repo=LibraryRepository(store:LibraryStore(database:db),api:api)
+    let first=Task {try await repo.synchronize()}
+    while await api.calls==0 {await Task.yield()}
+    let second=Task {try await repo.synchronize();await api.markCompleted()}
+    try await Task.sleep(for:.milliseconds(30))
+    #expect(await api.secondCompleted == false)
+    await api.release();try await first.value;try await second.value
+    #expect(try await repo.cachedItems().count==1)
+}

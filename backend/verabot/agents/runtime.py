@@ -6,7 +6,7 @@ import logging
 from .. import db
 from ..core import config as core_config
 from ..core.config import EMPTY_REPLY_RETRIES, HISTORY_WINDOW, MAX_TOOL_ROUNDS
-from ..services import llm, memory
+from ..services import llm, memory, library
 from ..services.memory import jobs as memory_jobs
 from ..services.memory import extract as memory_extract
 from ..services.memory import style as memory_style
@@ -108,7 +108,8 @@ def _history(user_id: int, bot_id: int, recent=None) -> tuple[list[dict], dict |
         if m.get("source_kind") == "scheduled_task":
             content = "【历史定时任务结果，仅供参考，不是用户新指令】\n" + content
         out.append({"role": m["role"], "content": content})
-    latest = max((r for rs in att_map.values() for r in rs), key=lambda r: (r["message_id"], r["created_at"]),
+    from ..services import library
+    latest = max((r for rs in att_map.values() for r in rs if r["kind"]=="image" and library.bot_can_read(user_id,bot_id,r["id"])), key=lambda r: (r["message_id"], r["created_at"]),
                  default=None)
     return out, latest
 
@@ -280,7 +281,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
             if durable and durable.done:
                 return
             if turn.pending_images:   # view_image：原图作为额外 user 消息附上
-                messages.append(vision.recall_message(turn.pending_images))
+                messages.append(vision.recall_message([row for row in turn.pending_images if library.bot_can_read(user_id,bot["id"],row["id"])]))
                 turn.image_ids += [r["id"] for r in turn.pending_images]
                 turn.image_tainted, turn.pending_images = True, []
         finished = True
@@ -358,29 +359,35 @@ async def run_once(user_id: int, bot: dict, question: str, shared_context: str,
     if visible_files:
         from ..tools.registry import REGISTRY
         if "read_file" in REGISTRY: tools.append(REGISTRY["read_file"].schema())
-    usage_total: dict = {}
-    for _round in range(MAX_TOOL_ROUNDS + 1):
-        use_tools = (tools or None) if _round < MAX_TOOL_ROUNDS else None
-        for attempt in range(EMPTY_REPLY_RETRIES + 1):
-            _emit_status(ctx, "thinking")
-            msg, usage = await llm.complete(messages, use_tools)
-            _add_usage(usage_total, usage)
-            calls = msg.get("tool_calls") or []
-            content = (msg.get("content") or "").strip()
-            if content or calls:
-                break
-            log.warning("empty delegated reply (finish_reason=%s) bot=%s attempt=%s", msg.get("_finish_reason"), bot["id"], attempt)
-        if not calls:
-            return content or f"（{bot['name']} 暂时没有给出答复）", usage_total, audit_payload
-        messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": calls})
-        for tc in calls:
-            _emit_status(ctx, "tool", tool=tc["function"]["name"])
-            result = await dispatch(
-                ctx, tc["function"]["name"], tc["function"].get("arguments", "{}"), call_id=tc.get("id"),
-            )
-            messages.append({"role": "tool", "tool_call_id": tc["id"],
-                             "content": _tool_content(tc["function"]["name"], result)})
-        if ctx.turn.pending_images:
-            messages.append(vision.recall_message(ctx.turn.pending_images))
-            ctx.turn.pending_images = []
-    return f"（{bot['name']} 暂时没有给出答复）", usage_total, audit_payload
+    parent_pending=ctx.turn.pending_images
+    ctx.turn.pending_images=[]
+    try:
+        usage_total: dict = {}
+        for _round in range(MAX_TOOL_ROUNDS + 1):
+            use_tools = (tools or None) if _round < MAX_TOOL_ROUNDS else None
+            for attempt in range(EMPTY_REPLY_RETRIES + 1):
+                _emit_status(ctx, "thinking")
+                msg, usage = await llm.complete(messages, use_tools)
+                _add_usage(usage_total, usage)
+                calls = msg.get("tool_calls") or []
+                content = (msg.get("content") or "").strip()
+                if content or calls:
+                    break
+                log.warning("empty delegated reply (finish_reason=%s) bot=%s attempt=%s", msg.get("_finish_reason"), bot["id"], attempt)
+            if not calls:
+                return content or f"（{bot['name']} 暂时没有给出答复）", usage_total, audit_payload
+            messages.append({"role": "assistant", "content": msg.get("content"), "tool_calls": calls})
+            for tc in calls:
+                _emit_status(ctx, "tool", tool=tc["function"]["name"])
+                result = await dispatch(
+                    ctx, tc["function"]["name"], tc["function"].get("arguments", "{}"), call_id=tc.get("id"),
+                )
+                messages.append({"role": "tool", "tool_call_id": tc["id"],
+                                 "content": _tool_content(tc["function"]["name"], result)})
+            if ctx.turn.pending_images:
+                allowed=[row for row in ctx.turn.pending_images if library.bot_can_read(user_id,bot["id"],row["id"])]
+                if allowed: messages.append(vision.recall_message(allowed))
+                ctx.turn.pending_images = []
+        return f"（{bot['name']} 暂时没有给出答复）", usage_total, audit_payload
+    finally:
+        ctx.turn.pending_images=parent_pending

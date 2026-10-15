@@ -39,8 +39,10 @@ struct GroupChatView: View {
     private let app: AppState
     private let onGroupUpdated: ((ChatGroup) -> Void)?
     private let legacyPreferenceKey: String
-    init(group: ChatGroup, app: AppState, onGroupUpdated: ((ChatGroup) -> Void)? = nil) {
+    let highlightMessageID: Int?
+    init(group: ChatGroup, app: AppState, highlightMessageID: Int? = nil, onGroupUpdated: ((ChatGroup) -> Void)? = nil) {
         self.app = app
+        self.highlightMessageID = highlightMessageID
         self.onGroupUpdated = onGroupUpdated
         legacyPreferenceKey = "groupTarget.\(app.baseURLString).\(app.userID ?? 0).\(group.id)"
         let generation = app.sessionGeneration
@@ -92,14 +94,14 @@ struct GroupChatView: View {
                 .onChange(of: model.state.messages.last?.content) { _, _ in
                     guard initialPositionReady else { return }
                     if !entered && !model.state.messages.isEmpty {
-                        if let first = reading.dividerMessageID { proxy.scrollTo(first, anchor: .center) }
+                        if let first = highlightMessageID ?? reading.dividerMessageID { proxy.scrollTo(first, anchor: .center) }
                         else { proxy.scrollTo("bottom", anchor: .bottom) }
                         entered = true
                     } else if followsBottom { proxy.scrollTo("bottom", anchor: .bottom) }
                 }
                 .onChange(of: initialPositionReady) { _, ready in
                     guard ready, !entered else { return }
-                    if let first = reading.dividerMessageID { proxy.scrollTo(first, anchor: .center) }
+                    if let first = highlightMessageID ?? reading.dividerMessageID { proxy.scrollTo(first, anchor: .center) }
                     else { proxy.scrollTo("bottom", anchor: .bottom) }
                     entered = true
                 }
@@ -162,7 +164,7 @@ struct GroupChatView: View {
             pageVisible = true; await app.refreshActivityForEntry()
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "group", id: model.group.id)?.unreadMessages ?? []) }
             UserDefaults.standard.removeObject(forKey: legacyPreferenceKey); await model.load()
-            if !entered, let target = reading.dividerMessageID {
+            if !entered, let target = highlightMessageID ?? reading.dividerMessageID {
                 while !model.state.messages.contains(where: { $0.id == target }), model.nextBeforeID != nil {
                     let before = model.nextBeforeID; await model.loadOlder(); if model.nextBeforeID == before { break }
                 }

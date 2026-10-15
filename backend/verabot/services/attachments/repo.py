@@ -244,6 +244,12 @@ def attach(user_id: int, bot_id: int, ids: list[str], message_id: int) -> list[d
 def set_caption(user_id: int, att_id: str, caption: str | None, status: str):
     with db.tx() as c:
         store_sql.set_caption(c, user_id, att_id, caption, status)
+        saved=c.execute("SELECT payload FROM library_items WHERE id=? AND user_id=? AND deleted=0",(att_id,user_id)).fetchone()
+        if saved:
+            payload=json.loads(saved[0]);payload.update(caption=caption,caption_status=status)
+            c.execute("UPDATE library_items SET payload=? WHERE id=? AND user_id=?",(json.dumps(payload),att_id,user_id))
+            from ...db.library_store import changed
+            changed(c,user_id,att_id)
 
 
 # ---------------------------------------------------------------- 删除

@@ -4,6 +4,7 @@ import VeraBotTTS
 
 @main
 struct VeraBotApp: App {
+    @UIApplicationDelegateAdaptor(LibraryAppDelegate.self) private var libraryDelegate
     @State private var app: AppState
     init() {
         let state = AppState()
@@ -64,6 +65,10 @@ struct RootView: View {
                 try await Task.sleep(for: .milliseconds(reduceMotion ? 350 : 2600))
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { welcoming = false }
             } catch { /* Root dismissal cancels the welcome. */ }
+        }
+        .task(id:"library-\(app.userID ?? 0)-\(app.baseURLString)-\(scenePhase == .active)") {
+            guard scenePhase == .active,app.token != nil else { return }
+            await app.refreshLibrary()
         }
         .onChange(of: scenePhase) { _, phase in
             app.setActivityForeground(phase == .active)

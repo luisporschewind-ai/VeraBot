@@ -21,6 +21,21 @@ class MigrationTests(unittest.TestCase):
             self.assertIn(aid, [r[0] for r in after])
             self.assertNotIn(pending, [r[0] for r in after])
 
+    def test_upgrade_backup_restores_pre_v33_database(self):
+        import sqlite3,tempfile
+        from pathlib import Path
+        from verabot.db.migrations.v033_independent_library import backup_before_v33
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/"old.db"
+            with sqlite3.connect(path) as c:
+                c.execute("CREATE TABLE schema_meta(key TEXT PRIMARY KEY,value TEXT)")
+                c.execute("INSERT INTO schema_meta VALUES('version','32')")
+                c.execute("CREATE TABLE sample(value TEXT)")
+                c.execute("INSERT INTO sample VALUES('preserved')")
+            backup=backup_before_v33(path)
+            self.assertTrue(backup.is_file())
+            with sqlite3.connect(backup) as c: self.assertEqual(c.execute("SELECT value FROM sample").fetchone()[0],"preserved")
+
     def test_retained_library_bytes_count_toward_quota(self):
         from verabot.db.attachment_store import bytes_used
         aid, mid = attached(self.uid, self.bots[0], b"quota-original")

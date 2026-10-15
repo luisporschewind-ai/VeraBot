@@ -7,14 +7,27 @@ public actor LibraryRepository {
     public let store: LibraryStore
     public let api: any LibraryAPI
     private let sessionIsCurrent: @Sendable () -> Bool
-    private var synchronizing = false
+    private var flight: (id: UUID, task: Task<Void, Error>)?
     public init(store: LibraryStore, api: any LibraryAPI, sessionIsCurrent: @escaping @Sendable () -> Bool = { true }) {
         self.store=store;self.api=api;self.sessionIsCurrent=sessionIsCurrent
     }
     public func cachedItems() throws -> [LibraryItem] { guard sessionIsCurrent() else { throw CancellationError() };return try store.items() }
     public func synchronize() async throws {
-        guard !synchronizing else { return }
-        synchronizing=true;defer { synchronizing=false }
+        if let flight { try await flight.task.value;return }
+        let id=UUID()
+        let task=Task { try await self.synchronizeSnapshot() }
+        flight=(id,task)
+        defer { if flight?.id==id {flight=nil} }
+        try await task.value
+    }
+    private func refreshAfterMutation() async throws {
+        if let previous=flight {
+            _ = try? await previous.task.value
+            if flight?.id==previous.id {flight=nil}
+        }
+        try await synchronize()
+    }
+    private func synchronizeSnapshot() async throws {
         for attempt in 0..<3 {
             do {
                 var items: [LibraryItem] = [], cursor: String?, revision: Int?
@@ -32,8 +45,8 @@ public actor LibraryRepository {
         }
     }
     public func search(query: String, botID: Int?) async throws -> [LibraryItem] { try await api.librarySearch(query:query,botID:botID) }
-    public func link(id: String, botID: Int) async throws { try await api.libraryLink(id:id,botID:botID);try await synchronize() }
-    public func unlink(id: String, botID: Int) async throws { try await api.libraryUnlink(id:id,botID:botID);try await synchronize() }
+    public func link(id: String, botID: Int) async throws { try await api.libraryLink(id:id,botID:botID);try await refreshAfterMutation() }
+    public func unlink(id: String, botID: Int) async throws { try await api.libraryUnlink(id:id,botID:botID);try await refreshAfterMutation() }
     public func delete(id: String) async throws {
         try await api.libraryDelete(id:id)
         guard sessionIsCurrent() else { throw CancellationError() }
@@ -41,6 +54,6 @@ public actor LibraryRepository {
     }
     public func upload(data: Data, filename: String, mime: String, botID: Int?, requestKey: String) async throws -> LibraryItem {
         let item=try await api.libraryUpload(data:data,filename:filename,mime:mime,botID:botID,requestKey:requestKey)
-        try await synchronize();return item
+        try await refreshAfterMutation();return item
     }
 }

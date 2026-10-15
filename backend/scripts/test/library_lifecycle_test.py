@@ -20,6 +20,16 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(library.get_item(self.uid,aid)['bot_ids'],[self.bots[1]])
         library.link_bot(self.uid,aid,self.bots[0])
         self.assertEqual(len(library.get_item(self.uid,aid)['bot_ids']),2)
+    def test_delete_library_item_releases_quota(self):
+        from verabot.services import library
+        from verabot.db.attachment_store import bytes_used
+        aid,_=attached(self.uid,self.bots[0],b"reclaim original")
+        with db.tx() as c: before=bytes_used(c,self.uid)
+        row=repo.get(self.uid,aid)
+        library.delete_item(self.uid,aid)
+        with db.tx() as c: after=bytes_used(c,self.uid)
+        self.assertEqual(before-after,row["bytes"]+row["text_bytes"])
+
     def test_delete_then_reingest_stays_deleted(self):
         from verabot.services import library
         aid,mid=attached(self.uid,self.bots[0]); library.delete_item(self.uid,aid)

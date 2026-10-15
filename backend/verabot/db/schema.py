@@ -55,5 +55,7 @@ def init_db():
     from .migrations.v031_notification_events import backup_before_v31
     backup_before_v30()
     backup_before_v31()
+    from .migrations.v033_independent_library import backup_before_v33
+    backup_before_v33()
     with tx() as c:
         _apply_migrations(c)

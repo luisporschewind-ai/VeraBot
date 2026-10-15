@@ -44,6 +44,18 @@ class LibraryAPITests(unittest.TestCase):
         delta=self.cli.get("/api/library/changes",params={"after_revision":before},headers=self.h).json()
         self.assertIn(aid,[i["id"] for i in delta["upserts"]])
 
+    def test_image_caption_becomes_searchable(self):
+        import io
+        from PIL import Image
+        from library_test_support import repo,db
+        raw=io.BytesIO();Image.new("RGB",(40,40),"blue").save(raw,format="PNG")
+        att=repo.create(self.uid,self.bots[0],raw.getvalue())
+        mid=db.add_message(self.uid,self.bots[0],"user","photo")
+        repo.attach(self.uid,self.bots[0],[att["id"]],mid)
+        repo.set_caption(self.uid,att["id"],"海边风景","ok")
+        found=self.cli.get("/api/library/items",params={"q":"海边"},headers=self.h).json()["items"]
+        self.assertIn(att["id"],[i["id"] for i in found])
+
     def test_search_returns_filename_and_extracted_text_matches(self):
         r=self.upload('search'); self.assertEqual(r.status_code,201,r.text)
         result=self.cli.get('/api/library/items?q=searchable',headers=self.h).json()

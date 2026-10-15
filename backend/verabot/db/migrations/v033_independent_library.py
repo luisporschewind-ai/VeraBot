@@ -44,3 +44,21 @@ def migrate(c, ver):
             row['message_id'] = group['message_id']
             ingest(c,row,'group',group['group_id'],None)
         else: ingest(c,row,'private' if row['message_id'] else 'upload',row['bot_id'],row['bot_id'])
+
+def backup_before_v33(path=None):
+    import sqlite3
+    import time
+    from pathlib import Path
+    from ..database import DB_PATH
+    path=Path(path or DB_PATH)
+    if not path.is_file(): return None
+    source=sqlite3.connect(path)
+    try:
+        try: version=source.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()
+        except sqlite3.OperationalError: return None
+        if not version or int(version[0])>=33: return None
+        target=path.with_name(path.name+f'.bak-before-v33-{time.time_ns()}')
+        with sqlite3.connect(target) as destination: source.backup(destination)
+        target.chmod(0o600)
+        return target
+    finally: source.close()

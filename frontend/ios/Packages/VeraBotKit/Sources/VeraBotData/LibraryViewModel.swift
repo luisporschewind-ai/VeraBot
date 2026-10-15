@@ -10,6 +10,7 @@ import VeraBotCore
     public let scope: LibraryScope
     public let repository: LibraryRepository
     public init(repository: LibraryRepository, scope: LibraryScope) { self.repository=repository;self.scope=scope }
+    public func refreshCached() async { if let cached=try? await repository.cachedItems() { items=cached } }
     public func load() async {
         if let cached=try? await repository.cachedItems() { items=cached }
         loading=true;defer { loading=false }
