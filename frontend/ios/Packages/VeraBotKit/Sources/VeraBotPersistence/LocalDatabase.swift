@@ -114,9 +114,10 @@ public final class LocalDatabase: @unchecked Sendable {
 
     private func migrate() throws {
         let version = try rows("PRAGMA user_version").first?["user_version"] as? Int ?? 0
-        guard version < 1 else { return }
+        guard version < 2 else { return }
         try exec("BEGIN IMMEDIATE")
         do {
+            if version < 1 {
             try exec("""
                 CREATE TABLE conversations(
                     kind TEXT NOT NULL, remote_id INTEGER NOT NULL, snapshot BLOB NOT NULL,
@@ -142,6 +143,8 @@ public final class LocalDatabase: @unchecked Sendable {
                 CREATE TABLE list_state(kind TEXT PRIMARY KEY, complete INTEGER NOT NULL DEFAULT 0);
                 PRAGMA user_version=1;
                 """)
+            }
+            try exec("CREATE TABLE IF NOT EXISTS library_items(id TEXT PRIMARY KEY,created_at TEXT NOT NULL,snapshot BLOB NOT NULL); CREATE TABLE IF NOT EXISTS library_state(key TEXT PRIMARY KEY,value TEXT NOT NULL); PRAGMA user_version=2;")
             try exec("COMMIT")
         } catch { try? exec("ROLLBACK"); throw error }
     }
