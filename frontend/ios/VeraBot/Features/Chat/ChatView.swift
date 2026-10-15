@@ -197,6 +197,7 @@ struct ChatView: View {
             await vm.load()
             if !entered, let target = highlightMessageID ?? reading.dividerMessageID { await vm.ensureMessageLoaded(target) }
             initialPositionReady = true; vm.scrollTick += 1
+            await app.markConversationRead(kind: "private", id: vm.bot.id)
             if quickPromptsEnabled { await vm.refreshQuickPrompts() }
         }
         .onChange(of: notificationModalShown) { _, _ in updateNotificationVisibility() }
@@ -244,18 +245,14 @@ struct ChatView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { vm.leave() } else if pageVisible {
-                Task {
-                    await app.refreshActivityForEntry()
-                    reading.resume(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? [])
-                    await vm.recoverExecution()
-                }
+                Task { await resumeFromBackground() }
             }
         }
         .onChange(of: app.sessionGeneration) { _, _ in pageVisible = false; reading.leave(); vm.leave() }
         .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）
         .onDisappear {
             pageVisible = false; vm.leave()
-            if !hasTemporaryCover { reading.leave(); entered = false }
+            if !hasTemporaryCover { endReadingSession() }
             focused = false
             // 全屏相机临时遮盖对话，仍属于当前对话；返回列表才结束朗读。
             if !showCamera { player.stop() }
@@ -352,12 +349,13 @@ struct ChatView: View {
 
     private var regularComposer: some View {
         VStack(spacing: 6) {
-            ForEach(vm.replyTasks.filter(\.isActive)) { task in
+            // 排队 / 生成中不再显示状态行（由输入栏右侧的停止按钮表示）；只保留需要用户处理的等待状态。
+            ForEach(vm.replyTasks.filter { $0.state == "awaiting_user" || $0.state == "awaiting_approval" }) { task in
                 HStack {
-                    Text(task.state == "queued" ? "排队中" : task.state == "awaiting_user" ? "等你补充" : task.state == "awaiting_approval" ? "待你确认" : "正在回复").font(.caption)
+                    Text(task.state == "awaiting_user" ? "等你补充" : "待你确认").font(.caption)
                     if task.state == "awaiting_user" { Button(vm.selectedWaitTaskID == task.id ? "退出关联" : "回复此问题") { vm.selectedWaitTaskID = vm.selectedWaitTaskID == task.id ? nil : task.id }.font(.caption) }
                     Spacer()
-                    Button(task.state == "queued" ? "取消排队" : "停止") { Task { await vm.stop(task) } }.font(.caption).disabled(vm.controlBusy.contains(task.id))
+                    Button("停止") { Task { await vm.stop(task) } }.font(.caption).disabled(vm.controlBusy.contains(task.id))
                 }
             }
             if let userID = app.userID,
@@ -435,6 +433,20 @@ struct ChatView: View {
                             .submitLabel(.send)
                             .onSubmit(send)
                             .padding(.vertical, 13)
+                        if let task = vm.replyInProgress {
+                            // 回复进行中：忙碌态停止按钮（转圈外环 + 停止方块），点按停止本次回复；完成 / 失败后恢复麦克风
+                            Button { Task { await vm.stop(task) } } label: {
+                                ZStack {
+                                    ProgressView().controlSize(.regular)
+                                    Image(systemName: "stop.fill").font(.system(size: 9)).foregroundStyle(Color.primary)
+                                }
+                                .frame(width: 36, height: Self.barHeight)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(vm.controlBusy.contains(task.id))
+                            .accessibilityLabel("正在回复，点按停止")
+                        } else {
                         Button(action: toggleSpeech) {
                             Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic")
                                 .font(.title3)
@@ -444,6 +456,7 @@ struct ChatView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")
+                        }
                     }
                     .padding(.leading, 18).padding(.trailing, 8)
                     .frame(minHeight: Self.barHeight)
@@ -506,10 +519,24 @@ struct ChatView: View {
 
     /// 发送：键盘 return 键触发；只在提交中暂缓，后续独立消息由服务端排队。
     /// 有图时可以只发图片；图片处理 / 上传中或上传失败时不发送（输入栏上方显示状态）。
+    /// 离开对话：清掉本次阅读状态，并把期间到达的回复一并标为已读。
+    private func endReadingSession() {
+        reading.leave(); entered = false
+        let botID = vm.bot.id
+        Task { await app.markConversationRead(kind: "private", id: botID) }
+    }
+    /// 从后台回到前台：刷新未读、为期间到达的回复标一次「新」分隔线，随后标为已读。
+    private func resumeFromBackground() async {
+        await app.refreshActivityForEntry()
+        reading.resume(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? [])
+        await app.markConversationRead(kind: "private", id: vm.bot.id)
+        await vm.recoverExecution()
+    }
+
     private func send() {
         guard travelStore.activeTrip(botID: vm.bot.id) == nil else { return }
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !vm.sending, !attachment.blocksSend else { return }
+        guard !vm.sending, vm.replyInProgress == nil, !attachment.blocksSend else { return }
         guard !text.isEmpty || attachment.ready != nil else { return }
         if vm.selectedWaitTaskID != nil && attachment.ready != nil { vm.notice = .sentence("请先退出问题关联，再发送附件。"); return }
         if speech.isRecording { speech.stop() }

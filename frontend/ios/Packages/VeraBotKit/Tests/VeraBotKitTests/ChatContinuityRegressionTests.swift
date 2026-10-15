@@ -46,3 +46,18 @@ import Testing
     reading.resume([MessagePublication(messageID: 40, publicationRevision: 1)])
     #expect(reading.dividerMessageID == 31)
 }
+
+/// 2026-10-15：打开对话后再次进入仍显示未读。进入即上报全部未读（去重、取最高修订）。
+@Test func entryReadBatchCoversAllUnreadMessages() throws {
+    let json = """
+    {"kind":"private","conversation_id":7,"generation":2,"revision":9,"state":"idle","phase":"","unread_count":3,"pending_count":0,
+     "unread_messages":[{"message_id":12,"publication_revision":1},{"message_id":10,"publication_revision":1},{"message_id":12,"publication_revision":3}],
+     "work_items":[],"latest_message":null}
+    """
+    let activity = try JSONDecoder().decode(ConversationActivity.self, from: Data(json.utf8))
+    #expect(activity.entryReadBatch == [MessagePublication(messageID: 10, publicationRevision: 1), MessagePublication(messageID: 12, publicationRevision: 3)])
+    // 已全部读过：再次进入没有未读，也就没有分隔线
+    var reading = ConversationReadingSession()
+    reading.enter([])
+    #expect(reading.dividerMessageID == nil)
+}

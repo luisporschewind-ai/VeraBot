@@ -32,6 +32,15 @@ public struct ConversationActivity: Codable, Sendable, Identifiable {
     }
     enum CodingKeys: String, CodingKey { case kind, generation, revision, state, phase; case conversationID = "conversation_id", unreadCount = "unread_count", pendingCount = "pending_count", unreadMessages = "unread_messages", workItems = "work_items", latestMessage = "latest_message" }
 }
+public extension ConversationActivity {
+    /// 打开对话即视为全部已读：进入、回到前台、离开对话时把当前全部未读回复一次性上报（按消息去重，取最高修订）。
+    /// 不再只依赖「气泡在屏幕上停留 0.5 秒」的可见性判定，避免快速进出后列表圆点和「新」分隔线反复出现。
+    var entryReadBatch: [MessagePublication] {
+        var best: [Int: Int] = [:]
+        for m in unreadMessages { best[m.messageID] = max(best[m.messageID] ?? 0, m.publicationRevision) }
+        return best.keys.sorted().map { MessagePublication(messageID: $0, publicationRevision: best[$0]!) }
+    }
+}
 public struct ConversationActivitySnapshot: Codable, Sendable { public let cursor: Int; public let conversations: [ConversationActivity] }
 public struct ConversationActivityEvent: Codable, Sendable { public let kind: String; public let conversationID: Int; public let generation: Int; public let conversation: ConversationActivity?; enum CodingKeys: String, CodingKey { case kind, generation, conversation; case conversationID = "conversation_id" } }
 public struct ConversationReadResponse: Codable, Sendable { public let cursor: Int; public let conversation: ConversationActivity }
