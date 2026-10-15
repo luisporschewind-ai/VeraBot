@@ -20,6 +20,7 @@ struct GroupChatView: View {
     @State private var entered = false
     @State private var initialPositionReady = false
     @State private var followsBottom = true
+    @State private var bottomAnchor: CGRect = .zero   // 只在 updateFollowsBottom 里读，避免滚动时整页重算 body
     @State private var showPhotos = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showCamera = false
@@ -55,22 +56,25 @@ struct GroupChatView: View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 16) {
-                        GroupExecutionStatusView(model: model)
-                        if model.nextBeforeID != nil { Button("加载更早的消息") { Task { await model.loadOlder() } }.disabled(model.loading) }
-                        if model.loading && model.state.messages.isEmpty { BotLoadingView() }
-                        if !model.loading && model.state.messages.isEmpty && !model.historyIncomplete && model.errorMessage == nil {
-                            RobotAvatarView(action: .waiting, size: 90, color: .brandFill, ambient: false)
-                            Text("从一个话题开始").foregroundStyle(.secondary)
-                        }
-                        ForEach(model.state.messages) { message in
-                            messageCell(message)
+                    VStack(spacing: 16) {
+                        LazyVStack(spacing: 16) {
+                            GroupExecutionStatusView(model: model)
+                            if model.nextBeforeID != nil { Button("加载更早的消息") { Task { await model.loadOlder() } }.disabled(model.loading) }
+                            if model.loading && model.state.messages.isEmpty { BotLoadingView() }
+                            if !model.loading && model.state.messages.isEmpty && !model.historyIncomplete && model.errorMessage == nil {
+                                RobotAvatarView(action: .waiting, size: 90, color: .brandFill, ambient: false)
+                                Text("从一个话题开始").foregroundStyle(.secondary)
+                            }
+                            ForEach(model.state.messages) { message in
+                                messageCell(message)
+                            }
                         }
                         Color.clear.frame(height: 1).id("bottom")
-                            .background(GeometryReader { geometry in Color.clear.preference(key: ConversationBottomKey.self, value: geometry.frame(in: .global)) })
+                            .conversationBottomAnchor { bottomAnchor = $0; updateFollowsBottom() }
                     }.padding()
                 }
                 .conversationViewport($viewport)
+                .onChange(of: effectiveViewport) { updateFollowsBottom() }
                 .coordinateSpace(name: "notificationChatViewport")
                 .background {
                     GeometryReader { geometry in
@@ -81,7 +85,6 @@ struct GroupChatView: View {
                 .onPreferenceChange(GroupNotificationFrames.self) { frames in
                     notificationFrames = frames; updateNotificationVisibility()
                 }
-                .onPreferenceChange(ConversationBottomKey.self) { rect in followsBottom = rect.minY <= viewport.maxY + 40 && rect.maxY >= viewport.minY }
                 .bottomAnchoredScrolling()
                 .scrollDismissesKeyboard(.interactively)
                 .onTapGesture { inputFocused = false }
@@ -252,6 +255,10 @@ struct GroupChatView: View {
     private var effectiveViewport: CGRect {
         guard !composerViewport.isEmpty else { return viewport }
         return CGRect(x: viewport.minX, y: viewport.minY, width: viewport.width, height: max(0, min(viewport.maxY, composerViewport.minY) - viewport.minY))
+    }
+    private func updateFollowsBottom() {
+        let next = ScrollBottomDetector.followsBottom(anchor: bottomAnchor, viewport: effectiveViewport, current: followsBottom)
+        if next != followsBottom { followsBottom = next }
     }
     private var hasTemporaryCover: Bool { info || showPhotos || showFiles || showCamera || cameraDenied }
     private var notificationModalShown: Bool { hasTemporaryCover }

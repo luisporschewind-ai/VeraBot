@@ -135,6 +135,10 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 - 天气 / 定位开场（维度 6）属 Phase 2，本分支不做。
 - 创建 Bot 时后台会调一次 DeepSeek；Key 无效或失败时模板为 null，iOS 用内置兜底，不阻断创建。
 
+### 「回到最新」按钮显隐反转（2026-10-15）
+
+根因：视口与底部锚点用 `PreferenceKey` 上报，`reduce` 写成 `value = nextValue()`，未设置该 key 的兄弟子树会把已测得的矩形覆盖成 `.zero`，视口始终为空，贴底判定 `anchor.minY <= viewport.maxY + 40` 在贴底时为假，按钮反而显示；底部锚点又放在 `LazyVStack` 内，上滑远离后不再上报几何，`followsBottom` 停在旧值，按钮隐藏。修复：改用 `onGeometryChange` 直接测量视口、输入栏与锚点；锚点移出 `LazyVStack`；判定抽为 `ScrollBottomDetector.followsBottom`（未测量时保留当前值）。回归：`ScrollBottomDetectorTests`。
+
 ## 后续再做
 
 这些不在本分支里实现：

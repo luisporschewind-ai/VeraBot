@@ -19,6 +19,7 @@ struct ChatView: View {
     @State private var entered = false
     @State private var initialPositionReady = false
     @State private var followsBottom = true
+    @State private var bottomAnchor: CGRect = .zero   // 只在 updateFollowsBottom 里读，避免滚动时整页重算 body
     @State private var input = ""
     @State private var draftSaveTask: Task<Void, Never>?
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
@@ -75,24 +76,26 @@ struct ChatView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    if vm.hasOlderMessages {
-                        Button(vm.loadingOlder ? "正在加载…" : "加载更早的消息") { Task { await vm.loadOlder() } }
-                            .disabled(vm.loadingOlder).font(.footnote)
-                    }
-                    ForEach(vm.items) { item in
-                        messageCell(item)
-                    }
-                    ForEach(vm.memorySuggestions) { suggestion in
-                        MemorySuggestionCard(suggestion: suggestion, vm: vm)
+                VStack(alignment: .leading, spacing: 12) {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        if vm.hasOlderMessages {
+                            Button(vm.loadingOlder ? "正在加载…" : "加载更早的消息") { Task { await vm.loadOlder() } }
+                                .disabled(vm.loadingOlder).font(.footnote)
+                        }
+                        ForEach(vm.items) { item in
+                            messageCell(item)
+                        }
+                        ForEach(vm.memorySuggestions) { suggestion in
+                            MemorySuggestionCard(suggestion: suggestion, vm: vm)
+                        }
                     }
                     Color.clear.frame(height: 1).id("bottom")
-                        .background(GeometryReader { geometry in Color.clear.preference(key: ConversationBottomKey.self, value: geometry.frame(in: .global)) })
+                        .conversationBottomAnchor { bottomAnchor = $0; updateFollowsBottom() }
                 }
                 .padding()
             }
             .conversationViewport($viewport)
-            .onPreferenceChange(ConversationBottomKey.self) { rect in followsBottom = rect.minY <= viewport.maxY + 40 && rect.maxY >= viewport.minY }
+            .onChange(of: effectiveViewport) { updateFollowsBottom() }
             .coordinateSpace(name: "notificationChatViewport")
             .background {
                 GeometryReader { geometry in
@@ -272,6 +275,10 @@ struct ChatView: View {
     private var effectiveViewport: CGRect {
         guard !composerViewport.isEmpty else { return viewport }
         return CGRect(x: viewport.minX, y: viewport.minY, width: viewport.width, height: max(0, min(viewport.maxY, composerViewport.minY) - viewport.minY))
+    }
+    private func updateFollowsBottom() {
+        let next = ScrollBottomDetector.followsBottom(anchor: bottomAnchor, viewport: effectiveViewport, current: followsBottom)
+        if next != followsBottom { followsBottom = next }
     }
     private var hasTemporaryCover: Bool { showInfo || showTasks || showMemoryList || showPhotos || showFiles || showCamera || cameraDenied || browserCovered || travelTripToShow != nil || confirmClearConversation || confirmDeleteBot }
     private var canRead: Bool { pageVisible && scenePhase == .active && app.selectedTab == 0 && !hasTemporaryCover }
