@@ -28,7 +28,7 @@ import Testing
     #expect(BotProductLimits.canAddBotToSelection(selectedCount: 4))
     #expect(!BotProductLimits.canAddBotToSelection(selectedCount: 5))
     #expect(BotProductLimits.groupSelectionTitle(selectedCount: 3) == "已选择 3/5 个 Bot")
-    #expect(BotProductLimits.groupSelectionHint == "每个群聊需要选择 2～5 个 Bot")
+    #expect(BotProductLimits.groupSelectionFullMessage == "每个群聊最多选择 5 个 Bot")
 }
 
 @Test func botProductLimitsMemberEditBoundary() {

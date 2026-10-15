@@ -1,5 +1,9 @@
 # 项目状态 (STATUS) — 2026-10-15
 
+## 2026-10-15 · 创建群聊去掉说明文案、选择行紧凑化
+
+- `fix/create-group-compact`：创建群聊弹窗去掉「每个群聊需要选择 2～5 个 Bot」，2～5 校验不变；Bot 选择行与群成员行、添加成员行同高（头像 30、间距 10、相同行边距）。未在模拟器验收。
+
 ## 2026-10-15 · Bot 动态开场词 Phase 1
 
 - 空对话开场词改为混合生成：后端一次出人设模板，iOS 本地按时段/日子/关系阶段组装。规格 [bot-opening-message](specs/bot-opening-message.md)；验证 [testing](testing/2026-10-15-bot-opening-message.md)。天气维度属 Phase 2。Web 冻结未改。
