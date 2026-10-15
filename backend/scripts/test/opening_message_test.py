@@ -44,8 +44,8 @@ bot_cols = {r[1] for r in con.execute("PRAGMA table_info(bots)")}
 con.close()
 check(
     "OPEN-01",
-    "schema v32 含 opening_templates 列且幂等",
-    ver == "32" and db.SCHEMA_VERSION == 32 and "opening_templates" in bot_cols,
+    "schema ≥ v32 含 opening_templates 列且幂等",
+    ver == str(db.SCHEMA_VERSION) and db.SCHEMA_VERSION >= 32 and "opening_templates" in bot_cols,
     f"ver={ver} SCHEMA_VERSION={db.SCHEMA_VERSION}",
 )
 

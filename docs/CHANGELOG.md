@@ -1,5 +1,12 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-15 · 后端：过时的失败任务不再充当会话状态、工具 trace 瘦身（schema v33）
+
+- 会话摘要：失败／中断的私聊回复或主动任务，之后同一会话里有正常完成的回复（或主动任务完成）时标记 `superseded_at`，`/api/conversations/activity` 的 `work_items` 不再包含它，列表行不再因旧记录显示「工作暂未完成」。真正最新的一次失败照常上报。触发器维护标记，v33 迁移一次性回填存量任务，不删除任何消息。
+- 工具 trace：`messages.traces`、回复事件与 SSE `tool_result` 落库／下发前瘦身——`read_file` 去掉文件原文，只留文件名、offset、length、总字数、`has_more` 等；其他工具结果的长字符串截到 2000 字并标 `…[truncated]`，原长度记在 `trace_truncated`。模型在本轮仍拿到完整工具结果。v33 迁移改写存量行，迁移前备份 `verabot.db.bak-before-v33-<时间戳>`。
+- iOS：MCP 卡片「约 N 字」改读 `trace_truncated.content`（`MCPTraceText.contentLength`）；`read_file` 卡片无需改动。
+- 测试：`backend/scripts/test/stale_work_trace_slim_test.py`；Swift `slimmedReadFileTraceFromBackendDecodesAndSummarizes`、`slimmedMCPTraceKeepsOriginalContentLength`。详见 [known-issues](testing/2026-10-14-known-issues.md)。`frontend/web` 未动。
+
 ## 2026-10-15 · 保存工作区改动
 
 - iOS 助理列表移除顶部重复的「主 Bot：名称」导航行；Bot 仍通过原会话列表进入，主 Bot 身份与任务能力保留。

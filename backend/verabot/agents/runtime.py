@@ -6,6 +6,7 @@ import logging
 from .. import db
 from ..core import config as core_config
 from ..core.config import EMPTY_REPLY_RETRIES, HISTORY_WINDOW, MAX_TOOL_ROUNDS
+from ..core.trace_slim import slim_trace
 from ..services import llm, memory
 from ..services.memory import jobs as memory_jobs
 from ..services.memory import extract as memory_extract
@@ -205,7 +206,7 @@ async def run_chat(user_id: int, bot: dict, user_text: str, attachment_ids: list
             if tc["name"] in MEMORY_TOOLS:
                 trace = _redact_memory_trace(trace)
             traces.append(trace)
-            yield {"event": "tool_result", "data": trace}
+            yield {"event": "tool_result", "data": slim_trace(trace)}
             messages.append({"role": "tool", "tool_call_id": tc["id"],
                              "content": _tool_content(tc["name"], result)})
             if durable:

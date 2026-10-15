@@ -246,6 +246,14 @@ private let fileText = String(repeating: "文件正文", count: 7500)   // 30000
     #expect(ToolTraceSummary.readFile(whole) == "已读取「notes.txt」全文，共 3 字")
 }
 
+@Test func slimmedReadFileTraceFromBackendDecodesAndSummarizes() throws {
+    let json = #"{"id":"rf1","name":"read_file","args":{"attachment_id":"att_1"},"result":{"filename":"方案.md","offset":0,"next_offset":30000,"has_more":true,"text_chars":52000,"text_status":"ok","length":30000,"text_omitted":true}}"#
+    let trace = try JSONDecoder().decode(ToolTrace.self, from: Data(json.utf8))
+    let result = try #require(trace.result)
+    #expect(result["text"] == nil)
+    #expect(ToolTraceSummary.readFile(result) == "已读取「方案.md」第 1–30000 字，共 52000 字，未读完")
+}
+
 @Test func fallbackTraceSummaryIsBounded() {
     let big: JSONValue = .object(["ok": .bool(true), "text": .string(fileText)])
     let summary = ToolTraceSummary.fallback(big)

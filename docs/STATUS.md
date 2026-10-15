@@ -1,5 +1,9 @@
 # 项目状态 (STATUS) — 2026-10-15
 
+## 2026-10-15 · 后端过时失败任务与 trace 瘦身（schema v33）
+
+- `fix/backend-stale-tasks-slim-traces`：源码 schema 升到 v33。会话摘要排除已被后续完成回复取代的失败／中断任务（`superseded_at`）；工具 trace 落库与同步前瘦身，`read_file` 不再存文件原文。v33 迁移回填存量任务标记并改写存量 trace，迁移前自动备份。新脚本 `stale_work_trace_slim_test.py` 与 `sql_layer_check.py` 通过；未在运行中的数据库或真实模型上验证。详见 [known-issues](testing/2026-10-14-known-issues.md)。
+
 ## 2026-10-15 · 工作区提交盘点
 
 - 本轮基线 main `0458189`（PR #47）；源码 schema v32。Git 仅注册主工作区，全部本地分支均已包含在 main 中。旧日期的「未合并」和 schema 说明属于历史快照，不代表当前基线。
