@@ -110,6 +110,19 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 - `MessageRow` Bot 侧内层 `VStack` 原为 `.trailing` 对齐，操作行比短气泡宽时气泡被推向右侧，与头像之间出现空隙；改为 `.leading`。
 - 回复排队 / 生成中允许继续发送并显示「排队中 / 取消排队」。现私聊以 `ChatViewModel.replyInProgress` 判定，输入栏右侧显示停止按钮并拦截发送；群聊以 `GroupChatViewModel.busy` 拦截发送。
 
+### 打开对话后再次进入仍显示未读（2026-10-15）
+
+现象：「健康助手」回复后列表出现未读，进入对话再离开，再次进入仍显示未读。
+
+原因：已读只靠可见性判定上报（气泡至少 25% 可见并停留 0.5 秒，且需在前台、页面可见）。快速进出、长回复只露出一小部分或滚动位置不在该条时，不会上报，未读一直保留。
+
+修复：`AppState.markConversationRead(kind:id:)` 在进入对话、回到前台、离开对话时，把该对话 `unread_messages` 全部写入本地已读队列（`enqueueRead`）并经 `POST` 已读接口上报；`ConversationActivity.entryReadBatch` 按消息去重并取最高修订。本次进入的「新」分隔线仍按进入前的未读显示一次，下次进入不再出现。回归：`entryReadBatchCoversAllUnreadMessages`。
+
+### Bot 回复错位与回复中可重复发送（2026-10-15）
+
+- `MessageRow` Bot 侧内层 `VStack` 原为 `.trailing` 对齐，操作行比短气泡宽时气泡被推向右侧，与头像之间出现空隙；改为 `.leading`。
+- 回复排队 / 生成中允许继续发送并显示「排队中 / 取消排队」。现私聊以 `ChatViewModel.replyInProgress` 判定，输入栏右侧显示停止按钮并拦截发送；群聊以 `GroupChatViewModel.busy` 拦截发送。
+
 ## 后续再做
 
 这些不在本分支里实现：
