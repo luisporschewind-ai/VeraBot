@@ -1,5 +1,9 @@
 # 项目状态 (STATUS) — 2026-10-15
 
+## 2026-10-15 · 长回复折叠阈值按手机高度重定
+
+- `fix/long-reply-collapse-threshold`：折叠改为估算排版高度超过约一屏（28 行）或 500 加权字；预览 ≤ 200 字 / 8 行。「思考助手」594 / 716 字的 Markdown 回复会折叠，329 字的不折叠。`read_file` trace 卡片不再排版 3 万字文件原文。未构建、未跑 `swift test`、未在模拟器验收；后端仍把完整文件文本存进消息 traces（单条 32 KB）并随历史下发，未改。
+
 ## 2026-10-15 · 私聊长回复折叠
 
 - `feat/collapse-long-bot-replies`：超过 1500 字或 40 行的 Bot 回复默认只渲染截断预览，「展开 / 收起」切换，规格 [long-reply-collapse](specs/long-reply-collapse.md)。未构建、未跑 `swift test`、未在模拟器验收。
