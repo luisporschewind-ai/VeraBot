@@ -328,7 +328,12 @@ struct GroupChatView: View {
                             .buttonStyle(.plain).accessibilityLabel("停止讨论")
                             .disabled(model.confirmingStop)
                         } else if model.busy {
-                            ProgressView().frame(width: 36, height: Self.barHeight).accessibilityLabel("正在回复")
+                            Button {} label: {
+                                Image(systemName: "stop.circle.fill").font(.title3).foregroundStyle(.red)
+                                    .frame(width: 36, height: Self.barHeight).contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain).disabled(true).opacity(0.4)
+                            .accessibilityLabel("正在回复")
                         } else {
                             Button(action: toggleSpeech) {
                                 Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic")

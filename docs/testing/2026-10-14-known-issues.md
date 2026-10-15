@@ -110,22 +110,23 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 - `MessageRow` Bot 侧内层 `VStack` 原为 `.trailing` 对齐，操作行比短气泡宽时气泡被推向右侧，与头像之间出现空隙；改为 `.leading`。
 - 回复排队 / 生成中允许继续发送并显示「排队中 / 取消排队」。现私聊以 `ChatViewModel.replyInProgress` 判定，输入栏右侧显示停止按钮并拦截发送；群聊以 `GroupChatViewModel.busy` 拦截发送。
 
-### 打开对话后再次进入仍显示未读（2026-10-15）
-
-现象：「健康助手」回复后列表出现未读，进入对话再离开，再次进入仍显示未读。
-
-原因：已读只靠可见性判定上报（气泡至少 25% 可见并停留 0.5 秒，且需在前台、页面可见）。快速进出、长回复只露出一小部分或滚动位置不在该条时，不会上报，未读一直保留。
-
-修复：`AppState.markConversationRead(kind:id:)` 在进入对话、回到前台、离开对话时，把该对话 `unread_messages` 全部写入本地已读队列（`enqueueRead`）并经 `POST` 已读接口上报；`ConversationActivity.entryReadBatch` 按消息去重并取最高修订。本次进入的「新」分隔线仍按进入前的未读显示一次，下次进入不再出现。回归：`entryReadBatchCoversAllUnreadMessages`。
-
-### Bot 回复错位与回复中可重复发送（2026-10-15）
-
-- `MessageRow` Bot 侧内层 `VStack` 原为 `.trailing` 对齐，操作行比短气泡宽时气泡被推向右侧，与头像之间出现空隙；改为 `.leading`。
-- 回复排队 / 生成中允许继续发送并显示「排队中 / 取消排队」。现私聊以 `ChatViewModel.replyInProgress` 判定，输入栏右侧显示停止按钮并拦截发送；群聊以 `GroupChatViewModel.busy` 拦截发送。
-
-## 会话列表未读点与时间不对齐（已修复 2026-10-15）
+### 会话列表未读点与时间不对齐（2026-10-15）
 
 未读点原以 overlay 偏移挂在行右上角，与时间错位。现放入预览行尾部，与时间右缘对齐、垂直居中于预览行。
+
+### 回复中输入栏转圈（2026-10-15）
+
+回复中右侧按钮原为转圈+停止，现只显示停止按钮；群聊不可停止时显示同款停止按钮（禁用、置灰），无转圈。
+
+### 列表行在正常回复后显示「工作暂未完成」（2026-10-15）
+
+现象：私聊发问后立刻回到会话列表，列表行先显示进行中短句（反馈为「正在恢复」；代码里没有这个文案，最接近的是 `retry_wait` 阶段的「正在重连」），随后变成「工作暂未完成」；进入对话看到 Bot 已正常回复。
+
+根因：后端 `conversation_activity_store.summary()` 的私聊 `work_items` 只排除 `completed` / `stopped`，本代对话里历史上 `failed` / `interrupted` 的任务（如 worker 重启时租约过期被 `recover()` 标为 interrupted）会一直留在里面，直到清空对话。按优先级「等待 → 运行 → 排队 → 失败/中断」选出行状态：新一轮运行时显示阶段短句；它 `completed` 后被排除，`state` 便落回那条旧的 `interrupted` 记录。iOS `ConversationActivity.statusText` 把 failed/interrupted/stopped 一律映射成「工作暂未完成」，并且状态短句优先于 `latest_message` 预览，于是列表一直显示失败，头像也是警告态。离开对话只取消观察，不会改本地状态，也不会中断服务端任务；activity 刷新拿到的就是服务端摘要，问题不在刷新或续接状态。
+
+修复（仅 iOS）：`ConversationActivity.displayState` / `displayPhase`：`latest_message` 有可读正文时，终态不代表当前状态，按空闲处理并显示最新消息预览（失败/中断的回复本身会发布可读正文，如「回复暂时无法完成」）；没有任何可读消息时才显示「工作暂未完成」。`retry_wait` 属内部重试，显示「正在思考」。`statusText`、列表头像 `avatarAction`、`AppState` 完成动画判断都改用展示状态；本轮任务从进行中变为 failed/interrupted 时（`hasNewlyFailedWork(since:)`）不播完成动画。「等你补充 / 待你确认」保持显示。回归：`listRowShowsReplyPreviewOverStaleInterruptedWork`。
+
+后端未改：摘要仍会把旧的失败/中断任务留在 `work_items`、`state` 里，其他客户端需同样按 `latest_message` 处理，或后端改为只在最新一轮失败时上报终态。
 
 ## 后续再做
 

@@ -443,18 +443,17 @@ struct ChatView: View {
                             .onSubmit(send)
                             .padding(.vertical, 13)
                         if let task = vm.replyInProgress {
-                            // 回复进行中：忙碌态停止按钮（转圈外环 + 停止方块），点按停止本次回复；完成 / 失败后恢复麦克风
+                            // 回复进行中只显示停止按钮，点按停止本次回复；完成 / 失败后恢复麦克风
                             Button { Task { await vm.stop(task) } } label: {
-                                ZStack {
-                                    ProgressView().controlSize(.regular)
-                                    Image(systemName: "stop.fill").font(.system(size: 9)).foregroundStyle(Color.primary)
-                                }
-                                .frame(width: 36, height: Self.barHeight)
-                                .contentShape(Rectangle())
+                                Image(systemName: "stop.circle.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(Color.red)
+                                    .frame(width: 36, height: Self.barHeight)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .disabled(vm.controlBusy.contains(task.id))
-                            .accessibilityLabel("正在回复，点按停止")
+                            .accessibilityLabel("停止回复")
                         } else {
                         Button(action: toggleSpeech) {
                             Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic")
