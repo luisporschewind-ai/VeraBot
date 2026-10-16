@@ -30,3 +30,12 @@
 - 截图证据保存在本机 `/tmp/conversation-row-before.png` 与 `/tmp/conversation-row-after.png`。本次仅导航行布局调整，使用构建及截图核对，未重复运行包级测试；未把截图检查扩展声明为所有交互均已验收。
 
 打包前同步主分支已提交的小岛 Tab 隐藏调整，合并版本再次通过两端构建（`/tmp/row-alignment-integrated-sim.log`、`/tmp/row-alignment-integrated-device.log`），模拟器重新安装同一版本 2026101604，保留并行完成的主分支改动。
+
+## 资料页空态与群设置密度
+
+- 共享资料页移除“原件已下载”及同一横幅中的网络/暂停汇总提示，下载策略和单份资料下载操作保留。
+- 暂无资料和搜索无结果改用现有 BotNoticeCard 内联提示，复用 40pt 小 Bot，不新增提示系统或图片资产。
+- Bot 与群设置分区间距统一为 8pt，内嵌资料区域上下内边距从 12pt 减为 6pt。
+- 添加成员改用与群成员一致的 HStack：30pt 图标占位、body 文字、10pt 图文间距、左右 20pt/上下 2pt 行内边距和同款尾部箭头。原有成员上限、保存中禁用及添加流程保留。
+- 模拟器和签名真机构建通过（`/tmp/library-density-sim.log`、`/tmp/library-density-device.log`）；模拟器已安装并启动 2026101605，iPhone 11 仍按用户稍后连接的安排等待安装。
+- 已捕获修改前实际群设置页面 `/tmp/library-density-before.png` 并对照布局代码。新版本控件自动抓取未完成，不计为视觉/交互通过；新空态、分区间距、成员行仍由用户验收。本次仅 App 视图调整，未重复运行包级测试。

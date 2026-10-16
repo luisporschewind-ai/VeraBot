@@ -94,10 +94,10 @@ struct BotEditView: View {
                     LibraryView(scope: .bot(id: bot.id), initialKind: contentTab, embedded: true)
                         .id(contentTab)
                 }
-                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
             }
         }
-        .listSectionSpacing(12)
+        .listSectionSpacing(8)
         .navigationTitle(infoMode ? "Bot 详情" : "Bot 设置")
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)

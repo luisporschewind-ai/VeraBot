@@ -86,20 +86,17 @@ struct LibraryView: View {
                     Text("图片 \(vm?.visibleItems(kind:"image",query:"").count ?? 0)").tag("image")
                 }.pickerStyle(.segmented)
             }
-            if let downloads=app.libraryDownloads {
-                let catalog = isGroup ? downloads.items.filter { scope.contains($0) } : downloads.items
-                let downloaded = catalog.filter { downloads.localURL(id: $0.id) != nil }.count
-                HStack {
-                    Image(systemName:downloaded==catalog.count ? "checkmark.circle":"arrow.down.circle")
-                    Text("原件已下载 \(downloaded)/\(catalog.count)")
-                    Spacer()
-                    if downloads.paused { Text("已暂停") } else if !downloads.isWiFi { Text("等待 Wi-Fi") }
-                }.font(.caption).foregroundStyle(.secondary)
-            }
             if let error=vm?.error { Text(error).font(.footnote).foregroundStyle(.secondary) }
             if visible.isEmpty {
                 if vm?.loading == true { ProgressView() }
-                else { ContentUnavailableView(query.isEmpty ? "暂无资料":"没有找到资料",systemImage:kind=="image" ? "photo.on.rectangle":"folder",description:Text(isGroup ? "本群聊天中的文件和图片会显示在这里。" : "聊天中的文件和图片会自动归集，也可以直接上传。")) }
+                else {
+                    BotNoticeCard(notice: BotNotice(
+                        title: query.isEmpty ? "暂无资料" : "没有找到资料",
+                        detail: query.isEmpty
+                            ? (isGroup ? "本群聊天中的文件和图片会显示在这里。" : "聊天中的文件和图片会自动归集，也可以直接上传。")
+                            : "试试其他关键词。"
+                    ))
+                }
             } else if kind=="image" { LibraryImageGrid(items:visible) }
             else { LibraryFileList(items:visible,botID:botID) }
         }.padding(.horizontal,16)

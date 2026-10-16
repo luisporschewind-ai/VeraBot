@@ -68,9 +68,11 @@ struct GroupInfoView: View {
                         LibraryView(scope: .group(id: model.group.id), initialKind: contentTab, embedded: true)
                             .id(contentTab)
                     }
-                    .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                 }
-            }.navigationTitle("群设置").navigationBarTitleDisplayMode(.inline)
+            }
+            .listSectionSpacing(8)
+            .navigationTitle("群设置").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     DismissToolbarButton(kind: .close) { dismiss() }
@@ -141,9 +143,24 @@ struct GroupInfoView: View {
                 if canAddMember { showingAdd = true }
                 else { error = BotProductLimits.groupSelectionFullMessage }
             } label: {
-                Label("添加成员", systemImage: "person.badge.plus")
-                    .foregroundStyle(canAddMember && !saving ? Color.blue : Color.secondary)
+                HStack(alignment: .center, spacing: 10) {
+                    Image(systemName: "person.badge.plus")
+                        .font(.system(size: 24))
+                        .frame(width: 30, height: 30)
+                        .foregroundStyle(canAddMember && !saving ? Color.accentColor : Color.secondary)
+                    Text("添加成员").font(.body)
+                        .foregroundStyle(canAddMember && !saving ? Color.primary : Color.secondary)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 20))
             .disabled(saving)
             .accessibilityHint(canAddMember ? "选择要加入的 Bot" : BotProductLimits.groupSelectionFullMessage)
         } header: {
