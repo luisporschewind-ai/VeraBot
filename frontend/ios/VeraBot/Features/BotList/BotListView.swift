@@ -55,14 +55,8 @@ struct BotListView: View {
                         .plainListRow()
                         .listRowBackground(bot.isPinned ? Color.sectionFill : Color.appBackground)
                     case .group(let group):
-                        Button { selectedGroup = group } label: {
-                            GroupConversationRow(group: group)
-                                .padding(.horizontal, 16).padding(.vertical, 10)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                        }
-                            .buttonStyle(.plain).plainListRow()
-                            .listRowInsets(EdgeInsets())
+                        NavigationLink(value: group) { GroupConversationRow(group: group) }
+                            .plainListRow()
                     }
                 }
             }
@@ -97,12 +91,10 @@ struct BotListView: View {
             }
             // 首页不显示导航标题；inline 保留紧凑导航栏，避免大标题占位。
             .navigationDestination(item: $selectedGroup) { group in
-                GroupChatView(group: group, app: app, onGroupUpdated: { updated in
-                    selectedGroup = updated
-                    if let index = groups.firstIndex(where: { $0.id == updated.id }) {
-                        groups[index] = updated
-                    }
-                }).toolbar(.hidden, for: .tabBar)
+                groupConversation(group)
+            }
+            .navigationDestination(for: ChatGroup.self) { group in
+                groupConversation(group)
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -193,6 +185,15 @@ struct BotListView: View {
             .task { await load() }   // 返回时刷新；离开视图时取消请求
             .refreshable { await load() }
         }
+    }
+
+    private func groupConversation(_ group: ChatGroup) -> some View {
+        GroupChatView(group: group, app: app, onGroupUpdated: { updated in
+            if selectedGroup?.id == updated.id { selectedGroup = updated }
+            if let index = groups.firstIndex(where: { $0.id == updated.id }) {
+                groups[index] = updated
+            }
+        }).toolbar(.hidden, for: .tabBar)
     }
 
     /// 首页左上角：正圆头像（照片或首字圆底），点按弹出设置页。
@@ -551,7 +552,10 @@ struct GroupConversationRow: View {
                     if let count = activity?.unreadCount, count > 0 { Circle().fill(Color.accentColor).frame(width: 9, height: 9).accessibilityLabel("\(count) 条未读回复") }
                 }
             }
-        }.padding(.vertical, 2)
+        }
+        .padding(.vertical, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     private var preview: String {
