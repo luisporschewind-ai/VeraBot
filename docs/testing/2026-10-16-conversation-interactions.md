@@ -16,3 +16,7 @@
 - 模拟器与签名真机构建通过，日志 `/tmp/conversation-hit-sim.log`、`/tmp/conversation-hit-device.log`。
 - 模拟器已安装并启动 0.1.0 (2026101602)。iPhone 11 安装时设备不可用，尚未安装；真机包在 `/tmp/verabot-library-device/Build/Products/Debug-iphoneos/VeraBot.app`。
 - 整行边缘、顶部头像/留白、连续点击不同图片及一次关闭返回原页，由用户手工验收；未将构建安装计为交互通过。
+
+## 群列表布局回退
+
+按用户追加要求，移除负责人、并行任务数及待同步的额外行，群列表恢复群名/时间与消息预览两行；群标记、未读圆点和整行点击区域保留。本次仅修改群行视图与版本号，不修改群任务执行逻辑。模拟器及签名真机构建通过（`/tmp/group-row-sim.log`、`/tmp/group-row-device.log`）；模拟器已安装并启动 0.1.0 (2026101603)，真机包已准备好，按用户“稍后连接”暂不安装 iPhone 11。此处仅视图调整，未重复运行包级测试，视觉由用户验收。
