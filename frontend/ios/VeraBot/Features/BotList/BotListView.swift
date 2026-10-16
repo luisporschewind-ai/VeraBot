@@ -119,8 +119,8 @@ struct BotListView: View {
                 open(link)
             }
             .toolbar {
-                // iOS 26：系统会给工具栏项套一层 Liquid Glass 共享底（按内容算出的胶囊），
-                // 包在头像外面看起来不是圆的。关掉这层底，只显示与右侧圆形按钮等大的正圆头像。
+                // iOS 26：关掉系统工具栏共享玻璃胶囊底，改用与 JumpToLatestButton 相同的正圆玻璃；
+                // 头像尺寸与右侧搜索 / ＋ 圆形按钮等大。
                 if #available(iOS 26.0, *) {
                     // 隐藏共享玻璃底后，头像仍按玻璃按钮的内边距排版，左边距（30pt）比右侧＋按钮的右边距（≈16pt）大；
                     // 左移 14pt 让左右两侧到屏幕边缘的距离一致。
@@ -196,11 +196,14 @@ struct BotListView: View {
         }).toolbar(.hidden, for: .tabBar)
     }
 
-    /// 首页左上角：正圆头像（照片或首字圆底），点按弹出设置页。
+    /// 首页左上角：正圆玻璃按钮内的头像（照片或首字圆底），点按弹出设置页。
     private func settingsLink(avatarSize: CGFloat) -> some View {
         Button { showSettings = true } label: {
             HomeAvatarLabel(name: app.displayName, image: app.avatars.userImage, size: avatarSize)
+                .contentShape(Circle())
+                .modifier(HomeAvatarGlassBackground())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("设置")
     }
 
