@@ -1,8 +1,8 @@
 # 更新日志 (CHANGELOG)
 
-## 2026-10-17 · 首页头像按钮圆形玻璃
+## 2026-10-17 · 首页头像白玻璃底 + 内嵌白环
 
-- iOS 首页左上角设置头像改为与 `JumpToLatestButton` 相同的圆形玻璃按钮：iOS 26 `.glassEffect(.regular.interactive(), in: Circle())`，旧系统 `.ultraThinMaterial` 圆底；仍为正圆、原尺寸与位置，头像图/首字可见。仅改 `BotListView` / `UserAvatar`，无其它 UI 变动。
+- iOS 首页左上角设置头像：外圆尺寸与位置不变，照片/首字内缩约 2.5pt，嵌在与 `JumpToLatestButton` 同款的圆形白玻璃底上（iOS 26 `.glassEffect`，旧系统 `.ultraThinMaterial`），露出可见白环，与右侧搜索 / ＋ 圆形玻璃按钮同族。不改搜索 / ＋ 及其图标色。仅改 `HomeAvatarLabel` / 相关注释，无其它 UI 变动。
 
 ## 2026-10-16 · 资料库 SQL 分层收尾
 
