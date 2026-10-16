@@ -1,8 +1,8 @@
 # 项目状态 (STATUS) — 2026-10-17
 
-## 2026-10-17 · 首页头像圆形玻璃按钮
+## 2026-10-17 · 首页头像白玻璃底内嵌白环
 
-- iOS 首页左上角头像已套圆形玻璃底（与 `JumpToLatestButton` 同款 API / 回退）；尺寸、位置与点按进设置不变。未跑 git / xcodebuild / swift test。
+- iOS 首页左上角头像：外圆尺寸/位置不变，照片内缩约 2.5pt 露出白环，玻璃底与 `JumpToLatestButton` 同款（对齐右侧搜索 / ＋ 观感）。未改搜索 / ＋。未跑 git / xcodebuild / swift test。
 
 ## 2026-10-16 · 资料库 SQL 分层收尾
 
