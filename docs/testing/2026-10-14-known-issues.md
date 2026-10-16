@@ -49,6 +49,8 @@ PR #33（`refactor/sql-layer-cleanup`，合入 `244e906`）已把当时留下的
 
 `sql_layer_check.py` 现对 `db/` 以外模块严格检查（无 known 白名单）。合入时：`sql_layer_check` SQL-LAYER-01/02 通过；`run_offline.py` 59 通过 / 6 跳过（仍依赖已启动服务、真实模型或外网的脚本除外）。
 
+2026-10-16 补充：独立资料库合入后曾在 `services/library.py`、`services/attachments/repo.py`、`agents/tool_router.py` 留下直连 SQL；现已全部迁入 `db/library_store.py` / `db/attachment_store.py`，全仓 `sql_layer_check` 再次严格通过。
+
 ### 离线测试入口
 
 `scheduled_task_executor_test.py` 在插入 `backend/` 搜索路径之前就导入了 `verabot`，从仓库根目录直接跑会报 `No module named verabot`。已把路径设置挪到导入之前。`scheduled_task_*_test.py` 原先只有测试类、没有脚本入口，直接执行会什么都不跑；现在以脚本运行时会进入 `unittest.main()`。

@@ -33,7 +33,7 @@
 
 ## 文件职责与准备
 
-后端新增 `db/library_store.py`（事务 SQL）、`services/library.py`（资料规则）、`api/routers/library.py`（用户接口）、`agents/library_tools.py`（Bot 只读工具）、`api/library_schemas.py`（请求响应契约）。迁移在执行时读取最新 `SCHEMA_VERSION` 后新建 `db/migrations/vNNN_independent_library.py`；NNN 是唯一必须动态分配的文件名，不预占版本。
+后端新增 `db/library_store.py`（事务 SQL）、`services/library.py`（资料规则）、`api/routers/library.py`（用户接口）、`agents/library_tools.py`（Bot 只读工具）、`api/library_schemas.py`（请求响应契约）。迁移在执行时读取最新 `SCHEMA_VERSION` 后新建 `db/migrations/vNNN_independent_library.py`；NNN 是唯一必须动态分配的文件名，不预占版本。SQL 只写在 `db/`（`library_store` / `attachment_store` 等）；service / agent 不得直连 `.execute` 或内嵌 SQL 字符串（`sql_layer_check`）。2026-10-16 已把初版遗留在 `services/library.py`、`attachments/repo.py`、`tool_router.py` 的查询全部下沉。
 
 iOS 新增 Core/Library.swift（Codable 契约）、Networking/LibraryAPI.swift 与 APIClient+Library.swift（传输）、Persistence/LibraryStore.swift（本地事务）、Data/LibraryRepository.swift（目录同步）、Data/LibraryViewModel.swift（页面状态）。App 下新增 Services/Library/LibraryDownloadCoordinator.swift、LibraryFileStore.swift；Features/Library/ 下创建 LibraryView.swift、LibraryFileList.swift、LibraryImageGrid.swift、LibraryItemDetailView.swift、LibraryUploadSheet.swift、LibraryBotSharingSheet.swift；Features/BotInfo/ 下新增 BotHomeView.swift。Packages 路径统一以 `frontend/ios/Packages/VeraBotKit/Sources/` 为根，App 路径统一以 `frontend/ios/VeraBot/` 为根。
 

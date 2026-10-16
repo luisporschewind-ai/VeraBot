@@ -19,6 +19,6 @@
 - 旧任务及 trace 瘦身：分别从 schema v32 / v33 / v34 升级，三轮各 19/19 通过。
 - 资料库迁移：6/6 通过，包含远端 v33 无资料库回填及重复迁移幂等。
 - 后端相关回归：资料库 API 8、生命周期 6、工具 6、附件 28、删除消息 10、开场词 10、持续对话 12、会话同步 2、主动任务审批 5、主 Bot 7，共 94 项通过。
-- SQL 分层检查未通过：资料库在 `agents/tool_router.py`、`services/attachments/repo.py`、`services/library.py` 中存在 db 层外 SQL。这三个文件与合并前本地 `0e2d2ed` 完全相同，属于既存问题，本轮未扩大到架构重构。
+- SQL 分层：集成当时资料库在 `agents/tool_router.py`、`services/attachments/repo.py`、`services/library.py` 仍有 db 层外 SQL（与合并前本地 `0e2d2ed` 相同，本轮未扩大重构）。**后续已收尾**：上述 SQL 已迁入 `db/library_store.py` / `db/attachment_store.py`，`sql_layer_check` SQL-LAYER-01/02 通过。
 - Intel 模拟器构建通过：`xcodebuild ... -jobs 2 ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build`，日志 `/tmp/verabot-main-integration-intel-build.log`。先前通用双架构构建主动中止，收敛到本机验收架构后通过。
 - 测试均使用隔离数据库；未进行生产部署、真实模型或设备交互验收。

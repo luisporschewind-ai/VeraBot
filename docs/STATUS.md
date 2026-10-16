@@ -1,5 +1,9 @@
 # 项目状态 (STATUS) — 2026-10-16
 
+## 2026-10-16 · 资料库 SQL 分层收尾
+
+资料库在 service / agent 层的直连 SQL 已全部下沉到 `db/library_store.py`、`db/attachment_store.py`；`sql_layer_check` 通过。相关资料库 / 附件 / 多代理回归见 CHANGELOG。未改 frontend，未跑 git。
+
 ## 2026-10-16 · Main 集成与迁移版本消歧
 
 本地资料库等已提交内容与远端 PR #48–#50 集成，源码 schema v35。保留资料库 v33 / TXT 元数据 v34，旧任务与 trace 迁移改为 v35，兼容远端 v33 无资料库的升级路径。运行中服务及数据库未更新，设备交互未验收。验证与已知问题见 [集成记录](tasks/2026-10-16-main-integration.md)。
