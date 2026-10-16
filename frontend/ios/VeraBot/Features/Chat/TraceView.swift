@@ -26,7 +26,8 @@ struct TraceView: View {
                 Text(shared.isEmpty ? "未共享额外上下文（默认隔离）" : "共享背景：\(shared)")
                     .font(.caption2).foregroundStyle(.secondary).lineLimit(3)
                 if let answer = trace.result?["answer"]?.text {
-                    Text(MessageMarkdown.inline("↩ **\(trace.result?["to_bot"]?.text ?? "")**：\(answer)"))
+                    // lineLimit 只限制显示行数，不减少 Markdown 解析量：先截断再解析
+                    Text(MessageMarkdown.inline("↩ **\(trace.result?["to_bot"]?.text ?? "")**：\(answer.prefix(400))"))
                         .font(.caption).lineLimit(8)
                         .padding(6)
                         .background(Color.insetFill, in: RoundedRectangle(cornerRadius: 8))
@@ -58,6 +59,7 @@ struct TraceView: View {
         case "manage_reminder": return "⏰ 管理提醒"
         case "remember": return "🧠 记忆"
         case "forget_memory": return "🧠 忘掉记忆"
+        case "read_file": return pending ? "📄 正在读取文件" : "📄 读取文件"
         default: return MCPTraceText.title(for: trace.name) ?? "🔧 \(trace.name)"
         }
     }
@@ -95,12 +97,14 @@ struct TraceView: View {
             return "已更新提醒"
         case "list_reminders":
             return "共 \(r["count"]?.text ?? "0") 条提醒"
+        case "read_file":
+            return ToolTraceSummary.readFile(r)
         default:
             if MCPTraceText.isMCP(trace.name) {
-                return MCPTraceText.summary(contentLength: r["content"]?.text.count ?? 0,
+                return MCPTraceText.summary(contentLength: MCPTraceText.contentLength(r),
                                             truncated: r["truncated"]?.text == "true")
             }
-            return r.text
+            return ToolTraceSummary.fallback(r)
         }
     }
 }

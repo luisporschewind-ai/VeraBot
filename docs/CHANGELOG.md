@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-16 · Main 集成
+
+合并本地资料库及界面调整与远端长回复折叠、过时任务标记、trace 瘦身；解决 schema v33 重号，统一升级到 v35，补充远端 v33 资料库回填与幂等回归。详见 [集成记录](tasks/2026-10-16-main-integration.md)。
+
 ## 2026-10-15 · 资料库预览下载及 Bot 页面调整
 
 全局资料库移至头像设置，图片增加独立鉴权预览和缓存；手动下载改用前台会话并可接替自动任务。Bot 详情恢复原表单，设置/文件/图片并列，移除多余入口，合并主 Bot 操作并压缩形状选择区。见 [修复记录](testing/2026-10-15-library-follow-up.md)。
@@ -21,11 +25,29 @@
 
 - 私聊与群聊在本地恢复完成后立即显示并定位消息；活动摘要并行刷新，不阻挡 SQLite 读取。
 - 群聊本地翻页使用独立加载状态；移除 SQLite 同步路径里重复拉取群历史的请求，刷新保留已展开消息。验证见 [离线进入记录](testing/2026-10-15-offline-chat-entry.md)。
+## 2026-10-15 · 后端：过时的失败任务不再充当会话状态、工具 trace 瘦身（schema v33）
+
+- 会话摘要：失败／中断的私聊回复或主动任务，之后同一会话里有正常完成的回复（或主动任务完成）时标记 `superseded_at`，`/api/conversations/activity` 的 `work_items` 不再包含它，列表行不再因旧记录显示「工作暂未完成」。真正最新的一次失败照常上报。触发器维护标记，v33 迁移一次性回填存量任务，不删除任何消息。
+- 工具 trace：`messages.traces`、回复事件与 SSE `tool_result` 落库／下发前瘦身——`read_file` 去掉文件原文，只留文件名、offset、length、总字数、`has_more` 等；其他工具结果的长字符串截到 2000 字并标 `…[truncated]`，原长度记在 `trace_truncated`。模型在本轮仍拿到完整工具结果。v33 迁移改写存量行，迁移前备份 `verabot.db.bak-before-v33-<时间戳>`。
+- iOS：MCP 卡片「约 N 字」改读 `trace_truncated.content`（`MCPTraceText.contentLength`）；`read_file` 卡片无需改动。
+- 测试：`backend/scripts/test/stale_work_trace_slim_test.py`；Swift `slimmedReadFileTraceFromBackendDecodesAndSummarizes`、`slimmedMCPTraceKeepsOriginalContentLength`。详见 [known-issues](testing/2026-10-14-known-issues.md)。`frontend/web` 未动。
 
 ## 2026-10-15 · 保存工作区改动
 
 - iOS 助理列表移除顶部重复的「主 Bot：名称」导航行；Bot 仍通过原会话列表进入，主 Bot 身份与任务能力保留。
 - 主工作区及工作树盘点见 [提交记录](testing/2026-10-15-workspace-submit.md)。
+
+
+## 2026-10-15 · 长回复折叠按手机高度判定、trace 不再铺文件原文
+
+- iOS 私聊：折叠阈值从「1500 字或 40 个 `\n` 行」改为按手机上的排版高度估算——超过约一屏（估算 28 行）或 500 加权字（中文 1、ASCII 0.5）即收起。估算按气泡宽度（约 15 个中文字一行）折行，标题、空行、表格行、代码行分别计高。预览改为 ≤ 200 字且 ≤ 8 行，去掉末尾标题和没有数据行的表头。「思考助手」594 字 / 716 字的标题 + 表格 + 列表回复（1.5～2 屏）现在会折叠，329 字的回复（不到一屏）不折叠。
+- 工具 trace 卡片：`read_file` 结果（最多 3 万字文件内容）原先被整段拼进卡片、无行数限制地排版；现在只显示「已读取「文件名」第 a–b 字，共 N 字」。其他工具的兜底说明限 160 字（`ToolTraceSummary`），`ask_bot` 回答先截断再解析 Markdown。
+- 回归测试 `LongReplyCollapseTests`（真实形状样例 + 新阈值 + trace 说明，未运行）。规格 [long-reply-collapse](specs/long-reply-collapse.md)，根因见 [known-issues](testing/2026-10-14-known-issues.md)。`frontend/web` 未动。
+
+## 2026-10-15 · 私聊长回复折叠
+
+- iOS 私聊：Bot 回复超过 1500 字或 40 行时默认收起，气泡只渲染截断预览（≤ 300 字 / 10 行，底部渐隐），点「展开 / 收起」切换。收起时不解析、不排版全文 Markdown，缓解超长回复导致的卡顿。展开状态按消息保留到离开对话页。用户消息与流式中的回复不折叠。
+- 阈值与截断（行尾优先、不切代码块、不切字素）抽为 `VeraBotCore.LongReplyCollapse`，测试 `LongReplyCollapseTests`（未运行）。规格 [long-reply-collapse](specs/long-reply-collapse.md)。`frontend/web` 未动。
 
 ## 2026-10-15 · 创建群聊去掉说明文案、选择行紧凑化
 

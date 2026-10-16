@@ -1,4 +1,8 @@
-# 项目状态 (STATUS) — 2026-10-15
+# 项目状态 (STATUS) — 2026-10-16
+
+## 2026-10-16 · Main 集成与迁移版本消歧
+
+本地资料库等已提交内容与远端 PR #48–#50 集成，源码 schema v35。保留资料库 v33 / TXT 元数据 v34，旧任务与 trace 迁移改为 v35，兼容远端 v33 无资料库的升级路径。运行中服务及数据库未更新，设备交互未验收。验证与已知问题见 [集成记录](tasks/2026-10-16-main-integration.md)。
 
 ## 2026-10-15 · 资料库验收修复与 Bot 布局恢复
 
@@ -21,12 +25,24 @@
 
 - 私聊/群聊在 SQLite 恢复完成后立即定位消息，不再等待活动摘要、历史同步或任务状态请求结束。群聊后台同步期间仍可翻阅更早的本地历史，刷新保留已展开的消息范围。
 - Swift Testing 318 项及 XCTest 1 项通过，模拟器构建通过。设备交互与交付状态见 [离线进入记录](testing/2026-10-15-offline-chat-entry.md)。当前截图未更新。
+## 2026-10-15 · 后端过时失败任务与 trace 瘦身（schema v33）
+
+- `fix/backend-stale-tasks-slim-traces`：源码 schema 升到 v33。会话摘要排除已被后续完成回复取代的失败／中断任务（`superseded_at`）；工具 trace 落库与同步前瘦身，`read_file` 不再存文件原文。v33 迁移回填存量任务标记并改写存量 trace，迁移前自动备份。新脚本 `stale_work_trace_slim_test.py` 与 `sql_layer_check.py` 通过；未在运行中的数据库或真实模型上验证。详见 [known-issues](testing/2026-10-14-known-issues.md)。
 
 ## 2026-10-15 · 工作区提交盘点
 
 - 本轮基线 main `0458189`（PR #47）；源码 schema v32。Git 仅注册主工作区，全部本地分支均已包含在 main 中。旧日期的「未合并」和 schema 说明属于历史快照，不代表当前基线。
 - 保存助理列表移除重复主 Bot 快捷行的本地改动；身份徽章、任务管理及原会话入口保留。现有截图未更新，不代表此次最新列表。
 - 本轮验证与提交范围见 [提交记录](testing/2026-10-15-workspace-submit.md)；未验证设备安装版本、运行中数据库或真实模型，不推送远端。
+
+
+## 2026-10-15 · 长回复折叠阈值按手机高度重定
+
+- `fix/long-reply-collapse-threshold`：折叠改为估算排版高度超过约一屏（28 行）或 500 加权字；预览 ≤ 200 字 / 8 行。「思考助手」594 / 716 字的 Markdown 回复会折叠，329 字的不折叠。`read_file` trace 卡片不再排版 3 万字文件原文。未构建、未跑 `swift test`、未在模拟器验收；后端仍把完整文件文本存进消息 traces（单条 32 KB）并随历史下发，未改。
+
+## 2026-10-15 · 私聊长回复折叠
+
+- `feat/collapse-long-bot-replies`：超过 1500 字或 40 行的 Bot 回复默认只渲染截断预览，「展开 / 收起」切换，规格 [long-reply-collapse](specs/long-reply-collapse.md)。未构建、未跑 `swift test`、未在模拟器验收。
 
 ## 2026-10-15 · 创建群聊去掉说明文案、选择行紧凑化
 

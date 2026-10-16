@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime,timedelta,timezone
 from .database import tx,now_iso
 from . import conversation_activity_store as activity
+from ..core.trace_slim import slim_trace,slim_traces
 
 TERMINAL={'completed','failed','stopped','interrupted'}
 class ChatTaskError(activity.ActivityError):pass
@@ -56,6 +57,7 @@ def accept(c,uid,bid,payload):
     return response,True
 
 def event(c,t,kind,data):
+    if kind=='tool_result':data=slim_trace(data)
     c.execute('INSERT INTO chat_reply_events(user_id,bot_id,task_id,generation,version,event,payload_json,created_at) VALUES(?,?,?,?,?,?,?,?)',(t['user_id'],t['bot_id'],t['id'],t['generation'],t['version'],kind,json.dumps(data,ensure_ascii=False),now_iso()))
 
 def live(c,t):
@@ -85,12 +87,14 @@ def heartbeat(c,t):
 
 def save_partial(c,t,text,traces):
     if not live(c,t):return False
+    traces=slim_traces(traces)
     c.execute('UPDATE messages SET content=?,traces=? WHERE id=? AND user_id=?',(text,json.dumps(traces,ensure_ascii=False),t['output_message_id'],t['user_id']))
     event(c,t,'message_updated',{'message_id':t['output_message_id'],'content':text,'traces':traces,'message_status':'running','publication_revision':0})
     return True
 
 def finish(c,t,state,text,traces,error_code=None,wait_id=None):
     if not live(c,t):return False
+    traces=slim_traces(traces)
     c.execute('UPDATE messages SET content=?,traces=?,message_status=? WHERE id=? AND user_id=?',(text,json.dumps(traces,ensure_ascii=False),state,t['output_message_id'],t['user_id']))
     c.execute('UPDATE chat_reply_tasks SET state=?,phase=?,wait_id=?,error_code=?,lease_token=NULL,lease_expires_at=NULL,updated_at=? WHERE id=?',(state,state,wait_id,error_code,now_iso(),t['id']))
     fresh=get(c,t['user_id'],t['bot_id'],t['id']);event(c,fresh,'task_updated',{'task':public(c,fresh)})

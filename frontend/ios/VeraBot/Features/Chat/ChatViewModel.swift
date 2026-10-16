@@ -64,6 +64,8 @@ final class ChatViewModel {
     var suggestionErrors: [Int: String] = [:]
     var openBotSettingsTick = 0
     var quickPrompts: [String] = []
+    /// 已展开的长回复（键同对话行 id：有 messageID 为 "m<id>"，否则本地 UUID）；只在本页存活期间保留。
+    var expandedReplies: Set<String> = []
     /// MCP M3 确认卡片：action_id → 最新 PendingAction
     var actionStates: [Int: PendingAction] = [:]
     var actionBusy: Set<Int> = []

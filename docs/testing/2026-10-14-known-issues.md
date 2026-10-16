@@ -126,7 +126,7 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 
 修复（仅 iOS）：`ConversationActivity.displayState` / `displayPhase`：`latest_message` 有可读正文时，终态不代表当前状态，按空闲处理并显示最新消息预览（失败/中断的回复本身会发布可读正文，如「回复暂时无法完成」）；没有任何可读消息时才显示「工作暂未完成」。`retry_wait` 属内部重试，显示「正在思考」。`statusText`、列表头像 `avatarAction`、`AppState` 完成动画判断都改用展示状态；本轮任务从进行中变为 failed/interrupted 时（`hasNewlyFailedWork(since:)`）不播完成动画。「等你补充 / 待你确认」保持显示。回归：`listRowShowsReplyPreviewOverStaleInterruptedWork`。
 
-后端未改：摘要仍会把旧的失败/中断任务留在 `work_items`、`state` 里，其他客户端需同样按 `latest_message` 处理，或后端改为只在最新一轮失败时上报终态。
+后端已修复（schema v33，`fix/backend-stale-tasks-slim-traces`）：`chat_reply_tasks`、`owned_tasks` 新增 `superseded_at`。同一会话同一代里，失败 / 中断之后又有一条正常完成的助手回复（`role='assistant'`、`message_status='completed'`、`source_kind` 为空：持久回复完成、旧版流式写入、操作结果说明），或之后有主动任务完成，旧任务即由触发器标记 `superseded_at`；`conversation_activity_store.summary()` 的私聊 `work_items` 排除已标记的任务，行状态回到 `idle`。持久回复只标记 `output_message_id` 小于该回复的任务；主动任务自己的投递消息（`source_kind='owned_task'`）和定时任务结果不算，避免把真实的失败当成过时。任务重新进入非终态（如继续执行）时清除标记。真正最新的一次失败 / 中断照常上报。v33 迁移按同一规则一次性回填存量任务，只写标记，不删任何消息或任务。回归：`backend/scripts/test/stale_work_trace_slim_test.py`（STALE-01～08、MIG-01～04）。iOS 的 `latest_message` 兜底保留，对旧后端仍有效。
 
 ## 动态开场词 Phase 1（2026-10-15）
 
@@ -138,6 +138,24 @@ PR #35 已合入 UI 层 10 Bot / 群聊 2～5 限制。PR #36 跟进：去掉助
 ### 「回到最新」按钮显隐反转（2026-10-15）
 
 根因：视口与底部锚点用 `PreferenceKey` 上报，`reduce` 写成 `value = nextValue()`，未设置该 key 的兄弟子树会把已测得的矩形覆盖成 `.zero`，视口始终为空，贴底判定 `anchor.minY <= viewport.maxY + 40` 在贴底时为假，按钮反而显示；底部锚点又放在 `LazyVStack` 内，上滑远离后不再上报几何，`followsBottom` 停在旧值，按钮隐藏。修复：改用 `onGeometryChange` 直接测量视口、输入栏与锚点；锚点移出 `LazyVStack`；判定抽为 `ScrollBottomDetector.followsBottom`（未测量时保留当前值）。回归：`ScrollBottomDetectorTests`。
+
+### 「思考助手」长回复不折叠（2026-10-15）
+
+现象：PR #48 上线长回复折叠后，「思考助手」对话里一两屏长的回复仍然整段展开。
+
+根因：
+
+- 阈值按原文量定，脱离手机上的实际高度。`LongReplyCollapse` 要求超过 1500 字或 40 个 `\n` 行才折叠，规格按「17pt 中文一行约 15 字」把 1500 字算成 3～4 屏。本地库里这个 Bot 的回复是 329 / 594 / 716 字、14 / 24 / 30 行，最长的离两个阈值都还差一半以上，所以一条都不会折叠。而这些回复是重 Markdown（标题、表格、列表、空行），标题字号大、块间有间距，列表与段落按气泡宽度折行：594 字那条在手机上约 45 行、1.6 屏，716 字约 57 行、2 屏。按 `\n` 计行看不到折行，按字数计又没算标题、空行和表格的高度。
+- 同一行上还有 trace 卡片在排版大段原文。594 字那条的 traces 有 32 KB：一次 `read_file`，结果里带约 3 万字文件内容。`TraceView` 没有处理 `read_file`，走默认分支 `r.text`，把整个结果对象拼成 `filename: …; has_more: …; text: <3 万字>` 放进不限行数的 `Text`。回复上方这张卡片本身就有很多屏长，每次进入视口都要重新拼接并排版；它不属于气泡，不受折叠影响。
+
+修复（仅 iOS）：
+
+- 折叠改为估算排版高度：宽度按半宽单位（ASCII 1、其他 2，一行 30），段落 / 列表按宽度折行，标题多算半行，表格行、代码行不折行，表格分隔行、``` 边框、空行各半行。超过 28 行（6.1 英寸 iPhone 约一屏）或 500 加权字（中文 1、ASCII 0.5）即折叠；预览 ≤ 200 字且 ≤ 8 行。594 / 716 字两条折叠，329 字（约 24 行）不折叠。
+- `read_file` trace 只显示「已读取「文件名」第 a–b 字，共 N 字」；其他工具兜底说明用 `ToolTraceSummary.fallback`，最多 160 字，写满即停；`ask_bot` 回答先截到 400 字再解析 Markdown。
+
+回归：`LongReplyCollapseTests`（`realMarkdownRepliesOverOneScreenCollapse`、`realMarkdownReplyUnderOneScreenStaysExpanded`、`readFileTraceSummaryOmitsFileText`、`fallbackTraceSummaryIsBounded` 等）。未运行，需在 Mac 上 `swift test`。规格见 [long-reply-collapse](../specs/long-reply-collapse.md)。
+
+后端已修复（schema v33，`fix/backend-stale-tasks-slim-traces`）：工具 trace 在落库和同步时瘦身（`verabot/core/trace_slim.py`）。`read_file` 去掉 `text`，保留 `filename` / `offset` / `next_offset` / `has_more` / `text_chars` / `text_status`，新增 `length`（本次读到的字数）和 `text_omitted: true`；其他工具结果里超过 2000 字的字符串截到 2000 字并接 `…[truncated]`，原长度记在 `result.trace_truncated`（如 `{"content": 8123}`）。写入点：`chat_reply_store.save_partial` / `finish` / `event`（`tool_result`、`message_updated`、`task_updated`）、`repository.add_message`、旧版流式 SSE 的 `tool_result`。模型在本轮仍拿到完整结果（tool 消息由未瘦身的结果生成；持久回复的加密检查点也保留完整结果）。v33 迁移改写存量 `messages.traces` 和 `chat_reply_events` 里的工具结果，迁移前备份 `verabot.db.bak-before-v33-<时间戳>`。影响：后续轮次从历史重建工具调用时，`read_file` 只剩元数据（原来是结果 JSON 前 1500 字），联网结果每个字段最多 2000 字。iOS：`read_file` 卡片照常解码显示；MCP 卡片「约 N 字」改用 `trace_truncated.content`（`MCPTraceText.contentLength`）。回归：`stale_work_trace_slim_test.py`（TRACE-01～04、LOOP-01～03、MIG-03）；Swift `slimmedReadFileTraceFromBackendDecodesAndSummarizes`、`slimmedMCPTraceKeepsOriginalContentLength`。
 
 ## 后续再做
 

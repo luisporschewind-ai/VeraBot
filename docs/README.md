@@ -1,5 +1,7 @@
 # 文档索引 (Docs index)
 
+- [2026-10-16 Main 集成与 schema v35](tasks/2026-10-16-main-integration.md)
+
 主 Bot第一版已实现并集成本地main，当前自动验证与手动入口见[交付记录](testing/2026-10-13-primary-bot.md)，运行说明见[后台模块](../backend/verabot/services/owned_tasks/README.md)。代码已合入本地main，常驻后台尚未部署。
 
 
@@ -15,6 +17,7 @@
 |---|---|---|
 | — | [STATUS.md](STATUS.md) | **项目状态**：v0.1.0 原型验证完成、当前进度 (已完成待 Boss 验收的项、暂停 / 延期项、已知遗留)、设计评审 (待 Boss 评审 MCP / Gmail / Memory 设计稿)、功能状态、已知限制、未测项、下一步 |
 | — | [CHANGELOG.md](CHANGELOG.md) | 更新日志 (Keep a Changelog + SemVer) |
+| specs/ | [long-reply-collapse.md](specs/long-reply-collapse.md) | **私聊长回复折叠**（iOS）：超过 1500 字或 40 行的 Bot 回复默认只渲染截断预览 + 底部渐隐，「展开 / 收起」切换；阈值与截断规则在 `VeraBotCore.LongReplyCollapse` |
 | specs/ | [bot-opening-message.md](specs/bot-opening-message.md) | **Bot 动态开场词 Phase 1**：时段/日子/人设/轻量称呼/关系阶段；混合生成；天气为 Phase 2；Web 冻结 |
 | — | [ROADMAP_NEXT.md](ROADMAP_NEXT.md) | 提醒、附件、多模态、TTS、安全、部署、CI 与 Web 的后续规划草案；未授权开工 |
 | product/ | [FEATURES.md](product/FEATURES.md) | 功能清单、API 摘要、SSE 事件格式 |

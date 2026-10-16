@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS library_upload_keys(user_id INTEGER NOT NULL REFERENC
 '''
 
 def migrate(c, ver):
+    had_library = c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='library_items'").fetchone() is not None
     for statement in SCHEMA.split(';'):
         if statement.strip(): c.execute(statement)
     for table, kind in [('messages','private'),('chat_group_messages','group')]:
@@ -35,7 +36,8 @@ def migrate(c, ver):
       WHEN EXISTS(SELECT 1 FROM users WHERE id=OLD.user_id)
       BEGIN INSERT INTO library_changes(user_id,item_id) VALUES(OLD.user_id,OLD.item_id);
       UPDATE library_items SET revision=last_insert_rowid() WHERE id=OLD.item_id AND user_id=OLD.user_id; END""")
-    if ver >= 33: return
+    # Remote v33 used the same version for stale-work tracking, without a library.
+    if ver >= 33 and had_library: return
     from ..library_store import ingest
     for row in c.execute("SELECT * FROM attachments WHERE status='attached'").fetchall():
         row = dict(row)

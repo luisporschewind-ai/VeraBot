@@ -53,6 +53,32 @@ class MigrationTests(unittest.TestCase):
             self.assertTrue(backup.is_file())
             with sqlite3.connect(backup) as c: self.assertEqual(c.execute("SELECT value FROM sample").fetchone()[0],"preserved")
 
+    def test_remote_v33_without_library_backfills_on_upgrade(self):
+        import sqlite3
+        from verabot.db.database import DB_PATH
+        from verabot.db.migrations import apply
+        aid, _ = attached(self.uid, self.bots[0], b'remote-v33-original')
+        # Reconstruct the remote v33 lineage: attachments exist, library does not.
+        with sqlite3.connect(DB_PATH) as source:
+            c = sqlite3.connect(':memory:')
+            source.backup(c)
+        try:
+            c.row_factory = sqlite3.Row
+            for name in ('library_source_private_deleted', 'library_source_group_deleted', 'library_link_deleted'):
+                c.execute(f'DROP TRIGGER IF EXISTS {name}')
+            for name in ('library_upload_keys', 'library_changes', 'library_sources', 'library_unlinked', 'library_bot_links', 'library_items'):
+                c.execute(f'DROP TABLE {name}')
+            c.execute("UPDATE schema_meta SET value='33' WHERE key='version'")
+            apply(c)
+            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], '35')
+            self.assertIsNotNone(c.execute('SELECT id FROM library_items WHERE id=?', (aid,)).fetchone())
+            self.assertIsNotNone(c.execute('SELECT item_id FROM library_sources WHERE item_id=?', (aid,)).fetchone())
+            before = c.execute('SELECT COUNT(*) FROM library_changes').fetchone()[0]
+            apply(c)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM library_changes').fetchone()[0], before)
+        finally:
+            c.close()
+
     def test_retained_library_bytes_count_toward_quota(self):
         from verabot.db.attachment_store import bytes_used
         aid, mid = attached(self.uid, self.bots[0], b"quota-original")
