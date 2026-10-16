@@ -18,7 +18,7 @@
 | specs/ | [bot-opening-message.md](specs/bot-opening-message.md) | **Bot 动态开场词 Phase 1**：时段/日子/人设/轻量称呼/关系阶段；混合生成；天气为 Phase 2；Web 冻结 |
 | — | [ROADMAP_NEXT.md](ROADMAP_NEXT.md) | 提醒、附件、多模态、TTS、安全、部署、CI 与 Web 的后续规划草案；未授权开工 |
 | product/ | [FEATURES.md](product/FEATURES.md) | 功能清单、API 摘要、SSE 事件格式 |
-| product/ | [2026-10-08-playful-world-discussion.md](product/2026-10-08-playful-world-discussion.md) | Vera Bot 私人小世界、游乐场玩法、三 Tab 与阶段性产品讨论；含 3D 魔方候选方案（未实现） |
+| product/ | [2026-10-08-playful-world-discussion.md](product/2026-10-08-playful-world-discussion.md) | Vera Bot 私人小世界、游乐场玩法、底部 Tab 与阶段性产品讨论；含 3D 魔方候选方案（未实现，小岛 Tab 当前隐藏） |
 | superpowers/specs/ | [2026-10-09-bot-travel-design.md](superpowers/specs/2026-10-09-bot-travel-design.md) | Bot 旅行第一版：真实地点轻探索、分阶段揭晓、旅行相册与五分钟 iOS 原型范围 |
 | superpowers/specs/ | [2026-10-11-bot-group-chat-design.md](superpowers/specs/2026-10-11-bot-group-chat-design.md) | Bot 群聊第一版设计：伙伴讨论、点名、群历史与执行边界 |
 | superpowers/specs/ | [2026-10-12-group-intent-and-handoff-design.md](superpowers/specs/2026-10-12-group-intent-and-handoff-design.md) | 群聊后续设计：移除默认回应者、按意图分配、动态澄清与任务交接；全文已确认，隔离工作树已实施/修复并待用户验收，尚未合入 main |
