@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-16 · 资料库 SQL 分层收尾
+
+资料库残留在 `services/library.py`、`services/attachments/repo.py`、`agents/tool_router.py` 的直连 SQL 已迁入 `db/library_store.py` / `db/attachment_store.py`（及既有 `bot_store`）；查询、事务边界与返回形状不变。`sql_layer_check` SQL-LAYER-01/02 通过。见 [STATUS](STATUS.md)、[集成记录](tasks/2026-10-16-main-integration.md)。
+
 ## 2026-10-16 · Main 集成
 
 合并本地资料库及界面调整与远端长回复折叠、过时任务标记、trace 瘦身；解决 schema v33 重号，统一升级到 v35，补充远端 v33 资料库回填与幂等回归。详见 [集成记录](tasks/2026-10-16-main-integration.md)。

@@ -45,6 +45,18 @@ def get(c, user_id: int, att_id: str) -> dict | None:
     return row(c.execute("SELECT * FROM attachments WHERE id=? AND user_id=?", (att_id, user_id)).fetchone())
 
 
+def get_attached(c, user_id: int, att_id: str):
+    return c.execute(
+        "SELECT * FROM attachments WHERE id=? AND user_id=? AND status='attached'",
+        (att_id, user_id)).fetchone()
+
+
+def mark_attached(c, user_id: int, att_id: str) -> None:
+    """直接上传入库：pending → attached，不绑定 message_id。"""
+    c.execute("UPDATE attachments SET status='attached',expires_at=NULL WHERE id=? AND user_id=?",
+              (att_id, user_id))
+
+
 def for_messages(c, user_id: int, ids: list[int]):
     """→ sqlite3.Row 列表，按 created_at, id 排序。ids 非空。"""
     q = ",".join("?" * len(ids))

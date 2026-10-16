@@ -7,7 +7,7 @@ import os
 
 from .. import db
 from ..core.config import MCP_CALLS_PER_TURN_DEFAULT
-from ..db import delegation_store, mcp_store, plugin_store
+from ..db import delegation_store, library_store, mcp_store, plugin_store
 from ..services.actions import create_mcp_pending
 from ..services.mcp import catalog as mcp_catalog
 from ..services.mcp import policy as mcp_policy
@@ -42,7 +42,7 @@ def schemas_for(bot: dict, depth: int, memory_on: bool, user_id: int) -> list[di
     tools = get_schemas(bot, depth, memory_on=memory_on)
     from ..tools.registry import REGISTRY
     with db.tx() as c:
-        linked = c.execute("SELECT 1 FROM library_bot_links WHERE user_id=? AND bot_id=? LIMIT 1",(user_id,bot["id"])).fetchone()
+        linked = library_store.bot_has_any_link(c, user_id, bot["id"])
     if linked: tools.extend(t.schema() for t in REGISTRY.values() if t.kind == "library")
     if depth >= 1:
         return tools

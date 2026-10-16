@@ -1,6 +1,7 @@
 """Library lifetime and access rules. Account ownership is distinct from Bot access."""
 import json
 from .. import db
+from ..db import attachment_store, bot_store
 from ..db import library_store as sql
 from .attachments import repo
 
@@ -10,12 +11,12 @@ class LibraryError(Exception):
         super().__init__(message)
 
 def ingest_attachment(c, *, user_id, attachment_id, source_kind, source_id, bot_id, explicit=False):
-    row = c.execute('SELECT * FROM attachments WHERE id=? AND user_id=? AND status=\'attached\'',(attachment_id,user_id)).fetchone()
+    row = attachment_store.get_attached(c, user_id, attachment_id)
     if not row: raise LibraryError(404,'资料不存在')
     return sql.ingest(c, row, source_kind, source_id, bot_id, explicit)
 
 def raw_item(c,user_id,item_id,include_deleted=False):
-    row = c.execute('SELECT * FROM library_items WHERE user_id=? AND id=?',(user_id,item_id)).fetchone()
+    row = sql.item_row(c, user_id, item_id)
     if not row or (row['deleted'] and not include_deleted): raise LibraryError(404,'资料不存在','library_not_found')
     return dict(row)
 
@@ -23,11 +24,11 @@ def get_item(user_id,item_id):
     with db.tx() as c:
         row = raw_item(c,user_id,item_id)
         data = json.loads(row['payload'])
-        links = [r[0] for r in c.execute('SELECT bot_id FROM library_bot_links WHERE user_id=? AND item_id=? ORDER BY bot_id',(user_id,item_id))]
+        links = sql.bot_ids_for_item(c, user_id, item_id)
         sources = []
-        for source in c.execute('SELECT * FROM library_sources WHERE user_id=? AND item_id=? ORDER BY created_at',(user_id,item_id)):
-            s=dict(source); table='messages' if s['kind']=='private' else 'chat_group_messages'
-            s['message_available'] = bool(s['message_id'] and s['kind']!='upload' and c.execute(f'SELECT 1 FROM {table} WHERE user_id=? AND id=?',(user_id,s['message_id'])).fetchone())
+        for source in sql.sources_for_item(c, user_id, item_id):
+            s=dict(source)
+            s['message_available'] = bool(s['message_id'] and s['kind']!='upload' and sql.source_message_exists(c, s['kind'], user_id, s['message_id']))
             sources.append(s)
     return dict(id=item_id,kind=data['kind'],name=data.get('filename') or '图片',mime=data['mime'],bytes=data['bytes'],
         sha256=data['sha256'],resource_version=data['sha256'],created_at=row['created_at'],revision=row['revision'],
@@ -37,24 +38,22 @@ def get_item(user_id,item_id):
 def link_bot(user_id,item_id,bot_id):
     with db.tx(immediate=True) as c:
         raw_item(c,user_id,item_id)
-        if not c.execute('SELECT 1 FROM bots WHERE id=? AND user_id=?',(bot_id,user_id)).fetchone(): raise LibraryError(404,'Bot 不存在')
-        c.execute('DELETE FROM library_unlinked WHERE user_id=? AND item_id=? AND bot_id=?',(user_id,item_id,bot_id))
-        if c.execute('INSERT OR IGNORE INTO library_bot_links(user_id,item_id,bot_id,version) VALUES (?,?,?,?)',(user_id,item_id,bot_id,sql.revision(c,user_id)+1)).rowcount:
+        if not bot_store.exists(c, user_id, bot_id): raise LibraryError(404,'Bot 不存在')
+        sql.clear_unlinked(c, user_id, item_id, bot_id)
+        if sql.try_link_bot(c, user_id, item_id, bot_id):
             sql.changed(c,user_id,item_id)
 
 def unlink_bot(user_id,item_id,bot_id):
     with db.tx(immediate=True) as c:
         raw_item(c,user_id,item_id)
-        c.execute('DELETE FROM library_bot_links WHERE user_id=? AND item_id=? AND bot_id=?',(user_id,item_id,bot_id))
-        c.execute('INSERT OR IGNORE INTO library_unlinked VALUES (?,?,?)',(user_id,item_id,bot_id))
+        sql.unlink_bot(c, user_id, item_id, bot_id)
         sql.changed(c,user_id,item_id)
 
 def delete_item(user_id,item_id):
     with db.tx(immediate=True) as c:
         row=raw_item(c,user_id,item_id,include_deleted=True)
         if row['deleted']: return
-        c.execute('UPDATE library_items SET deleted=1 WHERE user_id=? AND id=?',(user_id,item_id))
-        c.execute('DELETE FROM library_bot_links WHERE user_id=? AND item_id=?',(user_id,item_id))
+        sql.soft_delete_item(c, user_id, item_id)
         sql.changed(c,user_id,item_id)
         data=json.loads(row['payload'])
     repo.delete_files(repo.file_keys(data))
@@ -62,9 +61,9 @@ def delete_item(user_id,item_id):
 def authorize_bot(user_id,bot_id,item_id):
     with db.tx() as c:
         raw_item(c,user_id,item_id)
-        row=c.execute('SELECT version FROM library_bot_links WHERE user_id=? AND item_id=? AND bot_id=?',(user_id,item_id,bot_id)).fetchone()
-        if not row: raise LibraryError(404,'资料不存在','library_not_found')
-        return row[0]
+        version=sql.link_version(c, user_id, item_id, bot_id)
+        if version is None: raise LibraryError(404,'资料不存在','library_not_found')
+        return version
 
 def catalog(user_id, *, kind=None, bot_id=None, q='', cursor=None, limit=50):
     import base64
@@ -79,12 +78,12 @@ def catalog(user_id, *, kind=None, bot_id=None, q='', cursor=None, limit=50):
                 if saved['r']!=rev: raise LibraryError(409,'资料已更新，请重新同步','library_revision_changed')
             except LibraryError: raise
             except Exception: raise LibraryError(400,'无效分页游标','library_invalid_cursor')
-        rows=c.execute('SELECT id,payload FROM library_items WHERE user_id=? AND deleted=0 ORDER BY created_at DESC,id DESC',(user_id,)).fetchall()
+        rows=sql.live_item_id_payloads(c, user_id)
         selected=[]
         for row in rows:
             data=json.loads(row['payload'])
             if kind and data['kind']!=kind: continue
-            if bot_id is not None and not c.execute('SELECT 1 FROM library_bot_links WHERE user_id=? AND item_id=? AND bot_id=?',(user_id,row['id'],bot_id)).fetchone(): continue
+            if bot_id is not None and not sql.has_bot_link(c, user_id, row['id'], bot_id): continue
             if q:
                 text=data.get('filename','') or ''
                 path=repo.get_store().path(data.get('text_key')) if data.get('text_key') else None
@@ -102,7 +101,7 @@ def catalog(user_id, *, kind=None, bot_id=None, q='', cursor=None, limit=50):
 def changes(user_id,after_revision):
     with db.tx() as c:
         revision=sql.revision(c,user_id)
-        rows=c.execute('SELECT DISTINCT item_id FROM library_changes WHERE user_id=? AND id>? AND id<=?',(user_id,after_revision,revision)).fetchall()
+        rows=sql.changed_item_ids(c, user_id, after_revision, revision)
         live=[]; removed=[]
         for row in rows:
             item=raw_item(c,user_id,row[0],True)
@@ -116,18 +115,18 @@ def upload(user_id,data,filename,mime,request_key,bot_id=None):
     if not request_key or len(request_key)>200: raise LibraryError(400,'缺少有效上传请求标识')
     if bot_id is not None and not db.get_bot(user_id,bot_id): raise LibraryError(404,'Bot 不存在')
     with db.tx() as c:
-        previous=c.execute('SELECT item_id FROM library_upload_keys WHERE user_id=? AND request_key=?',(user_id,request_key)).fetchone()
+        previous=sql.upload_key_item_id(c, user_id, request_key)
     if previous: return get_item(user_id,previous[0])
     att=repo.create(user_id,None,data) if mime.startswith('image/') else repo.create_file(user_id,None,data,filename)
     try:
         with db.tx(immediate=True) as c:
-            previous=c.execute('SELECT item_id FROM library_upload_keys WHERE user_id=? AND request_key=?',(user_id,request_key)).fetchone()
+            previous=sql.upload_key_item_id(c, user_id, request_key)
             if previous: aid=previous[0]
             else:
                 aid=att['id']
-                c.execute("UPDATE attachments SET status='attached',expires_at=NULL WHERE id=? AND user_id=?",(aid,user_id))
+                attachment_store.mark_attached(c, user_id, aid)
                 ingest_attachment(c,user_id=user_id,attachment_id=aid,source_kind='upload',source_id=None,bot_id=bot_id,explicit=True)
-                c.execute('INSERT INTO library_upload_keys VALUES (?,?,?)',(user_id,request_key,aid))
+                sql.insert_upload_key(c, user_id, request_key, aid)
         if aid!=att['id']: repo.delete_pending(user_id,att['id'])
     except Exception:
         if repo.get(user_id,att['id']) and repo.get(user_id,att['id'])['status']=='pending': repo.delete_pending(user_id,att['id'])

@@ -43,3 +43,105 @@ def live_resource_keys(c):
         key = item.get('storage_key','')
         if key.endswith('.gif'): keys.add(key[:-4]+'_still.jpg')
     return keys
+
+
+def item_row(c, user_id, item_id):
+    return c.execute('SELECT * FROM library_items WHERE user_id=? AND id=?', (user_id, item_id)).fetchone()
+
+
+def bot_ids_for_item(c, user_id, item_id):
+    return [r[0] for r in c.execute(
+        'SELECT bot_id FROM library_bot_links WHERE user_id=? AND item_id=? ORDER BY bot_id',
+        (user_id, item_id))]
+
+
+def sources_for_item(c, user_id, item_id):
+    return c.execute(
+        'SELECT * FROM library_sources WHERE user_id=? AND item_id=? ORDER BY created_at',
+        (user_id, item_id))
+
+
+def source_message_exists(c, kind, user_id, message_id):
+    table = 'messages' if kind == 'private' else 'chat_group_messages'
+    return c.execute(f'SELECT 1 FROM {table} WHERE user_id=? AND id=?', (user_id, message_id)).fetchone()
+
+
+def clear_unlinked(c, user_id, item_id, bot_id):
+    c.execute('DELETE FROM library_unlinked WHERE user_id=? AND item_id=? AND bot_id=?',
+              (user_id, item_id, bot_id))
+
+
+def try_link_bot(c, user_id, item_id, bot_id):
+    return c.execute(
+        'INSERT OR IGNORE INTO library_bot_links(user_id,item_id,bot_id,version) VALUES (?,?,?,?)',
+        (user_id, item_id, bot_id, revision(c, user_id) + 1)).rowcount
+
+
+def unlink_bot(c, user_id, item_id, bot_id):
+    c.execute('DELETE FROM library_bot_links WHERE user_id=? AND item_id=? AND bot_id=?',
+              (user_id, item_id, bot_id))
+    c.execute('INSERT OR IGNORE INTO library_unlinked VALUES (?,?,?)', (user_id, item_id, bot_id))
+
+
+def soft_delete_item(c, user_id, item_id):
+    c.execute('UPDATE library_items SET deleted=1 WHERE user_id=? AND id=?', (user_id, item_id))
+    c.execute('DELETE FROM library_bot_links WHERE user_id=? AND item_id=?', (user_id, item_id))
+
+
+def link_version(c, user_id, item_id, bot_id):
+    row = c.execute(
+        'SELECT version FROM library_bot_links WHERE user_id=? AND item_id=? AND bot_id=?',
+        (user_id, item_id, bot_id)).fetchone()
+    return row[0] if row else None
+
+
+def live_item_id_payloads(c, user_id):
+    return c.execute(
+        'SELECT id,payload FROM library_items WHERE user_id=? AND deleted=0 ORDER BY created_at DESC,id DESC',
+        (user_id,)).fetchall()
+
+
+def has_bot_link(c, user_id, item_id, bot_id):
+    return bool(c.execute(
+        'SELECT 1 FROM library_bot_links WHERE user_id=? AND item_id=? AND bot_id=?',
+        (user_id, item_id, bot_id)).fetchone())
+
+
+def bot_has_any_link(c, user_id, bot_id):
+    return c.execute(
+        'SELECT 1 FROM library_bot_links WHERE user_id=? AND bot_id=? LIMIT 1',
+        (user_id, bot_id)).fetchone()
+
+
+def changed_item_ids(c, user_id, after_revision, through_revision):
+    return c.execute(
+        'SELECT DISTINCT item_id FROM library_changes WHERE user_id=? AND id>? AND id<=?',
+        (user_id, after_revision, through_revision)).fetchall()
+
+
+def upload_key_item_id(c, user_id, request_key):
+    return c.execute(
+        'SELECT item_id FROM library_upload_keys WHERE user_id=? AND request_key=?',
+        (user_id, request_key)).fetchone()
+
+
+def insert_upload_key(c, user_id, request_key, item_id):
+    c.execute('INSERT INTO library_upload_keys VALUES (?,?,?)', (user_id, request_key, item_id))
+
+
+def item_payload_deleted(c, user_id, item_id):
+    return c.execute(
+        'SELECT payload,deleted FROM library_items WHERE id=? AND user_id=?',
+        (item_id, user_id)).fetchone()
+
+
+def sync_caption_to_item(c, user_id, item_id, caption, status):
+    saved = c.execute(
+        'SELECT payload FROM library_items WHERE id=? AND user_id=? AND deleted=0',
+        (item_id, user_id)).fetchone()
+    if saved:
+        payload = json.loads(saved[0])
+        payload.update(caption=caption, caption_status=status)
+        c.execute('UPDATE library_items SET payload=? WHERE id=? AND user_id=?',
+                  (json.dumps(payload), item_id, user_id))
+        changed(c, user_id, item_id)

@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 
 from ... import db
 from ...db import attachment_store as store_sql
+from ...db import library_store
 from ...core.config import (ATTACHMENT_MAX_BYTES, ATTACHMENT_PENDING_TTL_HOURS, ATTACHMENT_USER_QUOTA_BYTES,
                             ATTACHMENTS_PER_DAY, TIMEZONE)
 from . import images
@@ -65,9 +66,8 @@ def file_keys(r: dict) -> list[str]:
 
 def delete_files(keys) -> None:
     store = get_store()
-    from ...db.library_store import live_resource_keys
     with db.tx() as c:
-        protected = live_resource_keys(c)
+        protected = library_store.live_resource_keys(c)
     for k in keys:
         if k in protected:
             continue
@@ -174,7 +174,7 @@ def get(user_id: int, att_id: str) -> dict | None:
     if not isinstance(att_id, str) or not att_id.startswith("att_") or len(att_id) > 40:
         return None
     with db.tx() as c:
-        saved = c.execute("SELECT payload,deleted FROM library_items WHERE id=? AND user_id=?",(att_id,user_id)).fetchone()
+        saved = library_store.item_payload_deleted(c, user_id, att_id)
         if saved and saved["deleted"]: return None
         row = store_sql.get(c, user_id, att_id)
         return row or (json.loads(saved["payload"]) if saved else None)
@@ -244,12 +244,7 @@ def attach(user_id: int, bot_id: int, ids: list[str], message_id: int) -> list[d
 def set_caption(user_id: int, att_id: str, caption: str | None, status: str):
     with db.tx() as c:
         store_sql.set_caption(c, user_id, att_id, caption, status)
-        saved=c.execute("SELECT payload FROM library_items WHERE id=? AND user_id=? AND deleted=0",(att_id,user_id)).fetchone()
-        if saved:
-            payload=json.loads(saved[0]);payload.update(caption=caption,caption_status=status)
-            c.execute("UPDATE library_items SET payload=? WHERE id=? AND user_id=?",(json.dumps(payload),att_id,user_id))
-            from ...db.library_store import changed
-            changed(c,user_id,att_id)
+        library_store.sync_caption_to_item(c, user_id, att_id, caption, status)
 
 
 # ---------------------------------------------------------------- 删除
@@ -301,8 +296,7 @@ def reconcile(now: float | None = None) -> dict:
     with db.tx() as c:
         rs = store_sql.all_keys(c)
     known = {k for r in rs for k in file_keys(r)}
-    from ...db.library_store import live_resource_keys
-    with db.tx() as c: known.update(live_resource_keys(c))
+    with db.tx() as c: known.update(library_store.live_resource_keys(c))
     cutoff = (now or time.time()) - ORPHAN_GRACE_SECONDS
     for key, mtime in list(store.iter_keys()):
         if key not in known and mtime < cutoff:
