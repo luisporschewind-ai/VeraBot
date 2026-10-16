@@ -9,6 +9,7 @@ struct GroupInfoView: View {
     let onDeleted: () -> Void
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @State private var contentTab = "settings"
     @State private var name = ""
     @State private var clearConfirm = false
     @State private var deleteConfirm = false
@@ -40,28 +41,48 @@ struct GroupInfoView: View {
                     .frame(maxWidth: .infinity)
                     .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 12, trailing: 20))
                 }
-                memberSection
-                if model.busy { Section { Button("先停止当前讨论") { Task { await model.stop() } }.disabled(model.confirmingStop) } }
                 Section {
-                    Button("清空群历史", role: .destructive) { clearConfirm = true }
-                    Button("删除群聊", role: .destructive) { deleteConfirm = true }
-                }.disabled(model.busy || saving)
-                if let error {
-                    Section {
-                        ConnectionNotice(title: error)
+                    Picker("群内容", selection: $contentTab) {
+                        Text("设置").tag("settings")
+                        Text("文件").tag("file")
+                        Text("图片").tag("image")
                     }
+                    .pickerStyle(.segmented)
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                if contentTab == "settings" {
+                    memberSection
+                    if model.busy { Section { Button("先停止当前讨论") { Task { await model.stop() } }.disabled(model.confirmingStop) } }
+                    Section {
+                        Button("清空群历史", role: .destructive) { clearConfirm = true }
+                        Button("删除群聊", role: .destructive) { deleteConfirm = true }
+                    }.disabled(model.busy || saving)
+                    if let error {
+                        Section {
+                            ConnectionNotice(title: error)
+                        }
+                    }
+                } else {
+                    Section {
+                        LibraryView(scope: .group(id: model.group.id), initialKind: contentTab, embedded: true)
+                            .id(contentTab)
+                    }
+                    .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
                 }
             }.navigationTitle("群设置").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     DismissToolbarButton(kind: .close) { dismiss() }
                 }
+                if contentTab == "settings" {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { Task { await perform {
                         try await model.update(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
                         onGroupUpdated?(model.group)
                         dismiss()
                     } } }.disabled(saving || model.busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 64)
+                }
                 }
             }.onAppear { name = model.group.name }
             .confirmationDialog("清空本群历史？", isPresented: $clearConfirm, titleVisibility: .visible) {

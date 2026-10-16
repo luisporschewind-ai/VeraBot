@@ -43,5 +43,17 @@ public struct LibraryPage: Codable, Sendable {
     }
     enum CodingKeys: String, CodingKey { case items, nextCursor = "next_cursor", snapshotRevision = "snapshot_revision" }
 }
-public enum LibraryScope: Hashable, Sendable { case all; case bot(id: Int) }
+public enum LibraryScope: Hashable, Sendable {
+    case all
+    case bot(id: Int)
+    case group(id: Int)
+
+    public func contains(_ item: LibraryItem) -> Bool {
+        switch self {
+        case .all: true
+        case .bot(let id): item.botIDs.contains(id)
+        case .group(let id): item.sources.contains { $0.kind == "group" && $0.sourceID == id }
+        }
+    }
+}
 public enum LibraryDownloadMode: String, Codable, Sendable { case automaticWiFi, manualCellularAllowed }

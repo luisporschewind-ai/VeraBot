@@ -20,14 +20,12 @@ import VeraBotCore
     }
     public func visibleItems(kind: String, query: String) -> [LibraryItem] {
         items.filter { item in
-            let linked: Bool
-            switch scope { case .all: linked=true;case .bot(let id):linked=item.botIDs.contains(id) }
-            return linked && item.kind==kind && (query.isEmpty || item.name.localizedCaseInsensitiveContains(query))
+            return scope.contains(item) && item.kind==kind && (query.isEmpty || item.name.localizedCaseInsensitiveContains(query))
         }
     }
     public func search(query: String) async -> [LibraryItem]? {
-        let botID: Int?;switch scope { case .all:botID=nil;case .bot(let id):botID=id }
-        do { return try await repository.search(query:query,botID:botID) }
+        let botID: Int?;switch scope { case .all, .group:botID=nil;case .bot(let id):botID=id }
+        do { return try await repository.search(query:query,botID:botID).filter { scope.contains($0) } }
         catch { self.error="当前显示本地名称搜索结果；正文搜索需要联网";return nil }
     }
     public func delete(item: LibraryItem) async {

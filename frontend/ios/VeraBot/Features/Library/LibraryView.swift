@@ -18,9 +18,10 @@ struct LibraryView: View {
     @State private var remoteMatches: [VeraBotCore.LibraryItem]?
     @State private var searchedQuery = ""
     private var botID: Int? { if case .bot(let id)=scope { return id };return nil }
+    private var isGroup: Bool { if case .group = scope { return true }; return false }
     private var visible: [VeraBotCore.LibraryItem] {
         var list=vm?.visibleItems(kind:kind,query:query) ?? []
-        if !query.isEmpty,searchedQuery==query,let remoteMatches { list=remoteMatches.filter {$0.kind==kind} }
+        if !query.isEmpty,searchedQuery==query,let remoteMatches { list=remoteMatches.filter {$0.kind==kind && scope.contains($0)} }
         if let botFilter { list=list.filter {$0.botIDs.contains(botFilter)} }
         if onlyDownloaded { list=list.filter {app.libraryDownloads?.localURL(id:$0.id) != nil} }
         return list
@@ -33,6 +34,7 @@ struct LibraryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text:$query,prompt:"搜索名称或正文")
         .toolbar {
+            if !isGroup {
             ToolbarItem(placement:.topBarTrailing) {
                 Menu {
                     Button("上传文件或图片",systemImage:"plus") { upload=true }
@@ -50,6 +52,7 @@ struct LibraryView: View {
                     }
                 } label: { Image(systemName:"ellipsis.circle") }
                 .accessibilityLabel("资料管理")
+            }
             }
         }
         .task {
@@ -84,9 +87,11 @@ struct LibraryView: View {
                 }.pickerStyle(.segmented)
             }
             if let downloads=app.libraryDownloads {
+                let catalog = isGroup ? downloads.items.filter { scope.contains($0) } : downloads.items
+                let downloaded = catalog.filter { downloads.localURL(id: $0.id) != nil }.count
                 HStack {
-                    Image(systemName:downloads.downloadedCount==downloads.items.count ? "checkmark.circle":"arrow.down.circle")
-                    Text("原件已下载 \(downloads.downloadedCount)/\(downloads.items.count)")
+                    Image(systemName:downloaded==catalog.count ? "checkmark.circle":"arrow.down.circle")
+                    Text("原件已下载 \(downloaded)/\(catalog.count)")
                     Spacer()
                     if downloads.paused { Text("已暂停") } else if !downloads.isWiFi { Text("等待 Wi-Fi") }
                 }.font(.caption).foregroundStyle(.secondary)
@@ -94,7 +99,7 @@ struct LibraryView: View {
             if let error=vm?.error { Text(error).font(.footnote).foregroundStyle(.secondary) }
             if visible.isEmpty {
                 if vm?.loading == true { ProgressView() }
-                else { ContentUnavailableView(query.isEmpty ? "暂无资料":"没有找到资料",systemImage:kind=="image" ? "photo.on.rectangle":"folder",description:Text("聊天中的文件和图片会自动归集，也可以直接上传。")) }
+                else { ContentUnavailableView(query.isEmpty ? "暂无资料":"没有找到资料",systemImage:kind=="image" ? "photo.on.rectangle":"folder",description:Text(isGroup ? "本群聊天中的文件和图片会显示在这里。" : "聊天中的文件和图片会自动归集，也可以直接上传。")) }
             } else if kind=="image" { LibraryImageGrid(items:visible) }
             else { LibraryFileList(items:visible,botID:botID) }
         }.padding(.horizontal,16)

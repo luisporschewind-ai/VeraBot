@@ -89,3 +89,32 @@ private actor PausedLibraryAPI: LibraryAPI {
     await api.release();try await first.value;try await second.value
     #expect(try await repo.cachedItems().count==1)
 }
+
+@Test @MainActor func groupLibraryUsesMessageSourcesRatherThanMemberBotLinks() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let database = LocalDatabase(url: root.appendingPathComponent("group.sqlite"))
+    defer { database.close() }
+    func item(_ id: String, kind: String = "file", group: Int?, available: Bool = true) throws -> LibraryItem {
+        let source = try JSONDecoder().decode(LibrarySource.self, from: Data("""
+        {"kind":"\(group == nil ? "private" : "group")","source_id":\(group ?? 99),"bot_id":1,"display_name":"source","message_id":7,"created_at":"2026-10-16","message_available":\(available)}
+        """.utf8))
+        return LibraryItem(id:id,kind:kind,name:"report",mime:"text/plain",bytes:3,sha256:"abc",resourceVersion:"abc",createdAt:"2026-10-16",revision:1,availability:"available",textStatus:"ready",botIDs:[1],sources:[source])
+    }
+    let items = try [item("own-file", group:7), item("own-image", kind:"image", group:7),
+                     item("cleared-source", group:7, available:false), item("other-group", group:8), item("private", group:nil)]
+    let store = LibraryStore(database:database)
+    try store.replace(items:items, revision:1)
+    let api = GroupLibraryFixtureAPI(items:items)
+    let vm = LibraryViewModel(repository:LibraryRepository(store:store,api:api),scope:.group(id:7))
+    await vm.load()
+    #expect(Set(vm.visibleItems(kind:"file",query:"").map(\.id)) == ["own-file","cleared-source"])
+    #expect(vm.visibleItems(kind:"image",query:"").map(\.id) == ["own-image"])
+    #expect(Set(try #require(await vm.search(query:"report")).map(\.id)) == ["own-file","own-image","cleared-source"])
+}
+private actor GroupLibraryFixtureAPI: LibraryAPI {
+    let items: [LibraryItem]
+    init(items: [LibraryItem]) { self.items=items }
+    func libraryPage(cursor: String?) async throws -> LibraryPage { .init(items:items,nextCursor:nil,snapshotRevision:1) }
+    func librarySearch(query: String, botID: Int?) async throws -> [LibraryItem] { items }
+}
