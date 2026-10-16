@@ -313,8 +313,12 @@ struct ChatView: View {
                                hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt,
                                size: 26, action: action, animated: true,
                                appearance: vm.bot.supportedAppearance)
+                    .allowsHitTesting(false)
                 Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
             }
+            .padding(.horizontal, 6)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel("\(vm.bot.name)，\(action.title)，查看 Bot 详情")
     }

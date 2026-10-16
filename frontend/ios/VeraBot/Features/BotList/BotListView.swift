@@ -55,8 +55,14 @@ struct BotListView: View {
                         .plainListRow()
                         .listRowBackground(bot.isPinned ? Color.sectionFill : Color.appBackground)
                     case .group(let group):
-                        Button { selectedGroup = group } label: { GroupConversationRow(group: group) }
+                        Button { selectedGroup = group } label: {
+                            GroupConversationRow(group: group)
+                                .padding(.horizontal, 16).padding(.vertical, 10)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
                             .buttonStyle(.plain).plainListRow()
+                            .listRowInsets(EdgeInsets())
                     }
                 }
             }
@@ -462,6 +468,7 @@ struct BotRow: View {
                            action: app.activitySuccessIDs.contains("private:\(bot.id)") ? .success : activity?.avatarAction ?? .idle,
                            animated: !reduceMotion, appearance: bot.supportedAppearance)
                 .frame(width: 44, height: 44)
+                .allowsHitTesting(false)
             VStack(alignment: .leading, spacing: 3) {
                 ConversationRowHeader(
                     name: bot.name,
@@ -488,6 +495,8 @@ struct BotRow: View {
             }
         }
         .padding(.vertical, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     private var preview: String {
@@ -523,7 +532,7 @@ struct GroupConversationRow: View {
     private var activity: ConversationActivity? { app.activity(kind: "group", id: group.id) }
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            GroupConversationAvatar(members: group.members)
+            GroupConversationAvatar(members: group.members).allowsHitTesting(false)
             VStack(alignment: .leading, spacing: 3) {
                 ConversationRowHeader(
                     name: group.name,

@@ -43,7 +43,7 @@ public struct ConversationActivity: Codable, Sendable, Identifiable {
         }
     }
     public var statusText: String {
-        if displayState == "awaiting_user" { return "等你补充" }
+        if displayState == "awaiting_user" { return kind == "group" ? "" : "等你补充" }
         if displayState == "awaiting_approval" { return "待你确认" }
         if ["failed", "interrupted", "stopped"].contains(displayState) { return "工作暂未完成" }
         switch displayPhase { case "queued": return "排队中"; case "recalling": return "正在整理上下文"; case "thinking", "retry_wait": return "正在思考"; case "tool": return "正在查询／处理"; case "delegating": return "正在协作"; case "replying": return "正在回复"; default: return "" }

@@ -522,8 +522,12 @@ struct GroupChatView: View {
         Button { inputFocused = false; info = true } label: {
             HStack(spacing: 6) {
                 GroupMemberAvatarStack(members: model.group.members.filter(\.available), size: 26, overlap: 9)
+                    .allowsHitTesting(false)
                 Text(model.group.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
             }
+            .padding(.horizontal, 6)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel("\(model.group.name)，\(model.group.members.count) 位伙伴，查看群聊设置")
     }

@@ -92,3 +92,13 @@ private func activityRow(state: String, phase: String, workItems: String, latest
     let waiting = try activityRow(state: "awaiting_user", phase: "awaiting_user", workItems: stale, latest: "要查哪个城市？")
     #expect(waiting.statusText == "等你补充")
 }
+
+@Test func groupListDoesNotAskUserForMoreInformation() throws {
+    func activity(kind: String) throws -> ConversationActivity {
+        try JSONDecoder().decode(ConversationActivity.self, from: Data("""
+        {"kind":"\(kind)","conversation_id":1,"generation":1,"revision":1,"state":"awaiting_user","phase":"awaiting_user","unread_count":0,"pending_count":1,"unread_messages":[],"work_items":[]}
+        """.utf8))
+    }
+    #expect(try activity(kind:"group").statusText.isEmpty)
+    #expect(try activity(kind:"private").statusText == "等你补充")
+}
