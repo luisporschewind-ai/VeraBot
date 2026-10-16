@@ -28,3 +28,5 @@
 - 模拟器与签名真机构建通过（`/tmp/row-alignment-sim.log`、`/tmp/row-alignment-device.log`）。模拟器已安装并启动 0.1.0 (2026101604)；iPhone 11 按用户稍后连接的安排暂不安装。
 - 实际截图前后核对：名称左边缘、时间右边缘、尾部箭头对齐。当前字号、3x 截图中，8 个尾部箭头中心 Y 为 449.5、653.5、857.5、1061.5、1265.5、1469.5、1673.5、1877.5px；相邻差均为 204px，即每行 68pt。
 - 截图证据保存在本机 `/tmp/conversation-row-before.png` 与 `/tmp/conversation-row-after.png`。本次仅导航行布局调整，使用构建及截图核对，未重复运行包级测试；未把截图检查扩展声明为所有交互均已验收。
+
+打包前同步主分支已提交的小岛 Tab 隐藏调整，合并版本再次通过两端构建（`/tmp/row-alignment-integrated-sim.log`、`/tmp/row-alignment-integrated-device.log`），模拟器重新安装同一版本 2026101604，保留并行完成的主分支改动。
