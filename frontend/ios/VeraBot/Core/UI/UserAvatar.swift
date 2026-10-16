@@ -16,7 +16,8 @@ struct UserAvatar: View {
     }
 }
 
-/// 首页导航栏里的头像：正圆（照片或首字圆底）。iOS 26 关掉系统玻璃底后用 44pt，与右侧圆形按钮等大；更早系统 30pt。
+/// 首页导航栏里的头像：正圆（照片或首字圆底）。外层由 `BotListView` 套圆形玻璃底。
+/// iOS 26 关掉系统共享玻璃胶囊后用 44pt，与右侧圆形按钮等大；更早系统 30pt。
 struct HomeAvatarLabel: View {
     let name: String
     var image: UIImage?
@@ -24,5 +25,18 @@ struct HomeAvatarLabel: View {
 
     var body: some View {
         UserAvatar(name: name, image: image, size: size)
+    }
+}
+
+/// iOS 26 用系统 `.glassEffect`；旧系统回退到 `.ultraThinMaterial` 圆形底（与 `JumpToLatestButton` 一致）。
+struct HomeAvatarGlassBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: Circle())
+        } else {
+            content
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+        }
     }
 }

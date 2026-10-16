@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-17 · 首页头像按钮圆形玻璃
+
+- iOS 首页左上角设置头像改为与 `JumpToLatestButton` 相同的圆形玻璃按钮：iOS 26 `.glassEffect(.regular.interactive(), in: Circle())`，旧系统 `.ultraThinMaterial` 圆底；仍为正圆、原尺寸与位置，头像图/首字可见。仅改 `BotListView` / `UserAvatar`，无其它 UI 变动。
+
 ## 2026-10-16 · 资料库 SQL 分层收尾
 
 资料库残留在 `services/library.py`、`services/attachments/repo.py`、`agents/tool_router.py` 的直连 SQL 已迁入 `db/library_store.py` / `db/attachment_store.py`（及既有 `bot_store`）；查询、事务边界与返回形状不变。`sql_layer_check` SQL-LAYER-01/02 通过。见 [STATUS](STATUS.md)、[集成记录](tasks/2026-10-16-main-integration.md)。
