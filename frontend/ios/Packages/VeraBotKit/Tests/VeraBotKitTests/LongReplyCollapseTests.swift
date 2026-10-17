@@ -3,7 +3,7 @@ import Testing
 @testable import VeraBotCore
 
 private func numberedLines(_ n: Int, prefix: String = "第") -> [String] {
-    (1...n).map { "\(prefix)\($0)行" }
+    (1...n).map { "\(prefix)\($0)行的补充说明内容" }
 }
 
 // MARK: - 真实回复形状（思考助手）
@@ -95,7 +95,7 @@ private let shortAdviceReply = [
     #expect(!LongReplyCollapse.shouldCollapse("好的，明天八点提醒你。"))
     #expect(LongReplyCollapse.preview("好的，明天八点提醒你。") == nil)
     // 恰好等于阈值不折叠：28 行
-    #expect(!LongReplyCollapse.shouldCollapse(numberedLines(LongReplyCollapse.collapseRows).joined(separator: "\n")))
+    #expect(!LongReplyCollapse.shouldCollapse(Array(repeating: String(repeating: "a", count: 30), count: LongReplyCollapse.collapseRows).joined(separator: "\n")))
     // 恰好 500 加权字：两条 ``` 共 6 个 ASCII（3 字）+ 7 行 × 71 个汉字；代码行不折行，只有 8 行
     let code = Array(repeating: String(repeating: "数", count: 71), count: 7).joined(separator: "\n")
     #expect(!LongReplyCollapse.shouldCollapse("```\n" + code + "\n```"))
@@ -103,26 +103,27 @@ private let shortAdviceReply = [
 }
 
 @Test func longRepliesCollapseByRows() {
-    #expect(LongReplyCollapse.shouldCollapse(numberedLines(LongReplyCollapse.collapseRows + 1).joined(separator: "\n")))
+    #expect(LongReplyCollapse.shouldCollapse(Array(repeating: String(repeating: "a", count: 30), count: LongReplyCollapse.collapseRows + 1).joined(separator: "\n")))
     // \r\n 换行同样计行
-    #expect(LongReplyCollapse.shouldCollapse(numberedLines(LongReplyCollapse.collapseRows + 1).joined(separator: "\r\n")))
+    #expect(LongReplyCollapse.shouldCollapse(Array(repeating: String(repeating: "a", count: 30), count: LongReplyCollapse.collapseRows + 1).joined(separator: "\r\n")))
 }
 
 @Test func listsWrapButTablesDoNot() {
-    // 同样 12 条、每条 32 个汉字（共约 400 加权字，低于字数阈值）：
-    // 列表每条折成 3 行，共 36 行 → 折叠；表格横向滚动不折行，共约 13 行 → 不折叠
-    let item = String(repeating: "长", count: 32)
-    let list = Array(repeating: "- " + item, count: 12).joined(separator: "\n")
-    let table = (["| 事项 |", "|---|"] + Array(repeating: "| " + item + " |", count: 12)).joined(separator: "\n")
+    // 正文超过 500 个非空白字素、但不足 500 加权字；20 条中英混合内容。
+    // 列表每条折成 2 行，表格每条仍是 1 行。
+    let item = String(repeating: "长", count: 10) + String(repeating: "a", count: 15)
+    let list = Array(repeating: "- " + item, count: 20).joined(separator: "\n")
+    let table = (["| 事项 |", "|---|"] + Array(repeating: "| " + item + " |", count: 20)).joined(separator: "\n")
     #expect(LongReplyCollapse.shouldCollapse(list))
     #expect(!LongReplyCollapse.shouldCollapse(table))
 }
 
 @Test func blankLinesAndHeadingsAddHeight() {
     // 20 段一行短句：只算正文 20 行不折叠；段间空行和小标题把高度推过一屏
-    let plain = numberedLines(20).joined(separator: "\n")
-    let spaced = numberedLines(20).joined(separator: "\n\n")
-    let titled = numberedLines(20).map { "### \($0)" }.joined(separator: "\n")
+    let lines = Array(repeating: String(repeating: "a", count: 30), count: 20)
+    let plain = lines.joined(separator: "\n")
+    let spaced = lines.joined(separator: "\n\n")
+    let titled = lines.map { "### \($0)" }.joined(separator: "\n")
     #expect(!LongReplyCollapse.shouldCollapse(plain))
     #expect(LongReplyCollapse.shouldCollapse(spaced))
     #expect(LongReplyCollapse.shouldCollapse(titled))
@@ -184,7 +185,7 @@ private let shortAdviceReply = [
 @Test func previewDropsTrailingHeadingAndHeaderOnlyTable() {
     // 预算正好停在表头 + 分隔行：没有数据行的表格、它前面的小标题和空行都去掉，只留开头段落
     let intro = String(repeating: "说", count: 60)
-    let rows = (1...30).map { "| \($0) | 数据 |" }
+    let rows = (1...80).map { "| \($0) | 数据 |" }
     let source = ([intro, "", "### 对比", "", "| 项 | 值 |", "|---|---|"] + rows).joined(separator: "\n")
     #expect(LongReplyCollapse.preview(source) == intro)
 }
@@ -204,7 +205,7 @@ private let shortAdviceReply = [
     #expect(p1 == "看：\n```\nlet a = 1\n```\n" + numberedLines(5).joined(separator: "\n"))
 
     // 回复以代码块开头：保留前几行代码并补闭合 ```（开头 ``` 半行 + 7 行代码）
-    let code = (1...60).map { "line \($0)" }
+    let code = (1...120).map { "line \($0)" }
     let p2 = try #require(LongReplyCollapse.preview("```python\n" + code.joined(separator: "\n") + "\n```"))
     let rows = p2.components(separatedBy: "\n")
     #expect(rows.first == "```python")
@@ -265,4 +266,31 @@ private let fileText = String(repeating: "文件正文", count: 7500)   // 30000
     let small: JSONValue = .object(["ok": .bool(true), "note": .string("原图已附在下一条消息中"),
                                     "ids": .array([.string("a"), .string("b")])])
     #expect(ToolTraceSummary.fallback(small) == small.text)
+}
+
+// MARK: - 短回复保护
+
+@Test func shortFormattedReplyIsNotCollapsedByEstimatedRows() {
+    // 与误折叠回复同形：若干加粗列表项，不到 500 字但旧规则估算超过 28 行。
+    let lines = (1...10).map { "- **项目\($0)**：" + String(repeating: "简要说明", count: 7) }
+    let source = lines.joined(separator: "\n\n")
+    #expect(source.filter { !$0.isWhitespace }.count < 500)
+    #expect(!LongReplyCollapse.shouldCollapse(source))
+    #expect(LongReplyCollapse.preview(source) == nil)
+}
+
+@Test func shortReplyProtectionIncludesBoundaryAndIgnoresWhitespace() {
+    let boundary = String(repeating: "短", count: 500)
+    #expect(!LongReplyCollapse.shouldCollapse(boundary))
+    #expect(LongReplyCollapse.preview(boundary) == nil)
+    #expect(LongReplyCollapse.shouldCollapse(boundary + "长"))
+    let padded = Array(repeating: "说明", count: 100).joined(separator: "\n\n\n    ")
+    #expect(!LongReplyCollapse.shouldCollapse(padded))
+    #expect(LongReplyCollapse.preview(padded) == nil)
+}
+
+@Test func shortReplyProtectionCountsWholeGraphemes() {
+    for unit in ["👨‍👩‍👧‍👦", "e\u{301}", "🇨🇳"] {
+        #expect(!LongReplyCollapse.shouldCollapse(String(repeating: unit, count: 500)))
+    }
 }

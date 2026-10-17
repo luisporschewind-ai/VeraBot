@@ -28,7 +28,7 @@ from .store import get_store
 
 log = logging.getLogger("verabot.attachments")
 
-MAX_PER_MESSAGE = 1
+MAX_PER_MESSAGE = 9
 ORPHAN_GRACE_SECONDS = 3600
 GONE_MESSAGE = "图片已删除或无法加载"
 

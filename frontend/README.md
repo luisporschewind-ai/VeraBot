@@ -1,5 +1,15 @@
 # VeraBot Frontend (前端) — v0.1.0
 
+2026-10-16：堆叠缩略图填满并裁切，点击查看后完整等比显示（静态图和 GIF 一致），见 [修正记录](../docs/tasks/2026-10-16-image-fill-fit.md)。
+
+2026-10-16：多图各层可点击打开对应图片，堆叠再缩小 10%，查看页扩大图片区并固定底部页码，见 [细化记录](../docs/tasks/2026-10-16-image-stack-gallery-details.md)。
+
+2026-10-16：多图堆叠缩小至 75%，下层展示真实图片并填满卡片，见 [调整记录](../docs/tasks/2026-10-16-image-stack-refinement.md)。
+
+2026-10-16：修复短 Bot 回复误折叠；500 个非空白字素以内完整显示，较长回复继续按原规则折叠，见 [修复记录](../docs/tasks/2026-10-16-short-reply-collapse.md)。
+
+2026-10-16：私聊、群聊附件选完自动发送，移除发送前预览；相册最多 9 张合为一条堆叠消息，保留文字草稿。交互和验证见 [修改记录](../docs/tasks/2026-10-16-direct-multi-image-send.md)。
+
 2026-10-12：iOS 主线接入 VeraBotPersistence（SQLite）与 VeraBotData（Repository/群模型），列表、历史和草稿按账号/服务器隔离。最新构建安装证据见 [Main 集成交付](../docs/testing/2026-10-12-main-integration.md)。
 
 两个客户端，通过 HTTP / SSE 调用后端 API (见 [backend/README.md](../backend/README.md))，不依赖后端源码。
