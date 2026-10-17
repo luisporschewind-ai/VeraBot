@@ -1,5 +1,9 @@
 # 项目状态 (STATUS) — 2026-10-17
 
+## 2026-10-17 · 会话列表隐藏「待同步」行标
+
+- iOS 会话列表 Bot 行去掉预览下灰色「待同步」标签，行高恢复正常；`activityNeedsSync` 与顶部连接横幅保留。群行本就无该标。未跑 git / xcodebuild / swift test。
+
 ## 2026-10-17 · 对话标题胶囊与侧栏按钮等高
 
 - iOS 私聊 / 群聊标题胶囊外高改为固定 44pt（iOS 26：plain + glassEffect 胶囊；旧系统 bordered），与工具栏两侧圆形玻璃按钮垂直对齐。主 Bot 星标在小头像上按比例缩小并偏右下，列表 44pt 不变。未改其它 UI。未跑 git / xcodebuild / swift test。

@@ -496,7 +496,6 @@ struct BotRow: View {
                     if let count = activity?.unreadCount, count > 0 { Circle().fill(Color.accentColor).frame(width: 9, height: 9).accessibilityLabel("\(count) 条未读回复") }
                 }
                 if let count = activity?.workItems.filter({ ["running", "queued", "awaiting_user", "awaiting_approval"].contains($0.state) }).count, count > 1 { Text("另有 \(count - 1) 项进行中").font(.caption2).foregroundStyle(.secondary) }
-                if app.activityNeedsSync { Text("待同步").font(.caption2).foregroundStyle(.secondary) }
             }
         }
         .padding(.vertical, 2)
