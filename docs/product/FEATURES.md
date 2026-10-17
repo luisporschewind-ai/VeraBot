@@ -1,5 +1,11 @@
 # 功能清单与 API 摘要 (Features & API) — v0.1.0 + 未发布改动 (Unreleased)
 
+## Bot 个性化 Feed（2026-10-17，未发布工作区）
+
+后端v36提供 `/api/feed/plan`、`/plan/suggest`、`/catalog`、`/sources`、`/refresh`、`/items`、`/items/{id}/state`、`/items/{id}/context`。一个用户Feed、多个Bot推荐关联，四类内容统一模型；来源简介/实际订阅正文证据分开，原文/媒体在原站查看。收藏引用独立于来源启用状态保存，不自动复制资料库。关注计划显式启用，记忆建议同时受账号/Bot/计划/请求开关限制。
+
+独立worker增量读取公开来源，公开主题目录匹配为首版选源方式；不使用私人记忆做外部查询。每天最多20个新链接，按来源份额发布；预算跳过的候选有界保留，304仍能续发。原生「发现」Tab正在接入。正式库/主线不由本任务更新；平台账号连接、模型摘要、转写、全网发现、完整播放器后续评估。见[设计与JSON契约](../superpowers/specs/2026-10-17-personal-feed-design.md)、[验证状态](../testing/2026-10-17-personal-feed.md)。
+
 ## 2026-10-16 主线集成补充
 
 当前源码 schema v35：资料库使用 v33/v34，旧任务标记与 trace 瘦身统一使用 v35；兼容此前远端 v33。下方部署与验证信息按日期保留，不能视作本轮已部署。详见 [集成记录](../tasks/2026-10-16-main-integration.md)。

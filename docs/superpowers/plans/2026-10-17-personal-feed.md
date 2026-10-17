@@ -32,13 +32,13 @@
 
 **Interfaces:** Consumes current auth/db/memory/HTTP conventions. Produces all JSON endpoints and worker entry defined in Spec; feed source/item IDs are Int, catalog IDs String, nullable fields always serialized.
 
-- [ ] Write focused isolated DB / API / parser / worker tests for spec and Review Focus. Run using `PYTHONPATH=backend /Users/admin/Desktop/VeraBot-v0.1/backend/.venv/bin/python -m unittest discover -s backend/scripts/test -p 'feed_*_test.py' -v`; record missing-feature RED.
-- [ ] Implement v36 migration + SQL store, enforce ownership and optimistic plan version. Tests pin same URL/multiple Bot association, state, cursor and quotas.
-- [ ] Implement bounded public source fetch, XML extraction and normalization, URL/content validation, evidence labels and source catalog. Never turn source descriptions into invented AI summaries.
-- [ ] Implement memory-aware suggestions and explicit plan enablement; tests remove sensitive, expired and invisible memory and honor global switch.
-- [ ] Implement leased worker and persistent refresh; tests pause/delete in-flight, restart, 304, retry/backoff and duplicate budget behavior.
-- [ ] Run Feed suite plus baseline scheduled task and library suites; add backend runbook and API documentation to `backend/verabot/services/feed/README.md`.
-- [ ] Commit only backend files. Report tests, commit, deviations and exact endpoint JSON to controller. Do not create subagents.
+- [x] Write focused isolated DB / API / parser / worker tests for spec and Review Focus. Run using `PYTHONPATH=backend /Users/admin/Desktop/VeraBot-v0.1/backend/.venv/bin/python -m unittest discover -s backend/scripts/test -p 'feed_*_test.py' -v`; record missing-feature RED.
+- [x] Implement v36 migration + SQL store, enforce ownership and optimistic plan version. Tests pin same URL/multiple Bot association, state, cursor and quotas.
+- [x] Implement bounded public source fetch, XML extraction and normalization, URL/content validation, evidence labels and source catalog. Never turn source descriptions into invented AI summaries.
+- [x] Implement memory-aware suggestions and explicit plan enablement; tests remove sensitive, expired and invisible memory and honor global switch.
+- [x] Implement leased worker and persistent refresh; tests pause/delete in-flight, restart, 304, retry/backoff and duplicate budget behavior.
+- [x] Run Feed suite plus baseline scheduled task and library suites; add backend runbook and API documentation to `backend/verabot/services/feed/README.md`.
+- [x] Commit only backend files. Report tests, commit, deviations and exact endpoint JSON to controller. Do not create subagents.
 
 ### Task 2: iOS Discover tab and complete Feed interaction
 
@@ -46,13 +46,13 @@
 
 **Interfaces:** Consumes Spec's Feed API; APIClient implements separate FeedAPI without growing existing VeraBotAPI mocks. FeedViewModel loads persisted server state and uses generation fencing. Existing app.groupAPI / app.api, userID/serverURL identity, existing bots API and ChatView used for integration.
 
-- [ ] Read Task 1's current model JSON / runbook. Write meaningful failing Swift tests for Codable, query filters, pagination, stale requests and feedback errors.
-- [ ] Implement Core/Networking/Data, use default optional initializers for useful fixtures, no hardcoded user IDs or fake feeds.
-- [ ] Add tag=5 bottom「发现」tab using native navigation and existing UI components. Four content kinds, Bot filter, saved list, card details/evidence, external original link, load more, retry and explicit refresh.
-- [ ] Implement onboarding + editable plan + memory/source suggestions, custom subscription form, source pause/resume/status. Any mutation failures remain visible and preserve input.
-- [ ] Implement ask-Bot: server context -> chosen valid Bot -> existing ChatView with initial draft; no automatic send. Draft seeded without overwriting persisted user draft.
-- [ ] Run complete Swift Kit suite, generate xcodeproj in this worktree only. Controller runs one iOS build after package tests; do not launch concurrent xcodebuild.
-- [ ] Commit only frontend files. Report tests, commit, deviations and user paths; no subagents.
+- [x] Read Task 1's current model JSON / runbook. Write meaningful failing Swift tests for Codable, query filters, pagination, stale requests and feedback errors.
+- [x] Implement Core/Networking/Data, use default optional initializers for useful fixtures, no hardcoded user IDs or fake feeds.
+- [x] Add tag=5 bottom「发现」tab using native navigation and existing UI components. Four content kinds, Bot filter, saved list, card details/evidence, external original link, load more, retry and explicit refresh.
+- [x] Implement onboarding + editable plan + memory/source suggestions, custom subscription form, source pause/resume/status. Any mutation failures remain visible and preserve input.
+- [x] Implement ask-Bot: server context -> chosen valid Bot -> existing ChatView with initial draft; no automatic send. Draft seeded without overwriting persisted user draft.
+- [x] Run complete Swift Kit suite, generate xcodeproj in this worktree only. Controller runs one iOS build after package tests; do not launch concurrent xcodebuild.
+- [x] Commit only frontend files. Report tests, commit, deviations and user paths; no subagents.
 
 ### Task 3: Integration, delivery records and whole-branch review
 
@@ -60,7 +60,7 @@
 
 **Interfaces:** Tasks 1–2 API/UI contracts and worker; isolated temporary backend / live source checks, existing Intel simulator.
 
-- [ ] Run actual fetch against selected public feeds, record source failures honestly; no production database access required.
+- [x] Run actual fetch against selected public feeds, record source failures honestly; no production database access required.
 - [ ] Run full Feed/backend relevant regression and complete Swift Kit, then one Intel simulator build; fix actual failures using tests first.
 - [ ] Review complete immutable commit diff with a fresh reviewer, address correctness/privacy findings before delivery.
 - [ ] Document implementation and missing platform connectors separately, scope current status to this worktree. Distinguish automated tests, build, install, live source check and user acceptance.

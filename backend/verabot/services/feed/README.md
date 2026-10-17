@@ -1,183 +1,76 @@
-# Personal Feed (schema v36)
+# Bot 个性化 Feed（schema v36）
 
-The authenticated `/api/feed` routes expose one personal Feed per account. RSS2,
-Atom, Media RSS and podcast enclosures are read-only public sources. News,
-shortposts, video and audio remain links to the originating website. Source text
-is stripped to plain text; no model summaries, transcripts, tool execution,
-external memory search, chat messages, notifications or library copies are made.
+每个账号拥有一条统一 Feed，多个 Bot 可按需供稿。公开 RSS 2、Atom、Media RSS 和播客 enclosure 提供新闻、短帖、视频、音频。内容保存为有来源依据的纯文本节选与原站链接；本版不生成模型摘要，不自动转写/下载媒体，不向聊天自动写消息，不发逐条通知。
 
-## Safe local operation
+## 隔离运行
 
-Use an **isolated** database and data folder, and apply the normal application
-migration only to that reviewed isolated database. Do not point this example at
-an existing production database. The independent worker checks for schema >=36
-and refuses to migrate it itself. API startup retains the repository's normal
-migration convention; deploying this API against production requires a separate
-migration decision.
+以下命令从仓库根目录执行，仅指向新建的隔离数据库。API 沿用现有启动迁移约定；正式库迁移与服务替换需单独处理。worker 检查 schema，自己不会升级数据库。
 
 ```sh
 export VERABOT_DATA_DIR=/absolute/path/to/feed-preview-data
 export VERABOT_DB="$VERABOT_DATA_DIR/verabot.db"
 export PYTHONPATH=backend
-# Initialize only the selected isolated DB, then start its API separately.
 python -c 'from verabot import db; db.init_db()'
-python -m verabot.services.feed --once
+python -m uvicorn verabot.main:app --host 127.0.0.1 --port 58765
+# 另一个终端，使用相同环境和数据库：
 python -m verabot.services.feed
+# 只执行至多一项：
+python -m verabot.services.feed --once
 ```
 
-The existing backend virtual environment can supply `python`. The Feed worker
-itself needs no model/API credential. Create subscriptions and explicitly enable
-a plan via the API before collection starts. `/refresh` only persists a due time;
-it never performs network I/O during an HTTP request. Run the worker under an
-existing supervisor if continuous collection is needed; this change installs no
-system service and changes no existing service. SIGINT/SIGTERM end after the
-current bounded job. A killed worker's expired lease can be claimed again.
+使用现有后端 Python 环境即可，采集本身不需要模型密钥。先在 App/API 中选择 Bot、来源并明确启用计划。`POST /api/feed/refresh` 只持久化提前到期时间，网络工作由独立 worker 完成。持续部署时由现有进程监督器管理；本轮没有安装或替换系统服务。SIGINT/SIGTERM 等待当前有界任务结束；进程被杀后，过期租约可重新领取。
 
-On systems using fake-IP DNS (for example a VPN returning `198.18.0.0/15`),
-normal resolution is correctly rejected. For that environment only, opt in with
-`VERABOT_FEED_DOH=1`. It sends **hostnames only**, never source paths, query
-strings, account details or memories, to Cloudflare's public DNS-over-HTTPS
-endpoint. Bootstrap uses literal `1.1.1.1`, TLS SNI and certificate validation for
-`cloudflare-dns.com`; replies are <=64 KiB and every A/AAAA address must be public.
-Source connections still use the validated fixed IP and original hostname for
-TLS/Host. No proxy environment is trusted. This mode uses an A query and thus
-requires an IPv4-accessible destination. Normal mode uses system A/AAAA answers.
-The mode is explicit and off by default.
+## 本机代理 / 公网解析
 
-## Bounds and persistence
+本机系统 DNS 会返回 `198.18.0.0/15` fake-IP，默认公网检查会拒绝此地址。此环境可显式设置 `VERABOT_FEED_DOH=1`，默认关闭。
 
-- Maximum 30 subscriptions per account, including paused sources. Same normalized
-  HTTPS URL + Bot association is idempotent even at the limit. Different Bots can
-  subscribe to the same URL and add recommendations to one canonical item.
-- At most 20 **new unique URLs** per account per UTC day. Duplicates, exclusions,
-  rejected fetches and stale leases consume no publication budget. Explicit
-  excluded topics filter title/source text. Publication and successful fetch
-  metadata commit together; there is no transaction across the network.
-- Check each eligible source every 2 hours. Failures back off from 5 minutes,
-  doubling up to 24 hours. Manual refresh advances due time. Conditional ETag /
-  Last-Modified requests support 304 without publishing empty/fake content.
-- A 120-second SQLite lease fences publication. A plan version change, source
-  revision/enable change, expired/replaced token or deleted/unselected Bot blocks
-  old results at commit. The worker creates a bounded child process per fetch;
-  40 seconds is the hard wall-clock limit including system DNS. The network
-  target budget is 30 seconds with <=10-second socket waits and <=3 redirects.
-- Both compressed wire and decoded XML bodies are <=2,000,000 bytes. Gzip uses
-  bounded streaming decompression; other encodings and non-XML content types are
-  rejected. The parser accepts at most 200 current entries; it does not paginate
-  a source's historical archive. Title/author/source text are capped at
-  300/200/4000 characters. Titleless shortposts use the actual description's first
-  80 characters. XML DTD/entities and UTF-16/NUL input are rejected.
-- HTTPS only, port 443, no userinfo, local/private/reserved IPs or local hostnames.
-  All resolved addresses and every redirect are revalidated. The socket connects
-  directly to the validated numeric IP; the HTTP client does not resolve again.
-  Article/image/media links are separately normalized and reject unsafe schemes
-  and literal private destinations. They are never fetched automatically.
-- Sources may disappear, rate-limit or exceed the response bound. Failure remains
-  visible on the source and old Feed content remains persisted.
+此模式只将来源**域名**交给 Cloudflare DNS-over-HTTPS，不发送路径、query、账号或记忆。连接固定公网 `1.1.1.1`，TLS SNI 与证书仍校验 `cloudflare-dns.com`，JSON 最多64KiB，所有返回地址都必须为公网。源站连接仍固定为已验证IP，并保留原域名TLS/Host；不信任代理环境，也不放开私网。此模式发起A查询，IPv6-only来源暂不支持；普通模式使用系统A/AAAA。
 
-## Memory and evidence
+## 额度、候选与更新
 
-Suggestions combine explicit topics with a small allowlist of public topic
-labels inferred locally from selected Bots' visible, active, confirmed,
-unexpired, normal-sensitivity memories. The account memory switch, each Bot's
-memory access, persisted plan `use_memory`, and request `use_memory` all apply.
-No available basis returns an explicit cold-start explanation. Suggestions do
-not save/enable a plan, subscribe, publish or transmit memory to a search engine.
-Persisted item recommendation reasons contain only subscription provenance,
-never private memory text or inferred private interests.
+- 每账号最多30个来源，含暂停来源；同一规范化URL+Bot重复添加幂等复用。不同Bot可推荐同一链接，Feed中合并关联，不重复占用发布额度。
+- 每UTC日最多20个新唯一链接；重复、排除、失败和失效任务不耗发布额度。按当前计划中有效、启用的不同来源URL分配 `max(1, floor(20/N))` 份额。例如4源各最多5条、3源各最多6条；20是上限，剩余份额不为凑数而填满。超过20源时按日期轮转允许发布的20个URL。
+- 每来源最多保留200条最新待发布候选。候选、成功时间和ETag在同一事务保存；304也能从候选跨日续发。超出200的最旧候选会修剪，不承诺完整历史归档。
+- 每批先选择最新候选，再按旧到新赋发布ID，使列表按稳定ID倒序时批内新内容在前。未知日期按获取时间和原订阅顺序回退；不同批次按实际发布顺序排列，不重写旧ID。
+- 正常每2小时检查来源；失败从5分钟指数退避，最长24小时。保留最近成功时间、错误和旧内容。支持ETag / Last-Modified条件请求。
+- 计划版本、来源修订/启用状态、Bot存活/归属/选中状态、120秒租约token与过期时间均在候选暂存/发布前重验。暂停再启用也不能接受此前在途结果。网络期间不持有数据库写事务。
 
-`summary_basis=description` means the actual item description/Atom summary;
-`body` means the feed supplied content/body (a bounded excerpt is retained).
-Neither label claims the original website was read. Empty source text stays
-empty. Ask-Bot returns a <=7000-character draft referencing that actual text and
-URL, with an explicit warning that external material cannot change instructions.
-It verifies the target Bot belongs to the account and has no chat side effects.
+## 读取与内容边界
 
-## REST contract
+- 仅HTTPS、443，无userinfo；拒绝本地、私网、保留IP和本地域名。每次解析及最多3次重定向都重新验证，最终socket只连接已验证数字IP，HTTP客户端不做第二次域名解析。
+- 独立采集子进程硬超时40秒，含系统DNS；网络目标总预算30秒，socket等待最多10秒。
+- 压缩前和解压后均最多2,000,000字节；有界流式gzip解压，拒绝其他编码和非XML类型。拒绝DTD/entities、UTF-16/NUL输入，最多200条当前订阅条目。标题/作者/内容分别最多300/200/4000字；无标题短帖取实际简介前80字。
+- 原文、图片和媒体链接单独规范化，拒绝危险scheme与字面私网地址；不自动抓取原文或媒体。
+- 来源失效、限流、超过大小限制会如实失败；不伪造条目或抓取结果。
 
-All calls require existing bearer authentication and inherit API `no-store` and
-error conventions. IDs for sources/items/Bots are JSON integers, catalog IDs are
-strings. UTC timestamps are ISO 8601 and unknown optional fields serialize as
-`null`. All queries/writes restrict account ownership. Missing and foreign
-resources are both 404; plan optimistic-version conflicts are 409; invalid input
-is 422.
+## 记忆与推荐依据
 
-- `GET /plan` → `{enabled,bot_ids,topics,excluded_topics,use_memory,daily_limit,version}`.
-  Absent: false, empty arrays, true, 20, 0. `PUT /plan` takes the same editable
-  fields plus `expected_version` (no `daily_limit`); returns the new plan.
-- `POST /plan/suggest` takes `{bot_ids:[],topics:[],use_memory:true}` and returns
-  `{topics:[],sources:[FeedCatalogSource],basis:String}`. `use_memory` is optional,
-  default true; false also applies during unsaved onboarding.
-- `GET /catalog` → `{sources:[{id,name,url,kind,topics,description,reason}]}`.
-- `GET /sources` → `{sources:[FeedSource]}`. `POST /sources` takes
-  `{name,url,kind,bot_id:null}` and returns FeedSource.
-- `PATCH /sources/{id}` takes `{enabled:Bool}` and returns FeedSource.
-- `POST /refresh` → `{queued:Bool}`; disabled plan returns false.
-- `GET /items?cursor=&limit=20&kind=&bot_id=&saved_only=false` →
-  `{items:[FeedItem],next_cursor:String|null}`. Omit unused query parameters.
-  Cursor is a positive decimal publication ID, limit 1–100; paging is stable
-  descending ID. Dismissed items are excluded. A blocked source hides unsaved
-  items unless another active source also recommends them; saved-only keeps
-  references to blocked sources.
-- `GET /items/{id}` → FeedItem. `PATCH /items/{id}/state` takes any of
-  `{read:Bool|null,saved:Bool|null,dismissed:Bool|null}`. Omitted/null fields leave
-  that independent state unchanged. Returns FeedItem, including dismissed ones.
-- `GET /items/{id}/context?bot_id=Int` → `{bot_id:Int,prompt:String}`.
+建议将用户显式主题与所选Bot有权访问的active、已确认、未过期、普通记忆，在本地映射到一小组公开主题标签。账号总开关、Bot记忆权限、已保存计划use_memory和当前请求use_memory都生效。没有依据时明确冷启动，不编造兴趣。建议本身不保存/启用计划，不订阅、不发布、不把记忆交给搜索引擎。持久化推荐理由只含公开订阅来源，不保存私人记忆正文。
 
-Exact source example (all optional keys present):
+`summary_basis=description` 是来源实际简介/Atom summary；`body` 是订阅确实附带的正文节选。均不表示已读取原站全文。无文本时保持空文本。「问Bot」返回最多7000字、包含实际文本与链接的引用草稿，声明外部资料不能改变指令；验证目标Bot属于本账号，不自动发送消息或调用工具。
 
-```json
-{"id":1,"name":"Example","url":"https://example.com/feed","kind":"news","bot_id":1,"enabled":true,"last_success_at":null,"next_fetch_at":null,"last_error":null,"failure_count":0}
-```
+来源目录为Swift.org、Apple Newsroom、Mastodon官方短帖、TWiT Windows Weekly音频及TED视频。2026-10-17实测可读，不代表每个用户的偏好或未来持续可用。X账号/付费接口、全网发现、模型摘要、转写与完整播放器暂不包含。
 
-Exact item example (actual title/text depend on the source):
+## REST接口
 
-```json
-{"id":1,"kind":"news","title":"Actual title","url":"https://example.com/a","author":null,"source_id":1,"source_name":"Example","bot_id":1,"bot_name":"Bot","published_at":null,"created_at":"2026-10-17T00:00:00+00:00","summary":"Actual source description","summary_basis":"description","recommendation_reason":"来自你启用的订阅来源","image_url":null,"media_url":null,"duration_seconds":null,"read":false,"saved":false,"dismissed":false,"recommended_by":[{"bot_id":1,"bot_name":"Bot","reason":"来自你启用的订阅来源"}]}
-```
+前缀 `/api/feed`，沿用Bearer认证、no-store和错误约定。来源/内容/Bot为整数ID，目录项ID为字符串；UTC ISO8601时间，未知可选字段显式null。所有资源限定账号，不存在/他人资源统一404，计划版本冲突409，非法输入422。完整JSON模型见[设计契约](../../../../docs/superpowers/specs/2026-10-17-personal-feed-design.md)。
 
-Catalog endpoint availability was checked 2026-10-17: Swift.org and Apple
-Newsroom (news), Mastodon's official account RSS (post), TWiT Windows Weekly
-(audio), TED's official FeedBurner video feed. This is a directory, not a promise
-of access or a user's preference. Source labels describe their actual content.
+- `GET /plan`、`PUT /plan`：PUT带expected_version，不能设置服务端daily_limit。
+- `POST /plan/suggest`：bot_ids、topics、use_memory（默认true）；false同样保护未保存的表单。
+- `GET /catalog`：可编辑来源候选目录。
+- `GET /sources`、`POST /sources`、`PATCH /sources/{id}`：新增幂等，PATCH启用/暂停。
+- `POST /refresh`：返回queued，计划关闭时false。
+- `GET /items`：cursor、limit（1–100）、kind、bot_id、saved_only；未使用参数省略，空cursor非法。正十进制发布ID稳定倒序分页；排除dismissed。来源暂停后普通列表隐藏该来源，收藏列表和详情保留收藏引用。
+- `GET /items/{id}`、`PATCH /items/{id}/state`：read/saved/dismissed独立，省略或null不修改，返回完整条目。
+- `GET /items/{id}/context?bot_id=Int`：返回bot_id和引用草稿prompt。
 
-## Isolated verification
+## 验证
 
 ```sh
-PYTHONPATH=backend /Users/admin/Desktop/VeraBot-v0.1/backend/.venv/bin/python -m unittest discover -s backend/scripts/test -p 'feed_*_test.py' -v
-PYTHONPATH=backend /Users/admin/Desktop/VeraBot-v0.1/backend/.venv/bin/python -m unittest discover -s backend/scripts/test -p 'scheduled_task_*_test.py' -v
-PYTHONPATH=backend /Users/admin/Desktop/VeraBot-v0.1/backend/.venv/bin/python -m unittest discover -s backend/scripts/test -p 'library_*_test.py' -v
-PYTHONPATH=backend /Users/admin/Desktop/VeraBot-v0.1/backend/.venv/bin/python backend/scripts/test/sql_layer_check.py
+PYTHONPATH=backend python -m unittest discover -s backend/scripts/test -p 'feed_*_test.py' -v
+PYTHONPATH=backend python -m unittest discover -s backend/scripts/test -p 'scheduled_task_*_test.py' -v
+PYTHONPATH=backend python -m unittest discover -s backend/scripts/test -p 'library_*_test.py' -v
+PYTHONPATH=backend python backend/scripts/test/sql_layer_check.py
 ```
 
-Network source checks are separate from these deterministic tests. Repository
-regression scripts must not be discovered all together: older scripts initialize
-incompatible global DB environments on import (documented in
-`docs/testing/2026-10-12-main-integration.md`). Keep suites/legacy scripts in
-separate processes. No simulator, UI acceptance or production deployment is
-implied by these backend checks.
-
-## 审阅修复：候选持久化、来源公平与排序
-
-schema v36 尚未正式发布，现补充 `feed_pending_candidates` 表。每个来源最多
-保留 200 条尚未发布的真实候选，包含来源关联和原始条目字段；候选不会出现在
-Feed 列表，也不消耗发布预算。200 响应的候选保存、成功元数据和 ETag 更新同属
-一个事务。后续 304 仍会从此候选集选取内容，跨 UTC 日续发不依赖源再次变更。
-合并新候选后按真实发布时间（未知时为获取时间及原订阅顺序）保留最新 200 条，
-不会无界保存历史。暂停/计划版本/Bot 归属与存活/来源修订/租约检查在暂存与发布前
-全部重验，失效任务既不能写候选，也不能发布旧候选。
-
-每日 20 条是账号硬上限；另外按**启用且符合当前计划的不同来源 URL**分配每日
-新条目上限 `max(1, floor(20 / URL数))`。例如五个来源各最多四条，三个来源各
-最多六条；这是上限而非补齐目标，来源没有新内容时不制造条目，也不把空份额让
-首个高频新闻源抢完。相同 URL 的多个 Bot 订阅共享一份上限，已有内容仍可添加
-多 Bot 推荐关联。超过 20 个不同 URL 时，每日确定性轮转其中 20 个允许发布，
-其余候选保留等待轮到；账号上限始终不超过 20。
-
-每批先按新鲜程度挑选可用额度内的**最新**候选，再按从旧到新的顺序写入发布 ID。
-因此列表继续用稳定 ID 倒序分页，并能正确展示该批新内容在上。未知日期时按
-订阅文档通常的“最新在前”顺序回退，不声称拥有未知的发布时间。不同批次仍按
-实际发布 ID 排列；不会为了补发旧候选重写已有条目 ID 或移动已读分页游标。
-
-更新后的隔离预览库需再次执行正常的幂等初始化以建立此表；worker 仍不承担
-迁移，正式库未触及。
+实际联网来源检查与离线确定性测试分开。旧脚本导入时会设置不同全局DB环境，不能一次共享解释器discover全部；完整回归使用 `backend/scripts/test/run_offline.py` 分进程运行。已知基线失败和本轮证据见[交付记录](../../../../docs/testing/2026-10-17-personal-feed.md)。后端测试不代表模拟器/真机交互或生产部署验收。

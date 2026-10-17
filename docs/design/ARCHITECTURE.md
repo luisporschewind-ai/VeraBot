@@ -288,3 +288,12 @@ iOS 依赖链为 VeraBotCore → VeraBotNetworking / VeraBotPersistence → Vera
 主线定时任务 v1 只读执行，不委派、写入或等待用户；排程 resume 不恢复执行步骤。现有 MCP action 确认只执行被冻结操作，尚无业务任务回接；iOS 离线持久化不承担服务端调度，APNs 未实现。
 
 群协议 v2 的持久目标/步骤/澄清/事件与 Worker 已在独立工作树开发并修复、待用户验收，尚未合入 main。拟议主 Bot 应参考这些基础模式并保持私聊、群聊和定时任务各自权限/上下文；不是简单把 run_chat 放进 scheduler。当前盘点与拟议改动见 [2026-10-13 盘点](../testing/2026-10-13-project-inventory.md)和 [主 Bot 讨论稿](../superpowers/specs/2026-10-13-primary-bot-design.md)。
+
+
+## Bot 个性化 Feed（2026-10-17，独立工作区）
+
+新增 `services/feed/`，分离来源目录/本地主题建议、受限HTTPS采集、XML/媒体标准化、服务编排与独立worker；SQL集中 `db/feed_store.py`，v36建立计划/来源/内容/推荐关联/待发布候选表。`api/routers/feed.py` 按现有认证与no-store挂载独立接口。关注计划和反馈不复用聊天消息表，问Bot只输出用户确认发送的草稿。
+
+流程：权限内兴趣 → 用户编辑启用 → 持久来源到期 → SQLite租约领取 → 事务外子进程有界采集 → 重验计划/来源/Bot/token → 候选与ETag原子保存 → 来源份额及账号上限内发布 → 原生列表/反馈。图片/媒体不自动下载，原站播放；不依赖App存活。Feed模块不修改原有定时任务工具权限。
+
+Swift端使用独立FeedAPI扩展、Core数据模型与带会话代次的FeedViewModel；原生页面经底部tag5进入，已有tag不变。旧账号/服务器的迟到结果不得写入新会话。细节与当前验证范围见[设计](../superpowers/specs/2026-10-17-personal-feed-design.md)及[交付](../testing/2026-10-17-personal-feed.md)。

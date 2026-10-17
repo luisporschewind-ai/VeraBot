@@ -139,3 +139,9 @@ iOS UI 自动化辅助：`source frontend/scripts/sim/ui.sh` (需要给终端「
 - 开发环境默认 `VERABOT_MAIL_BACKEND=console`：验证码不发邮件，写在 `data/server.log`：`grep "DEV MAIL" data/server.log | tail -1`。
 - 真实发信 (Gmail)：在 `.env` 加 `VERABOT_MAIL_BACKEND=smtp`、`VERABOT_SMTP_USER=luisporschewind@gmail.com`、`VERABOT_SMTP_PASSWORD=<应用专用密码>` 后重启。其余变量见 `.env.example`。
 - 限流 / 锁定计数在进程内存里，重启后端会清零 (测试时想解除锁定也可以直接重启)。
+
+## Feed 隔离开发（2026-10-17）
+
+Feed API与独立worker必须使用同一绝对VERABOT_DB、VERABOT_DATA_DIR，先通过API正常初始化该隔离库，再运行 `python -m verabot.services.feed`。worker不升级数据库。不要把个人Feed开发版本直接指向正式库；本轮预览API使用127.0.0.1:58765，正式8000服务不由本任务替换。
+
+本机fake-IP DNS时显式设置 `VERABOT_FEED_DOH=1`。该模式只向固定公共解析器发送域名，仍拒绝私网、保留地址和危险重定向。完整运行命令及限制见[Feed说明](../../backend/verabot/services/feed/README.md)。当前独立数据与实际验证见[记录](../testing/2026-10-17-personal-feed.md)。
