@@ -5,14 +5,16 @@ import Foundation
 // 纯 Foundation、无 UI：私聊里超长的 Bot 回复默认收起，气泡只排版截断后的预览，
 // 展开后才交给 MessageContentView 渲染全文 Markdown。规格见 docs/specs/long-reply-collapse.md。
 //
-// 「长」按手机上的排版高度估算，不按原文字数或换行数：
+// 短回复（≤ 500 个非空白字素）始终完整展示；超过保护长度后才按排版高度 / 加权字数估算：
 // - 宽度按半宽单位计：ASCII 占 1，中文 / 全角标点 / emoji 等其他字素占 2。气泡正文宽约 267pt、17pt 字号，
 //   一行约 15 个中文字 = 30 个半宽单位（`rowWidth`）。
 // - 高度按「半行」计（正文一行 = 2）：段落 / 列表 / 引用按宽度折行；标题额外 +1；
 //   表格行、代码行横向滚动不折行，每行 2；表格分隔行、``` 边框、空行各 1。
-// 判定与截断都有提前退出，耗时只与阈值有关、与全文长度无关（每行至少 1 个半行、每个字素至少 1 个半宽单位）。
+// 短回复保护只数到第 501 个非空白字素；后续判定与截断仍提前退出。空白不计入短回复长度。
 
 public enum LongReplyCollapse {
+    /// 短回复保护：空格和换行不计数，避免少量正文因列表、空行或较窄气泡被误折叠。
+    public static let minimumContentCharacters = 500
     /// 加权字数（中文 1、ASCII 0.5）超过 500 即折叠。正文段落通常先触发行数阈值；
     /// 这条主要兜住不折行的宽表格 / 长代码，它们行数少但信息量大。
     public static let collapseCharacters = 500
@@ -26,6 +28,9 @@ public enum LongReplyCollapse {
     static let rowWidth = 30
 
     public static func shouldCollapse(_ text: String) -> Bool {
+        let contentCount = text.lazy.filter { !$0.isWhitespace }
+            .prefix(minimumContentCharacters + 1).count
+        guard contentCount > minimumContentCharacters else { return false }
         var width = 0
         var halfRows = 0
         var lineWidth = 0

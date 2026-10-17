@@ -142,3 +142,52 @@ private actor GroupExecutionAPIStub: GroupChatAPI {
     #expect(await api.stopCount() == 1)
     #expect(model.execution.snapshot.task?.state == .stopped)
 }
+
+@Test @MainActor func attachmentOnlySendPreservesExistingDraft() async throws {
+    let api = GroupExecutionAPIStub()
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ConversationStore(database: LocalDatabase(url: directory.appendingPathComponent("conversation.sqlite")))
+    let repo = ConversationRepository(store: store, api: APIClient(baseURL: URL(string: "http://unused.test")!, token: nil),
+                                      groupAPI: api, sessionIsCurrent: { true })
+    let model = GroupChatViewModel(group: GroupExecutionAPIStub.group, api: api, repository: repo)
+    model.draft = "尚未写完的消息"
+    var queuedDraft: String?
+    var didQueue = false
+    model.send(text: "", attachmentIDs: ["att_a", "att_b"], onQueued: { accepted in
+        didQueue = accepted
+        queuedDraft = model.draft
+    })
+    #expect(model.draft == "尚未写完的消息")
+    #expect(model.pendingInput?.attachmentIDs == ["att_a", "att_b"])
+    for _ in 0..<100 {
+        if !model.sending { break }
+        try? await Task.sleep(for: .milliseconds(2))
+    }
+    #expect(!model.sending)
+    #expect(didQueue)
+    #expect(queuedDraft == "尚未写完的消息")
+    #expect(try await repo.draft(kind: .group, id: model.group.id) == "尚未写完的消息")
+    #expect(model.draft == "尚未写完的消息")
+    model.leave()
+}
+
+@Test @MainActor func attachmentQueueFailureAllowsBatchRetry() async {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let api = GroupExecutionAPIStub()
+    let store = ConversationStore(database: LocalDatabase(url: directory.appendingPathComponent("conversation.sqlite")))
+    let repo = ConversationRepository(store: store, api: APIClient(baseURL: URL(string: "http://unused.test")!, token: nil),
+                                      groupAPI: api, sessionIsCurrent: { false })
+    let model = GroupChatViewModel(group: GroupExecutionAPIStub.group, api: api, repository: repo)
+    var queued: Bool?
+    model.send(text: "", attachmentIDs: ["att_a"], onQueued: { queued = $0 })
+    for _ in 0..<100 {
+        if !model.sending { break }
+        try? await Task.sleep(for: .milliseconds(2))
+    }
+    #expect(queued == false)
+    #expect(model.pendingInput == nil)
+    #expect(await api.submitIDs().isEmpty)
+    model.leave()
+}

@@ -50,7 +50,7 @@ public struct Attachment: Codable, Sendable, Hashable, Identifiable {
 
 /// 客户端侧的限制（与后端一致；后端仍会再校验）。
 public enum AttachmentLimits {
-    public static let maxPerMessage = 1
+    public static let maxPerMessage = 9
     public static let maxBytes = 10 * 1024 * 1024
     public static let maxSide = 2048
     public static let jpegQuality = 0.8
@@ -68,7 +68,7 @@ public enum AttachmentLimits {
     }
 }
 
-/// POST /api/bots/{id}/chat 请求体。`attachment_ids` 最多 1 个；有图时 message 可以为空。
+/// POST /api/bots/{id}/chat 请求体。`attachment_ids` 最多 9 个；有图时 message 可以为空。
 public struct ChatRequest: Encodable, Sendable {
     public let message: String
     public let attachmentIDs: [String]

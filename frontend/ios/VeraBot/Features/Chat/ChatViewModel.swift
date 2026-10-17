@@ -693,47 +693,60 @@ final class ChatViewModel {
             }
         }
     }
-    func send(_ text: String, attachment: Attachment? = nil) async {
+    @discardableResult
+    func send(_ text: String, attachments: [Attachment] = []) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty || attachment != nil, !sending else { return }
+        guard !trimmed.isEmpty || !attachments.isEmpty, !sending else { return false }
         sending = true; defer { sending = false }
         notice = nil
         if let id = selectedWaitTaskID, let task = replyTasks.first(where: { $0.id == id && $0.state == "awaiting_user" }), let waitID = task.waitID {
             do {
-                guard let activityRepository else { notice = .sentence("本地发送记录尚未准备好，请稍后重试。"); return }
+                guard let activityRepository else { notice = .sentence("本地发送记录尚未准备好，请稍后重试。"); return false }
                 let control = ChatControlSubmission(generation: task.generation, taskID: task.id, version: task.version, waitID: waitID, message: trimmed)
                 try await activityRepository.saveControl(control, botID: bot.id)
                 try await submitControl(control)
                 selectedWaitTaskID = nil; await saveDraft(""); await load()
             } catch { notice = .fromAction(error, message: UserFacingError.message(for: error)); scheduleRecovery() }
-            return
+            return true
         }
-        guard let activityRepository else { notice = .sentence("本地发送记录尚未准备好，请稍后重试。"); return }
+        guard let activityRepository else { notice = .sentence("本地发送记录尚未准备好，请稍后重试。"); return false }
         let epoch = pageEpoch
-        let input = ChatInputRequest(message: trimmed, attachmentIDs: attachment.map { [$0.id] } ?? [], expectedGeneration: conversationGeneration)
+        let input = ChatInputRequest(message: trimmed, attachmentIDs: attachments.map(\.id), expectedGeneration: conversationGeneration)
         do { try await activityRepository.savePending(input, botID: bot.id) }
-        catch { notice = .fromAction(error, message: UserFacingError.message(for: error)); return }
+        catch { notice = .fromAction(error, message: UserFacingError.message(for: error)); return false }
         let userID = UUID(uuidString: input.clientRequestID) ?? UUID()
         let sort = (items.last?.sortKey ?? 0) + 1
-        items.append(Item(id: userID, isUser: true, text: trimmed, attachments: attachment.map { [$0] } ?? [], sortKey: sort, localStatus: "sending"))
+        items.append(Item(id: userID, isUser: true, text: trimmed, attachments: attachments, sortKey: sort, localStatus: "sending"))
         items.append(Item(id: pendingAssistantID(input.clientRequestID), isUser: false, text: "正在发送…", sortKey: sort + 1, localStatus: "pending:\(input.clientRequestID)"))
         await persist(items[items.count - 2], status: "sending")
         await persist(items[items.count - 1], status: "pending:\(input.clientRequestID)")
-        await saveDraft(""); scrollTick += 1
+        if !trimmed.isEmpty || attachments.isEmpty { await saveDraft("") }
+        scrollTick += 1
+        var receivedReceipt = false
         do {
             let receipt = try await api.submitChatInput(botID: bot.id, input: input)
+            receivedReceipt = true
             let fresh = try await api.chatExecution(botID: bot.id)
-            guard epoch == pageEpoch, !Task.isCancelled else { return }
+            guard epoch == pageEpoch, !Task.isCancelled else { return true }
             if receipt.generation == fresh.generation { bindReceipt(receipt, input: input) }
             await applySnapshot(fresh)
             try await activityRepository.removePending(botID: bot.id, requestID: input.clientRequestID)
             startObservation()
         } catch {
-            guard epoch == pageEpoch else { return }
-            if let error = error as? APIError, (400..<500).contains(error.status), error.status != 408 {
+            guard epoch == pageEpoch else { return true }
+            if !receivedReceipt, let error = error as? APIError, (400..<500).contains(error.status), error.status != 408 {
                 try? await activityRepository.removePending(botID: bot.id, requestID: input.clientRequestID)
+                if !attachments.isEmpty {
+                    let rejectedIDs: Set<UUID> = [userID, pendingAssistantID(input.clientRequestID)]
+                    items.removeAll { rejectedIDs.contains($0.id) }
+                    for id in rejectedIDs {
+                        try? await repository?.deletePrivate(LocalPrivateMessage(id: id, role: "user", content: ""), botID: bot.id)
+                    }
+                }
                 notice = .sentence(error.message)
+                return false
             } else { notice = .sentence("发送结果待确认，恢复网络后会用原请求核对。"); scheduleRecovery() }
         }
+        return true
     }
 }

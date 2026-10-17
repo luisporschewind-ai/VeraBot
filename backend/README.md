@@ -6,6 +6,8 @@
 
 采集不需要模型密钥；本版采用公开RSS/Atom/媒体订阅和有权限的本地主题建议。运行、额度、来源限制及API见[Feed说明](verabot/services/feed/README.md)，测试与部署边界见[记录](../docs/testing/2026-10-17-personal-feed.md)。
 
+2026-10-16：私聊、群聊请求的 `attachment_ids` 上限调整为 9，沿用现有上传、绑定、回执及账号隔离机制，无数据库迁移。iOS 相册多图直接发送，详见 [修改记录](../docs/tasks/2026-10-16-direct-multi-image-send.md)。
+
 FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话、工具调用、多 Agent 委派、用量统计。
 可以独立交付：本目录 (或打包出的 `VeraBot-backend-v0.1.0.zip`) 自带依赖锁、配置模板和一键启动脚本。
 

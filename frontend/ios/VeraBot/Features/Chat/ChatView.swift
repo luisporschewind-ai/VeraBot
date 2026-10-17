@@ -31,9 +31,9 @@ struct ChatView: View {
     @State private var deletingBot = false
     @State private var showMemoryList = false
     @State private var sendCount = 0            // 触感反馈触发器：每次发送 +1
-    @State private var attachment: ComposerAttachmentModel   // 待发送图片（最多 1 张）
+    @State private var attachment: ComposerAttachmentModel
     @State private var showPhotos = false
-    @State private var photoItem: PhotosPickerItem?
+    @State private var photoItems: [PhotosPickerItem] = []
     @State private var showCamera = false
     @State private var showFiles = false
     @State private var cameraDenied = false
@@ -150,17 +150,23 @@ struct ChatView: View {
             .sheet(isPresented: $showTasks) {
                 NavigationStack { TaskListView(botID: vm.bot.id, botName: vm.bot.name) }
             }
-            .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
+            .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: AttachmentLimits.maxPerMessage, selectionBehavior: .ordered, matching: .images)
             .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .plainText, .commaSeparatedText,
                 UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "docx") ?? .data,
                 UTType(filenameExtension: "xlsx") ?? .data], allowsMultipleSelection: false) { result in
                 if case .success(let urls) = result, let url = urls.first { attachment.pickFile(url) }
             }
-            .onChange(of: photoItem) { _, item in
-                guard let item else { return }
-                attachment.pick(item)
-                photoItem = nil
+            .onChange(of: photoItems) { _, items in
+                guard !items.isEmpty else { return }
+                attachment.pick(items)
+                photoItems = []
             }
+            .onChange(of: attachment.state) { _, _ in sendAttachmentsIfReady() }
+            .onChange(of: vm.sending) { _, _ in sendAttachmentsIfReady() }
+            .onChange(of: vm.replyInProgress?.id) { _, _ in sendAttachmentsIfReady() }
+            .onChange(of: vm.selectedWaitTaskID) { _, _ in sendAttachmentsIfReady() }
+            .onChange(of: travelStore.activeTrip(botID: vm.bot.id)?.id) { _, _ in sendAttachmentsIfReady() }
+            // 拍照：系统相机全屏（UIImagePickerController），拍到的图与相册选图走同一路径
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker { attachment.pick($0) }.ignoresSafeArea()
             }
@@ -546,7 +552,7 @@ struct ChatView: View {
                     .glassSurface(in: Capsule(), interactive: false)
             }
             if !attachment.isEmpty {
-                ComposerAttachmentChip(model: attachment)
+                ComposerAttachmentStatus(model: attachment)
             }
             if quickPromptsEnabled && input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !focused && !vm.quickPrompts.isEmpty {
@@ -575,6 +581,7 @@ struct ChatView: View {
                         .contentShape(Circle())
                         .glassSurface(in: Circle())
                 }
+                .disabled(!attachment.isEmpty)
                 .accessibilityLabel("添加附件")
 
                 HStack(alignment: .bottom, spacing: 4) {
@@ -635,8 +642,6 @@ struct ChatView: View {
         draftSession.acknowledge(write)
     }
 
-    /// 发送：键盘 return 键触发；只在提交中暂缓，后续独立消息由服务端排队。
-    /// 有图时可以只发图片；图片处理 / 上传中或上传失败时不发送（输入栏上方显示状态）。
     /// 离开对话：清掉本次阅读状态，并把期间到达的回复一并标为已读。
     private func endReadingSession() {
         reading.leave(); entered = false
@@ -651,19 +656,32 @@ struct ChatView: View {
         await vm.recoverExecution()
     }
 
+    /// 发送：键盘 return 键触发；只在提交中暂缓，后续独立消息由服务端排队。
+    /// 附件就绪后由 `sendAttachmentsIfReady` 自动发送；附件处理中 `blocksSend` 会挡住文本发送。
     private func send() {
         guard !draftSession.isHydrating, travelStore.activeTrip(botID: vm.bot.id) == nil else { return }
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !vm.sending, vm.replyInProgress == nil, !attachment.blocksSend else { return }
-        guard !text.isEmpty || attachment.ready != nil else { return }
-        if vm.selectedWaitTaskID != nil && attachment.ready != nil { vm.notice = .sentence("请先退出问题关联，再发送附件。"); return }
+        guard !text.isEmpty else { return }
         if speech.isRecording { speech.stop() }
-        let image = attachment.consume()
         input = ""
         focused = true   // 发送后键盘保持弹出，便于连续输入
         sendCount += 1
         Task {
-            await vm.send(text, attachment: image)
+            await vm.send(text)
+            if quickPromptsEnabled { await vm.refreshQuickPrompts() }
+        }
+    }
+
+    private func sendAttachmentsIfReady() {
+        guard !attachment.ready.isEmpty, !vm.sending, vm.replyInProgress == nil,
+              vm.selectedWaitTaskID == nil, travelStore.activeTrip(botID: vm.bot.id) == nil else { return }
+        let selected = attachment.beginSending()
+        if speech.isRecording { speech.stop() }
+        sendCount += 1
+        Task {
+            let accepted = await vm.send("", attachments: selected)
+            attachment.finishSending(accepted: accepted)
             if quickPromptsEnabled { await vm.refreshQuickPrompts() }
         }
     }

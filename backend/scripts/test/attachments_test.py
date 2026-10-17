@@ -276,7 +276,7 @@ if __name__ == '__main__':
 
     # ---------------------------------------------------------------- ATT-07 数量
     a2, a3 = upload(webp()).json()["id"], upload(webp()).json()["id"]
-    r_two = cli.post(f"/api/bots/{bot['id']}/chat", json={"message": "看", "attachment_ids": [a2, a3]}, headers=H)
+    r_two = cli.post(f"/api/bots/{bot['id']}/chat", json={"message": "看", "attachment_ids": [a2, a3] * 5}, headers=H)
     r_empty = cli.post(f"/api/bots/{bot['id']}/chat", json={"message": "  "}, headers=H)
     old_day = repo.ATTACHMENTS_PER_DAY
     repo.ATTACHMENTS_PER_DAY = 1
@@ -289,7 +289,7 @@ if __name__ == '__main__':
     CALLS.clear()
     r_only, evs_only = sse(bot["id"], "", [a2])
     only_text = user_msgs(CALLS[0])[-1]["content"][0]["text"] if CALLS else ""
-    check("ATT-07", "每条 > 1 张 422；每天超限 429 中文；存储满 413；无图空白消息 422；只发图片（无文字）允许",
+    check("ATT-07", "每条 > 9 张 422；每天超限 429 中文；存储满 413；无图空白消息 422；只发图片（无文字）允许",
           r_two.status_code == 422 and r_429.status_code == 429 and "上限" in r_429.json()["detail"]["message"]
           and r_full.status_code == 413 and r_empty.status_code == 422 and r_only.status_code == 200
           and "用户发送了一张图片" in only_text,

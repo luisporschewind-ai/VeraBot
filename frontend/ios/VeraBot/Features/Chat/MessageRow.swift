@@ -91,9 +91,7 @@ struct MessageRow: View {
             HStack {
                 Spacer(minLength: 48)
                 VStack(alignment: .trailing, spacing: 6) {
-                    ForEach(item.attachments) { attachment in
-                        AttachmentBubble(attachment: attachment, api: vm.api)
-                    }
+                    MessageAttachments(attachments: item.attachments, api: vm.api)
                     if !item.text.isEmpty || item.attachments.isEmpty {
                         Text(item.text)
                             .padding(.horizontal, 14).padding(.vertical, 10)
