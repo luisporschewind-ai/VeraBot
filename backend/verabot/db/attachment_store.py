@@ -58,9 +58,9 @@ def mark_attached(c, user_id: int, att_id: str) -> None:
 
 
 def for_messages(c, user_id: int, ids: list[int]):
-    """→ sqlite3.Row 列表，按 created_at, id 排序。ids 非空。"""
+    """→ sqlite3.Row 列表，按上传顺序排序（同秒上传使用 rowid 稳定排序）。ids 非空。"""
     q = ",".join("?" * len(ids))
-    return c.execute(f"SELECT * FROM attachments WHERE user_id=? AND message_id IN ({q}) ORDER BY created_at, id",
+    return c.execute(f"SELECT * FROM attachments WHERE user_id=? AND message_id IN ({q}) ORDER BY created_at, rowid",
                      (user_id, *ids)).fetchall()
 
 

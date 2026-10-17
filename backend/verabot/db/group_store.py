@@ -158,7 +158,7 @@ def _message(r, c) -> GroupMessage:
     m = dict(r)
     turn=c.execute('SELECT retry_of_message_id FROM chat_group_turns WHERE id=? AND user_id=?',(m['turn_id'],m['user_id'])).fetchone()
     linked = c.execute("SELECT a.* FROM chat_group_attachments ga JOIN attachments a ON a.id=ga.attachment_id "
-                       "WHERE ga.user_id=? AND ga.group_id=? AND ga.message_id=? ORDER BY ga.created_at",
+                       "WHERE ga.user_id=? AND ga.group_id=? AND ga.message_id=? ORDER BY ga.created_at, ga.rowid",
                        (m['user_id'],m['group_id'],m['id'])).fetchall()
     from ..services.attachments.repo import public as public_attachment
     task=c.execute("SELECT t.id,t.version FROM chat_group_task_inputs i JOIN chat_group_tasks t ON t.id=i.task_id WHERE i.turn_id=? AND i.user_id=? AND i.group_id=? ORDER BY i.id DESC LIMIT 1",(m["turn_id"],m["user_id"],m["group_id"])).fetchone()
@@ -377,7 +377,7 @@ def attachments_for_message(user_id: int, group_id: int, message_id: int) -> lis
     with tx() as c:
         _group(c,user_id,group_id)
         return [dict(r) for r in c.execute("SELECT a.* FROM chat_group_attachments ga JOIN attachments a "
-            "ON a.id=ga.attachment_id WHERE ga.user_id=? AND ga.group_id=? AND ga.message_id=?",
+            "ON a.id=ga.attachment_id WHERE ga.user_id=? AND ga.group_id=? AND ga.message_id=? ORDER BY ga.created_at, ga.rowid",
             (user_id,group_id,message_id)).fetchall()]
 
 

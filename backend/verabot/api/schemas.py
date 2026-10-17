@@ -161,8 +161,8 @@ class BotPatch(BotPerms):
 
 class ChatIn(BaseModel):
     message: str = Field(default="", max_length=4000)
-    # 图片附件（v12）：先 POST /api/attachments 拿到 id。最多 1 张（多于 1 张 422）；有图时 message 可以为空
-    attachment_ids: list[str] = Field(default_factory=list, max_length=1)
+    # 图片附件（v12）：先 POST /api/attachments 拿到 id。最多 9 张（多于 9 张 422）；有图时 message 可以为空
+    attachment_ids: list[str] = Field(default_factory=list, max_length=9)
 
     @model_validator(mode="after")
     def _not_blank(self):

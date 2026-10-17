@@ -42,7 +42,7 @@ class GroupChatIn(BaseModel):
     message: str = Field(default="", max_length=2000)
     mode: Literal["auto", "single", "round"] = "single"
     target_bot_id: int | None = Field(default=None, gt=0)
-    attachment_ids: list[str] = Field(default_factory=list, max_length=1)
+    attachment_ids: list[str] = Field(default_factory=list, max_length=9)
 
     @model_validator(mode="after")
     def validate_message(self):
@@ -66,7 +66,7 @@ class GroupInputIn(BaseModel):
     target_member_ids: list[int] = Field(default_factory=list, max_length=4)
     everyone: bool = False
     reply_to_message_id: int | None = Field(default=None, gt=0)
-    attachment_ids: list[str] = Field(default_factory=list, max_length=1)
+    attachment_ids: list[str] = Field(default_factory=list, max_length=9)
     expected_task_id: int | None = Field(default=None, gt=0)
     expected_version: int | None = Field(default=None, ge=1)
     clarification_id: int | None = Field(default=None, gt=0)

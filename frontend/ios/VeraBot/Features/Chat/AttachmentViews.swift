@@ -5,61 +5,110 @@ import UIKit
 import VeraBotCore
 import VeraBotNetworking
 
-/// 输入栏上方的待发送图片：缩略图（GIF 播放动画，同气泡）+ 状态 + 重试 / 移除。系统默认控件，无自定义动画。
-struct ComposerAttachmentChip: View {
+/// 仅显示上传进度与失败重试，不展示附件预览或发送确认。
+struct ComposerAttachmentStatus: View {
     let model: ComposerAttachmentModel
 
     var body: some View {
         HStack(spacing: 10) {
-            ZStack {
-                if let preview = model.preview {
-                    if model.isGIF {
-                        AnimatedImageView(image: preview)
-                    } else {
-                        Image(uiImage: preview).resizable().scaledToFill()
-                    }
-                } else if let name = model.pendingFilename {
-                    VStack(spacing: 4) {
-                        Image(systemName: "doc.text").font(.title2)
-                        Text(name).font(.system(size: 8)).lineLimit(2).multilineTextAlignment(.center)
-                    }.foregroundStyle(.secondary)
-                } else {
-                    Color.botBubble
-                }
-                if model.isBusy { ProgressView() }
-            }
-            .frame(width: 56, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .accessibilityHidden(true)
-
-            statusText
-                .font(.caption)
-                .lineLimit(2)
-            Spacer(minLength: 0)
-            if case .failed = model.state {
+            switch model.state {
+            case .empty: EmptyView()
+            case .uploading:
+                ProgressView()
+                Text("正在上传 \(model.completedCount)/\(model.totalCount)…")
+            case .sending:
+                ProgressView()
+                Text("正在发送…")
+            case .ready:
+                ProgressView()
+                Text("上传完成，等待对话可发送…")
+            case .failed(let message):
+                Text(message).foregroundStyle(.red).lineLimit(2)
                 Button("重试") { model.retry() }
-                    .font(.caption)
             }
-            Button { model.remove() } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("移除图片")
+            Spacer(minLength: 0)
+            Button("取消", role: .cancel) { model.remove() }.disabled(model.state == .sending)
         }
-        .padding(8)
-        .glassSurface(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
+        .font(.caption)
+        .padding(10)
+    }
+}
+
+/// 同一条消息内的多图叠放；点开后按选择顺序翻页。
+struct MessageAttachments: View {
+    let attachments: [Attachment]
+    let api: any VeraBotAPI
+    @State private var showGallery = false
+    @State private var gallerySelection = 0
+
+    private var images: [Attachment] { attachments.filter { !$0.isFile } }
+
+    /// 多图缩略卡片按单图的 67.5% 展示（在上一版基础上再缩小 10%），各层复用正面卡片尺寸并填满。
+    private func stackSize(for front: Attachment) -> CGSize {
+        let width = min(240, max(120, CGFloat(front.width))) * 0.675
+        return CGSize(width: width, height: width * CGFloat(min(max(front.aspectRatio, 0.3), 3.0)))
     }
 
-    @ViewBuilder private var statusText: some View {
-        switch model.state {
-        case .empty: EmptyView()
-        case .preparing: Text(model.pendingFilename == nil ? "正在处理图片…" : "正在准备文件…").foregroundStyle(.secondary)
-        case .uploading: Text("正在上传…").foregroundStyle(.secondary)
-        case .ready(let attachment): Text(attachment.isFile ? "文件已就绪，可直接发送" : "图片已就绪，可直接发送").foregroundStyle(.secondary)
-        case .failed(let message): Text(message).foregroundStyle(.red)
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            if images.count > 1, let front = images.first {
+                let size = stackSize(for: front)
+                VStack(alignment: .trailing, spacing: 10) {
+                    ZStack {
+                        ForEach(Array(images.prefix(3).enumerated().reversed()), id: \.element.id) { index, attachment in
+                            AttachmentBubble(attachment: attachment, api: api, thumbnailSize: size,
+                                             onOpen: { openGallery(at: index) })
+                                .accessibilityLabel("第 \(index + 1) 张，共 \(images.count) 张图片")
+                                .rotationEffect(.degrees(Double(index) * -4))
+                                .offset(x: CGFloat(index) * -10.8, y: CGFloat(index) * 7.2)
+                                .shadow(color: .black.opacity(0.12), radius: 5, y: 3)
+                        }
+                    }
+                    .padding(.leading, 50.4).padding(.top, 7.2).padding(.bottom, 28.8)
+                    Button { openGallery(at: 0) } label: {
+                        Label("共 \(images.count) 张图片", systemImage: "square.stack")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                ForEach(images) { AttachmentBubble(attachment: $0, api: api) }
+            }
+            ForEach(attachments.filter(\.isFile)) { AttachmentBubble(attachment: $0, api: api) }
         }
+        .fullScreenCover(isPresented: $showGallery) {
+            VStack(spacing: 0) {
+                ZStack(alignment: .topTrailing) {
+                    GeometryReader { geometry in
+                        TabView(selection: $gallerySelection) {
+                            ForEach(Array(images.enumerated()), id: \.element.id) { index, attachment in
+                                AttachmentBubble(attachment: attachment, api: api,
+                                                 displayWidth: max(80, geometry.size.width - 16),
+                                                 displayHeight: max(80, geometry.size.height))
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .tag(index)
+                            }
+                        }
+                        .tabViewStyle(.page(indexDisplayMode: .never))
+                    }
+                    Button("完成") { showGallery = false }
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.top, 8).padding(.trailing, 12)
+                }
+                Text("\(gallerySelection + 1) / \(images.count)")
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    .accessibilityLabel("第 \(gallerySelection + 1) 张，共 \(images.count) 张图片")
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8).padding(.bottom, 8)
+            }
+            .background(Color.appBackground)
+        }
+    }
+
+    private func openGallery(at index: Int) {
+        gallerySelection = index
+        showGallery = true
     }
 }
 
@@ -68,6 +117,10 @@ struct AttachmentBubble: View {
     @Environment(AppState.self) private var app
     let attachment: Attachment
     let api: any VeraBotAPI
+    var displayWidth: CGFloat? = nil
+    var displayHeight: CGFloat? = nil
+    var thumbnailSize: CGSize? = nil
+    var onOpen: (() -> Void)? = nil
     @State private var image: UIImage?
     @State private var data: Data?
     @State private var failed = false
@@ -77,8 +130,10 @@ struct AttachmentBubble: View {
     private static let minWidth: CGFloat = 120
 
     var body: some View {
-        let width = attachment.isFile ? Self.maxWidth : min(Self.maxWidth, max(Self.minWidth, CGFloat(attachment.width)))
-        let height = attachment.isFile ? 88 : width * CGFloat(min(max(attachment.aspectRatio, 0.3), 3.0))
+        let isPreview = thumbnailSize == nil && displayWidth != nil && !attachment.isFile
+        let width = thumbnailSize?.width ?? displayWidth ?? (attachment.isFile ? Self.maxWidth : min(Self.maxWidth, max(Self.minWidth, CGFloat(attachment.width))))
+        let height = thumbnailSize?.height ?? (attachment.isFile ? 88 : (isPreview ? displayHeight : nil) ?? min(720, width * CGFloat(min(max(attachment.aspectRatio, 0.3), 3.0))))
+        let cornerRadius: CGFloat = isPreview ? 0 : 18
         ZStack {
             if attachment.isFile {
                 HStack(spacing: 10) {
@@ -94,11 +149,10 @@ struct AttachmentBubble: View {
                 .frame(width: 240, alignment: .leading)
                 .background(Color.botBubble)
             } else if let image {
-                if attachment.isGIF {
-                    AnimatedImageView(image: image)
-                } else {
-                    Image(uiImage: image).resizable().scaledToFill()
-                }
+                // UIImageView 在明确的容器尺寸内执行等比缩放，静态图 / GIF 使用相同规则。
+                // 缩略图填满并裁切；查看页完整等比显示，不裁切图片四角。
+                AnimatedImageView(image: image, contentMode: isPreview ? .scaleAspectFit : .scaleAspectFill)
+                    .frame(width: width, height: height)
             } else if failed {
                 VStack(spacing: 6) {
                     Image(systemName: "photo.badge.exclamationmark")
@@ -116,10 +170,12 @@ struct AttachmentBubble: View {
             }
         }
         .frame(width: width, height: height)
-        .background(Color.botBubble)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .onTapGesture { openPreview() }
+        .background(isPreview ? Color.clear : Color.botBubble)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .onTapGesture {
+            if let onOpen { onOpen() } else { openPreview() }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(attachment.isGIF ? "动图" : "图片")
         .accessibilityHint("点按全屏查看")
@@ -135,8 +191,13 @@ struct AttachmentBubble: View {
     private func load(userInitiated: Bool = false) async {
         failed = false
         do {
-            guard let url=await app.libraryDownloads?.prepare(id:attachment.id,userInitiated:userInitiated) else { return }
-            let bytes = try Data(contentsOf:url)
+            let bytes: Data
+            if !attachment.isFile, let cached = AttachmentImageStore.shared.cached(attachment.id) {
+                bytes = cached
+            } else {
+                guard let url = await app.libraryDownloads?.prepare(id: attachment.id, userInitiated: userInitiated) else { return }
+                bytes = try Data(contentsOf: url)
+            }
             if attachment.isFile { data = bytes; return }
             let decoded = await Task.detached(priority: .userInitiated) {
                 DecodedImage(image: AttachmentImageDecoder.image(from: bytes))
@@ -194,10 +255,11 @@ enum AttachmentImageDecoder {
 /// UIImageView 播放动图（SwiftUI Image 不播放 GIF）。系统「减弱动态效果」打开时只显示第一帧。
 struct AnimatedImageView: UIViewRepresentable {
     let image: UIImage
+    var contentMode: UIView.ContentMode = .scaleAspectFill
 
     func makeUIView(context: Context) -> UIImageView {
         let view = UIImageView()
-        view.contentMode = .scaleAspectFill
+        view.contentMode = contentMode
         view.clipsToBounds = true
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
@@ -205,6 +267,7 @@ struct AnimatedImageView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UIImageView, context: Context) {
+        view.contentMode = contentMode
         let shown = UIAccessibility.isReduceMotionEnabled ? (image.images?.first ?? image) : image
         if view.image !== shown { view.image = shown }
     }

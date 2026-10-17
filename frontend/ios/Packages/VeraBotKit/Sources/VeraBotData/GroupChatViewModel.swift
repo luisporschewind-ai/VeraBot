@@ -141,31 +141,41 @@ public final class GroupChatViewModel {
             execution.messages = state.messages
         } catch is CancellationError {} catch {if stamp == epoch && sessionIsCurrent() {errorMessage = friendly(error)}}
     }
-    public func send(text: String,targetMemberIDs: [Int] = [],everyone: Bool = false,replyToMessageID: Int? = nil,attachmentIDs: [String] = []) {
+    public func send(text: String,targetMemberIDs: [Int] = [],everyone: Bool = false,replyToMessageID: Int? = nil,attachmentIDs: [String] = [],onQueued: (@MainActor (Bool) -> Void)? = nil) {
         let text = text.trimmingCharacters(in:.whitespacesAndNewlines)
-        guard !loading,!sending,!group.readOnly,(!text.isEmpty || !attachmentIDs.isEmpty),text.count <= 2000,sessionIsCurrent() else {return}
-        if pendingInput != nil {recoverPendingSubmission();return}
+        guard !loading,!sending,!group.readOnly,(!text.isEmpty || !attachmentIDs.isEmpty),text.count <= 2000,sessionIsCurrent() else {onQueued?(false);return}
+        if pendingInput != nil {onQueued?(false);recoverPendingSubmission();return}
         let active = execution.snapshot.task.flatMap {$0.state.canStop ? $0 : nil}
         pendingInput = .init(message:text,targetMemberIDs:targetMemberIDs,everyone:everyone,replyToMessageID:replyToMessageID,
                              attachmentIDs:attachmentIDs,expectedTaskID:active?.id,expectedVersion:active?.version,
                              clarificationID:active?.state == .awaitingUser ? execution.snapshot.clarification?.id : nil)
-        draft = text
-        beginSubmission(lookupFirst:false)
+        if !text.isEmpty || attachmentIDs.isEmpty { draft = text }
+        beginSubmission(lookupFirst:false,onQueued:onQueued)
     }
     public func recoverPendingSubmission() {
         guard !sending,pendingInput != nil,sessionIsCurrent() else {return}
         beginSubmission(lookupFirst:true)
     }
-    private func beginSubmission(lookupFirst: Bool) {
+    private func beginSubmission(lookupFirst: Bool,onQueued: (@MainActor (Bool) -> Void)? = nil) {
         let stamp = epoch;sending = true;errorMessage = nil
         task = Task {
-            defer {if stamp == epoch {task = nil;sending = false}}
+            var reported = false
+            defer {
+                if !reported {
+                    // No request reached the server when its initial durable save failed.
+                    if stamp == epoch, repository != nil, onQueued != nil { pendingInput = nil }
+                    onQueued?(false)
+                }
+                if stamp == epoch {task = nil;sending = false}
+            }
             do {
                 guard let request = pendingInput else {return}
                 try await repository?.savePendingGroupInput(request,groupID:group.id)
-                try await repository?.saveDraft(request.message,kind:.group,id:group.id)
+                if repository != nil { reported = true; onQueued?(true) }
+                try await repository?.saveDraft(draft,kind:.group,id:group.id)
                 try valid(stamp)
                 try await reconcilePending(stamp:stamp,lookupFirst:lookupFirst)
+                if !reported { reported = true; onQueued?(pendingInput == nil && errorMessage == nil) }
                 observeExecution(stamp:stamp)
             } catch is CancellationError {} catch {if stamp == epoch && sessionIsCurrent() {errorMessage = friendly(error)}}
         }

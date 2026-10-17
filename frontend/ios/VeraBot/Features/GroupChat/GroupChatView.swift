@@ -22,7 +22,7 @@ struct GroupChatView: View {
     @State private var followsBottom = true
     @State private var bottomAnchor: CGRect = .zero   // 只在 updateFollowsBottom 里读，避免滚动时整页重算 body
     @State private var showPhotos = false
-    @State private var photoItem: PhotosPickerItem?
+    @State private var photoItems: [PhotosPickerItem] = []
     @State private var showCamera = false
     @State private var showFiles = false
     @State private var cameraDenied = false
@@ -53,8 +53,7 @@ struct GroupChatView: View {
                                                         sessionIsCurrent: { session.isCurrent(generation) && app.baseURLString == endpoint }))
         _attachment = State(initialValue: ComposerAttachmentModel(botID: nil, api: app.api))
     }
-    var body: some View {
-        @Bindable var model = model
+    private var conversationContent: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -142,17 +141,24 @@ struct GroupChatView: View {
         .sheet(isPresented: $info) {
             GroupInfoView(model: model, onGroupUpdated: onGroupUpdated) { dismiss() }
         }
-        .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
+    }
+
+    private var attachmentContent: some View {
+        conversationContent
+        .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: AttachmentLimits.maxPerMessage, selectionBehavior: .ordered, matching: .images)
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .plainText, .commaSeparatedText,
             UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "docx") ?? .data,
             UTType(filenameExtension: "xlsx") ?? .data], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first { attachment.pickFile(url) }
         }
-        .onChange(of: photoItem) { _, item in
-            guard let item else { return }
-            attachment.pick(item)
-            photoItem = nil
+        .onChange(of: photoItems) { _, items in
+            guard !items.isEmpty else { return }
+            attachment.pick(items)
+            photoItems = []
         }
+        .onChange(of: attachment.state) { _, _ in sendAttachmentsIfReady() }
+        .onChange(of: model.busy) { _, _ in sendAttachmentsIfReady() }
+        .onChange(of: model.loading) { _, _ in sendAttachmentsIfReady() }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { attachment.pick($0) }.ignoresSafeArea()
         }
@@ -160,6 +166,10 @@ struct GroupChatView: View {
             Button("前往设置") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
             Button("取消", role: .cancel) {}
         } message: { Text("请在「设置」中允许 VeraBot 使用相机。") }
+    }
+
+    var body: some View {
+        attachmentContent
         .task {
             pageVisible = true
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "group", id: model.group.id)?.unreadMessages ?? []) }
@@ -277,7 +287,8 @@ struct GroupChatView: View {
         app.notificationEvents.visibleMessageIDs = Set(notificationFrames.filter { $0.value.intersects(bounds) }.keys)
     }
     private var composer: some View {
-        VStack(spacing: 6) {
+        @Bindable var model = model
+        return VStack(spacing: 6) {
             if activeMentionRange != nil {
                 mentionPicker
                     .transition(.opacity)
@@ -292,7 +303,7 @@ struct GroupChatView: View {
                     .padding(.horizontal, 12).padding(.vertical, 6)
                     .glassSurface(in: Capsule(), interactive: false)
             }
-            if !attachment.isEmpty { ComposerAttachmentChip(model: attachment) }
+            if !attachment.isEmpty { ComposerAttachmentStatus(model: attachment) }
             if let replyToMessageID, let quoted = model.state.messages.first(where: { $0.id == replyToMessageID }) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrowshape.turn.up.left").foregroundStyle(.secondary)
@@ -318,6 +329,7 @@ struct GroupChatView: View {
                             .frame(width: Self.barHeight, height: Self.barHeight).contentShape(Circle())
                             .glassSurface(in: Circle())
                     }
+                    .disabled(!attachment.isEmpty)
                     .accessibilityLabel("添加附件")
 
                     HStack(alignment: .bottom, spacing: 4) {
@@ -556,9 +568,8 @@ struct GroupChatView: View {
         guard !model.loading,!model.sending,!model.busy else { return }   // 回复进行中不能再发
         if model.hasUnconfirmedInput {model.recoverPendingSubmission();return}
         let text = model.draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (!text.isEmpty || attachment.ready != nil), text.count <= 2000, !attachment.blocksSend else { return }
+        guard !text.isEmpty, text.count <= 2000, !attachment.blocksSend else { return }
         if speech.isRecording { speech.stop() }
-        let selected = attachment.consume()
         let route = selectedRoute(for: model.draft)
         // The model retains the draft until the server accepts the turn.
         // Keep mention identities for a failed send, adjusting for trimming.
@@ -567,8 +578,18 @@ struct GroupChatView: View {
         mentionTokens = mentionTokens.compactMap { $0.adjustedForTrimmedDraft(text, leading: leading) }
         draftSelection = NSRange(location: min(trimmedSource.length, max(0, draftSelection.location - leading)), length: 0)
         model.send(text: text, targetMemberIDs: route.memberIDs, everyone: route.everyone, replyToMessageID: replyToMessageID,
-                   attachmentIDs: selected.map { [$0.id] } ?? [])
+                   attachmentIDs: [])
         inputFocused = true
+    }
+
+    private func sendAttachmentsIfReady() {
+        guard !attachment.ready.isEmpty, !model.loading, !model.busy,
+              !model.hasUnconfirmedInput, !model.group.readOnly else { return }
+        let selected = attachment.beginSending()
+        if speech.isRecording { speech.stop() }
+        model.send(text: "", replyToMessageID: replyToMessageID, attachmentIDs: selected.map(\.id), onQueued: { accepted in
+            attachment.finishSending(accepted: accepted)
+        })
     }
 
     private func openCamera() {
@@ -591,7 +612,7 @@ struct GroupChatView: View {
             HStack {
                 Spacer(minLength: 50)
                 VStack(alignment: .trailing, spacing: 6) {
-                    ForEach(message.attachments) { AttachmentBubble(attachment: $0, api: app.api) }
+                    MessageAttachments(attachments: message.attachments, api: app.api)
                     if !message.content.isEmpty {
                         Text(message.content).textSelection(.enabled).padding(13)
                             .foregroundStyle(Color.userBubbleText).background(Color.userBubble, in: RoundedRectangle(cornerRadius: 18))
