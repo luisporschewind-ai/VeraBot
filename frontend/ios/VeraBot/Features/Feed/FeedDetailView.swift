@@ -73,7 +73,7 @@ struct FeedDetailView: View {
             }
         }
         .navigationDestination(item: $chat) { route in
-            ChatView(bot: route.bot, api: app.api, repository: app.conversationRepository, initialDraft: route.draft)
+            ChatView(bot: route.bot, api: app.api, repository: app.conversationRepository, initialDraft: route.draft, hostingTab: 5)
         }
     }
     private var safeOriginalURL: URL? {

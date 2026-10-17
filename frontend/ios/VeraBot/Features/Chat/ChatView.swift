@@ -44,13 +44,14 @@ struct ChatView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(SettingsKeys.quickPromptsEnabled) private var quickPromptsEnabled = SettingsKeys.quickPromptsEnabledDefault
     let highlightMessageID: Int?
-    let initialDraft: String?
-    @State private var initialDraftLoaded = false
+    private let hostingTab: Int
+    @State private var draftSession: PrivateChatDraftSession
     @State private var travelTripToShow: BotTravelTrip?
 
-    init(bot: Bot, api: any VeraBotAPI, repository: ConversationRepository? = nil, highlightMessageID: Int? = nil, initialDraft: String? = nil) {
+    init(bot: Bot, api: any VeraBotAPI, repository: ConversationRepository? = nil, highlightMessageID: Int? = nil, initialDraft: String? = nil, hostingTab: Int = 0) {
         self.highlightMessageID = highlightMessageID
-        self.initialDraft = initialDraft
+        self.hostingTab = hostingTab
+        _draftSession = State(initialValue: PrivateChatDraftSession(incoming: initialDraft))
         _vm = State(initialValue: ChatViewModel(bot: bot, api: api, repository: repository))
         _attachment = State(initialValue: ComposerAttachmentModel(botID: bot.id, api: api))
     }
@@ -204,15 +205,19 @@ struct ChatView: View {
             Text(BotDeletion.message(vm.bot.name))
         }
         .sheet(isPresented:$showTasks){NavigationStack{TaskListView(botID:vm.bot.id,botName:vm.bot.name)}}
-        .task {
-            if !initialDraftLoaded {
-                let existing = await vm.loadDraft()
-                guard !Task.isCancelled else { return }
-                let preserved = FeedChatDraft.merging(existing: existing, incoming: input.isEmpty ? nil : input)
-                input = FeedChatDraft.merging(existing: preserved, incoming: initialDraft)
-                initialDraftLoaded = true
-                await vm.saveDraft(input)
-            }
+        .task(id: app.selectedTab) {
+            guard app.selectedTab == hostingTab else { return }
+            draftSaveTask?.cancel()
+            let entry = draftSession.begin()
+            input = ""
+            let existing = await vm.loadDraft()
+            guard !Task.isCancelled, app.selectedTab == hostingTab else { return }
+            // Read the buffer directly as onChange may not have delivered the latest keystroke yet.
+            draftSession.edit(input)
+            guard let hydrated = draftSession.hydrate(saved: existing, entry: entry) else { return }
+            input = hydrated
+            await saveActiveDraft()
+            guard !Task.isCancelled, draftSession.isActive, app.selectedTab == hostingTab else { return }
             pageVisible = true; vm.activityRepository = app.activityRepository
             vm.preferredAddress = app.displayName
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
@@ -273,9 +278,15 @@ struct ChatView: View {
                 Task { await resumeFromBackground() }
             }
         }
-        .onChange(of: app.sessionGeneration) { _, _ in pageVisible = false; reading.leave(); vm.leave() }
+        .onChange(of: app.sessionGeneration) { _, _ in
+            draftSaveTask?.cancel(); _ = draftSession.leave()
+            pageVisible = false; reading.leave(); vm.leave()
+        }
         .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）
         .onDisappear {
+            draftSaveTask?.cancel()
+            draftSession.edit(input)
+            if let text = draftSession.leave() { Task { await vm.saveDraft(text) } }
             pageVisible = false; vm.leave()
             if !hasTemporaryCover { endReadingSession() }
             focused = false
@@ -293,7 +304,7 @@ struct ChatView: View {
         if next != followsBottom { followsBottom = next }
     }
     private var hasTemporaryCover: Bool { showInfo || showTasks || showMemoryList || showPhotos || showFiles || showCamera || cameraDenied || browserCovered || travelTripToShow != nil || confirmClearConversation || confirmDeleteBot }
-    private var canRead: Bool { pageVisible && scenePhase == .active && ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) && !hasTemporaryCover }
+    private var canRead: Bool { pageVisible && scenePhase == .active && app.selectedTab == hostingTab && ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) && !hasTemporaryCover }
 
     /// 先查相机权限：未决定时系统弹窗；已拒绝则提示前往设置
     private func openCamera() {
@@ -337,7 +348,7 @@ struct ChatView: View {
         showInfo || showTasks || showMemoryList || showPhotos || showCamera || showFiles || travelTripToShow != nil
     }
     private func updateNotificationVisibility() {
-        guard pageVisible, ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) else { return }
+        guard pageVisible, app.selectedTab == hostingTab, ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) else { return }
         app.notificationEvents.visibleBotID = vm.bot.id
         app.notificationEvents.visibleGroupID = nil
         guard scenePhase == .active, !notificationModalShown else { app.notificationEvents.visibleMessageIDs = []; return }
@@ -515,15 +526,18 @@ struct ChatView: View {
         .padding(.top, 4)
         .padding(.bottom, 8)
         .onChange(of: input) { old, new in
+            guard draftSession.edit(new) else { return }
             draftSaveTask?.cancel()
-            draftSaveTask = Task {
-                try? await Task.sleep(for: .milliseconds(300))
-                guard !Task.isCancelled else { return }
-                await vm.saveDraft(new)
+            if !draftSession.isHydrating {
+                draftSaveTask = Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }
+                    await saveActiveDraft()
+                }
             }
             // 多行输入框（axis: .vertical）里 return 会插入换行：把「只多了一个换行」视为按下发送键，
             // 恢复原文并发送；粘贴的多行文本（一次多于一个字符）保留换行
-            if new.count == old.count + 1,
+            if !draftSession.isHydrating, new.count == old.count + 1,
                new.filter({ $0 == "\n" }).count == old.filter({ $0 == "\n" }).count + 1 {
                 input = old
                 send()
@@ -534,11 +548,7 @@ struct ChatView: View {
                 input = speechBase + speech.transcript   // 实时写入部分识别结果，由用户确认后发送
             }
         }
-        .onDisappear {
-            draftSaveTask?.cancel()
-            Task { await vm.saveDraft(input) }
-            speech.cancel()
-        }
+        .onDisappear { speech.cancel() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { speech.cancel() }   // 进入后台立即释放麦克风 / 音频会话
         }
@@ -563,6 +573,16 @@ struct ChatView: View {
 
     private static let barHeight: CGFloat = 48
 
+    private func saveActiveDraft() async {
+        guard !Task.isCancelled, app.selectedTab == hostingTab else { return }
+        draftSession.edit(input)
+        guard let write = draftSession.pendingWrite,
+              draftSession.canSave(write) else { return }
+        await vm.saveDraft(write.text)
+        guard !Task.isCancelled else { return }
+        draftSession.acknowledge(write)
+    }
+
     /// 发送：键盘 return 键触发；只在提交中暂缓，后续独立消息由服务端排队。
     /// 有图时可以只发图片；图片处理 / 上传中或上传失败时不发送（输入栏上方显示状态）。
     /// 离开对话：清掉本次阅读状态，并把期间到达的回复一并标为已读。
@@ -580,7 +600,7 @@ struct ChatView: View {
     }
 
     private func send() {
-        guard travelStore.activeTrip(botID: vm.bot.id) == nil else { return }
+        guard !draftSession.isHydrating, travelStore.activeTrip(botID: vm.bot.id) == nil else { return }
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !vm.sending, vm.replyInProgress == nil, !attachment.blocksSend else { return }
         guard !text.isEmpty || attachment.ready != nil else { return }
