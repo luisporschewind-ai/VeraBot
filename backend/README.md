@@ -1,5 +1,11 @@
 # VeraBot Backend (后端) — v0.1.0
 
+## 个性化 Feed 后台（2026-10-17，未发布）
+
+独立Feed模块及v36迁移位于personal-feed工作区；使用 `/api/feed/*` 管理关注计划、来源、阅读状态和引用草稿。先初始化明确指定的隔离数据库，再单独运行 `python -m verabot.services.feed`；worker不负责迁移，普通API启动沿用现有迁移行为，因此不要把未评审部署指向正式库。本机fake-IP DNS环境显式使用 `VERABOT_FEED_DOH=1`。
+
+采集不需要模型密钥；本版采用公开RSS/Atom/媒体订阅和有权限的本地主题建议。运行、额度、来源限制及API见[Feed说明](verabot/services/feed/README.md)，测试与部署边界见[记录](../docs/testing/2026-10-17-personal-feed.md)。
+
 2026-10-16：私聊、群聊请求的 `attachment_ids` 上限调整为 9，沿用现有上传、绑定、回执及账号隔离机制，无数据库迁移。iOS 相册多图直接发送，详见 [修改记录](../docs/tasks/2026-10-16-direct-multi-image-send.md)。
 
 FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话、工具调用、多 Agent 委派、用量统计。

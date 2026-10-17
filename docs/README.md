@@ -1,5 +1,8 @@
 # 文档索引 (Docs index)
 
+- [Bot 个性化 Feed](tasks/2026-10-17-personal-feed.md)：统一信息流、底部「发现」Tab、后台采集与当前实施状态。
+- [Feed 验证记录](testing/2026-10-17-personal-feed.md)：四类真实来源、HTTP/回归证据、原生与用户验收边界。
+
 - [2026-10-16 Main 集成与 schema v35](tasks/2026-10-16-main-integration.md)
 
 主 Bot第一版已实现并集成本地main，当前自动验证与手动入口见[交付记录](testing/2026-10-13-primary-bot.md)，运行说明见[后台模块](../backend/verabot/services/owned_tasks/README.md)。代码已合入本地main，常驻后台尚未部署。

@@ -70,7 +70,7 @@ class MigrationTests(unittest.TestCase):
                 c.execute(f'DROP TABLE {name}')
             c.execute("UPDATE schema_meta SET value='33' WHERE key='version'")
             apply(c)
-            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], '35')
+            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], str(db.SCHEMA_VERSION))
             self.assertIsNotNone(c.execute('SELECT id FROM library_items WHERE id=?', (aid,)).fetchone())
             self.assertIsNotNone(c.execute('SELECT item_id FROM library_sources WHERE item_id=?', (aid,)).fetchone())
             before = c.execute('SELECT COUNT(*) FROM library_changes').fetchone()[0]

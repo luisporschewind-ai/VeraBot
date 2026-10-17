@@ -82,7 +82,7 @@ cols = {r[1] for r in con.execute("PRAGMA table_info(chat_reply_tasks)")} & {r[1
 triggers = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'supersede%'")}
 con.close()
 check("STALE-01", "schema v35：superseded_at 列与触发器，init 幂等",
-      ver == "35" and db.SCHEMA_VERSION == 35 and "superseded_at" in cols and len(triggers) == 5,
+      ver == str(db.SCHEMA_VERSION) and db.SCHEMA_VERSION >= 35 and "superseded_at" in cols and len(triggers) == 5,
       f"ver={ver} triggers={sorted(triggers)}")
 
 
@@ -336,7 +336,7 @@ con.close()
 backups = glob.glob(DB + ".bak-before-v35-*")
 s_a, s_b = summary(BID_MIG_A), summary(BID_MIG_B)
 check("MIG-01", "v32 → v35：之后有正常完成回复的中断任务 / 主动失败被标记，会话为 idle",
-      ver == "35" and flags[stale_a] and owned_flags[stale_owned] and s_a["state"] == "idle" and s_a["work_items"] == [],
+      ver == str(db.SCHEMA_VERSION) and db.SCHEMA_VERSION >= 35 and flags[stale_a] and owned_flags[stale_owned] and s_a["state"] == "idle" and s_a["work_items"] == [],
       f"flags={flags} owned={owned_flags} state={s_a['state']}")
 check("MIG-02", "v32 → v35：真正最新的失败 / 中断不标记，照常上报",
       not flags[latest_b] and not owned_flags[latest_owned] and s_b["state"] == "failed"

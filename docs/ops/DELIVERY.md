@@ -49,3 +49,9 @@ docker compose up -d --build         # 端口 ${PORT:-8000}；数据持久化到
 - [ ] `scripts/package_backend.sh` 生成 zip；`unzip -l` 确认不含 `.env` / `*.db` / `.venv`
 - [ ] 在全新临时目录解压并用其他端口启动：`PORT=8765 ./start.sh --detach` → `/api/health` 正常 → `./stop.sh`
 - [ ] `git tag vX.Y.Z`
+
+## Feed 首版交付边界（2026-10-17）
+
+开发工作区新增schema v36，不等于正式环境已部署。正式发布前应另行备份并验证数据库升级，再使API和单个Feed worker使用同一版本和绝对数据库路径；worker本身不负责迁移。来源可失效或超出读取上限，部署时保留来源状态与用量/候选约束。新Tab必须配套新版API；旧后端404应在界面如实提示而非显示假内容。
+
+本轮隔离服务/模拟器与用户手动验收分别记载于[Feed交付记录](../testing/2026-10-17-personal-feed.md)，不从测试或构建成功推断真机交互、持续运行或生产验收通过。

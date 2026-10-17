@@ -109,6 +109,9 @@ struct MainTabView: View {
             ExploreIdeasView()
                 .tabItem { Label("探索", systemImage: "sparkle.magnifyingglass") }
                 .tag(4)
+            FeedView()
+                .tabItem { Label("发现", systemImage: "newspaper") }
+                .tag(5)
         }
         .task {
             await app.refreshProfile()
