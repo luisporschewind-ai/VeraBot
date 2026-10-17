@@ -1,5 +1,9 @@
 # 项目状态 (STATUS) — 2026-10-17
 
+## 2026-10-17 · 隐藏对话内待同步提示文案
+
+- iOS 私聊 notice / 群「进度待同步」/ MCP·插件「等待同步」对用户不可见；同步与恢复逻辑及「连接有点慢」横幅保留。未跑 git / xcodebuild / swift test。
+
 ## 2026-10-17 · 会话列表隐藏「待同步」行标
 
 - iOS 会话列表 Bot 行去掉预览下灰色「待同步」标签，行高恢复正常；`activityNeedsSync` 与顶部连接横幅保留。群行本就无该标。未跑 git / xcodebuild / swift test。

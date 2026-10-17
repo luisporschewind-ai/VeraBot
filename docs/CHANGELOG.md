@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-17 · 隐藏对话内待同步提示文案
+
+- iOS：私聊恢复/观测失败不再把 notice 设为「待同步；已接收的回复会继续执行。」（仍 `scheduleRecovery`）；群执行状态去掉「进度待同步」行（`executionSyncPending` 逻辑保留）；MCP/插件 `syncStatusText` 在 pending（及 MCP 缺省 pending）时返回 nil，详情「同步」行整行省略，`statusText` 不再显示「等待同步」。内部 `error.contains("待同步")` 与「连接有点慢」横幅未改。未跑 git / xcodebuild / swift test。
+
 ## 2026-10-17 · 会话列表隐藏「待同步」行标
 
 - iOS 会话列表（`BotRow`）：预览下方不再渲染灰色「待同步」caption，行高恢复为名称 + 预览两行（另有进行中项时仍可多一行）。`activityNeedsSync` 等内部同步逻辑与顶部「连接有点慢」横幅不变。群行此前已无该标。未跑 git / xcodebuild / swift test。
