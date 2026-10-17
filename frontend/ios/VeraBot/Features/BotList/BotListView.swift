@@ -119,13 +119,14 @@ struct BotListView: View {
                 open(link)
             }
             .toolbar {
-                // iOS 26：关掉系统工具栏共享玻璃胶囊底，改用与 JumpToLatestButton 相同的正圆玻璃；
-                // 头像外径与右侧搜索 / ＋ 圆形按钮等大，照片内缩约 2.5pt 露白环。
+                // iOS 26：关掉共享玻璃胶囊底，自绘正圆玻璃（白环 + 阴影）；外径对齐系统工具栏圆形按钮
+                //（44pt，与右侧 ＋ 同径），左移 4pt 使左边距与 ＋ 右边距同为 16pt。
                 if #available(iOS 26.0, *) {
-                    // 隐藏共享玻璃底后，头像仍按玻璃按钮的内边距排版，左边距（30pt）比右侧＋按钮的右边距（≈16pt）大；
-                    // 左移 14pt 让左右两侧到屏幕边缘的距离一致。
-                    ToolbarItem(placement: .topBarLeading) { settingsLink(avatarSize: 44).offset(x: -14) }
-                        .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .topBarLeading) {
+                        settingsLink(avatarSize: HomeAvatarMetrics.toolbarGlassDiameter)
+                            .offset(x: HomeAvatarMetrics.leadingCorrection)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
                 } else {
                     ToolbarItem(placement: .topBarLeading) { settingsLink(avatarSize: 30) }
                 }
@@ -196,7 +197,7 @@ struct BotListView: View {
         }).toolbar(.hidden, for: .tabBar)
     }
 
-    /// 首页左上角：白玻璃圆底 + 内嵌头像（约 2.5pt 白环），与右侧搜索 / ＋ 同款玻璃；点按弹出设置页。
+    /// 首页左上角：白玻璃圆底 + 内嵌头像（约 2.5pt 白环）；iOS 26 外径与系统工具栏 ＋ 同径并共用其左右边距；点按弹出设置。
     private func settingsLink(avatarSize: CGFloat) -> some View {
         Button { showSettings = true } label: {
             HomeAvatarLabel(name: app.displayName, image: app.avatars.userImage, size: avatarSize)
