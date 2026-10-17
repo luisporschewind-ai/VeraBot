@@ -43,7 +43,7 @@ if importlib.util.find_spec('verabot.db.feed_store'):
             self.assertEqual(self.plan().status_code,409)
         def test_migration_idempotent_from_v35(self):
             with db.tx() as c:
-                for table in ('feed_item_recommendations','feed_items','feed_sources','feed_plans'): c.execute('DROP TABLE '+table)
+                for table in ('feed_pending_candidates','feed_item_recommendations','feed_items','feed_sources','feed_plans'): c.execute('DROP TABLE IF EXISTS '+table)
                 c.execute("UPDATE schema_meta SET value='35' WHERE key='version'")
             db.init_db(); db.init_db()
             with db.tx() as c:
@@ -90,6 +90,65 @@ if importlib.util.find_spec('verabot.db.feed_store'):
                 self.assertEqual(err.exception.status,404)
             self.assertFalse(service.item(1,iid)['saved'])
             self.assertTrue(service.sources(1)[0]['enabled'])
+
+        def test_multisource_fair_share_and_pending_survive_next_day_304(self):
+            self.plan()
+            sources=[service.add_source(1,dict(name=kind,url=f'https://example.com/{kind}.xml',kind=kind,bot_id=1)) for kind in ('news','audio','video')]
+            def collect(job):
+                return dict(entries=[dict(kind=job['kind'],title=str(i),url=f"https://example.com/{job['kind']}/{i}",summary='actual',summary_basis='description') for i in range(20)],etag=job['kind']+'-etag')
+            for _ in sources: self.assertTrue(worker.process_one(collect,lambda:NOW.isoformat()))
+            first=service.items(1,limit=100)['items']
+            self.assertEqual({kind:sum(i['kind']==kind for i in first) for kind in ('news','audio','video')},dict(news=6,audio=6,video=6))
+            # A restarted worker receives only304; the fetched but unpublished content persists.
+            following=(NOW+timedelta(days=1)).isoformat()
+            def not_modified(job): return dict(entries=[],etag=job['etag'])
+            for _ in sources: self.assertTrue(worker.process_one(not_modified,lambda:following))
+            second=service.items(1,limit=100)['items']
+            self.assertEqual({kind:sum(i['kind']==kind for i in second) for kind in ('news','audio','video')},dict(news=12,audio=12,video=12))
+            with db.tx() as c:
+                self.assertEqual(c.execute('SELECT COUNT(*) FROM feed_pending_candidates').fetchone()[0],24)
+        def test_more_than_twenty_source_urls_rotate_without_starvation(self):
+            self.plan()
+            for i in range(21): service.add_source(1,dict(name=str(i),url=f'https://example.com/rotate/{i}',kind='news',bot_id=1))
+            def collect(job):
+                return dict(entries=[dict(kind='news',title=str(job['id']),url=f"https://example.com/rotation-item/{job['id']}",summary='actual',summary_basis='description')])
+            for _ in range(21): worker.process_one(collect,lambda:NOW.isoformat())
+            self.assertEqual(len(service.items(1,limit=100)['items']),20)
+            for _ in range(21): worker.process_one(lambda _:dict(entries=[]),lambda:(NOW+timedelta(days=1)).isoformat())
+            self.assertEqual(len(service.items(1,limit=100)['items']),21)
+
+        def test_newest_first_dates_and_missing_date_feed_order(self):
+            self.plan(); self.source()
+            dated=[dict(kind='news',title=str(i),url=f'https://example.com/dated/{i}',published_at=f'2026-09-{i:02}T00:00:00+00:00',summary='actual',summary_basis='description') for i in range(30,0,-1)]
+            worker.process_one(lambda _:dict(entries=dated),lambda:NOW.isoformat())
+            self.assertEqual([i['title'] for i in service.items(1)['items']],[str(i) for i in range(30,10,-1)])
+            with db.tx() as c: c.execute('UPDATE feed_sources SET next_fetch_at=NULL')
+            undated=[dict(kind='news',title=str(i),url=f'https://example.com/undated/{i}',summary='actual',summary_basis='description') for i in (6,5,4)]
+            worker.process_one(lambda _:dict(entries=undated),lambda:(NOW+timedelta(days=1)).isoformat())
+            self.assertEqual([i['title'] for i in service.items(1)['items'][:3]],['6','5','4'])
+        def test_cached_candidates_pause_fence_and_bound(self):
+            self.plan(); source=self.source()
+            entries=[dict(kind='news',title=str(i),url=f'https://example.com/pending/{i}',summary='actual',summary_basis='description') for i in range(250)]
+            worker.process_one(lambda _:dict(entries=entries),lambda:NOW.isoformat())
+            with db.tx(immediate=True) as c:
+                self.assertLessEqual(c.execute('SELECT COUNT(*) FROM feed_pending_candidates').fetchone()[0],200)
+                c.execute('UPDATE feed_sources SET next_fetch_at=NULL')
+                job=store.claim(c,(NOW+timedelta(days=1)).isoformat(),300)
+            service.toggle_source(1,source['id'],False)
+            with db.tx(immediate=True) as c:
+                self.assertEqual(store.complete(c,job,[],(NOW+timedelta(days=1)).isoformat()),0)
+            self.assertEqual(len(service.items(1,saved_only=True)['items']),0)
+        def test_pending_same_source_url_multiple_bots_share_one_budget(self):
+            with db.tx() as c: c.execute("INSERT INTO bots(id,user_id,name,created_at) VALUES(3,1,'other','x')")
+            self.plan(bot_ids=[1,3]); self.source(); self.source(3)
+            entries=[dict(kind='news',title=str(i),url=f'https://example.com/bot-shared/{i}',summary='actual',summary_basis='description') for i in range(25)]
+            for _ in range(2): worker.process_one(lambda _:dict(entries=entries),lambda:NOW.isoformat())
+            first=service.items(1,limit=100)['items']; self.assertEqual(len(first),20)
+            self.assertTrue(all({r['bot_id'] for r in i['recommended_by']}=={1,3} for i in first))
+            following=(NOW+timedelta(days=1)).isoformat()
+            for _ in range(2): worker.process_one(lambda _:dict(entries=[]),lambda:following)
+            second=service.items(1,limit=100)['items']; self.assertEqual(len(second),25)
+            self.assertTrue(all({r['bot_id'] for r in i['recommended_by']}=={1,3} for i in second))
 
         def test_same_url_multiple_bot_association(self):
             with db.tx() as c: c.execute("INSERT INTO bots(id,user_id,name,created_at) VALUES(3,1,'other','x')")

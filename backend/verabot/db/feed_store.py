@@ -86,32 +86,72 @@ def live_job(c,job,now):
     if s['revision']!=job['revision'] or p['version']!=job['plan_version'] or not eligible(c,s,p): return None
     return s,p
 
+def publication_allowance(c,source,p,now):
+    """Daily ceiling per distinct eligible source URL; duplicate Bot subscriptions share it."""
+    uid=source['user_id']
+    enabled=rows(c.execute('SELECT * FROM feed_sources WHERE user_id=? AND enabled=1',(uid,)).fetchall())
+    urls=sorted({s['url'] for s in enabled if eligible(c,s,p)})
+    if not urls: return 0
+    if len(urls)>20:
+        # A deterministic daily rotating window lets every configured source take a turn.
+        offset=(datetime.fromisoformat(now).date().toordinal()*20)%len(urls)
+        selected={urls[(offset+i)%len(urls)] for i in range(20)}
+        if source['url'] not in selected: return 0
+    ceiling=max(1,20//len(urls))
+    used=c.execute('SELECT COUNT(*) FROM feed_items i JOIN feed_sources s ON s.id=i.source_id AND s.user_id=i.user_id '
+                   'WHERE i.user_id=? AND s.url=? AND substr(i.created_at,1,10)=?',
+                   (uid,source['url'],now[:10])).fetchone()[0]
+    return max(0,ceiling-used)
+
+def stage_candidates(c,source,entries,now):
+    """Keep at most 200 newest actual feed candidates, independently of published Feed items."""
+    uid=source['user_id']; sid=source['id']
+    for ordinal,entry in enumerate(entries[:200]):
+        c.execute('INSERT INTO feed_pending_candidates(user_id,source_id,url,payload,published_at,fetched_at,ordinal) '
+                  'VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,source_id,url) DO UPDATE SET '
+                  'payload=excluded.payload,published_at=excluded.published_at,fetched_at=excluded.fetched_at,ordinal=excluded.ordinal',
+                  (uid,sid,entry['url'],json.dumps(entry,ensure_ascii=False),entry.get('published_at'),now,ordinal))
+    c.execute('DELETE FROM feed_pending_candidates WHERE user_id=? AND source_id=? AND id NOT IN ('
+              'SELECT id FROM feed_pending_candidates WHERE user_id=? AND source_id=? '
+              'ORDER BY COALESCE(published_at,fetched_at) DESC,ordinal ASC,id DESC LIMIT 200)',(uid,sid,uid,sid))
+
 def complete(c,job,entries,now,etag=None,modified=None):
     live=live_job(c,job,now)
     if not live: return 0
     s,p=live; uid=s['user_id']
-    day=now[:10]
-    count=c.execute('SELECT COUNT(*) FROM feed_items WHERE user_id=? AND substr(created_at,1,10)=?',(uid,day)).fetchone()[0]
-    published=0
-    for entry in entries:
+    # Validators can advance only after fetched candidates are retained atomically.
+    # A 304 has no new entries and drains this same durable queue under current fences.
+    stage_candidates(c,s,entries,now)
+    count=c.execute('SELECT COUNT(*) FROM feed_items WHERE user_id=? AND substr(created_at,1,10)=?',(uid,now[:10])).fetchone()[0]
+    allowance=min(20-count,publication_allowance(c,s,p,now))
+    pending=rows(c.execute('SELECT * FROM feed_pending_candidates WHERE user_id=? AND source_id=? '
+                          'ORDER BY COALESCE(published_at,fetched_at) DESC,ordinal ASC,id DESC',(uid,s['id'])).fetchall())
+    selected=[]
+    for candidate in pending:
+        entry=json.loads(candidate['payload'])
         if any(t.casefold() in (entry['title']+' '+entry['summary']).casefold() for t in p['excluded_topics']): continue
         existing=c.execute('SELECT id FROM feed_items WHERE user_id=? AND url=?',(uid,entry['url'])).fetchone()
-        if existing: iid=existing[0]
-        else:
-            if count>=20: continue
-            keys=('kind','title','url','author','published_at','summary','summary_basis','image_url','media_url','duration_seconds')
-            iid=c.execute('INSERT INTO feed_items(user_id,source_id,created_at,'+','.join(keys)+') VALUES('+','.join('?'*13)+')',
-                          (uid,s['id'],now,*(entry.get(k) for k in keys))).lastrowid
-            count+=1; published+=1
-        # Reasons contain only public provenance; never persist private memory text or inferred topics.
-        reason='来自你启用的订阅来源'
-        c.execute('INSERT OR IGNORE INTO feed_item_recommendations(user_id,item_id,source_id,bot_id,reason) VALUES(?,?,?,?,?)',
-                  (uid,iid,s['id'],s['bot_id'],reason))
+        if existing:
+            iid=existing[0]
+            c.execute('INSERT OR IGNORE INTO feed_item_recommendations(user_id,item_id,source_id,bot_id,reason) VALUES(?,?,?,?,?)',
+                      (uid,iid,s['id'],s['bot_id'],'来自你启用的订阅来源'))
+            c.execute('DELETE FROM feed_pending_candidates WHERE user_id=? AND source_id=? AND id=?',(uid,s['id'],candidate['id']))
+        elif len(selected)<allowance:
+            selected.append((candidate,entry))
+    # Select the newest first, then assign larger stable IDs to newer members.
+    # Unknown dates fall back to fetch time plus original newest-first document order.
+    for candidate,entry in reversed(selected):
+        keys=('kind','title','url','author','published_at','summary','summary_basis','image_url','media_url','duration_seconds')
+        iid=c.execute('INSERT INTO feed_items(user_id,source_id,created_at,'+','.join(keys)+') VALUES('+','.join('?'*13)+')',
+                      (uid,s['id'],now,*(entry.get(k) for k in keys))).lastrowid
+        c.execute('INSERT INTO feed_item_recommendations(user_id,item_id,source_id,bot_id,reason) VALUES(?,?,?,?,?)',
+                  (uid,iid,s['id'],s['bot_id'],'来自你启用的订阅来源'))
+        c.execute('DELETE FROM feed_pending_candidates WHERE user_id=? AND source_id=? AND id=?',(uid,s['id'],candidate['id']))
     next_at=(datetime.fromisoformat(now)+timedelta(hours=2)).isoformat()
     c.execute('UPDATE feed_sources SET last_success_at=?,next_fetch_at=?,failure_count=0,last_error=NULL,etag=?,modified=?,'
               'lease_token=NULL,lease_until=NULL WHERE user_id=? AND id=? AND lease_token=?',
               (now,next_at,etag or s['etag'],modified or s['modified'],uid,s['id'],job['lease_token']))
-    return published
+    return len(selected)
 
 def fail(c,job,error,now):
     live=live_job(c,job,now)

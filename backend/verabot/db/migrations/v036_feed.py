@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS feed_items(
  UNIQUE(user_id,url));
 CREATE INDEX IF NOT EXISTS feed_items_user ON feed_items(user_id,id);
 CREATE INDEX IF NOT EXISTS feed_items_budget ON feed_items(user_id,created_at);
+CREATE TABLE IF NOT EXISTS feed_pending_candidates(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ source_id INTEGER NOT NULL REFERENCES feed_sources(id) ON DELETE CASCADE,
+ url TEXT NOT NULL,payload TEXT NOT NULL,published_at TEXT,fetched_at TEXT NOT NULL,ordinal INTEGER NOT NULL,
+ UNIQUE(user_id,source_id,url));
+CREATE INDEX IF NOT EXISTS feed_pending_source ON feed_pending_candidates(user_id,source_id);
 CREATE TABLE IF NOT EXISTS feed_item_recommendations(
  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
  item_id INTEGER NOT NULL REFERENCES feed_items(id) ON DELETE CASCADE,
