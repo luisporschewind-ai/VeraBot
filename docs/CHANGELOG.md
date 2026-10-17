@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-17 · 会话列表隐藏「待同步」行标
+
+- iOS 会话列表（`BotRow`）：预览下方不再渲染灰色「待同步」caption，行高恢复为名称 + 预览两行（另有进行中项时仍可多一行）。`activityNeedsSync` 等内部同步逻辑与顶部「连接有点慢」横幅不变。群行此前已无该标。未跑 git / xcodebuild / swift test。
+
 ## 2026-10-17 · 对话标题胶囊与侧栏按钮等高
 
 - iOS 私聊 / 群聊导航栏标题胶囊（头像 26pt + 名称）：不再用 `.glass` 按钮样式叠 `minHeight: 44`（系统内边距会让胶囊高于两侧 44pt 圆形玻璃按钮）。iOS 26 改为 plain 按钮 + label `height: 44` + `.glassEffect(.regular.interactive(), in: Capsule())`（水平约 12pt）；旧系统保留 bordered 胶囊。点击目标、无障碍文案、头像与字体不变。
