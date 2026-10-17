@@ -42,7 +42,13 @@ struct LiveBotAvatar: View {
         }
         .overlay(alignment:.bottomTrailing) {
             if app.primaryBotID == botID {
-                Image(systemName:"star.circle.fill").font(.system(size:max(14,size*0.3))).foregroundStyle(Color.accentColor,Color.appBackground).accessibilityLabel("主 Bot")
+                // 列表 44pt：≈14pt（约 32%）。小头像去掉 14pt 下限，否则 title pill 26pt 上星标≈54% 盖住脸。
+                let badge = min(max(14, size * 0.3), size * 0.38)
+                Image(systemName: "star.circle.fill")
+                    .font(.system(size: badge))
+                    .foregroundStyle(Color.accentColor, Color.appBackground)
+                    .offset(x: size < 40 ? size * 0.08 : 0, y: size < 40 ? size * 0.08 : 0)
+                    .accessibilityLabel("主 Bot")
             }
         }
         .task(id: "\(botID)|\(hasAvatar)|\(updatedAt ?? "")") {
