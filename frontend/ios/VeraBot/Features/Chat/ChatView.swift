@@ -77,7 +77,7 @@ struct ChatView: View {
         .id(item.messageID.map { "m\($0)" } ?? item.id.uuidString)
     }
 
-    var body: some View {
+    private var chatViewport: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -137,6 +137,10 @@ struct ChatView: View {
                 .padding(.bottom, 8)
             }
         }
+    }
+
+    private var chatPresentation: some View {
+        chatViewport
         .bottomBar {
             VStack(spacing: 8) {
                 if let notice = vm.notice {
@@ -205,31 +209,11 @@ struct ChatView: View {
             Text(BotDeletion.message(vm.bot.name))
         }
         .sheet(isPresented:$showTasks){NavigationStack{TaskListView(botID:vm.bot.id,botName:vm.bot.name)}}
-        .task(id: app.selectedTab) {
-            guard app.selectedTab == hostingTab else { return }
-            draftSaveTask?.cancel()
-            let entry = draftSession.begin()
-            input = ""
-            let existing = await vm.loadDraft()
-            guard !Task.isCancelled, app.selectedTab == hostingTab else { return }
-            // Read the buffer directly as onChange may not have delivered the latest keystroke yet.
-            draftSession.edit(input)
-            guard let hydrated = draftSession.hydrate(saved: existing, entry: entry) else { return }
-            input = hydrated
-            await saveActiveDraft()
-            guard !Task.isCancelled, draftSession.isActive, app.selectedTab == hostingTab else { return }
-            pageVisible = true; vm.activityRepository = app.activityRepository
-            vm.preferredAddress = app.displayName
-            if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
-            async let activityRefresh: Void = app.refreshActivityForEntry()
-            await vm.load {
-                if !entered, let target = highlightMessageID ?? reading.dividerMessageID { await vm.ensureMessageLoaded(target) }
-                initialPositionReady = true; vm.scrollTick += 1
-            }
-            await activityRefresh
-            await app.markConversationRead(kind: "private", id: vm.bot.id)
-            if quickPromptsEnabled { await vm.refreshQuickPrompts() }
-        }
+    }
+
+    private var chatLifecycle: some View {
+        chatPresentation
+        .task(id: app.selectedTab) { await enterChat() }
         .onChange(of: notificationModalShown) { _, _ in updateNotificationVisibility() }
         .onChange(of: scenePhase) { _, _ in updateNotificationVisibility() }
         .onDisappear {
@@ -278,6 +262,10 @@ struct ChatView: View {
                 Task { await resumeFromBackground() }
             }
         }
+    }
+
+    var body: some View {
+        chatLifecycle
         .onChange(of: app.sessionGeneration) { _, _ in
             draftSaveTask?.cancel(); _ = draftSession.leave()
             pageVisible = false; reading.leave(); vm.leave()
@@ -572,6 +560,32 @@ struct ChatView: View {
     }
 
     private static let barHeight: CGFloat = 48
+
+    private func enterChat() async {
+        guard app.selectedTab == hostingTab else { return }
+        draftSaveTask?.cancel()
+        let entry = draftSession.begin()
+        input = ""
+        let existing = await vm.loadDraft()
+        guard !Task.isCancelled, app.selectedTab == hostingTab else { return }
+        // Read the buffer directly as onChange may not have delivered the latest keystroke yet.
+        draftSession.edit(input)
+        guard let hydrated = draftSession.hydrate(saved: existing, entry: entry) else { return }
+        input = hydrated
+        await saveActiveDraft()
+        guard !Task.isCancelled, draftSession.isActive, app.selectedTab == hostingTab else { return }
+        pageVisible = true; vm.activityRepository = app.activityRepository
+        vm.preferredAddress = app.displayName
+        if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
+        async let activityRefresh: Void = app.refreshActivityForEntry()
+        await vm.load {
+            if !entered, let target = highlightMessageID ?? reading.dividerMessageID { await vm.ensureMessageLoaded(target) }
+            initialPositionReady = true; vm.scrollTick += 1
+        }
+        await activityRefresh
+        await app.markConversationRead(kind: "private", id: vm.bot.id)
+        if quickPromptsEnabled { await vm.refreshQuickPrompts() }
+    }
 
     private func saveActiveDraft() async {
         guard !Task.isCancelled, app.selectedTab == hostingTab else { return }

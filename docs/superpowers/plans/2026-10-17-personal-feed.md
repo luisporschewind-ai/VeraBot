@@ -61,7 +61,7 @@
 **Interfaces:** Tasks 1–2 API/UI contracts and worker; isolated temporary backend / live source checks, existing Intel simulator.
 
 - [x] Run actual fetch against selected public feeds, record source failures honestly; no production database access required.
-- [ ] Run full Feed/backend relevant regression and complete Swift Kit, then one Intel simulator build; fix actual failures using tests first.
-- [ ] Review complete immutable commit diff with a fresh reviewer, address correctness/privacy findings before delivery.
-- [ ] Document implementation and missing platform connectors separately, scope current status to this worktree. Distinguish automated tests, build, install, live source check and user acceptance.
-- [ ] Commit docs, leave worktree reviewable, no implicit main merge or push.
+- [x] Run full Feed/backend relevant regression and complete Swift Kit, then one Intel simulator build; fix actual failures using tests first.
+- [x] Review complete immutable commit diff with a fresh reviewer, address correctness/privacy findings before delivery.
+- [x] Document implementation and missing platform connectors separately, scope current status to this worktree. Distinguish automated tests, build, install, live source check and user acceptance.
+- [x] Commit docs, leave worktree reviewable, no implicit main merge or push.
