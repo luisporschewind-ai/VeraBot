@@ -114,3 +114,6 @@ app.include_router(conversation_activity.router)
 # Durable user library; independent of message/attachment retention.
 from .api.routers import library as library_router
 app.include_router(library_router.router)
+
+from .api.routers import feed
+app.include_router(feed.router)
