@@ -63,7 +63,9 @@ struct PluginDetailView: View {
 
                 Section {
                     LabeledContent("状态", value: plugin.stateTitle)
-                    LabeledContent("同步", value: plugin.syncStatusText)
+                    if let sync = plugin.syncStatusText {
+                        LabeledContent("同步", value: sync)
+                    }
                     LabeledContent("上次同步", value: timeLabel(plugin.lastSyncedAt, empty: "尚未同步"))
                     LabeledContent("熔断", value: plugin.circuitText)
                     if plugin.circuitState == "open" {

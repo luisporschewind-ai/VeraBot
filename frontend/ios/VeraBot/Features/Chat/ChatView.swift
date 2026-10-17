@@ -153,9 +153,7 @@ struct ChatView: View {
         .toolbar {
             // 标题（头像 + 名称）可点击 → Bot 详情
             ToolbarItem(placement: .principal) {
-                botTitleButton
-                    .glassButtonStyle()   // iOS 26 Liquid Glass 胶囊；旧系统 bordered
-                    .buttonBorderShape(.capsule)
+                botTitleButton   // 外高固定 44pt，与两侧圆形玻璃按钮对齐
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -326,22 +324,45 @@ struct ChatView: View {
         }
     }
 
+    /// 标题胶囊：外高 44pt，与工具栏两侧圆形玻璃按钮同高。
+    /// iOS 26 用 plain + `.glassEffect` 控制外轮廓；旧系统 bordered 胶囊回退。
+    @ViewBuilder
     private var botTitleButton: some View {
         let action = BotAvatarState(vm.executionState)
-        return Button { focused = false; showInfo = true } label: {   // 弹出 sheet 前收起键盘
-            HStack(spacing: 6) {
-                LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
-                               hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt,
-                               size: 26, action: action, animated: true,
-                               appearance: vm.bot.supportedAppearance)
-                    .allowsHitTesting(false)
-                Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+        if #available(iOS 26.0, *) {
+            Button { focused = false; showInfo = true } label: {   // 弹出 sheet 前收起键盘
+                HStack(spacing: 6) {
+                    LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
+                                   hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt,
+                                   size: 26, action: action, animated: true,
+                                   appearance: vm.bot.supportedAppearance)
+                        .allowsHitTesting(false)
+                    Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 44)
+                .contentShape(Capsule())
+                .glassEffect(.regular.interactive(), in: Capsule())
             }
-            .padding(.horizontal, 6)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(vm.bot.name)，\(action.title)，查看 Bot 详情")
+        } else {
+            Button { focused = false; showInfo = true } label: {
+                HStack(spacing: 6) {
+                    LiveBotAvatar(botID: vm.bot.id, emoji: vm.bot.avatar, color: vm.bot.color,
+                                   hasAvatar: vm.bot.hasAvatar, updatedAt: vm.bot.avatarUpdatedAt,
+                                   size: 26, action: action, animated: true,
+                                   appearance: vm.bot.supportedAppearance)
+                        .allowsHitTesting(false)
+                    Text(vm.bot.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+                }
+                .padding(.horizontal, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .accessibilityLabel("\(vm.bot.name)，\(action.title)，查看 Bot 详情")
         }
-        .accessibilityLabel("\(vm.bot.name)，\(action.title)，查看 Bot 详情")
     }
 
     private var notificationModalShown: Bool {

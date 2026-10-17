@@ -74,9 +74,9 @@ public struct Plugin: Decodable, Sendable, Hashable, Identifiable {
         }
     }
 
-    public var syncStatusText: String {
+    public var syncStatusText: String? {
         switch syncStatus ?? "" {
-        case "pending": return "等待同步"
+        case "pending": return nil
         case "syncing": return "正在同步"
         case "ok": return "已同步"
         case "error": return "同步失败"

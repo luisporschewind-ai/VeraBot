@@ -133,7 +133,7 @@ struct GroupChatView: View {
         .themedPageBackground().navigationTitle(model.group.name).navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                groupTitleButton.glassButtonStyle().buttonBorderShape(.capsule)
+                groupTitleButton   // 外高固定 44pt，与两侧圆形玻璃按钮对齐
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("群设置", systemImage: "ellipsis") { inputFocused = false; info = true }
@@ -518,18 +518,38 @@ struct GroupChatView: View {
         return (memberIDs, everyone)
     }
 
+    /// 标题胶囊：外高 44pt，与工具栏两侧圆形玻璃按钮同高。
+    /// iOS 26 用 plain + `.glassEffect` 控制外轮廓；旧系统 bordered 胶囊回退。
+    @ViewBuilder
     private var groupTitleButton: some View {
-        Button { inputFocused = false; info = true } label: {
-            HStack(spacing: 6) {
-                GroupMemberAvatarStack(members: model.group.members.filter(\.available), size: 26, overlap: 9)
-                    .allowsHitTesting(false)
-                Text(model.group.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+        if #available(iOS 26.0, *) {
+            Button { inputFocused = false; info = true } label: {
+                HStack(spacing: 6) {
+                    GroupMemberAvatarStack(members: model.group.members.filter(\.available), size: 26, overlap: 9)
+                        .allowsHitTesting(false)
+                    Text(model.group.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 44)
+                .contentShape(Capsule())
+                .glassEffect(.regular.interactive(), in: Capsule())
             }
-            .padding(.horizontal, 6)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(model.group.name)，\(model.group.members.count) 位伙伴，查看群聊设置")
+        } else {
+            Button { inputFocused = false; info = true } label: {
+                HStack(spacing: 6) {
+                    GroupMemberAvatarStack(members: model.group.members.filter(\.available), size: 26, overlap: 9)
+                        .allowsHitTesting(false)
+                    Text(model.group.name).font(.headline).foregroundStyle(.primary).lineLimit(1).layoutPriority(1)
+                }
+                .padding(.horizontal, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .accessibilityLabel("\(model.group.name)，\(model.group.members.count) 位伙伴，查看群聊设置")
         }
-        .accessibilityLabel("\(model.group.name)，\(model.group.members.count) 位伙伴，查看群聊设置")
     }
 
     private func send() {
