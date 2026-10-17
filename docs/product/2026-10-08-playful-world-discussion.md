@@ -220,7 +220,7 @@ Bot 的身份可以包含性格、形象、能力、兴趣和共同经历。人�
 
 - 工作与生活：Work／Task、个人助理、小工具联动（含 Trans Glass 相关想法）。
 - 安静与陪伴：共同阅读、树洞、善解人意的主动性。
-- 探索与旅程：Bot Space／Discover／Find、Bot 旅行与 Journey、旅行纪念品。
+- 探索与旅程：Bot Space／Discover／Find、旅行纪念品。（Bot 旅行第一版入口已迁至游乐场，见第 20 节。）
 - 游戏与互动：数独、推箱子、二十问、飞飞机、吃豆人、漂流瓶。
 - 伙伴与世界：团队与各类 Agent、人设、节日皮肤、形象立体化、小楼小院、Square／Social、成长纪念卡与勋章。
 
@@ -385,7 +385,7 @@ Bot 是否默认陪玩、何时允许玩家选择伙伴，留到第二阶段再�
 
 ## 20. Bot 旅行第一版：2026-10-09
 
-状态：旅行方向与第一版交互已确认；第一版设计与本地原型见 [Bot 旅行第一版设计](../superpowers/specs/2026-10-09-bot-travel-design.md)，实现步骤见 [Bot 旅行 Implementation Plan](../superpowers/plans/2026-10-09-bot-travel.md)。
+状态：旅行方向与第一版交互已确认；第一版设计与本地原型见 [Bot 旅行第一版设计](../superpowers/specs/2026-10-09-bot-travel-design.md)，实现步骤见 [Bot 旅行 Implementation Plan](../superpowers/plans/2026-10-09-bot-travel.md)。2026-10-17：入口改为「游乐场 → 挑一个玩法 → Bot 旅行」，不再放在探索想法详情。
 
 - 采用真实地点轻探索：用户选择现有 Bot、目的地和主题，可留一句出发留言。
 - 首发六地：中国北京、苏州、成都；海外京都、巴黎、伊斯坦布尔。

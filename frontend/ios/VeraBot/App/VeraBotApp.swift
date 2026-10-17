@@ -106,12 +106,12 @@ struct MainTabView: View {
             PlaygroundView()
                 .tabItem { Label("游乐场", systemImage: "gamecontroller") }
                 .tag(2)
-            ExploreIdeasView()
-                .tabItem { Label("探索", systemImage: "sparkle.magnifyingglass") }
-                .tag(4)
             FeedView()
                 .tabItem { Label("发现", systemImage: "newspaper") }
                 .tag(5)
+            ExploreIdeasView()
+                .tabItem { Label("探索", systemImage: "sparkle.magnifyingglass") }
+                .tag(4)
         }
         .task {
             await app.refreshProfile()
