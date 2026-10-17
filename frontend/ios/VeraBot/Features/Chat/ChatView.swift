@@ -44,10 +44,13 @@ struct ChatView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(SettingsKeys.quickPromptsEnabled) private var quickPromptsEnabled = SettingsKeys.quickPromptsEnabledDefault
     let highlightMessageID: Int?
+    let initialDraft: String?
+    @State private var initialDraftLoaded = false
     @State private var travelTripToShow: BotTravelTrip?
 
-    init(bot: Bot, api: any VeraBotAPI, repository: ConversationRepository? = nil, highlightMessageID: Int? = nil) {
+    init(bot: Bot, api: any VeraBotAPI, repository: ConversationRepository? = nil, highlightMessageID: Int? = nil, initialDraft: String? = nil) {
         self.highlightMessageID = highlightMessageID
+        self.initialDraft = initialDraft
         _vm = State(initialValue: ChatViewModel(bot: bot, api: api, repository: repository))
         _attachment = State(initialValue: ComposerAttachmentModel(botID: bot.id, api: api))
     }
@@ -202,7 +205,14 @@ struct ChatView: View {
         }
         .sheet(isPresented:$showTasks){NavigationStack{TaskListView(botID:vm.bot.id,botName:vm.bot.name)}}
         .task {
-            input = await vm.loadDraft()
+            if !initialDraftLoaded {
+                let existing = await vm.loadDraft()
+                guard !Task.isCancelled else { return }
+                let preserved = FeedChatDraft.merging(existing: existing, incoming: input.isEmpty ? nil : input)
+                input = FeedChatDraft.merging(existing: preserved, incoming: initialDraft)
+                initialDraftLoaded = true
+                await vm.saveDraft(input)
+            }
             pageVisible = true; vm.activityRepository = app.activityRepository
             vm.preferredAddress = app.displayName
             if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
@@ -283,7 +293,7 @@ struct ChatView: View {
         if next != followsBottom { followsBottom = next }
     }
     private var hasTemporaryCover: Bool { showInfo || showTasks || showMemoryList || showPhotos || showFiles || showCamera || cameraDenied || browserCovered || travelTripToShow != nil || confirmClearConversation || confirmDeleteBot }
-    private var canRead: Bool { pageVisible && scenePhase == .active && app.selectedTab == 0 && !hasTemporaryCover }
+    private var canRead: Bool { pageVisible && scenePhase == .active && ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) && !hasTemporaryCover }
 
     /// 先查相机权限：未决定时系统弹窗；已拒绝则提示前往设置
     private func openCamera() {
@@ -327,6 +337,7 @@ struct ChatView: View {
         showInfo || showTasks || showMemoryList || showPhotos || showCamera || showFiles || travelTripToShow != nil
     }
     private func updateNotificationVisibility() {
+        guard pageVisible, ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) else { return }
         app.notificationEvents.visibleBotID = vm.bot.id
         app.notificationEvents.visibleGroupID = nil
         guard scenePhase == .active, !notificationModalShown else { app.notificationEvents.visibleMessageIDs = []; return }

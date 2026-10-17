@@ -22,6 +22,7 @@
 		1E5329919C29C40AF386F3EF /* NotificationEventSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DEE9A94C3D87FF9185C17C /* NotificationEventSync.swift */; };
 		1F1C5EF7E47E0E34DC7C156D /* QuotaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43329B3D6D52AE8DF8D0A2F8 /* QuotaView.swift */; };
 		1F4FC4A538EFB531A749ACB7 /* LibraryImageGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06CFE7327824CF4C3E2A085 /* LibraryImageGrid.swift */; };
+		20E933B4B3B24A4DE3FCFE0D /* FeedCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A04F0CA8424DCFEFC47975B2 /* FeedCard.swift */; };
 		230A19987E405EA66FC7446E /* RobotAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEA028D698331EC23C8D8C74 /* RobotAvatarView.swift */; };
 		25B1A34CBD5BAD8249DC3350 /* AvatarLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C68DB24E2C716CDE2220936 /* AvatarLabView.swift */; };
 		26EA444E4B6208FE5B6966AC /* VeraBotCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0DCA35D571E134537EA5FCC2 /* VeraBotCore */; };
@@ -56,6 +57,7 @@
 		62F651FA398142EBDA8D041C /* GroupListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584ED3E78ACE219E84BCEAE9 /* GroupListView.swift */; };
 		630543AFC2E0558CF3958272 /* NoticeInteractionLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AA6E0435B1F49D96208C0F /* NoticeInteractionLabView.swift */; };
 		63F59E43B84A17F54F919495 /* BotEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946514525FCD2F7410EB6D2D /* BotEditView.swift */; };
+		664561FADB22897768772202 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D88D9C2863C05C6F762F7CEE /* FeedView.swift */; };
 		675B4423CB476171F3CFB696 /* ToolConfirmationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC83BA1CFB125196681F434 /* ToolConfirmationCard.swift */; };
 		688EF1332D253528B28CB729 /* MemoryReferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48255BB2DD9434EC8EF7EF4D /* MemoryReferencesView.swift */; };
 		68E9B0EE25A252A2DC1E8CC2 /* BotAvatarAppearanceLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C74F96AE22F26AA5E81E35F /* BotAvatarAppearanceLabView.swift */; };
@@ -72,6 +74,7 @@
 		78FB40DC2C5D2CA60888A81D /* BotTravelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5C449AFCEF9298A046CB11 /* BotTravelStore.swift */; };
 		792CF7FE06EFBF6A0D72F4C9 /* WorldViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6A67954DB498F6B2CA1947 /* WorldViews.swift */; };
 		7CEC491156A5D2125EF27826 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1FFF22B6EE7DE9CD0EB981 /* CameraPicker.swift */; };
+		7DA58CA3CF80EF7DF8492824 /* FeedPlanEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBEE90850DF2046DCF978A98 /* FeedPlanEditor.swift */; };
 		810972481FB2D2C35D159AEA /* BotAppearanceLabStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52AC790F451DDE980A54F6B7 /* BotAppearanceLabStore.swift */; };
 		8223C55ECB48ED95C44AAC79 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9110D78522E01B54EE921E4D /* AppConfig.swift */; };
 		8344C5E60763592A78432CCA /* BotInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CD337E570EAB438A3FFB1E /* BotInfoView.swift */; };
@@ -89,6 +92,7 @@
 		9A8371CEAB239509161A209C /* MemorySettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED18CB21A56DD778E9202E8D /* MemorySettingsSection.swift */; };
 		9C27B4822D6C0472B253EB8B /* MemoryEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA10F358EA5A129B9D8B4A9 /* MemoryEditView.swift */; };
 		A2380F9C15D86950B3FC57C4 /* BotAvatarTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86EF42DCE76C56C6E925620E /* BotAvatarTemplate.swift */; };
+		A2F1FCD01F984F7CFB4040A4 /* FeedSourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AD7CBB6B8040A42FD71D193 /* FeedSourcesView.swift */; };
 		A558FBA91C2983B96B16B61E /* RobotAvatarAccessoryRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30C91C1F9D53E1DEC89CA1B4 /* RobotAvatarAccessoryRendering.swift */; };
 		A5960819F291FCDDF7646590 /* UserAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B967A331970CB0CB2F10E288 /* UserAvatar.swift */; };
 		A67851B25BD9584E7FB4AC2E /* BotAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA16BCEBD661B93BB2BF139 /* BotAvatar.swift */; };
@@ -117,6 +121,7 @@
 		CA67141A594FD89490C720F2 /* AvatarLabCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC023CD71CD0F58088DC17A0 /* AvatarLabCharacterView.swift */; };
 		CA7375A31D7D2D3E06BDEAA8 /* BotWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A833D366AA4080024C520A /* BotWelcomeView.swift */; };
 		D0EF60DC4F40A3140C6C0984 /* MemoryMonthlyReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1561EC16CBF6602ECFCC00DF /* MemoryMonthlyReviewView.swift */; };
+		D21DB2D13F0F88BF8E248057 /* FeedDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E490B93C55EA3524C6C302C8 /* FeedDetailView.swift */; };
 		D3D81668E19B9C7F0AF6CE33 /* UserProfileEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C67F31D068CF5C96A39B3B /* UserProfileEditor.swift */; };
 		D3E2331D1D3A55E21BB21288 /* BotListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46523360EF76E81DB53A5CDE /* BotListView.swift */; };
 		D49E56A6D3FA6A25ADE158AD /* LibraryBotSharingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DFAEF0932A3F215EB3DEF61 /* LibraryBotSharingSheet.swift */; };
@@ -218,6 +223,7 @@
 		7584F53D3F1EBB42251BBEFF /* ConnectorTokenSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectorTokenSheet.swift; sourceTree = "<group>"; };
 		764C905756C724ED54B3143B /* GroupChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChatView.swift; sourceTree = "<group>"; };
 		79754DC360D5A8BAA6A50273 /* GeneralSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsSection.swift; sourceTree = "<group>"; };
+		7AD7CBB6B8040A42FD71D193 /* FeedSourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedSourcesView.swift; sourceTree = "<group>"; };
 		7AE1DAA0B1601A83E92620BE /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		7AFCFB9752B7AD58FB43B3D4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		7C57FDB9124DA5929858E01E /* AvatarPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarPicker.swift; sourceTree = "<group>"; };
@@ -239,6 +245,7 @@
 		9C116643A86A80A4B0126F3B /* ScheduledTaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledTaskDetailView.swift; sourceTree = "<group>"; };
 		9D8EB86A257C58B0B241CC14 /* VeraBot.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VeraBot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9FC02FFEE70BE6F556F014DD /* ConversationReadVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationReadVisibility.swift; sourceTree = "<group>"; };
+		A04F0CA8424DCFEFC47975B2 /* FeedCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedCard.swift; sourceTree = "<group>"; };
 		A069403A3B56FF75C177363B /* PluginListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginListView.swift; sourceTree = "<group>"; };
 		A1AA6E0435B1F49D96208C0F /* NoticeInteractionLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoticeInteractionLabView.swift; sourceTree = "<group>"; };
 		A4A833D366AA4080024C520A /* BotWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotWelcomeView.swift; sourceTree = "<group>"; };
@@ -253,6 +260,7 @@
 		B7227481F2AD38DA86774FEB /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		B967A331970CB0CB2F10E288 /* UserAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAvatar.swift; sourceTree = "<group>"; };
 		BAC9541ED3351BC43708A427 /* VeraBotTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VeraBotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBEE90850DF2046DCF978A98 /* FeedPlanEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedPlanEditor.swift; sourceTree = "<group>"; };
 		BD018E46B9DECE36E52911C3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BDD3A4147D7206BD8D995515 /* BotAvatarTemplateGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarTemplateGeometry.swift; sourceTree = "<group>"; };
 		BE174E554FBF6F3E59113C3B /* CreateBotSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateBotSheet.swift; sourceTree = "<group>"; };
@@ -271,12 +279,14 @@
 		D01143695E3733485422DE85 /* TaskApprovalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskApprovalView.swift; sourceTree = "<group>"; };
 		D35A8BF6FB6F9B69E3FCF260 /* RobotAvatarLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarLabView.swift; sourceTree = "<group>"; };
 		D6712BB8C926AEE82AC619C9 /* CircleAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleAvatar.swift; sourceTree = "<group>"; };
+		D88D9C2863C05C6F762F7CEE /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		DA743A9910FE6795808FAF02 /* AppearanceMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceMode.swift; sourceTree = "<group>"; };
 		DB15FEF299D62BAFD03F845F /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
 		DD2732277B251947B3842046 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		DD5C449AFCEF9298A046CB11 /* BotTravelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotTravelStore.swift; sourceTree = "<group>"; };
 		DDF663872873FA1D121AF63F /* GroupConversationAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupConversationAvatar.swift; sourceTree = "<group>"; };
 		E168EA8883D7A127984AB6B4 /* NoticeSourceIndex.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = NoticeSourceIndex.json; sourceTree = "<group>"; };
+		E490B93C55EA3524C6C302C8 /* FeedDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedDetailView.swift; sourceTree = "<group>"; };
 		E5F6598764912A69D30533D7 /* TaskEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorView.swift; sourceTree = "<group>"; };
 		E74608DB8A82935CF4C9FF6D /* BotAvatarLabPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarLabPlayback.swift; sourceTree = "<group>"; };
 		EC3329EDA197622902BD2BF4 /* ImagePreparer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreparer.swift; sourceTree = "<group>"; };
@@ -604,6 +614,7 @@
 				65B22ECF799B64EDA38BF314 /* BotInfo */,
 				5409E65A23105182321FACDC /* BotList */,
 				39F8A5E6BC641A0B19924B99 /* Chat */,
+				FD8E56F5EA1F9B7D7D2387BD /* Feed */,
 				1506243C7BEE3475880C2B82 /* GroupChat */,
 				49674979A583B542894E00E9 /* Library */,
 				2DBC7666FB26E644620B13D6 /* Memory */,
@@ -689,6 +700,18 @@
 				BAC9541ED3351BC43708A427 /* VeraBotTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		FD8E56F5EA1F9B7D7D2387BD /* Feed */ = {
+			isa = PBXGroup;
+			children = (
+				A04F0CA8424DCFEFC47975B2 /* FeedCard.swift */,
+				E490B93C55EA3524C6C302C8 /* FeedDetailView.swift */,
+				BBEE90850DF2046DCF978A98 /* FeedPlanEditor.swift */,
+				7AD7CBB6B8040A42FD71D193 /* FeedSourcesView.swift */,
+				D88D9C2863C05C6F762F7CEE /* FeedView.swift */,
+			);
+			path = Feed;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -841,6 +864,11 @@
 				E7BCADABF7994ECA2A05D134 /* DefaultBotFigure.swift in Sources */,
 				879ADDA69524DA013A017926 /* DelegationLogView.swift in Sources */,
 				3AB259937EE0DBB2F35B1A59 /* DismissToolbarButton.swift in Sources */,
+				20E933B4B3B24A4DE3FCFE0D /* FeedCard.swift in Sources */,
+				D21DB2D13F0F88BF8E248057 /* FeedDetailView.swift in Sources */,
+				7DA58CA3CF80EF7DF8492824 /* FeedPlanEditor.swift in Sources */,
+				A2F1FCD01F984F7CFB4040A4 /* FeedSourcesView.swift in Sources */,
+				664561FADB22897768772202 /* FeedView.swift in Sources */,
 				DC45CE9AE39E9407F01758BF /* GeneralSettingsSection.swift in Sources */,
 				2E6E026E4A257A0353B52C33 /* GroupChatView.swift in Sources */,
 				31EB01F16AFAA4C3D2293B50 /* GroupConversationAvatar.swift in Sources */,
@@ -949,7 +977,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026101605;
+				CURRENT_PROJECT_VERSION = 2026101701;
 				DEVELOPMENT_TEAM = 4M4EACBGAJ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
@@ -1097,7 +1125,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026101605;
+				CURRENT_PROJECT_VERSION = 2026101701;
 				DEVELOPMENT_TEAM = 4M4EACBGAJ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;

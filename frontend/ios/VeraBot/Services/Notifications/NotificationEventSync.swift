@@ -145,7 +145,7 @@ final class NotificationEventSync {
             let foreground = isForeground && UIApplication.shared.applicationState == .active
             let modal = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
                 .flatMap(\.windows).first { $0.isKeyWindow }?.rootViewController?.presentedViewController != nil
-            let visible = foreground && app.selectedTab == 0 && notificationMatchesOpenConversation(note) && !modal ? visibleMessageIDs : []
+            let visible = foreground && ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: visibleGroupID != nil) && notificationMatchesOpenConversation(note) && !modal ? visibleMessageIDs : []
             let decision = NotificationEventPolicy.decision(note, settings: settings, visibleMessageIDs: visible, now: now, isForeground: foreground)
             let coalesced = ledger.coalesces(note, now: now)
             var presented = false

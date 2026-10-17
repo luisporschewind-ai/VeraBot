@@ -89,6 +89,11 @@ public struct ConversationReadingSession: Sendable {
 }
 
 public enum ConversationVisibilityPolicy {
+    /// Private chats can be entered from Discover; group chats remain in Assistants.
+    public static func allowsConversation(selectedTab: Int, isGroup: Bool) -> Bool {
+        selectedTab == 0 || (selectedTab == 5 && !isGroup)
+    }
+
     public static func isVisible(bodyHeight: Double, viewportHeight: Double, intersectionHeight: Double) -> Bool {
         guard bodyHeight > 0, viewportHeight > 0 else { return false }
         return intersectionHeight >= min(24, bodyHeight * 0.5) && intersectionHeight >= min(bodyHeight, viewportHeight) * 0.25

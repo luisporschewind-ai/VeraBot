@@ -37,7 +37,7 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 2026101605
+        CURRENT_PROJECT_VERSION: 2026101701
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 4M4EACBGAJ
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
