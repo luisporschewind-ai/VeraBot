@@ -78,219 +78,245 @@ struct ChatView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        if vm.hasOlderMessages {
-                            Button(vm.loadingOlder ? "正在加载…" : "加载更早的消息") { Task { await vm.loadOlder() } }
-                                .disabled(vm.loadingOlder).font(.footnote)
-                        }
-                        ForEach(vm.items) { item in
-                            messageCell(item)
-                        }
-                        ForEach(vm.memorySuggestions) { suggestion in
-                            MemorySuggestionCard(suggestion: suggestion, vm: vm)
-                        }
-                    }
-                    Color.clear.frame(height: 1).id("bottom")
-                        .conversationBottomAnchor { bottomAnchor = $0; updateFollowsBottom() }
-                }
-                .padding()
-            }
-            .conversationViewport($viewport)
-            .onChange(of: effectiveViewport) { updateFollowsBottom() }
-            .coordinateSpace(name: "notificationChatViewport")
-            .background {
-                GeometryReader { geometry in
-                    Color.clear.onAppear { notificationViewport = geometry.size; updateNotificationVisibility() }
-                        .onChange(of: geometry.size) { _, size in notificationViewport = size; updateNotificationVisibility() }
+        presentedChat
+            .task(id: app.selectedTab) { await enterConversation() }
+            .onChange(of: notificationModalShown) { _, _ in updateNotificationVisibility() }
+            .onChange(of: scenePhase) { _, _ in updateNotificationVisibility() }
+            .onDisappear {
+                if app.notificationEvents.visibleBotID == vm.bot.id {
+                    app.notificationEvents.visibleBotID = nil; app.notificationEvents.visibleMessageIDs = []
                 }
             }
-            .onPreferenceChange(ChatNotificationFrames.self) { frames in
-                notificationFrames = frames; updateNotificationVisibility()
+            .onChange(of: quickPromptsEnabled) { _, enabled in
+                if enabled { Task { await vm.refreshQuickPrompts() } }
+                else { vm.quickPrompts = [] }
             }
-            .bottomAnchoredScrolling()                    // 初次进入 & 键盘弹出时保持贴底（iOS 18+；17 由 keyboardDidShow 滚动兜底）
-            .scrollDismissesKeyboard(.interactively)      // 下拉消息列表可交互式收起键盘
-            .onTapGesture { focused = false }             // 点空白处收起键盘（气泡内按钮优先响应）
-            .background(Color.appBackground)
-            .onChange(of: vm.scrollTick) {
-                guard initialPositionReady else { return }
-                if !entered && !vm.items.isEmpty {
-                    if let target = highlightMessageID ?? reading.dividerMessageID, vm.items.contains(where: { $0.messageID == target }) { proxy.scrollTo("m\(target)", anchor: .center) }
-                    else { proxy.scrollTo("bottom", anchor: .bottom) }
-                    entered = true
-                } else if followsBottom { proxy.scrollTo("bottom", anchor: .bottom) }
+            .onChange(of: vm.openBotSettingsTick) { showInfo = true }
+            .onChange(of: app.activity(kind: "private", id: vm.bot.id)?.revision) { _, _ in
+                guard pageVisible else { return }
+                let activity = app.activity(kind: "private", id: vm.bot.id)
+                if let generation = activity?.generation, generation != vm.conversationGeneration { reading.leave() }
+                reading.include(activity?.unreadMessages ?? [])
+                if let generation = activity?.generation, generation != vm.conversationGeneration { Task { await vm.recoverExecution() } }
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
-                // 只响应本页输入框的键盘；sheet（Bot 详情）里的键盘不应滚动对话页
-                guard focused, !showInfo, followsBottom else { return }
-                proxy.scrollTo("bottom", anchor: .bottom)   // 键盘弹出后：确保最后一条可见
-            }
-            .overlay(alignment: .bottomTrailing) {
-                JumpToLatestButton(visible: !followsBottom) {
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        proxy.scrollTo("bottom", anchor: .bottom)
-                    }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { vm.leave() } else if pageVisible {
+                    Task { await resumeFromBackground() }
                 }
-                .padding(.trailing, 16)
-                .padding(.bottom, 8)
             }
-        }
-        .bottomBar {
-            VStack(spacing: 8) {
-                if let notice = vm.notice {
-                    PageConnectionNotice(notice: notice) { Task { await vm.load() } }
-                        .padding(.horizontal, 16)
-                }
-                composer
+            .onChange(of: app.sessionGeneration) { _, _ in
+                draftSaveTask?.cancel(); _ = draftSession.leave()
+                pageVisible = false; reading.leave(); vm.leave()
             }
-            .conversationComposer($composerViewport)
-        }   // iOS 26 safeAreaBar：消息滚到输入栏下方有系统滚动边缘效果（同顶部导航栏）；旧系统 safeAreaInset
-        .inAppBrowser(isPresented: $browserCovered)   // 消息里的 http/https 链接在 App 内 SFSafariViewController 打开；tel: / mailto: 交给系统
-        .navigationTitle(vm.bot.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // 标题（头像 + 名称）可点击 → Bot 详情
-            ToolbarItem(placement: .principal) {
-                botTitleButton   // 外高固定 44pt，与两侧圆形玻璃按钮对齐
+            .hapticFeedback(.success, trigger: vm.memoryConfirmTick)
+            .onDisappear {
+                draftSaveTask?.cancel()
+                draftSession.edit(input)
+                if let text = draftSession.leave() { Task { await vm.saveDraft(text) } }
+                pageVisible = false; vm.leave()
+                if !hasTemporaryCover { endReadingSession() }
+                focused = false
+                if !showCamera { player.stop() }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("任务"){showTasks=true}
-                    Button(role: .destructive) {
-                        confirmClearConversation = true
-                    } label: {
-                        Label("清空对话", systemImage: "trash")
-                    }
-                    .disabled(vm.sending)
+    }
 
-                    Button(role: .destructive) {
-                        confirmDeleteBot = true
-                    } label: {
-                        Label("删除 Bot", systemImage: "person.crop.circle.badge.minus")
-                    }
-                    .disabled(deletingBot)
-                } label: {
-                    Image(systemName: "ellipsis")
+    /// Sheets, pickers and dialogs — kept off `body` / `chatShell` for type-checking.
+    private var presentedChat: some View {
+        chatShell
+            .sheet(isPresented: $showInfo, onDismiss: {
+                // Preserve the reading position after dismissing Bot details.
+            }) {
+                NavigationStack {
+                    BotInfoView(vm: vm)
                 }
-                .accessibilityLabel("更多")
+                .environment(app)
+            }
+            .confirmationDialog("清空与「\(vm.bot.name)」的全部对话？", isPresented: $confirmClearConversation, titleVisibility: .visible) {
+                Button("清空对话", role: .destructive) {
+                    Task { await vm.clear() }
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("对话内容和对话摘要将被删除，已确认的记忆会保留。此操作不可撤销。")
+            }
+            .confirmationDialog(BotDeletion.title(vm.bot.name), isPresented: $confirmDeleteBot, titleVisibility: .visible) {
+                Button("删除", role: .destructive) {
+                    Task { await deleteBot() }
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text(BotDeletion.message(vm.bot.name))
+            }
+            .sheet(isPresented: $showTasks) {
+                NavigationStack { TaskListView(botID: vm.bot.id, botName: vm.bot.name) }
+            }
+            .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
+            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .plainText, .commaSeparatedText,
+                UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "docx") ?? .data,
+                UTType(filenameExtension: "xlsx") ?? .data], allowsMultipleSelection: false) { result in
+                if case .success(let urls) = result, let url = urls.first { attachment.pickFile(url) }
+            }
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                attachment.pick(item)
+                photoItem = nil
+            }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraPicker { attachment.pick($0) }.ignoresSafeArea()
+            }
+            .alert("无法使用相机", isPresented: $cameraDenied) {
+                Button("前往设置") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("请在「设置」中允许 VeraBot 使用相机。")
+            }
+    }
+
+    /// Scroll + navigation chrome only.
+    private var chatShell: some View {
+        messageScroll
+            .bottomBar { composerBar }
+            .inAppBrowser(isPresented: $browserCovered)
+            .navigationTitle(vm.bot.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { chatToolbar() }
+    }
+
+    private var composerBar: some View {
+        VStack(spacing: 8) {
+            if let notice = vm.notice {
+                PageConnectionNotice(notice: notice) { Task { await vm.load() } }
+                    .padding(.horizontal, 16)
+            }
+            composer
+        }
+        .conversationComposer($composerViewport)
+    }
+
+    @ToolbarContentBuilder
+    private func chatToolbar() -> some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            botTitleButton
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Button("任务") { showTasks = true }
+                Button(role: .destructive) {
+                    confirmClearConversation = true
+                } label: {
+                    Label("清空对话", systemImage: "trash")
+                }
+                .disabled(vm.sending)
+
+                Button(role: .destructive) {
+                    confirmDeleteBot = true
+                } label: {
+                    Label("删除 Bot", systemImage: "person.crop.circle.badge.minus")
+                }
+                .disabled(deletingBot)
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+            .accessibilityLabel("更多")
+        }
+    }
+
+    private var messageScroll: some View {
+        ScrollViewReader { proxy in
+            scrollView(proxy: proxy)
+        }
+    }
+
+    private func scrollView(proxy: ScrollViewProxy) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    if vm.hasOlderMessages {
+                        Button(vm.loadingOlder ? "正在加载…" : "加载更早的消息") { Task { await vm.loadOlder() } }
+                            .disabled(vm.loadingOlder).font(.footnote)
+                    }
+                    ForEach(vm.items) { item in
+                        messageCell(item)
+                    }
+                    ForEach(vm.memorySuggestions) { suggestion in
+                        MemorySuggestionCard(suggestion: suggestion, vm: vm)
+                    }
+                }
+                Color.clear.frame(height: 1).id("bottom")
+                    .conversationBottomAnchor { bottomAnchor = $0; updateFollowsBottom() }
+            }
+            .padding()
+        }
+        .conversationViewport($viewport)
+        .onChange(of: effectiveViewport) { updateFollowsBottom() }
+        .coordinateSpace(name: "notificationChatViewport")
+        .background {
+            GeometryReader { geometry in
+                Color.clear.onAppear { notificationViewport = geometry.size; updateNotificationVisibility() }
+                    .onChange(of: geometry.size) { _, size in notificationViewport = size; updateNotificationVisibility() }
             }
         }
-        // Bot 详情：系统默认 sheet（page sheet 卡片，非 push / 非全屏），下滑关闭
-        .sheet(isPresented: $showInfo, onDismiss: {
-            // Preserve the reading position after dismissing Bot details.
-        }) {
-            NavigationStack {
-                BotInfoView(vm: vm)
-            }
-            .environment(app)
+        .onPreferenceChange(ChatNotificationFrames.self) { frames in
+            notificationFrames = frames; updateNotificationVisibility()
         }
-        .confirmationDialog("清空与「\(vm.bot.name)」的全部对话？", isPresented: $confirmClearConversation, titleVisibility: .visible) {
-            Button("清空对话", role: .destructive) {
-                Task { await vm.clear() }
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("对话内容和对话摘要将被删除，已确认的记忆会保留。此操作不可撤销。")
-        }
-        .confirmationDialog(BotDeletion.title(vm.bot.name), isPresented: $confirmDeleteBot, titleVisibility: .visible) {
-            Button("删除", role: .destructive) {
-                Task { await deleteBot() }
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text(BotDeletion.message(vm.bot.name))
-        }
-        .sheet(isPresented:$showTasks){NavigationStack{TaskListView(botID:vm.bot.id,botName:vm.bot.name)}}
-        .task(id: app.selectedTab) {
-            guard app.selectedTab == hostingTab else { return }
-            draftSaveTask?.cancel()
-            let entry = draftSession.begin()
-            input = ""
-            let existing = await vm.loadDraft()
-            guard !Task.isCancelled, app.selectedTab == hostingTab else { return }
-            // Read the buffer directly as onChange may not have delivered the latest keystroke yet.
-            draftSession.edit(input)
-            guard let hydrated = draftSession.hydrate(saved: existing, entry: entry) else { return }
-            input = hydrated
-            await saveActiveDraft()
-            guard !Task.isCancelled, draftSession.isActive, app.selectedTab == hostingTab else { return }
-            pageVisible = true; vm.activityRepository = app.activityRepository
-            vm.preferredAddress = app.displayName
-            if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
-            async let activityRefresh: Void = app.refreshActivityForEntry()
-            await vm.load {
-                if !entered, let target = highlightMessageID ?? reading.dividerMessageID { await vm.ensureMessageLoaded(target) }
-                initialPositionReady = true; vm.scrollTick += 1
-            }
-            await activityRefresh
-            await app.markConversationRead(kind: "private", id: vm.bot.id)
-            if quickPromptsEnabled { await vm.refreshQuickPrompts() }
-        }
-        .onChange(of: notificationModalShown) { _, _ in updateNotificationVisibility() }
-        .onChange(of: scenePhase) { _, _ in updateNotificationVisibility() }
-        .onDisappear {
-            if app.notificationEvents.visibleBotID == vm.bot.id {
-                app.notificationEvents.visibleBotID = nil; app.notificationEvents.visibleMessageIDs = []
+        .bottomAnchoredScrolling()
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture { focused = false }
+        .background(Color.appBackground)
+        .onChange(of: vm.scrollTick) {
+            guard initialPositionReady else { return }
+            if !entered && !vm.items.isEmpty {
+                if let target = highlightMessageID ?? reading.dividerMessageID, vm.items.contains(where: { $0.messageID == target }) {
+                    proxy.scrollTo("m\(target)", anchor: .center)
+                } else {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+                entered = true
+            } else if followsBottom {
+                proxy.scrollTo("bottom", anchor: .bottom)
             }
         }
-        .onChange(of: quickPromptsEnabled) { _, enabled in
-            if enabled { Task { await vm.refreshQuickPrompts() } }
-            else { vm.quickPrompts = [] }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+            guard focused, !showInfo, followsBottom else { return }
+            proxy.scrollTo("bottom", anchor: .bottom)
         }
-        .onChange(of: vm.openBotSettingsTick) { showInfo = true }
-        // 只用系统相册选择器（PhotosPicker，单选；再选替换），不需要相册权限
-        .photosPicker(isPresented: $showPhotos, selection: $photoItem, matching: .images)
-        .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .plainText, .commaSeparatedText,
-            UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "docx") ?? .data,
-            UTType(filenameExtension: "xlsx") ?? .data], allowsMultipleSelection: false) { result in
-            if case .success(let urls) = result, let url = urls.first { attachment.pickFile(url) }
-        }
-        .onChange(of: photoItem) { _, item in
-            guard let item else { return }
-            attachment.pick(item)
-            photoItem = nil
-        }
-        // 拍照：系统相机全屏（UIImagePickerController），拍到的图与相册选图走同一路径
-        .fullScreenCover(isPresented: $showCamera) {
-            CameraPicker { attachment.pick($0) }.ignoresSafeArea()
-        }
-        .alert("无法使用相机", isPresented: $cameraDenied) {
-            Button("前往设置") {
-                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+        .overlay(alignment: .bottomTrailing) {
+            JumpToLatestButton(visible: !followsBottom) {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
             }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("请在「设置」中允许 VeraBot 使用相机。")
+            .padding(.trailing, 16)
+            .padding(.bottom, 8)
         }
-        .onChange(of: app.activity(kind: "private", id: vm.bot.id)?.revision) { _, _ in
-            guard pageVisible else { return }
-            let activity = app.activity(kind: "private", id: vm.bot.id)
-            if let generation = activity?.generation, generation != vm.conversationGeneration { reading.leave() }
-            reading.include(activity?.unreadMessages ?? [])
-            if let generation = activity?.generation, generation != vm.conversationGeneration { Task { await vm.recoverExecution() } }
+    }
+
+    private func enterConversation() async {
+        guard app.selectedTab == hostingTab else { return }
+        draftSaveTask?.cancel()
+        let entry = draftSession.begin()
+        input = ""
+        let existing = await vm.loadDraft()
+        guard !Task.isCancelled, app.selectedTab == hostingTab else { return }
+        // Read the buffer directly as onChange may not have delivered the latest keystroke yet.
+        draftSession.edit(input)
+        guard let hydrated = draftSession.hydrate(saved: existing, entry: entry) else { return }
+        input = hydrated
+        await saveActiveDraft()
+        guard !Task.isCancelled, draftSession.isActive, app.selectedTab == hostingTab else { return }
+        pageVisible = true; vm.activityRepository = app.activityRepository
+        vm.preferredAddress = app.displayName
+        if !entered { initialPositionReady = false; reading.enter(app.activity(kind: "private", id: vm.bot.id)?.unreadMessages ?? []) }
+        async let activityRefresh: Void = app.refreshActivityForEntry()
+        await vm.load {
+            if !entered, let target = highlightMessageID ?? reading.dividerMessageID { await vm.ensureMessageLoaded(target) }
+            initialPositionReady = true; vm.scrollTick += 1
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { vm.leave() } else if pageVisible {
-                Task { await resumeFromBackground() }
-            }
-        }
-        .onChange(of: app.sessionGeneration) { _, _ in
-            draftSaveTask?.cancel(); _ = draftSession.leave()
-            pageVisible = false; reading.leave(); vm.leave()
-        }
-        .hapticFeedback(.success, trigger: vm.memoryConfirmTick)   // 确认记住 / 忘掉（受「触感反馈」开关控制）
-        .onDisappear {
-            draftSaveTask?.cancel()
-            draftSession.edit(input)
-            if let text = draftSession.leave() { Task { await vm.saveDraft(text) } }
-            pageVisible = false; vm.leave()
-            if !hasTemporaryCover { endReadingSession() }
-            focused = false
-            // 全屏相机临时遮盖对话，仍属于当前对话；返回列表才结束朗读。
-            if !showCamera { player.stop() }
-        }
+        await activityRefresh
+        await app.markConversationRead(kind: "private", id: vm.bot.id)
+        if quickPromptsEnabled { await vm.refreshQuickPrompts() }
     }
 
     private var effectiveViewport: CGRect {
@@ -443,8 +469,50 @@ struct ChatView: View {
     }
 
     private var regularComposer: some View {
+        composerFields
+            .padding(.horizontal)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+            .onChange(of: input) { old, new in
+                guard draftSession.edit(new) else { return }
+                draftSaveTask?.cancel()
+                if !draftSession.isHydrating {
+                    draftSaveTask = Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        guard !Task.isCancelled else { return }
+                        await saveActiveDraft()
+                    }
+                }
+                // 多行输入框（axis: .vertical）里 return 会插入换行：把「只多了一个换行」视为按下发送键，
+                // 恢复原文并发送；粘贴的多行文本（一次多于一个字符）保留换行
+                if !draftSession.isHydrating, new.count == old.count + 1,
+                   new.filter({ $0 == "\n" }).count == old.filter({ $0 == "\n" }).count + 1 {
+                    input = old
+                    send()
+                }
+            }
+            .onChange(of: speech.transcript) {
+                if speech.isRecording || !speech.transcript.isEmpty {
+                    input = speechBase + speech.transcript
+                }
+            }
+            .onDisappear { speech.cancel() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { speech.cancel() }
+            }
+            .hapticFeedback(.impact(weight: .light), trigger: sendCount)
+            .hapticFeedback(.selection, trigger: speech.isRecording)
+            .sheet(isPresented: $showMemoryList) {
+                NavigationStack {
+                    MemoryListView(botFilter: vm.bot)
+                }
+                .environment(app)
+            }
+    }
+
+    @ViewBuilder
+    private var composerFields: some View {
         VStack(spacing: 6) {
-            // 排队 / 生成中不再显示状态行（由输入栏右侧的停止按钮表示）；只保留需要用户处理的等待状态。
             ForEach(vm.replyTasks.filter { $0.state == "awaiting_user" || $0.state == "awaiting_approval" }) { task in
                 HStack {
                     Text(task.state == "awaiting_user" ? "等你补充" : "待你确认").font(.caption)
@@ -484,47 +552,50 @@ struct ChatView: View {
                 && !focused && !vm.quickPrompts.isEmpty {
                 quickPromptBar
             }
-            GlassGroup(spacing: 10) {
-                HStack(alignment: .bottom, spacing: 10) {
-                    // 附件菜单保持原有图片 / 拍照入口；文件由系统文件选择器提供
-                    Menu {
-                        Section("添加附件") {
-                            Button { focused = false; showPhotos = true } label: { Label("图片", systemImage: "photo") }
-                            if CameraPicker.isAvailable {
-                                Button { focused = false; openCamera() } label: { Label("拍照", systemImage: "camera") }
-                            }
-                            Button { focused = false; showFiles = true } label: { Label("文件", systemImage: "paperclip") }
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(.primary)
-                            .frame(width: Self.barHeight, height: Self.barHeight)
-                            .contentShape(Circle())
-                            .glassSurface(in: Circle())
-                    }
-                    .accessibilityLabel("添加附件")
+            composerInputRow
+        }
+    }
 
-                    HStack(alignment: .bottom, spacing: 4) {
-                        TextField("向 \(vm.bot.name) 提问", text: $input, axis: .vertical)
-                            .lineLimit(1...5)
-                            .focused($focused)
-                            .submitLabel(.send)
-                            .onSubmit(send)
-                            .padding(.vertical, 13)
-                        if let task = vm.replyInProgress {
-                            // 回复进行中只显示停止按钮，点按停止本次回复；完成 / 失败后恢复麦克风
-                            Button { Task { await vm.stop(task) } } label: {
-                                Image(systemName: "stop.circle.fill")
-                                    .font(.title3)
-                                    .foregroundStyle(Color.red)
-                                    .frame(width: 36, height: Self.barHeight)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(vm.controlBusy.contains(task.id))
-                            .accessibilityLabel("停止回复")
-                        } else {
+    private var composerInputRow: some View {
+        GlassGroup(spacing: 10) {
+            HStack(alignment: .bottom, spacing: 10) {
+                Menu {
+                    Section("添加附件") {
+                        Button { focused = false; showPhotos = true } label: { Label("图片", systemImage: "photo") }
+                        if CameraPicker.isAvailable {
+                            Button { focused = false; openCamera() } label: { Label("拍照", systemImage: "camera") }
+                        }
+                        Button { focused = false; showFiles = true } label: { Label("文件", systemImage: "paperclip") }
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .frame(width: Self.barHeight, height: Self.barHeight)
+                        .contentShape(Circle())
+                        .glassSurface(in: Circle())
+                }
+                .accessibilityLabel("添加附件")
+
+                HStack(alignment: .bottom, spacing: 4) {
+                    TextField("向 \(vm.bot.name) 提问", text: $input, axis: .vertical)
+                        .lineLimit(1...5)
+                        .focused($focused)
+                        .submitLabel(.send)
+                        .onSubmit(send)
+                        .padding(.vertical, 13)
+                    if let task = vm.replyInProgress {
+                        Button { Task { await vm.stop(task) } } label: {
+                            Image(systemName: "stop.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(Color.red)
+                                .frame(width: 36, height: Self.barHeight)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(vm.controlBusy.contains(task.id))
+                        .accessibilityLabel("停止回复")
+                    } else {
                         Button(action: toggleSpeech) {
                             Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic")
                                 .font(.title3)
@@ -534,52 +605,12 @@ struct ChatView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")
-                        }
                     }
-                    .padding(.leading, 18).padding(.trailing, 8)
-                    .frame(minHeight: Self.barHeight)
-                    // 单行时为胶囊（圆角 = 高度一半），多行时保持同样圆角向上长高
-                    .glassSurface(in: RoundedRectangle(cornerRadius: Self.barHeight / 2, style: .continuous))
                 }
+                .padding(.leading, 18).padding(.trailing, 8)
+                .frame(minHeight: Self.barHeight)
+                .glassSurface(in: RoundedRectangle(cornerRadius: Self.barHeight / 2, style: .continuous))
             }
-        }
-        .padding(.horizontal)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
-        .onChange(of: input) { old, new in
-            guard draftSession.edit(new) else { return }
-            draftSaveTask?.cancel()
-            if !draftSession.isHydrating {
-                draftSaveTask = Task {
-                    try? await Task.sleep(for: .milliseconds(300))
-                    guard !Task.isCancelled else { return }
-                    await saveActiveDraft()
-                }
-            }
-            // 多行输入框（axis: .vertical）里 return 会插入换行：把「只多了一个换行」视为按下发送键，
-            // 恢复原文并发送；粘贴的多行文本（一次多于一个字符）保留换行
-            if !draftSession.isHydrating, new.count == old.count + 1,
-               new.filter({ $0 == "\n" }).count == old.filter({ $0 == "\n" }).count + 1 {
-                input = old
-                send()
-            }
-        }
-        .onChange(of: speech.transcript) {
-            if speech.isRecording || !speech.transcript.isEmpty {
-                input = speechBase + speech.transcript   // 实时写入部分识别结果，由用户确认后发送
-            }
-        }
-        .onDisappear { speech.cancel() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .background { speech.cancel() }   // 进入后台立即释放麦克风 / 音频会话
-        }
-        .hapticFeedback(.impact(weight: .light), trigger: sendCount)   // 发送消息（受「触感反馈」开关控制）
-        .hapticFeedback(.selection, trigger: speech.isRecording)        // 开始 / 结束语音输入
-        .sheet(isPresented: $showMemoryList) {
-            NavigationStack {
-                MemoryListView(botFilter: vm.bot)
-            }
-            .environment(app)
         }
     }
 

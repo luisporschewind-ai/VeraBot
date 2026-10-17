@@ -209,6 +209,13 @@ if importlib.util.find_spec('verabot.db.feed_store'):
                 c.execute("INSERT INTO memories(user_id,scope,bot_id,type,content,content_hash,source,sensitivity,status,confirmed_at,created_at,updated_at) VALUES(1,'bot',1,'preference','喜欢科技','hash','memory_page','normal','active','yes','x','x')")
             r=self.client.post('/api/feed/plan/suggest',json=dict(bot_ids=[1],topics=[],use_memory=False))
             self.assertEqual(r.status_code,200); self.assertEqual(r.json()['topics'],[])
+        def test_saved_plan_memory_off_blocks_suggest_even_when_request_enables(self):
+            with db.tx() as c:
+                c.execute("INSERT INTO memories(user_id,scope,bot_id,type,content,content_hash,source,sensitivity,status,confirmed_at,created_at,updated_at) VALUES(1,'bot',1,'preference','喜欢科技','hash','memory_page','normal','active','yes','x','x')")
+            self.assertEqual(self.plan(use_memory=False).status_code,200)
+            r=self.client.post('/api/feed/plan/suggest',json=dict(bot_ids=[1],topics=[],use_memory=True))
+            self.assertEqual(r.status_code,200); self.assertEqual(r.json()['topics'],[])
+            self.assertIn('冷启动',r.json()['basis'])
 
         def test_context_is_bounded_and_no_message_side_effect(self):
             self.plan(); self.publish(self.source())
@@ -316,8 +323,13 @@ if importlib.util.find_spec('verabot.db.feed_store'):
         def test_reject_entities_oversize_invalid_item_and_private_url(self):
             for xml in [b'<!DOCTYPE x [<!ENTITY a "x">]><rss/>',b'<?xml version="1.0"?><!DOCTYPE x><rss/>',b'x'*2100000]:
                 with self.assertRaises(ValueError): parser.parse(xml,'https://example.com','news')
-            for url in ['http://example.com','https://user:pass@example.com','https://localhost/a','https://127.0.0.1','https://[::1]','https://10.1.1.1','https://example.com:444/','https://example.com/\nHost:x']:
+            for url in ['http://example.com','https://user:pass@example.com','https://localhost/a','https://127.0.0.1','https://[::1]','https://10.1.1.1','https://example.com:444/','https://example.com/\nHost:x',
+                        'https://127.1/a','https://0x7f.0.0.1/a','https://0177.0.0.1/a','https://0.0.0.0/a','https://[::ffff:127.0.0.1]/a','https://[::ffff:10.0.0.1]/a','https://[64:ff9b::a00:1]/a','https://[2002:0a00:0001::]/a','https://169.254.169.254/a','https://224.0.0.1/a']:
                 with self.subTest(url=url), self.assertRaises(ValueError): fetcher.validate_url(url)
+            self.assertTrue(fetcher.public_ip('8.8.8.8'))
+            self.assertFalse(fetcher.public_ip('::ffff:10.0.0.1'))
+            self.assertFalse(fetcher.public_ip('64:ff9b::a00:1'))
+            self.assertFalse(fetcher.public_ip('2002:0a00:0001::'))
         def test_opt_in_doh_pins_bootstrap_and_rejects_private_answers(self):
             import os,json
             with patch.dict(os.environ,{'VERABOT_FEED_DOH':'1'}), patch.object(fetcher,'request_ip',return_value=(200,{},json.dumps({'Status':0,'Answer':[{'type':1,'data':'93.184.216.34'}]}).encode())) as request:
@@ -335,6 +347,8 @@ if importlib.util.find_spec('verabot.db.feed_store'):
                 result=fetcher.fetch('https://example.com/rss')
                 self.assertEqual(result[0],200); self.assertEqual(request.call_args.args[1],'93.184.216.34')
             with patch.object(fetcher.socket,'getaddrinfo',return_value=addresses), patch.object(fetcher,'request_ip',return_value=(302,{'location':'https://127.0.0.1/'},b'')):
+                with self.assertRaises(ValueError): fetcher.fetch('https://example.com/rss')
+            with patch.object(fetcher.socket,'getaddrinfo',return_value=addresses), patch.object(fetcher,'request_ip',return_value=(302,{'location':'https://127.1/'},b'')):
                 with self.assertRaises(ValueError): fetcher.fetch('https://example.com/rss')
             with patch.object(fetcher.socket,'getaddrinfo',return_value=[(2,1,6,'',('10.0.0.1',443))]):
                 with self.assertRaises(ValueError): fetcher.fetch('https://example.com/rss')

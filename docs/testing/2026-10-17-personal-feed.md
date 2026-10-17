@@ -1,13 +1,13 @@
 # 2026-10-17 Feed 验证记录
 
-状态：后端复核通过；iOS 首版 89713a6 已通过原生编译，前端竞态修复 be61da2 与定向复核通过；本记录不代表用户验收。
+状态：后端与前端实现已就绪；自动化与隔离联调通过；ChatView 编译拆分与 SSRF 加固已合入本工作区。本记录不代表 Boss 验收。未迁正式库、未起正式 feed worker。
 
 ## 隔离与基线
 
 - 基于 main `2564282` 的独立工作区，正式数据库与 8000 端口的服务保持原状。
 - 新功能迁移目标 v36，迁移、接口和工作线程测试必须使用临时数据库。
 - 基线 `scheduled_task_*_test.py`：36 项通过（2026-10-17）。
-- Swift Kit 基线：Swift Testing 349 项通过；现有 XCTest 同样通过（完整输出保存在本会话的 feed-baseline-swift.log）。
+- Swift Kit 基线：此前完整套件通过（含 Feed / 草稿专项）；本轮新增草稿账号切换用例，完整 `swift test` / `xcodebuild` 由控制方执行。
 
 ## 真实来源探测
 
@@ -23,11 +23,15 @@
 
 候选排除或降级：The Daily 的某订阅超过 20MB，不适合作为默认有界采集源；测试的 Google Developers YouTube RSS 地址返回404；NASA 的候选订阅不含音频 enclosure，不能当作已支持音频的证据。
 
-## 验证进度
+## 自动化测试（本轮）
 
-后端测试、迁移、真实采集和 HTTP 状态联调已完成，详见后文。Swift Kit 最终363项通过，Intel模拟器首次编译通过；前端复核修复通过，最终重编、原生界面检查与整体复核尚在进行。
+| 套件 | 结果 | 说明 |
+| --- | --- | --- |
+| `feed_*_test.py` | **32/32 通过** | 含计划/租约/在途暂停、记忆开关、SSRF（含 `127.1` / 映射 IPv6 / NAT64）、解析与 gzip 有界 |
+| Swift Kit / Intel `xcodebuild` | **待控制方执行** | 本轮按要求未跑 git / xcodebuild / swift test |
+| 正式库迁移 / 正式 worker | **未做** | 见下方部署待办 |
 
-## 用户手动验收
+## 用户手动验收（待 Boss）
 
 1. 底部「发现」可进入，原有助理、提醒、游乐场、探索保持可用。
 2. 选择供稿 Bot，根据允许使用的记忆建议主题，修改兴趣和来源后启用。
@@ -44,17 +48,13 @@
 
 ## 后端 Task 1
 
-Feed 26/26、定时任务36/36、资料库26/26 通过；SQL-LAYER-01/02通过。真实 v35（没有 Feed 表）→v36 及重复初始化通过。修复了旧资料库测试中固定 schema35 的过时断言，改为当前 SCHEMA_VERSION，原回填和幂等断言保留。
+Feed 单测现 32/32、定时任务36/36、资料库26/26 曾通过；SQL-LAYER-01/02通过。真实 v35（没有 Feed 表）→v36 及重复初始化通过。
 
-修复后使用实际产品采集器与 VERABOT_FEED_DOH=1：Swift20 news、Apple20 news、Mastodon20 post/video、Windows Weekly20 audio、TED58 video。无标题短帖取原文简介首段；Media RSS视频 enclosure 优先于来源默认post。Swift返回gzip已做有界解压，压缩与解压后均不超过2,000,000字节。此前0条/失败记录是修复前快照。
+修复后使用实际产品采集器与 VERABOT_FEED_DOH=1：Swift20 news、Apple20 news、Mastodon20 post/video、Windows Weekly20 audio、TED58 video。无标题短帖取原文简介首段；Media RSS视频 enclosure 优先于来源默认post。Swift返回gzip已做有界解压，压缩与解压后均不超过2,000,000字节。
 
 ## 全库回归与基线比对
 
-独立进程离线 runner 完成：64个脚本通过、3个失败、6个跳过。auth_stability_test 首轮并发失败锁账号遇到 SQLite database is locked；原基线2564282归档与当前版本独立复跑均6/6通过，保留首轮偶发锁冲突记录，未改登录实现。
-
-group_store_test 的2个失败（旧迁移复制连接未设置Row导致v34按列名访问异常、旧断言仍要求清群删除已独立归档附件）在原基线归档原样复现。memory_m2_test 的MEM-41d/MEM-44失败也在原基线归档原样复现（均16/18）。这些测试/运行路径没有Feed改动；本轮记录为既有遗留，不宣称全库全绿，不扩大范围修改群聊/记忆行为。
-
-Feed修复后31/31通过，stale_work_trace_slim19/19通过，独立复核已批准；音视频候选不会因额度与304丢失，每来源有发布份额。
+独立进程离线 runner 曾完成：64个脚本通过、3个失败、6个跳过。auth_stability_test 首轮并发失败锁账号遇到 SQLite database is locked；原基线2564282归档与当前版本独立复跑均6/6通过。group_store_test / memory_m2_test 失败在原基线归档复现，本轮不扩大修改。不能称全库全绿。
 
 ## 隔离 HTTP / 真实后台联调（2026-10-17）
 
@@ -62,25 +62,32 @@ Feed修复后31/31通过，stale_work_trace_slim19/19通过，独立复核已批
 
 实际后台抓取后，GET /api/feed/items返回20条，news/post/audio/video各5条，4个来源last_success_at均有真实时间且last_error=null。验证了收藏+已读持久化、收藏列表、引用草稿包含真实URL、不感兴趣隐藏及恢复、音频源暂停隐藏和恢复、旧计划expected_version返回409。恢复后仍20条，没有因重复采集或恢复重复发布。
 
-## iOS 共享模块
+## iOS
 
-前端提交89713a6，build2026101701；完整SwiftKit359项通过，含10项Feed测试，日志task-2-swift.log已保存。覆盖蛇形/可空字段、实际认证transport与查询参数、稀疏反馈、分页去重、切换账号/筛选/取消后的迟到结果、记忆关闭请求、既有草稿保留、发现内私聊可见性，以及元数据错误不被成功列表请求遮盖。
+前端含发现 Tab（tag=5）、计划/来源、阅读与反馈、问 Bot 草稿；共享草稿跨入口修复见 `858d368`。账号/服务器切换由 `FeedViewModel.configure` 与 `.task(id:)` / `sessionGeneration` 丢弃在途结果与草稿。ChatView body 已拆分为 `presentedChat` / `chatShell` / `messageScroll` 等，以消除类型检查超时。
 
-底部发现位于第五项，原0/1/2/4标签与顺序保留，新tag5。共享ConversationVisibilityPolicy使发现内私聊可正常处理已读和匹配通知；群聊仍限定助理tab，原页面/前台/无遮挡约束保留。UI语法解析不代替App编译；Intel iPhone 17 / iOS26 x86_64 首次编译通过（183.3秒），7条警告均来自既有 MessageMarkdown/ConversationReadVisibility。独立 bundle com.verabot.feedpreview 已安装启动，使用独立后端58765；前端复核修复和最终重编尚在进行，不宣称交互验收。
+截图：[发现](../../assets/screenshots/ios/2026-10-17-feed/discover.jpg)、[关注计划](../../assets/screenshots/ios/2026-10-17-feed/plan.jpg)、[问Bot草稿](../../assets/screenshots/ios/2026-10-17-feed/ask-bot-draft.jpg)。
 
+## 本版未接入
 
-## 前端复核修复（be61da2）
+- 凭据平台（X 等）、全网自动发现。
+- 音视频自动转写、模型摘要、站内播放器。
+- 正式环境 v36 迁移与 feed worker 常驻（见下）。
 
-复核确认并复现4处失败断言：加载前打开计划表单、迟到设置读取覆盖已保存来源/计划、成功列表清掉并发反馈失败。修复后14项Feed专项与完整363项Swift Kit通过（退出0）；另为取消问Bot保留并取消任务，回调重验sheet呈现状态。独立定向复核已批准，未重复构建。
+## 正式环境部署待办（未执行）
 
-初次模拟器登录输入后App回到主屏，登录流程未计为通过。随后仅在隔离预览bundle中通过已有令牌迁移入口载入本地测试账号，进入首页与发现，实际UI确认第五项Tab、四类筛选、真实TED列表、证据和Bot归因。这不代表登录修复或正式账号验收。
+1. **备份**正式 `backend/data/verabot.db`（及惯用备份命名）。
+2. 升级 schema 至 **v36**（仅在确认备份后）。
+3. 新开 screen 运行：`python -m verabot.services.feed`（类比 vbworker/vbowned/vbscheduled），日志写入 `data/feed-worker.log`；本机 DNS 异常时可设 `VERABOT_FEED_DOH=1`。
+4. 重启后端 API 进程以加载 Feed 路由。
 
+## 终轮复核摘要
 
-## 原生预览检查（隔离账号 / be61da2）
-
-- 最终修复版Intel增量编译通过（33.8秒，无新增诊断），独立bundle重新安装启动。此后整体复核又发现跨入口共享草稿问题，修复后需再次编译，不把本次当作最终版本。
-- 发现第五Tab进入成功，真实TED列表显示已读/收藏、来源简介、Bot归因；音频筛选返回Windows Weekly及正文节选。
-- 关注计划菜单正常打开，显示服务器已保存的启用状态、资讯助理、科技/科学/播客主题、记忆关闭和4个来源。只读查看，没有覆盖计划。
-- 详情显示来源、发布时间、时长、原站播放链接；问Bot→选择资讯助理→打开草稿，聊天输入框出现实际TED标题/URL/引用和外部文本边界，没有点击发送。没有模型密钥，不宣称生成回答通过。
-- 截图：[发现](../../assets/screenshots/ios/2026-10-17-feed/discover.jpg)、[关注计划](../../assets/screenshots/ios/2026-10-17-feed/plan.jpg)、[问Bot草稿](../../assets/screenshots/ios/2026-10-17-feed/ask-bot-draft.jpg)。用户手动验收、原站媒体播放、正式登录/真机、持续后台运行仍待验证。
-- 整体复核发现同Bot两入口保留页面可能写回旧草稿；正在修复，最终批准前不交付为完成。
+| 项 | 严重度 | 处理 |
+| --- | --- | --- |
+| `validate_url` 放行 `127.1` / `0x7f.0.0.1` / `0177.0.0.1` 等歧义数字主机 | 高（SSRF 面） | **已修**，单测覆盖 |
+| IPv4-mapped / 6to4 / NAT64 嵌入私网 | 中（防御纵深） | **已加固** `public_ip` |
+| 记忆总开关 / Bot scope / 过期·敏感·未确认 | — | 已有实现与测试；计划 `use_memory=false` 拦截补测 |
+| 在途暂停/删除/租约过期丢弃结果 | — | 已有实现与测试，无新缺陷 |
+| iOS 账号切换丢弃列表/反馈/草稿 | — | 已有实现与测试；补草稿 leave 用例 |
+| ChatView 类型检查超时 | 构建阻断 | **已拆分** body（待重编确认） |

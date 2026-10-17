@@ -17,9 +17,29 @@ MAX_BYTES=2_000_000
 MAX_SECONDS=30
 MAX_REDIRECTS=3
 
+_NAT64=ipaddress.IPv6Network('64:ff9b::/96')
+
 def public_ip(value):
+    """Reject non-global, reserved, and IPv6 forms that embed non-public IPv4."""
     address=ipaddress.ip_address(value)
+    if isinstance(address,ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None: return public_ip(address.ipv4_mapped)
+        if address.sixtofour is not None: return public_ip(address.sixtofour)
+        if address in _NAT64: return public_ip(ipaddress.IPv4Address(int(address)&0xffffffff))
     return address.is_global and not (address.is_multicast or address.is_reserved or address.is_unspecified or address.is_loopback or address.is_link_local)
+
+def _ambiguous_numeric_host(host):
+    """True for 127.1 / 0x7f.0.0.1 / 0177.0.0.1 style literals that are not clean IPs."""
+    if ':' in host: return False
+    labels=host.split('.')
+    if not 1<=len(labels)<=4 or not all(labels): return False
+    for label in labels:
+        low=label.lower()
+        if low.startswith('0x'):
+            if len(low)==2 or any(c not in '0123456789abcdef' for c in low[2:]): return False
+        elif not label.isdigit():
+            return False
+    return True
 
 def validate_url(url):
     if not isinstance(url,str) or len(url)>2048 or any(ord(c)<33 or ord(c)==127 for c in url) or '\\' in url:
@@ -33,10 +53,12 @@ def validate_url(url):
         raise ValueError('public HTTPS URL required')
     if '%' in host or host=='localhost' or host.endswith(('.localhost','.local','.internal','.test','.invalid')) or '.' not in host and ':' not in host:
         raise ValueError('non-public hostname')
-    try: ipaddress.ip_address(host)
-    except ValueError: pass
+    try: address=ipaddress.ip_address(host)
+    except ValueError:
+        # Reject decimal/octal/hex IPv4 shorthands that getaddrinfo may reinterpret.
+        if _ambiguous_numeric_host(host): raise ValueError('non-public address')
     else:
-        if not public_ip(host): raise ValueError('non-public address')
+        if not public_ip(address): raise ValueError('non-public address')
     netloc='['+host+']' if ':' in host else host
     return urlunsplit(('https',netloc,p.path or '/',p.query,''))
 

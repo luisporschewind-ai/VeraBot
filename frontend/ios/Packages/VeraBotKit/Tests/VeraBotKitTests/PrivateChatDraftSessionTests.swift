@@ -78,3 +78,17 @@ import VeraBotCore
     let hiddenEdit = draft.edit("hidden stale edit")
     #expect(!hiddenEdit)
 }
+
+/// Account/server switch discards the active entry without flushing a write to the new identity.
+@Test func privateChatDraftAccountSwitchDiscardsActiveEntryWithoutFlush() {
+    var draft = PrivateChatDraftSession(incoming: "source context")
+    let entry = draft.begin()
+    #expect(draft.hydrate(saved: "", entry: entry) == "source context")
+    draft.edit("typed after hydrate")
+    #expect(draft.pendingWrite?.text == "typed after hydrate")
+    // ChatView sessionGeneration handler cancels saves then leave()s without persisting.
+    _ = draft.leave()
+    #expect(draft.leave() == nil)
+    #expect(draft.pendingWrite == nil)
+    #expect(!draft.isActive)
+}
