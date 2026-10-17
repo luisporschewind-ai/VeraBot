@@ -22,6 +22,8 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
     """)
     #expect(s.statusText == "已连接" && s.toolsCount == 3 && s.enabled && s.catalogId == "microsoft_learn")
     #expect(!s.consented && s.circuitText == "正常")
+    #expect(s.syncStatusText == nil)
+    #expect(s.statusText != "等待同步")
 }
 
 @Test func mcpServerShowsConsentSyncAndBreaker() throws {
@@ -32,6 +34,15 @@ private func tool(_ id: Int, _ name: String, risk: String = "read", status: Stri
      "consent_at":null,"sync_status":"syncing","circuit_state":"closed","circuit_open_until":null,"consecutive_failures":0}
     """)
     #expect(waiting.statusText == "正在同步" && waiting.syncStatusText == "正在同步")
+    let pending = try decode(MCPServer.self, """
+    {"id":1,"slug":"learn","catalog_id":"microsoft_learn","name":"Microsoft Learn","source":"catalog",
+     "transport":"streamable_http","trust":"verified","auth_type":"none","status":"needs_auth","enabled":true,
+     "account_label":null,"tools_count":0,"last_error":null,"last_synced_at":null,
+     "consent_at":null,"sync_status":"pending","circuit_state":"closed","circuit_open_until":null,"consecutive_failures":0}
+    """)
+    #expect(pending.syncStatusText == nil)
+    #expect(pending.statusText != "等待同步")
+    #expect(pending.statusText == "未连接")
     let ready = try decode(MCPServer.self, """
     {"id":1,"slug":"learn","catalog_id":"microsoft_learn","name":"Microsoft Learn","source":"catalog",
      "transport":"streamable_http","trust":"verified","auth_type":"none","status":"connected","enabled":true,

@@ -27,6 +27,12 @@ private let learnJSON = """
     #expect(!plugin.consented)
     #expect(plugin.servers.count == 1)
     #expect(plugin.servers[0].slug == "learn")
+    #expect(plugin.syncStatusText == "已同步")
+}
+
+@Test func pluginPendingSyncStatusTextIsNil() throws {
+    let plugin = try decode(Plugin.self, learnJSON.replacingOccurrences(of: "\"sync_status\":\"ok\"", with: "\"sync_status\":\"pending\""))
+    #expect(plugin.syncStatusText == nil)
 }
 
 @Test func pluginStateTitlesMatchBackendOrder() throws {

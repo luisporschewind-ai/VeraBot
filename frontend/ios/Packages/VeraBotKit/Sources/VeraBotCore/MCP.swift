@@ -63,7 +63,6 @@ public struct MCPServer: Codable, Sendable, Hashable, Identifiable {
         if circuitState == "open" { return "已熔断" }
         switch syncStatus {
         case "syncing": return "正在同步"
-        case "pending": return "等待同步"
         case "error": return "同步失败"
         case "ok" where !consented: return "未同意"
         default: break
@@ -78,13 +77,13 @@ public struct MCPServer: Codable, Sendable, Hashable, Identifiable {
         }
     }
 
-    public var syncStatusText: String {
+    public var syncStatusText: String? {
         switch syncStatus ?? "pending" {
-        case "pending": return "等待同步"
+        case "pending": return nil
         case "syncing": return "正在同步"
         case "ok": return "已同步"
         case "error": return "同步失败"
-        default: return syncStatus ?? "等待同步"
+        default: return syncStatus
         }
     }
 

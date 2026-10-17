@@ -25,9 +25,6 @@ struct GroupExecutionStatusView: View {
                     }
                     Spacer()
                 }
-                if model.executionSyncPending {
-                    Text("进度待同步").font(.caption2).foregroundStyle(.secondary)
-                }
                 Text(task.goal).font(.footnote).lineLimit(2).foregroundStyle(.primary)
                 if task.state == .awaitingUser, let clarification = model.execution.snapshot.clarification {
                     if let owner = model.group.members.first(where: { $0.id == clarification.ownerMemberID }) {

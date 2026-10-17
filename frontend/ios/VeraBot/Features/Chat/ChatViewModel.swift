@@ -570,7 +570,7 @@ final class ChatViewModel {
             let pendingInputs = (try? await activityRepository?.pending(botID: bot.id)) ?? []
             let pendingControls = (try? await activityRepository?.pendingControls(botID: bot.id)) ?? []
             if !pendingInputs.isEmpty || !pendingControls.isEmpty { scheduleRecovery() }
-        } catch { if !Task.isCancelled && epoch == pageEpoch { notice = .sentence("待同步；已接收的回复会继续执行。"); scheduleRecovery() } }
+        } catch { if !Task.isCancelled && epoch == pageEpoch { scheduleRecovery() } }
     }
 
     private func scheduleRecovery() {
@@ -659,7 +659,7 @@ final class ChatViewModel {
                         if event.name == "confirmation_required" || event.name == "task_updated" { await self.refreshPendingActions(); await self.refreshMemoryStates() }
                         if event.name == "done" { await self.refreshCandidateMemories(); await self.refreshMemorySuggestions() }
                     }
-                } catch { if !Task.isCancelled { self.notice = .sentence("待同步；已接收的回复会继续执行。") } }
+                } catch { /* leave notice unchanged; continue recovery loop */ }
                 do { try await Task.sleep(for: .seconds(2)) } catch { return }
                 guard epoch == self.pageEpoch else { return }
                 if let snapshot = try? await self.api.chatExecution(botID: self.bot.id) { await self.applySnapshot(snapshot) }
