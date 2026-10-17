@@ -15,13 +15,18 @@ import VeraBotNetworking
     public private(set) var loadingSetup = false
     public private(set) var busy = false
     public private(set) var setupLoaded = false
-    public private(set) var error: String?
+    /// Form snapshots may only originate from successfully loaded persisted state.
+    public var editablePlan: FeedPlan? { setupLoaded ? plan : nil }
+    public private(set) var listError: String?
+    public private(set) var mutationError: String?
+    public var error: String? { mutationError ?? listError }
     public private(set) var setupError: String?
     public private(set) var notice: String?
     public private(set) var identity: String
     @ObservationIgnored private var api: any FeedAPI
     @ObservationIgnored private var scopeGeneration: UInt64 = 0
     @ObservationIgnored private var listGeneration: UInt64 = 0
+    @ObservationIgnored private var metadataGeneration: UInt64 = 0
 
     public init(api: any FeedAPI, identity: String) { self.api = api; self.identity = identity }
 
@@ -31,7 +36,7 @@ import VeraBotNetworking
         scopeGeneration &+= 1; listGeneration &+= 1
         self.api = api; self.identity = identity
         items = []; details = [:]; plan = FeedPlan(); sources = []; catalog = []; query = FeedQuery()
-        nextCursor = nil; loading = false; loadingSetup = false; busy = false; setupLoaded = false; error = nil; setupError = nil; notice = nil
+        nextCursor = nil; loading = false; loadingSetup = false; busy = false; setupLoaded = false; listError = nil; mutationError = nil; setupError = nil; notice = nil
     }
 
     public func load() async {
@@ -45,16 +50,26 @@ import VeraBotNetworking
         let generation = scopeGeneration
         loadingSetup = true
         defer { if generation == scopeGeneration { loadingSetup = false } }
-        do {
-            async let planValue = api.feedPlan()
-            async let sourceValue = api.feedSources()
-            async let catalogValue = api.feedCatalog()
-            let result = try await (planValue, sourceValue, catalogValue)
-            guard generation == scopeGeneration, !Task.isCancelled else { return }
-            plan = result.0; sources = result.1; catalog = result.2; setupLoaded = true; setupError = nil
-        } catch {
-            guard generation == scopeGeneration, !Task.isCancelled, !(error is CancellationError) else { return }
-            setupError = error.localizedDescription
+        // A write can finish while these independent reads are pending. Refetch the
+        // metadata as a unit rather than replacing an acknowledged write with that older snapshot.
+        while generation == scopeGeneration, !Task.isCancelled {
+            let revision = metadataGeneration
+            let requestAPI = api
+            do {
+                async let planValue = requestAPI.feedPlan()
+                async let sourceValue = requestAPI.feedSources()
+                async let catalogValue = requestAPI.feedCatalog()
+                let result = try await (planValue, sourceValue, catalogValue)
+                guard generation == scopeGeneration, !Task.isCancelled else { return }
+                guard revision == metadataGeneration else { continue }
+                plan = result.0; sources = result.1; catalog = result.2; setupLoaded = true; setupError = nil
+                return
+            } catch {
+                guard generation == scopeGeneration, !Task.isCancelled, !(error is CancellationError) else { return }
+                guard revision == metadataGeneration else { continue }
+                setupError = error.localizedDescription
+                return
+            }
         }
     }
 
@@ -86,16 +101,17 @@ import VeraBotNetworking
             items = ((append ? items : []) + page.items).filter { seen.insert($0.id).inserted }
             // A repeating cursor must not trap the user in an endless load-more loop.
             nextCursor = page.nextCursor == cursor ? nil : page.nextCursor
-            error = nil
+            listError = nil
         } catch {
             guard generation == listGeneration else { return }
-            record(error, generation: scope)
+            record(error, generation: scope, isList: true)
         }
     }
 
     public func savePlan(_ update: FeedPlanUpdate) async -> Bool {
         let generation = scopeGeneration
         guard let updated = await perform({ try await $0.feedSavePlan(update) }), generation == scopeGeneration, !Task.isCancelled else { return false }
+        metadataGeneration &+= 1
         plan = updated
         await reloadItems()
         return true
@@ -109,6 +125,7 @@ import VeraBotNetworking
     public func addSource(_ create: FeedSourceCreate) async -> Bool {
         let generation = scopeGeneration
         guard let source = await perform({ try await $0.feedAddSource(create) }), generation == scopeGeneration, !Task.isCancelled else { return false }
+        metadataGeneration &+= 1
         if let index = sources.firstIndex(where: { $0.id == source.id }) { sources[index] = source }
         else { sources.append(source) }
         return true
@@ -117,6 +134,7 @@ import VeraBotNetworking
     public func setSource(id: Int, enabled: Bool) async {
         let generation = scopeGeneration
         guard let source = await perform({ try await $0.feedSetSource(id: id, enabled: enabled) }), generation == scopeGeneration, !Task.isCancelled else { return }
+        metadataGeneration &+= 1
         if let index = sources.firstIndex(where: { $0.id == id }) { sources[index] = source }
         await reloadItems()
     }
@@ -147,22 +165,22 @@ import VeraBotNetworking
     }
 
     public func context(id: Int, botID: Int, allowedBotIDs: Set<Int>) async -> FeedContext? {
-        guard allowedBotIDs.contains(botID) else { error = "请选择当前账号的 Bot"; return nil }
+        guard allowedBotIDs.contains(botID) else { mutationError = "请选择当前账号的 Bot"; return nil }
         let generation = scopeGeneration
         guard let value = await perform({ try await $0.feedContext(id: id, botID: botID) }), generation == scopeGeneration, !Task.isCancelled else { return nil }
         guard value.botID == botID, value.prompt.count <= 7000, !value.prompt.isEmpty else {
-            error = "来源草稿无效，请重试"; return nil
+            mutationError = "来源草稿无效，请重试"; return nil
         }
         return value
     }
 
-    public func clearError() { error = nil }
+    public func clearError() { listError = nil; mutationError = nil }
 
     /// Cancellation-insensitive transports cannot apply old account writes or return old context.
     private func perform<T: Sendable>(_ operation: @Sendable (any FeedAPI) async throws -> T) async -> T? {
         guard !busy else { return nil }
         let generation = scopeGeneration
-        busy = true; error = nil
+        busy = true; mutationError = nil
         defer { if generation == scopeGeneration { busy = false } }
         do {
             let result = try await operation(api)
@@ -171,8 +189,9 @@ import VeraBotNetworking
         } catch { record(error, generation: generation); return nil }
     }
 
-    private func record(_ failure: Error, generation: UInt64) {
+    private func record(_ failure: Error, generation: UInt64, isList: Bool = false) {
         guard generation == scopeGeneration, !Task.isCancelled, !(failure is CancellationError) else { return }
-        error = failure.localizedDescription
+        if isList { listError = failure.localizedDescription }
+        else { mutationError = failure.localizedDescription }
     }
 }

@@ -91,6 +91,14 @@ private actor FeedStub: FeedAPI {
     var pages: [FeedPage] = []
     var failing = false
     var setupFails = false
+    var storedPlan = FeedPlan(enabled: true, botIDs: [7], topics: ["before"], version: 4)
+    var storedSources = [FeedSource(id: 1, name: "Existing", url: "https://example.com/rss", enabled: true)]
+    var setupWaiter: CheckedContinuation<[FeedCatalogSource], Error>?
+    var delayCatalog = false
+    var metadataReads = 0
+    func delaySetup() { delayCatalog = true; metadataReads = 0 }
+    func capturedSetup() -> Bool { setupWaiter != nil && metadataReads >= 2 }
+    func finishSetup() { setupWaiter?.resume(returning: []); setupWaiter = nil }
     var suspended: CheckedContinuation<FeedPage, Error>?
     var suspendNext = false
     var savedMemoryEnabled = true
@@ -118,7 +126,9 @@ private actor FeedStub: FeedAPI {
     }
     func feedPlan() async throws -> FeedPlan {
         if setupFails { throw APIError(status: 503, message: "setup offline") }
-        return FeedPlan(useMemory: savedMemoryEnabled)
+        metadataReads += 1
+        var plan = storedPlan; plan.useMemory = savedMemoryEnabled
+        return plan
     }
     func feedSuggest(botIDs: [Int], topics: [String], useMemory: Bool) async throws -> FeedSuggestion {
         FeedSuggestion(basis: useMemory ? "memory used" : "memory off")
@@ -127,8 +137,26 @@ private actor FeedStub: FeedAPI {
         if delayContext { delayContext = false; return try await withCheckedThrowingContinuation { contextWaiter = $0 } }
         return FeedContext(botID: botID, prompt: "bounded source")
     }
-    func feedSources() async throws -> [FeedSource] { [] }
-    func feedCatalog() async throws -> [FeedCatalogSource] { [] }
+    func feedSources() async throws -> [FeedSource] { metadataReads += 1; return storedSources }
+    func feedCatalog() async throws -> [FeedCatalogSource] {
+        if delayCatalog { delayCatalog = false; return try await withCheckedThrowingContinuation { setupWaiter = $0 } }
+        return []
+    }
+    func feedSetSource(id: Int, enabled: Bool) async throws -> FeedSource {
+        let index = storedSources.firstIndex(where: { $0.id == id })!
+        storedSources[index].enabled = enabled
+        return storedSources[index]
+    }
+    func feedAddSource(_ create: FeedSourceCreate) async throws -> FeedSource {
+        let value = FeedSource(id: 2, name: create.name, url: create.url, kind: create.kind, botID: create.botID)
+        storedSources.append(value); return value
+    }
+    func feedSavePlan(_ update: FeedPlanUpdate) async throws -> FeedPlan {
+        guard update.expectedVersion == storedPlan.version else { throw APIError(status: 409, message: "conflict") }
+        savedMemoryEnabled = update.useMemory
+        storedPlan = FeedPlan(enabled: update.enabled, botIDs: update.botIDs, topics: update.topics, excludedTopics: update.excludedTopics, useMemory: update.useMemory, version: storedPlan.version + 1)
+        return storedPlan
+    }
     func feedSetState(id: Int, state: FeedItemState) async throws -> FeedItem {
         if delayState { delayState = false; return try await withCheckedThrowingContinuation { stateWaiter = $0 } }
         if failing { throw APIError(status: 500, message: "feedback failed") }
@@ -232,4 +260,78 @@ private actor FeedStub: FeedAPI {
     await vm.loadSetup()
     await vm.reloadItems()
     #expect(vm.setupError == "setup offline" && !vm.setupLoaded)
+}
+
+
+@MainActor @Test(arguments: ["pause", "add", "save"])
+func feedLateSetupCannotUndoAcknowledgedMetadataWrite(operation: String) async {
+    let api = FeedStub()
+    let vm = FeedViewModel(api: api, identity: "account-a")
+    await vm.loadSetup()
+    await api.delaySetup()
+    let setup = Task { await vm.loadSetup() }
+    while !(await api.capturedSetup()) { await Task.yield() }
+    switch operation {
+    case "pause":
+        await vm.setSource(id: 1, enabled: false)
+        #expect(vm.sources.first?.enabled == false)
+    case "add":
+        #expect(await vm.addSource(FeedSourceCreate(name: "Added", url: "https://example.org/rss", kind: "audio")))
+        #expect(vm.sources.map(\.id) == [1, 2])
+    default:
+        #expect(await vm.savePlan(FeedPlanUpdate(enabled: false, botIDs: [7], topics: ["after"], excludedTopics: [], useMemory: false, expectedVersion: 4)))
+        #expect(vm.plan.version == 5 && vm.plan.topics == ["after"])
+    }
+    await api.finishSetup()
+    await setup.value
+    switch operation {
+    case "pause": #expect(vm.sources.first?.enabled == false)
+    case "add": #expect(vm.sources.map(\.id) == [1, 2])
+    default: #expect(vm.plan.version == 5 && vm.plan.topics == ["after"] && !vm.plan.enabled)
+    }
+    #expect(vm.setupLoaded && !vm.loadingSetup)
+}
+
+@MainActor @Test func feedSuccessfulListDoesNotHideConcurrentFeedbackFailure() async {
+    let api = FeedStub()
+    await api.enqueue([FeedPage(items: [FeedItem(id: 9)], nextCursor: nil)])
+    let vm = FeedViewModel(api: api, identity: "account-a")
+    await vm.reloadItems()
+    await api.suspend()
+    let load = Task { await vm.reloadItems() }
+    while !(await api.hasSuspended()) { await Task.yield() }
+    await api.fail(true)
+    #expect(await vm.setState(id: 9, state: FeedItemState(saved: true)) == nil)
+    #expect(vm.error == "feedback failed")
+    await api.resume(FeedPage(items: [FeedItem(id: 9)], nextCursor: nil))
+    await load.value
+    #expect(vm.error == "feedback failed")
+    #expect(vm.items.first?.saved == false)
+}
+
+@MainActor @Test func feedCancelledAskBotDoesNotReturnLateContext() async {
+    let api = FeedStub()
+    let vm = FeedViewModel(api: api, identity: "account-a")
+    await api.delayDraft()
+    let handoff = Task { await vm.context(id: 9, botID: 7, allowedBotIDs: [7]) }
+    while !(await api.waitingDraft()) { await Task.yield() }
+    handoff.cancel()
+    await api.finishDraft()
+    #expect(await handoff.value == nil)
+    #expect(!vm.busy && vm.error == nil)
+}
+
+@MainActor @Test func feedPlanEditorWaitsForPersistedPlanInsteadOfUsingDefaults() async throws {
+    let api = FeedStub()
+    let vm = FeedViewModel(api: api, identity: "account-a")
+    #expect(vm.editablePlan == nil)
+    await api.delaySetup()
+    let setup = Task { await vm.loadSetup() }
+    while !(await api.capturedSetup()) { await Task.yield() }
+    #expect(vm.editablePlan == nil)
+    await api.finishSetup()
+    await setup.value
+    let initial = try #require(vm.editablePlan)
+    #expect(initial.enabled && initial.version == 4)
+    #expect(initial.botIDs == [7] && initial.topics == ["before"])
 }

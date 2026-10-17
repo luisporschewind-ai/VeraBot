@@ -6,6 +6,28 @@ struct FeedPlanEditor: View {
     @Environment(\.dismiss) private var dismiss
     let vm: FeedViewModel
     let bots: [Bot]
+    var body: some View {
+        Group {
+            if let plan = vm.editablePlan {
+                FeedPlanForm(vm: vm, bots: bots, initialPlan: plan)
+            } else {
+                List {
+                    if let error = vm.setupError {
+                        FeedErrorRow(message: error) { Task { await vm.loadSetup() } }
+                    } else { ProgressView("正在读取关注计划…") }
+                }
+                .navigationTitle("关注计划")
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } } }
+            }
+        }
+        .task { if vm.editablePlan == nil { await vm.loadSetup() } }
+    }
+}
+
+private struct FeedPlanForm: View {
+    @Environment(\.dismiss) private var dismiss
+    let vm: FeedViewModel
+    let bots: [Bot]
     @State private var enabled: Bool
     @State private var selectedBots: Set<Int>
     @State private var topics: String
@@ -14,14 +36,14 @@ struct FeedPlanEditor: View {
     @State private var suggestion: FeedSuggestion?
     @State private var version: Int
 
-    init(vm: FeedViewModel, bots: [Bot]) {
+    init(vm: FeedViewModel, bots: [Bot], initialPlan: FeedPlan) {
         self.vm = vm; self.bots = bots
-        _enabled = State(initialValue: vm.plan.enabled)
-        _selectedBots = State(initialValue: Set(vm.plan.botIDs))
-        _topics = State(initialValue: vm.plan.topics.joined(separator: "、"))
-        _exclusions = State(initialValue: vm.plan.excludedTopics.joined(separator: "、"))
-        _useMemory = State(initialValue: vm.plan.useMemory)
-        _version = State(initialValue: vm.plan.version)
+        _enabled = State(initialValue: initialPlan.enabled)
+        _selectedBots = State(initialValue: Set(initialPlan.botIDs))
+        _topics = State(initialValue: initialPlan.topics.joined(separator: "、"))
+        _exclusions = State(initialValue: initialPlan.excludedTopics.joined(separator: "、"))
+        _useMemory = State(initialValue: initialPlan.useMemory)
+        _version = State(initialValue: initialPlan.version)
     }
     var body: some View {
         Form {

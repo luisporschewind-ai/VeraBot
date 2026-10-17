@@ -67,7 +67,7 @@ struct FeedDetailView: View {
         .task { await vm.loadDetail(id: initialItem.id) }
         .sheet(isPresented: $choosingBot) {
             NavigationStack {
-                FeedAskBotSheet(itemID: item.id, vm: vm, bots: bots) { bot, context in
+                FeedAskBotSheet(itemID: item.id, vm: vm, bots: bots, presented: $choosingBot) { bot, context in
                     chat = FeedChatRoute(bot: bot, draft: context.prompt)
                 }
             }
@@ -91,8 +91,10 @@ private struct FeedAskBotSheet: View {
     let itemID: Int
     let vm: FeedViewModel
     let bots: [Bot]
+    @Binding var presented: Bool
     let ready: (Bot, FeedContext) -> Void
     @State private var selected: Int?
+    @State private var handoffTask: Task<Void, Never>?
     var body: some View {
         Form {
             Section {
@@ -106,15 +108,21 @@ private struct FeedAskBotSheet: View {
             }
             if let error = vm.error { Text(error).foregroundStyle(.red).font(.footnote) }
             Button(vm.busy ? "正在准备…" : "打开提问草稿") {
-                Task {
+                handoffTask?.cancel()
+                handoffTask = Task {
                     guard let bot = bots.first(where: { $0.id == selected }),
-                          let context = await vm.context(id: itemID, botID: bot.id, allowedBotIDs: Set(bots.map(\.id))), !Task.isCancelled else { return }
+                          let context = await vm.context(id: itemID, botID: bot.id, allowedBotIDs: Set(bots.map(\.id))), !Task.isCancelled, presented else { return }
                     ready(bot, context); dismiss()
                 }
             }.disabled(selected == nil || vm.busy)
         }
         .navigationTitle("问 Bot")
-        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } } }
+        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { presented = false; cancelHandoff(); dismiss() } } }
         .onAppear { vm.clearError() }
+        .onChange(of: presented) { _, visible in if !visible { cancelHandoff() } }
+        .onDisappear { cancelHandoff() }
+    }
+    private func cancelHandoff() {
+        handoffTask?.cancel(); handoffTask = nil
     }
 }
