@@ -91,6 +91,7 @@ def update(user_id,task_id,payload,expected_version):
 
 def transition(user_id,task_id,action,expected_version):
     now=clock.now()
+    ended=False
     with db.tx(immediate=True) as c:
         t=require(c,user_id,task_id); version_check(t,expected_version)
         values=dict(version=t['version']+1,updated_at=clock.iso(now))
@@ -103,11 +104,16 @@ def transition(user_id,task_id,action,expected_version):
             values.update(state='active' if nxt else 'completed',next_run_at_utc=clock.iso(nxt) if nxt else None,pause_reason=None)
         elif action in ('pause','delete'):
             values.update(state='paused' if action=='pause' else 'deleted')
-            if action=='delete': values['deleted_at']=clock.iso(now)
+            if action=='delete':
+                values['deleted_at']=clock.iso(now); ended=True
             runs.cancel_pending(c,task_id,now,include_running=True)
         else: raise TaskError('invalid_action','操作无效')
         tasks.update(c,user_id,task_id,values)
-        return public(tasks.fetch(c,user_id,task_id))
+        result=public(tasks.fetch(c,user_id,task_id))
+    if ended:
+        from ..items.sync import on_task_ended
+        on_task_ended(user_id,'scheduled',task_id)
+    return result
 
 def run_now(user_id,task_id,idempotency_key):
     key_valid(idempotency_key)

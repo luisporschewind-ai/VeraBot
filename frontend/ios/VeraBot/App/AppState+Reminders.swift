@@ -70,6 +70,9 @@ extension AppState {
             if let itemID = await linkedItemID(for: note) {
                 selectedTab = 1
                 pendingLink = .reminder(itemID)
+                if note.sourceState == "awaiting_user" || note.sourceState == "awaiting_approval" {
+                    pendingItemFocusTask = true
+                }
                 return
             }
         }

@@ -56,3 +56,5 @@ def _process(tid,now,stats):
         if nxt is None and error:
             values['state']='completed'; stats['completed']+=1
         tasks.update(c,t['user_id'],tid,values)
+        from ..items.sync import on_scheduled_advanced
+        on_scheduled_advanced(c, t['user_id'], tid)

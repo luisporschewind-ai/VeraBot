@@ -66,6 +66,8 @@ final class AppState {
     var pendingLink: DeepLink?
     /// 从对话 / Bot 编辑进入「安排」时预筛选的 Bot。
     var pendingAgendaBotID: Int?
+    /// 任务结果通知点按后聚焦事项详情的回答区块。
+    var pendingItemFocusTask = false
     var missingNotice: String?
     var showNotificationSettings = false
     var baseURLString: String

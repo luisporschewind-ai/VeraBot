@@ -31,6 +31,13 @@ struct ReminderEditorView: View {
     @State private var scheduleChanged = false
     @State private var repeatChanged = false
     @State private var timeSelectionChanged = false
+    @State private var handOffToBot = false
+    @State private var taskBotID: Int?
+    @State private var taskInstruction = ""
+    @State private var taskMode = "once"
+    @State private var taskRepeat = "daily"
+    @State private var taskStart = Date().addingTimeInterval(3600)
+    @State private var taskCompletionCriteria = ""
 
     private struct ChecklistDraft: Identifiable, Hashable {
         let id: UUID
@@ -163,6 +170,56 @@ struct ReminderEditorView: View {
                 }
             } footer: {
                 Text("归属的 Bot 可以查看和管理这条安排。")
+            }
+            if reminder == nil {
+                Section {
+                    CompactToggle(isOn: $handOffToBot) {
+                        Button("交给 Bot 执行") { handOffToBot.toggle() }
+                            .buttonStyle(.plain)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    if handOffToBot {
+                        Picker("执行方式", selection: $taskMode) {
+                            Text("到点做一次").tag("once")
+                            Text("按周期").tag("repeat")
+                            Text("持续直到完成").tag("owned")
+                        }
+                        Picker("负责 Bot", selection: $taskBotID) {
+                            ForEach(bots) { bot in
+                                Text(bot.name).tag(Optional(bot.id))
+                            }
+                        }
+                        if taskBotID == nil, let first = bots.first {
+                            Text("已默认选择「\(first.name)」").font(.footnote).foregroundStyle(.secondary)
+                        }
+                        TextField("要做什么", text: $taskInstruction, axis: .vertical)
+                            .lineLimit(2...4)
+                        if taskMode == "once" {
+                            DatePicker("执行时间", selection: $taskStart, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                        } else if taskMode == "repeat" {
+                            Picker("频率", selection: $taskRepeat) {
+                                Text("每天").tag("daily")
+                                Text("工作日").tag("weekdays")
+                            }
+                            DatePicker("首次执行", selection: $taskStart, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                        } else {
+                            TextField("完成标准", text: $taskCompletionCriteria, axis: .vertical)
+                                .lineLimit(2...4)
+                            if app.primarySettings?.activeEnabled != true {
+                                Label("持续任务需要先开启「允许主动任务」", systemImage: "exclamationmark.triangle")
+                                    .font(.footnote)
+                                    .foregroundStyle(.orange)
+                                Button("去设置") { app.openAgenda(filteredByBotID: taskBotID ?? 0) }
+                                    .font(.footnote)
+                            }
+                        }
+                    }
+                } footer: {
+                    if handOffToBot {
+                        Text("创建后按所选方式交给 Bot 执行；事项默认不重复通知，结果写回对应 Bot 对话。")
+                    }
+                }
             }
             if let reminder, reminder.createdBy == "bot" {
                 Section("来源") {
@@ -308,6 +365,35 @@ struct ReminderEditorView: View {
             guard !text.isEmpty else { return nil }
             return ChecklistWrite(text: text, done: row.done)
         }
+        var taskWrite: ItemTaskWrite?
+        if handOffToBot {
+            let botID = taskBotID ?? bots.first?.id
+            let instruction = taskInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let botID, !instruction.isEmpty else {
+                errorText = "请选择负责的 Bot 并填写要做什么。"
+                return
+            }
+            if taskMode == "owned" && taskCompletionCriteria.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                errorText = "持续任务需要填写完成标准。"
+                return
+            }
+            if taskMode == "owned" && app.primarySettings?.activeEnabled != true {
+                errorText = "持续任务需要先开启「允许主动任务」。"
+                return
+            }
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            formatter.timeZone = editorTimeZone
+            let startAt = formatter.string(from: taskStart)
+            taskWrite = ItemTaskWrite(
+                botID: botID,
+                instruction: instruction,
+                mode: taskMode,
+                startAt: (taskMode == "owned") ? nil : startAt,
+                timeZone: (taskMode == "owned") ? nil : editorTimeZone.identifier,
+                repeatRule: (taskMode == "repeat") ? taskRepeat : nil,
+                completionCriteria: (taskMode == "owned") ? taskCompletionCriteria.trimmingCharacters(in: .whitespacesAndNewlines) : nil)
+        }
         let body = ItemWrite(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                              note: noteChanged ? note : nil,
                              dueAt: scheduleDate.map(VeraBotDate.format),
@@ -323,7 +409,8 @@ struct ReminderEditorView: View {
                              expectedVersion: reminder == nil ? nil : expectedVersion,
                              clearNote: loadedReminder != nil && noteChanged && note.isEmpty,
                              checklist: reminder == nil ? checklist : nil,
-                             sourceKind: reminder == nil ? "manual" : nil)
+                             sourceKind: reminder == nil ? "manual" : nil,
+                             task: taskWrite)
         do {
             if let reminder {
                 let updated = try await app.api.updateItem(id: reminder.id, body)

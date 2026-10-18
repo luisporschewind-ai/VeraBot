@@ -15,6 +15,7 @@ from ..mcp import service as mcp
 
 
 KIND_MCP = "mcp_tool_call"
+KIND_PROPOSE_TASK = "propose_task"
 
 
 class ActionError(Exception):
@@ -144,6 +145,47 @@ def create_mcp_pending(
     }
 
 
+def create_propose_pending(user_id: int, bot: dict, spec: dict, *,
+                           source_message_id: int | None = None,
+                           group_id: int | None = None) -> dict:
+    """Bot 提议交办任务：冻结参数，用户确认后才创建任务 + 事项。"""
+    if source_message_id:
+        spec = {**spec, "_source_message_id": source_message_id}
+    if group_id:
+        spec = {**spec, "_group_id": group_id}
+    payload_hash = _hash_payload(spec)
+    expires = _expires_at()
+    action_id = action_store.insert(
+        user_id,
+        bot_id=bot.get("id"),
+        kind=KIND_PROPOSE_TASK,
+        server_id=None,
+        tool_full_name=None,
+        payload_enc=_encrypt(spec),
+        payload_hash=payload_hash,
+        tool_def_hash=None,
+        expires_at=expires,
+    )
+    db.audit(user_id, bot.get("id"), "propose_task_requested", {
+        "action_id": action_id, "bot_id": bot.get("id"), "mode": spec.get("mode"),
+    })
+    return {
+        "status": "pending_confirmation",
+        "action_id": action_id,
+        "message": "已请用户确认，尚未创建任务",
+        "kind": KIND_PROPOSE_TASK,
+        "server": None,
+        "server_id": None,
+        "tool": None,
+        "label": "交给 Bot 执行",
+        "arguments": spec,
+        "risk": "write",
+        "warnings": [],
+        "expires_at": expires,
+        "payload_hash": payload_hash,
+    }
+
+
 def public_action(row: dict, *, include_args: bool = True) -> dict:
     """API / SSE 对外字段。不含密文。"""
     args = _decrypt(row.get("payload_enc")) if include_args else None
@@ -154,7 +196,10 @@ def public_action(row: dict, *, include_args: bool = True) -> dict:
             server_name = srv.get("name") or srv.get("slug")
     tool_label = row.get("tool_full_name")
     risk = None
-    if row.get("tool_full_name"):
+    if row.get("kind") == KIND_PROPOSE_TASK:
+        tool_label = "交给 Bot 执行"
+        risk = "write"
+    elif row.get("tool_full_name"):
         tool = mcp_store.get_tool_by_full_name(row["user_id"], row["tool_full_name"])
         if tool:
             tool_label = tool.get("title") or tool.get("mcp_name") or tool["full_name"]
@@ -278,6 +323,8 @@ def confirm(user_id: int, action_id: int) -> dict:
     _ensure_fresh(row)
     if row["status"] != "pending":
         raise ActionError(409, "该操作已经处理过", "already_decided")
+    if row["kind"] == KIND_PROPOSE_TASK:
+        return _confirm_propose_task(user_id, row)
     if row["kind"] != KIND_MCP:
         raise ActionError(422, "暂不支持确认此类型的操作", "unsupported_kind")
 
@@ -367,6 +414,57 @@ def confirm(user_id: int, action_id: int) -> dict:
         "content_length": len(result.get("content") or ""),
         "truncated": bool(result.get("truncated")),
     }
+    return out
+
+
+def _confirm_propose_task(user_id: int, row: dict) -> dict:
+    """用户确认提议 → 创建任务 + 关联事项。"""
+    spec = _decrypt(row.get("payload_enc"))
+    if spec is None:
+        raise ActionError(500, "无法解密冻结参数（密钥缺失或已更换）", "payload_undecryptable")
+    if _hash_payload(spec) != row["payload_hash"]:
+        raise ActionError(500, "参数校验失败", "payload_hash_mismatch")
+    title = str(spec.pop("title", "") or spec.pop("goal", "") or "").strip()
+    source_message_id = spec.pop("_source_message_id", None)
+    group_id = spec.pop("_group_id", None)
+    from ..items import service as item_service
+    from ..reminders.service import ReminderError
+    try:
+        created = item_service.create_item(
+            user_id, title=title, note=None,
+            source_kind=("group" if group_id else "chat"),
+            client="chat", actor="bot", actor_bot_id=row.get("bot_id"),
+            created_by="bot", bot_id=row.get("bot_id"),
+            assignee_bot_id=spec.get("bot_id"), source_message_id=source_message_id,
+            task=spec, idempotency_key=f"propose_{row['id']}")
+    except ReminderError as exc:
+        with db.tx() as c:
+            action_store.record_result(c, user_id, row["id"], "failed", exc.message, db.now_iso())
+        raise ActionError(exc.status, exc.message, exc.code) from exc
+    except Exception as exc:
+        summary = f"创建失败：{type(exc).__name__}"
+        with db.tx() as c:
+            action_store.record_result(c, user_id, row["id"], "failed", summary, db.now_iso())
+        raise ActionError(500, summary, "create_task_failed") from exc
+
+    summary = "已创建事项并交给 Bot 执行"
+    with db.tx() as c:
+        action_store.record_result(c, user_id, row["id"], "done", summary, db.now_iso())
+    db.audit(user_id, row.get("bot_id"), "propose_task_confirmed", {
+        "action_id": row["id"], "item_id": created["id"],
+        "task_kind": created.get("task_kind"), "task_id": created.get("task_id"),
+    })
+    if row.get("bot_id"):
+        db.add_message(user_id, row["bot_id"], "assistant",
+                       f"已按你的确认创建事项并交给 Bot：{title}", traces=None)
+    from ..owned_tasks import approvals
+    approvals.resolve(user_id, row["id"])
+    from ..chat_tasks import approvals as chat_approvals
+    chat_approvals.resolve(user_id, row["id"])
+    fresh = action_store.get(user_id, row["id"])
+    out = public_action(fresh)
+    out["execution"] = {"item_id": created["id"], "task_kind": created.get("task_kind"),
+                        "task_id": created.get("task_id")}
     return out
 
 
