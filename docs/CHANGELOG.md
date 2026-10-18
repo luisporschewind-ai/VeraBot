@@ -28,6 +28,11 @@
 - iOS：Bot 旅行从「探索」想法详情迁入「游乐场 → 挑一个玩法」（`PlaygroundGame.travel` → `BotTravelStartView`）；探索列表移除 travel 项及详情特殊入口；游乐场底部「卡住时…」占位卡删除，游戏助手头像保留。
 - 底部 Tab 视觉顺序改为 助理 · 提醒 · 游乐场 · 发现 · 探索；`selectedTab` tag 不变（发现=5、探索=4）。未跑 git / xcodebuild / swift test。
 
+## [Unreleased] · 2026-10-18 发现页紧凑卡片
+
+- 移除顶部大标题与导航栏留白，卡片左右外边距缩为8pt；管理菜单移入筛选栏。
+- 新闻图文、短帖正文、视频封面/时长、音频节目分别设计；每条右下角增加可切换Bot与Discuss，直达引用草稿。见[记录与截图](tasks/2026-10-18-feed-cards.md)。
+
 ## [Unreleased] · 2026-10-17 Bot 个性化 Feed
 
 - 新增个人Feed后台、关注计划/记忆权限内选源建议、公开RSS/Atom/播客适配、来源管理、阅读与收藏/负反馈状态及问Bot引用草稿。
