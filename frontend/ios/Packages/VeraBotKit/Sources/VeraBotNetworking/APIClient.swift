@@ -466,7 +466,7 @@ public struct APIClient: VeraBotAPI {
         return try await call("/api/devices/\(encoded)", method: "DELETE")
     }
 
-    private func idempotency(_ key: String?) -> [String: String] {
+    func idempotency(_ key: String?) -> [String: String] {
         ["Idempotency-Key": key ?? UUID().uuidString]
     }
 

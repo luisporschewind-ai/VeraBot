@@ -57,6 +57,12 @@ public struct Reminder: Codable, Sendable, Hashable, Identifiable {
     public var cancelledAt: String?
     public var createdAt: String?
     public var updatedAt: String?
+    /// v37 起附加字段；旧后端缺省为 nil / 0。
+    public var taskKind: String?
+    public var taskId: Int?
+    public var sourceKind: String?
+    public var checklistDone: Int
+    public var checklistTotal: Int
 
     enum CodingKeys: String, CodingKey {
         case id, title, content, note, status, priority, done
@@ -82,6 +88,11 @@ public struct Reminder: Codable, Sendable, Hashable, Identifiable {
         case cancelledAt = "cancelled_at"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case taskKind = "task_kind"
+        case taskId = "task_id"
+        case sourceKind = "source_kind"
+        case checklistDone = "checklist_done"
+        case checklistTotal = "checklist_total"
     }
 
     public init(id: Int, title: String, content: String? = nil, note: String? = nil, dueAt: String? = nil,
@@ -91,7 +102,8 @@ public struct Reminder: Codable, Sendable, Hashable, Identifiable {
                 botName: String? = nil, assigneeBotId: Int? = nil, assigneeBotName: String? = nil,
                 sourceMessageId: Int? = nil, notify: Bool = true, alertOffsets: [Int] = [0], version: Int = 1,
                 done: Int? = nil, completedAt: String? = nil, cancelledAt: String? = nil,
-                createdAt: String? = nil, updatedAt: String? = nil) {
+                createdAt: String? = nil, updatedAt: String? = nil, taskKind: String? = nil, taskId: Int? = nil,
+                sourceKind: String? = nil, checklistDone: Int = 0, checklistTotal: Int = 0) {
         self.id = id
         self.title = title
         self.content = content ?? title
@@ -120,6 +132,11 @@ public struct Reminder: Codable, Sendable, Hashable, Identifiable {
         self.cancelledAt = cancelledAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.taskKind = taskKind
+        self.taskId = taskId
+        self.sourceKind = sourceKind
+        self.checklistDone = checklistDone
+        self.checklistTotal = checklistTotal
     }
 
     public init(from decoder: Decoder) throws {
@@ -167,6 +184,11 @@ public struct Reminder: Codable, Sendable, Hashable, Identifiable {
         } else {
             notify = try c.decode(Bool.self, forKey: .notify)
         }
+        taskKind = try c.decodeIfPresent(String.self, forKey: .taskKind)
+        taskId = try c.decodeIfPresent(Int.self, forKey: .taskId)
+        sourceKind = try c.decodeIfPresent(String.self, forKey: .sourceKind)
+        checklistDone = try c.decodeIfPresent(Int.self, forKey: .checklistDone) ?? 0
+        checklistTotal = try c.decodeIfPresent(Int.self, forKey: .checklistTotal) ?? 0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -200,6 +222,11 @@ public struct Reminder: Codable, Sendable, Hashable, Identifiable {
         try c.encodeIfPresent(cancelledAt, forKey: .cancelledAt)
         try c.encodeIfPresent(createdAt, forKey: .createdAt)
         try c.encodeIfPresent(updatedAt, forKey: .updatedAt)
+        try c.encodeIfPresent(taskKind, forKey: .taskKind)
+        try c.encodeIfPresent(taskId, forKey: .taskId)
+        try c.encodeIfPresent(sourceKind, forKey: .sourceKind)
+        try c.encode(checklistDone, forKey: .checklistDone)
+        try c.encode(checklistTotal, forKey: .checklistTotal)
     }
 
     /// 来源名。Bot 已删除时显示「已删除的 Bot」。

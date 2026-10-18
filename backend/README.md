@@ -27,7 +27,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 2. **Python**：按 `.python-version` (3.12) 由 uv 安装；失败时用 npmmirror 镜像 (`UV_PYTHON_INSTALL_MIRROR`)。
 3. **依赖**：`uv sync --frozen --no-dev`，严格按 `uv.lock` 安装到 `.venv/`；失败 (或 `VERABOT_FORCE_MIRROR=1`) 时改用清华 tuna 镜像 (`UV_INDEX_URL`，可用 `VERABOT_PYPI_MIRROR` 覆盖) 按 `requirements.txt` (同样锁定版本) 安装。
 4. **配置**：没有 `.env` 就从 `.env.example` 复制，并提示输入 DeepSeek Key (不回显，写入 `.env`，权限 600)。已 export 的环境变量优先于 `.env`。
-5. **数据库**：`init_db()` 建表与幂等迁移，当前 schema v25：v20 群聊、v21 会话修订同步、v22 群附件、v23 定时任务、v24 群任务与事件。数据保存在 `data/verabot.db`。升级前先备份并在副本演练；v24 保留账号、Bot、群与历史，只清空旧默认成员值。
+5. **数据库**：`init_db()` 建表与幂等迁移；当前含 **v37 统一事项**（`reminders` 任务关联与清单、`reminder_checklist`，迁移前 `.bak-before-v37-*`）。另有 v20 群聊、v23 定时任务、v27–v29 持续任务、v36 Feed 等。数据在 `data/verabot.db`。升级前先备份并在副本演练。用户事项 API：`/api/items`（见 `api/routers/items.py`）；旧 `/api/reminders` 保持兼容。
 6. **启动** uvicorn，默认 `0.0.0.0:8000` (`HOST` / `PORT` 可改)。
 
 启动后：API 文档 <http://127.0.0.1:8000/docs>，健康检查 `GET /api/health` → `{"ok":true,...}`。

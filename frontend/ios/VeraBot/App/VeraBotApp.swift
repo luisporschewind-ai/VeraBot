@@ -100,7 +100,7 @@ struct MainTabView: View {
                 .tabItem { Label("助理", systemImage: "bubble.left.and.bubble.right") }
                 .tag(0)
             RemindersView()
-                .tabItem { Label("提醒", systemImage: "alarm") }
+                .tabItem { Label("安排", systemImage: "alarm") }
                 .badge(app.unreadCount)
                 .tag(1)
             PlaygroundView()

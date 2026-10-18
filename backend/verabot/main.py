@@ -83,8 +83,10 @@ async def _attachments_reconcile():
     app.state.attachments_reconcile = asyncio.create_task(reconcile_loop())
 
 
+from .api.routers import items
+
 for r in (attachments.router, auth.router, avatars.router, bots.router, chat.router, memories.router, feedback.router,
-          voice.router, reminders.router, notifications.router, devices.router, meta.router, mcp.router, plugins.router,
+          voice.router, reminders.router, items.router, notifications.router, devices.router, meta.router, mcp.router, plugins.router,
           actions.router, suggestions.router, groups.router, group_execution.router, scheduled_tasks.router):
     app.include_router(r)
 

@@ -78,18 +78,22 @@ def _scope(ctx: ToolContext, exc: ReminderError):
 
 
 @tool("create_reminder",
-      "为用户创建一条提醒。先确认时间；due_at 用 ISO8601。没有明确时间就省略 due_at，建成无日期待办。不要重复创建。",
+      "为用户创建一条提醒或待办。先确认时间；due_at 用 ISO8601。没有明确时间就省略 due_at，建成待办（默认不通知）。"
+      "可选 checklist 一层子项。不要重复创建。",
       {"type": "object", "properties": {
           "title": {"type": "string", "description": "提醒标题"},
           "content": {"type": "string", "description": "与 title 相同，兼容旧参数"},
           "note": {"type": "string", "description": "备注，可省略"},
-          "due_at": {"type": "string", "description": "ISO8601 时间，可省略"},
+          "due_at": {"type": "string", "description": "ISO8601 时间，可省略（省略则为待办）"},
           "repeat": {"type": "string", "description": "预设：每天、工作日、每周、每月、每年，或 RRULE"},
-          "priority": {"type": "integer", "description": "0 无、1 低、2 中、3 高"}},
+          "priority": {"type": "integer", "description": "0 无、1 低、2 中、3 高"},
+          "checklist": {"type": "array", "items": {"type": ["string", "object"]},
+                        "description": "一层清单，字符串或 {text, done}"}},
        "required": []})
 async def create_reminder(ctx: ToolContext, title: str | None = None, content: str | None = None,
                           note: str | None = None, due_at: str | None = None, repeat: str | None = None,
-                          priority: int | None = 0):
+                          priority: int | None = 0, checklist: list | None = None):
+    from ..services.items import service as item_service
     text = (title or content or "").strip()
     if not text:
         return {"error": "请说明要提醒的内容"}
@@ -120,15 +124,18 @@ async def create_reminder(ctx: ToolContext, title: str | None = None, content: s
     denied = _charge(ctx)
     if denied:
         return denied
+    source_kind = "group" if getattr(ctx, "group_id", None) else "chat"
     try:
-        created = service.create_reminder(
+        created = item_service.create_item(
             ctx.user_id, title=text, note=note, due_at=due_at, timezone_name=TIMEZONE, rrule=rule,
             priority=priority or 0, created_by="bot", bot_id=ctx.bot["id"], assignee_bot_id=ctx.bot["id"],
-            source_message_id=ctx.user_message_id, client="chat", actor="bot", actor_bot_id=ctx.bot["id"])
+            source_message_id=ctx.user_message_id, client="chat", actor="bot", actor_bot_id=ctx.bot["id"],
+            source_kind=source_kind, checklist=checklist)
     except ReminderError as exc:
         return {"error": exc.message}
+    label = "待办" if not created.get("due_at") else "提醒"
     result = {"ok": True, "id": created["id"], "content": created["content"], "due_at": created["due_at"],
-              "reminder": created, "summary": f"已创建提醒：{_human_when(created)} {created['title']}"}
+              "reminder": created, "summary": f"已创建{label}：{_human_when(created)} {created['title']}"}
     ctx.turn.reminder_created[key] = result
     return result
 
@@ -157,21 +164,25 @@ async def list_reminders(ctx: ToolContext, status: str | None = None, range: str
 
 
 @tool("manage_reminder",
-      "管理这个 Bot 自己的一条提醒：update、complete、snooze、reopen、skip。不能取消，也不能一次改多条。",
+      "管理这个 Bot 自己的一条提醒：update、complete、snooze、reopen、skip。不能取消，也不能一次改多条。"
+      "update 时可改 checklist（整组替换）。",
       {"type": "object", "properties": {
           "action": {"type": "string", "description": "update、complete、snooze、reopen、skip"},
           "id": {"type": "integer"},
           "title": {"type": "string"},
           "note": {"type": "string"},
-          "due_at": {"type": "string"},
+          "due_at": {"type": "string", "description": "ISO8601；传空字符串可改为待办"},
           "priority": {"type": "integer"},
           "minutes": {"type": "integer", "description": "稍后分钟数"},
-          "until": {"type": "string", "description": "稍后到这个 ISO8601 时间"}},
+          "until": {"type": "string", "description": "稍后到这个 ISO8601 时间"},
+          "checklist": {"type": "array", "items": {"type": ["string", "object"]},
+                        "description": "update 时整组替换清单"}},
        "required": ["action", "id"]})
 async def manage_reminder(ctx: ToolContext, action: str, id: int | None = None, ids: list | None = None,
                           title: str | None = None, note: str | None = None, due_at: str | None = None,
                           priority: int | None = None, minutes: int | None = None, until: str | None = None,
-                          rrule: str | None = None):
+                          rrule: str | None = None, checklist: list | None = None):
+    from ..services.items import service as item_service
     if ids or action in {"cancel", "delete", "batch"}:
         return {"error": "取消、批量修改需要你在提醒页面确认，我不能直接做"}
     if rrule is not None:
@@ -194,14 +205,22 @@ async def manage_reminder(ctx: ToolContext, action: str, id: int | None = None, 
             if note is not None:
                 patch["note"] = note
             if due_at is not None:
-                patch["due_at"] = due_at
+                patch["due_at"] = due_at if due_at != "" else None
             if priority is not None:
                 patch["priority"] = priority
-            if not patch:
+            if checklist is not None:
+                updated = item_service.replace_checklist(
+                    ctx.user_id, int(id), checklist, expected_version=current["version"])
+                if patch:
+                    updated = item_service.update_item(
+                        ctx.user_id, int(id), patch, expected_version=updated["version"], actor="bot",
+                        actor_bot_id=ctx.bot["id"], client="chat")
+            elif not patch:
                 return {"error": "没有要修改的内容"}
-            updated = service.update_reminder(
-                ctx.user_id, int(id), patch, expected_version=current["version"], actor="bot",
-                actor_bot_id=ctx.bot["id"], client="chat", allow_rrule=False)
+            else:
+                updated = service.update_reminder(
+                    ctx.user_id, int(id), patch, expected_version=current["version"], actor="bot",
+                    actor_bot_id=ctx.bot["id"], client="chat", allow_rrule=False)
             summary = f"已更新提醒：{_human_when(updated)} {updated['title']}"
         elif action == "complete":
             updated = service.complete_reminder(ctx.user_id, int(id), actor="bot", actor_bot_id=ctx.bot["id"], client="chat")

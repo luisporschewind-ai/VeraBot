@@ -192,7 +192,10 @@ struct BotEditView: View {
 
     @ViewBuilder private var settingsSections: some View {
         Section {
-            NavigationLink("任务") { TaskListView(botID: bot.id, botName: bot.name) }
+            Button("任务") {
+                dismiss()
+                app.openAgenda(filteredByBotID: bot.id)
+            }
         }
         Section {
             BotAvatarShapePicker(selection:Binding(get:{ shape },set:{ shape = $0; shapeChanged = true }),color:color,compact:true)

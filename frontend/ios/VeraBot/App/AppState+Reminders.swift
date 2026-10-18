@@ -64,6 +64,50 @@ extension AppState {
         }
     }
 
+    /// 任务结果通知优先打开关联事项详情；找不到再退回原 link。
+    func openNotification(_ note: InboxNotification) async {
+        if note.category == .task_result || note.sourceKind == "owned_task" || note.sourceKind == "scheduled_task" {
+            if let itemID = await linkedItemID(for: note) {
+                selectedTab = 1
+                pendingLink = .reminder(itemID)
+                return
+            }
+        }
+        if let reminderID = note.reminderId {
+            selectedTab = 1
+            pendingLink = .reminder(reminderID)
+            return
+        }
+        if let link = note.link {
+            await open(link: link)
+        } else {
+            selectedTab = 1
+            pendingLink = .inbox
+        }
+    }
+
+    func linkedItemID(for note: InboxNotification) async -> Int? {
+        let items = (try? await api.items(view: "bot").items) ?? []
+        if let thread = note.threadId {
+            if thread.hasPrefix("owned-task:"), let tid = Int(thread.split(separator: ":").last ?? "") {
+                return items.first { $0.reminder.taskKind == "owned" && $0.reminder.taskId == tid }?.id
+            }
+            if thread.hasPrefix("scheduled-task:"), let tid = Int(thread.split(separator: ":").last ?? "") {
+                return items.first { $0.reminder.taskKind == "scheduled" && $0.reminder.taskId == tid }?.id
+            }
+        }
+        if note.sourceKind == "owned_task", let sid = note.sourceID, let tid = Int(sid) {
+            return items.first { $0.reminder.taskKind == "owned" && $0.reminder.taskId == tid }?.id
+        }
+        return nil
+    }
+
+    func openAgenda(filteredByBotID botID: Int) {
+        pendingAgendaBotID = botID
+        selectedTab = 1
+        pendingLink = .reminders(bucket: nil)
+    }
+
     func performReminderAction(reminderID: Int, action: String, minutes: Int?, idempotencyKey: String) async {
         guard let userID else { return }
         let generation = sessionGeneration

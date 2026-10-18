@@ -58,6 +58,34 @@ public struct InboxNotification: Codable, Sendable, Hashable, Identifiable {
 
     public var isUnread: Bool { readAt == nil }
 
+    public init(id: Int, category: NotificationCategory = .unknown, title: String = "", body: String? = nil,
+                sensitive: Bool = false, link: String? = nil, threadId: String? = nil, botId: Int? = nil,
+                reminderId: Int? = nil, messageId: Int? = nil, pluginId: String? = nil, createdAt: String? = nil,
+                readAt: String? = nil, openedAt: String? = nil, logicalKey: String? = nil, sourceKind: String? = nil,
+                sourceState: String? = nil, sourceID: String? = nil, suppressionReason: String? = nil,
+                expiresAt: String? = nil) {
+        self.id = id
+        self.category = category
+        self.title = title
+        self.body = body
+        self.sensitive = sensitive
+        self.link = link
+        self.threadId = threadId
+        self.botId = botId
+        self.reminderId = reminderId
+        self.messageId = messageId
+        self.pluginId = pluginId
+        self.createdAt = createdAt
+        self.readAt = readAt
+        self.openedAt = openedAt
+        self.logicalKey = logicalKey
+        self.sourceKind = sourceKind
+        self.sourceState = sourceState
+        self.sourceID = sourceID
+        self.suppressionReason = suppressionReason
+        self.expiresAt = expiresAt
+    }
+
     enum CodingKeys: String, CodingKey {
         case logicalKey = "logical_key", sourceKind = "source_kind", sourceID = "source_id"
         case sourceState = "source_state"

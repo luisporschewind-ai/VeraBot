@@ -47,7 +47,7 @@ if importlib.util.find_spec('verabot.db.feed_store'):
                 c.execute("UPDATE schema_meta SET value='35' WHERE key='version'")
             db.init_db(); db.init_db()
             with db.tx() as c:
-                self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0],'36')
+                self.assertGreaterEqual(int(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]),36)
         def test_source_idempotent_separate_bots(self):
             a=self.source(); self.assertEqual(a,self.source())
             with db.tx() as c: c.execute("INSERT INTO bots(id,user_id,name,created_at) VALUES(3,1,'other','x')")

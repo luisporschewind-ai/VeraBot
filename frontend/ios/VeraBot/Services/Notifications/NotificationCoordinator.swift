@@ -45,6 +45,10 @@ struct NotificationTap: Sendable {
     let reminderID: Int?
     let nid: Int?
     let link: String?
+    let category: String?
+    let sourceKind: String?
+    let sourceID: String?
+    let threadId: String?
     let identifier: String
     let actionIdentifier: String
     let title: String
@@ -219,7 +223,8 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         let info = request.content.userInfo
         let tap = NotificationTap(
             sourceURL: info["source_url"] as? String, uid: info["uid"] as? Int, reminderID: info["reminder_id"] as? Int, nid: info["nid"] as? Int,
-            link: info["link"] as? String, identifier: request.identifier,
+            link: info["link"] as? String, category: info["category"] as? String, sourceKind: info["source_kind"] as? String,
+            sourceID: info["source_id"] as? String, threadId: info["thread_id"] as? String, identifier: request.identifier,
             actionIdentifier: response.actionIdentifier, title: request.content.title
         )
         let done = MainThreadCallback<Void> { _ in completionHandler() }
@@ -265,7 +270,13 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
                 await app.report(notificationID: nid, event: "dismissed", channel: "local")
             }
         default:
-            if let link = tap.link {
+            if tap.category == "task_result" || tap.sourceKind == "owned_task" || tap.sourceKind == "scheduled_task" {
+                let note = InboxNotification(
+                    id: tap.nid ?? 0, category: .task_result, link: tap.link,
+                    threadId: tap.threadId, reminderId: tap.reminderID,
+                    sourceKind: tap.sourceKind, sourceID: tap.sourceID)
+                await app.openNotification(note)
+            } else if let link = tap.link {
                 await app.open(link: link)
             }
             if let nid = tap.nid {
@@ -296,7 +307,12 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
             content.sound = settings.soundEnabled && !coalesced ? .default : nil
             content.categoryIdentifier = "VB_GENERIC"
             content.threadIdentifier = note.localThreadKey
-            content.userInfo = ["source_url": self.app?.baseURLString ?? "", "uid": userID, "nid": note.id, "link": note.link ?? "inbox"]
+            content.userInfo = [
+                "source_url": self.app?.baseURLString ?? "", "uid": userID, "nid": note.id,
+                "link": note.link ?? "inbox", "category": note.category.rawValue,
+                "source_kind": note.sourceKind ?? "", "source_id": note.sourceID ?? "",
+                "thread_id": note.threadId ?? "",
+            ]
             do {
                 try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
                 if self.app?.sessionGeneration != generation || self.revision != revision {

@@ -64,6 +64,8 @@ final class AppState {
     var unreadCount = 0
     var selectedTab = 0
     var pendingLink: DeepLink?
+    /// 从对话 / Bot 编辑进入「安排」时预筛选的 Bot。
+    var pendingAgendaBotID: Int?
     var missingNotice: String?
     var showNotificationSettings = false
     var baseURLString: String

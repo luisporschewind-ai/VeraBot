@@ -49,16 +49,20 @@ def init_db():
     v19 → v20：群会话；v20 → v21：会话修订与快照分页。
     v21 → v22：群消息附件关联；v22 → v23：服务端定时任务与结果来源。
     v34 → v35：过时的失败 / 中断任务标记 superseded_at；存量工具 trace 瘦身。迁移前备份 .bak-before-v35-<时间戳>。
+    v36 → v37：统一事项。reminders 增加 task_kind/task_id/source_kind/清单计数；reminder_checklist；
+             回填周期 / 持续任务关联事项。迁移前备份 .bak-before-v37-<时间戳>。
     """
     # v15: optional bots.appearance; historical avatars are unchanged.
     _backup_before_v11()
     from .migrations.v030_chat_continuity import backup_before_v30
     from .migrations.v031_notification_events import backup_before_v31
     from .migrations.v035_stale_work_slim_traces import backup_before_v35
+    from .migrations.v037_unified_items import backup_before_v37
     backup_before_v30()
     backup_before_v31()
     from .migrations.v033_independent_library import backup_before_v33
     backup_before_v33()
     backup_before_v35()
+    backup_before_v37()
     with tx() as c:
         _apply_migrations(c)
