@@ -294,6 +294,6 @@ iOS 依赖链为 VeraBotCore → VeraBotNetworking / VeraBotPersistence → Vera
 
 新增 `services/feed/`，分离来源目录/本地主题建议、受限HTTPS采集、XML/媒体标准化、服务编排与独立worker；SQL集中 `db/feed_store.py`，v36建立计划/来源/内容/推荐关联/待发布候选表。`api/routers/feed.py` 按现有认证与no-store挂载独立接口。关注计划和反馈不复用聊天消息表，问Bot只输出用户确认发送的草稿。
 
-流程：权限内兴趣 → 用户编辑启用 → 持久来源到期 → SQLite租约领取 → 事务外子进程有界采集 → 重验计划/来源/Bot/token → 候选与ETag原子保存 → 来源份额及账号上限内发布 → 原生列表/反馈。图片/媒体不自动下载，原站播放；不依赖App存活。Feed模块不修改原有定时任务工具权限。
+流程：权限内兴趣 → 用户编辑启用 → 持久来源到期 → SQLite租约领取 → 事务外子进程有界采集 → 重验计划/来源/Bot/token → 候选与ETag原子保存 → 来源份额及账号上限内发布 → 原生列表/反馈。采集器不下载图片/媒体；2026-10-18起App可见卡片按需展示来源HTTPS封面，音视频仍在原站播放。采集不依赖App存活，Feed模块不修改原有定时任务工具权限。
 
 Swift端使用独立FeedAPI扩展、Core数据模型与带会话代次的FeedViewModel；原生页面经底部tag5进入，已有tag不变。旧账号/服务器的迟到结果不得写入新会话。细节与当前验证范围见[设计](../superpowers/specs/2026-10-17-personal-feed-design.md)及[交付](../testing/2026-10-17-personal-feed.md)。
