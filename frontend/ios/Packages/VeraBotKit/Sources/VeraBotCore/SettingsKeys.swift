@@ -7,6 +7,8 @@ public enum SettingsKeys {
     public static let appearance = "vb_appearance"    // 外观：system / light / dark（默认 system，跟随系统）
     public static let notificationsEnabled = "vb_notifications_enabled"   // 通知：用户开关（默认关闭，开启时申请系统授权）
     public static let hapticsEnabled = "vb_haptics_enabled"   // 触感反馈：是否播放 sensoryFeedback（默认开启）
+    public static let gameSoundEnabled = "vb_game_sound_enabled"   // 游戏音效：俄罗斯方块 / 贪吃蛇短音（默认开启，音量偏低）
+    public static let gameSoundEnabledDefault = true
     public static let memoryIntroShown = "vb_memory_intro_shown"   // 「Vera 了解的你」首次打开的说明是否已显示
     public static let quickPromptsEnabled = "vb_quick_prompts_enabled"   // 对话快捷提问（默认开启）
     public static let quickPromptsEnabledDefault = true

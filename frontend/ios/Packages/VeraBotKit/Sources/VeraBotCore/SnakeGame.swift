@@ -32,6 +32,10 @@ public struct SnakeGame: Sendable {
     public private(set) var endReason: EndReason?
     public private(set) var score = 0
     private var queuedDirections: [Direction] = []
+    /// 规则层产生的结果音效事件（吃食 / 结束 / 胜利），供视图层一次性取走，避免在重绘时猜测。
+    public private(set) var soundEvents: [GameSoundEvent] = []
+    /// 每次写入 soundEvents 时递增；视图用它触发取走事件。
+    public private(set) var soundEventsVersion = 0
     public var tickIntervalMilliseconds: Int { max(90, 240 - (level - 1) * 20) }
     public var level: Int { 1 + score / 40 }
 
@@ -91,16 +95,30 @@ public struct SnakeGame: Sendable {
         snake.insert(next, at: 0)
         if growing {
             score += 10
+            emit(.eat)
             spawnFood(using: &random)
         } else {
             snake.removeLast()
         }
     }
 
+    /// 取走并清空规则层累积的音效事件。
+    public mutating func drainSoundEvents() -> [GameSoundEvent] {
+        let events = soundEvents
+        soundEvents.removeAll()
+        return events
+    }
+
+    private mutating func emit(_ event: GameSoundEvent) {
+        soundEvents.append(event)
+        soundEventsVersion &+= 1
+    }
+
     private mutating func finish(reason: EndReason) {
         phase = .lost
         endReason = reason
         queuedDirections.removeAll()
+        emit(.gameOver)
     }
 
     private mutating func spawnFood<R: RandomNumberGenerator>(using random: inout R) {
@@ -114,6 +132,7 @@ public struct SnakeGame: Sendable {
         }
         food = free.randomElement(using: &random)
         if food == nil {
+            if phase == .running { emit(.win) }
             phase = .won
             queuedDirections.removeAll()
         }

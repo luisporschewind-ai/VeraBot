@@ -2,6 +2,7 @@ import AVFoundation
 import Foundation
 import Observation
 import Speech
+import VeraBotCore
 
 enum SpeechInputError: LocalizedError {
     case unavailable
@@ -63,6 +64,7 @@ final class SpeechEngine: @unchecked Sendable {
             try session.setCategory(.record, mode: .measurement, options: .duckOthers)
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             lock.withLock { sessionActive = true }
+            AudioSessionOwner.shared.setRecording(true)
 
             let input = engine.inputNode
             let format = input.outputFormat(forBus: 0)
@@ -121,6 +123,7 @@ final class SpeechEngine: @unchecked Sendable {
 
     /// 释放音频资源；幂等：每样资源只在确实占用时释放一次。
     private func stopAudio() {
+        AudioSessionOwner.shared.setRecording(false)
         let (hadTap, hadSession) = lock.withLock { () -> (Bool, Bool) in
             let r = (tapInstalled, sessionActive)
             tapInstalled = false
