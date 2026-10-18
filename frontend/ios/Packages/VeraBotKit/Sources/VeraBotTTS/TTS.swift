@@ -102,6 +102,7 @@ public final class LocalTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDeleg
         do {
             try session.activate()
             sessionActive = true
+            AudioSessionOwner.shared.setSpeaking(true)
         } catch {
             finish()
             return
@@ -131,6 +132,7 @@ public final class LocalTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDeleg
                 sessionActive = false
             } catch { /* 保留占用标记，下次 stop 时重试释放。 */ }
         }
+        AudioSessionOwner.shared.setSpeaking(false)
         cb?()
     }
 

@@ -6,6 +6,7 @@ import VeraBotCore
 struct GeneralSettingsSection: View {
     @AppStorage(SettingsKeys.appearance) private var appearanceRaw = AppearanceMode.system.rawValue
     @AppStorage(SettingsKeys.hapticsEnabled) private var hapticsEnabled = true
+    @AppStorage(SettingsKeys.gameSoundEnabled) private var gameSoundEnabled = SettingsKeys.gameSoundEnabledDefault
     @AppStorage(SettingsKeys.quickPromptsEnabled) private var quickPromptsEnabled = SettingsKeys.quickPromptsEnabledDefault
     @Environment(\.openURL) private var openURL
 
@@ -27,6 +28,10 @@ struct GeneralSettingsSection: View {
 
             CompactToggle(isOn: $hapticsEnabled) {
                 Label("触感反馈", systemImage: "hand.tap")
+            }
+
+            CompactToggle(isOn: $gameSoundEnabled) {
+                Label("游戏音效", systemImage: "speaker.wave.2")
             }
 
             CompactToggle(isOn: $quickPromptsEnabled) {

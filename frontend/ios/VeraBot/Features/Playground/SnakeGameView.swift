@@ -8,6 +8,7 @@ struct SnakeGameView: View {
     @State private var bestScore = 0
     @State private var clockGeneration = UUID()
     @State private var showingRules = false
+    @AppStorage(SettingsKeys.gameSoundEnabled) private var gameSoundEnabled = true
 
     var body: some View {
         VStack(spacing: 14) {
@@ -78,12 +79,13 @@ struct SnakeGameView: View {
         .frame(maxWidth: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 6) {
-                directionButton(.up, symbol: "chevron.up", label: "向上")
-                HStack(spacing: 8) {
-                    directionButton(.left, symbol: "chevron.left", label: "向左")
-                    directionButton(.down, symbol: "chevron.down", label: "向下")
-                    directionButton(.right, symbol: "chevron.right", label: "向右")
-                }
+                GameDpad(
+                    onUp: { game.turn(.up); GameSoundPlayer.shared.play(.keyPress) },
+                    onDown: { game.turn(.down); GameSoundPlayer.shared.play(.keyPress) },
+                    onLeft: { game.turn(.left); GameSoundPlayer.shared.play(.keyPress) },
+                    onRight: { game.turn(.right); GameSoundPlayer.shared.play(.keyPress) },
+                    repeatInterval: nil
+                )
                 Text("滑动棋盘或使用方向键 · 不能直接掉头")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -98,6 +100,15 @@ struct SnakeGameView: View {
         .navigationTitle("贪吃蛇")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    gameSoundEnabled.toggle()
+                    if !gameSoundEnabled { GameSoundPlayer.shared.stopAll() }
+                } label: {
+                    Image(systemName: gameSoundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                }
+                .accessibilityLabel(gameSoundEnabled ? "关闭游戏音效" : "开启游戏音效")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("玩法") { pause(); showingRules = true }
             }
@@ -128,8 +139,11 @@ struct SnakeGameView: View {
             bestScore = score
             UserDefaults.standard.set(score, forKey: bestScoreKey)
         }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { pause() } }
-        .onDisappear { pause() }
+        .onChange(of: game.soundEventsVersion) { _, _ in
+            for event in game.drainSoundEvents() { GameSoundPlayer.shared.play(event) }
+        }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { pause(); GameSoundPlayer.shared.stopAll() } }
+        .onDisappear { pause(); GameSoundPlayer.shared.stopAll() }
         .task(id: clockGeneration) {
             let generation = clockGeneration
             while !Task.isCancelled, game.phase == .running {
@@ -147,17 +161,6 @@ struct SnakeGameView: View {
             Text(title).font(.caption).foregroundStyle(.secondary)
             Text("\(value)").font(.title2.bold().monospacedDigit()).foregroundStyle(Color.brand)
         }
-    }
-
-    private func directionButton(_ direction: SnakeGame.Direction, symbol: String, label: String) -> some View {
-        Button { game.turn(direction) } label: {
-            Image(systemName: symbol)
-                .font(.headline.weight(.semibold))
-                .frame(width: 64, height: 44)
-        }
-        .buttonStyle(GameButtonStyle())
-        .accessibilityLabel(label)
-        .accessibilityIdentifier("snake-\(direction)")
     }
 
     private var primaryTitle: String {
@@ -194,9 +197,18 @@ struct SnakeGameView: View {
 
     private func primaryAction() {
         switch game.phase {
-        case .running: pause()
-        case .ready, .paused: game.start(); clockGeneration = UUID()
-        case .lost, .won: restart()
+        case .running:
+            pause()
+            GameSoundPlayer.shared.play(.pause)
+        case .ready:
+            game.start(); clockGeneration = UUID()
+            GameSoundPlayer.shared.play(.start)
+        case .paused:
+            game.start(); clockGeneration = UUID()
+            GameSoundPlayer.shared.play(.resume)
+        case .lost, .won:
+            restart()
+            GameSoundPlayer.shared.play(.start)
         }
     }
 

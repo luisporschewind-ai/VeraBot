@@ -457,6 +457,8 @@ struct TetrisGameView: View {
     @State private var companion = TetrisCompanionModel()
     @State private var showingConversation = false
     @State private var showingPartners = false
+    @State private var showingMenu = false
+    @AppStorage(SettingsKeys.gameSoundEnabled) private var gameSoundEnabled = true
 
     var body: some View {
         VStack(spacing: 12) {
@@ -488,17 +490,36 @@ struct TetrisGameView: View {
         .frame(maxWidth: 480)
         .frame(maxWidth: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 6) {
-                HStack(spacing: 10) {
-                    TetrisControlButton(symbol: "chevron.left", label: "向左") { game.move(-1) }
-                    TetrisControlButton(symbol: "chevron.down", label: "加速下落") { game.softDrop() }
-                    TetrisControlButton(symbol: "rotate.right", label: "旋转") { game.rotate() }
-                    TetrisControlButton(symbol: "chevron.right", label: "向右") { game.move(1) }
-                    TetrisControlButton(symbol: "arrow.down.to.line", label: "直接落下") { game.hardDrop() }
-                }
-                .disabled(game.isPaused || game.isGameOver)
+            VStack(spacing: 10) {
+                HStack(alignment: .center) {
+                    GameDpad(
+                        onUp: nil,
+                        onDown: { game.softDrop(); GameSoundPlayer.shared.play(.keyPress) },
+                        onLeft: { game.move(-1); GameSoundPlayer.shared.play(.keyPress) },
+                        onRight: { game.move(1); GameSoundPlayer.shared.play(.keyPress) },
+                        repeatInterval: 0.11
+                    )
+                    .disabled(game.isPaused || game.isGameOver)
 
-                Text("左右移动 · 旋转 · 加速下落 · 直接落下")
+                    Spacer()
+
+                    GameFaceCluster(
+                        onA: { game.rotate(); GameSoundPlayer.shared.play(.keyPress) },
+                        onB: { game.hardDrop() }   // 硬降只播落地声，不叠加按键声
+                    )
+                    .disabled(game.isPaused || game.isGameOver)
+                }
+
+                HStack(spacing: 14) {
+                    GamePillKey(title: game.isPaused ? "继续" : "暂停",
+                                systemImage: game.isPaused ? "play.fill" : "pause.fill",
+                                action: togglePause)
+                        .disabled(game.isGameOver)
+                    GamePillKey(title: "菜单", systemImage: "ellipsis", action: { showingMenu = true })
+                }
+                .frame(maxWidth: .infinity)
+
+                Text("十字键移动 · A 旋转 · B 直接落下")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -510,6 +531,23 @@ struct TetrisGameView: View {
         .themedPageBackground()
         .navigationTitle("俄罗斯方块")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    gameSoundEnabled.toggle()
+                    if !gameSoundEnabled { GameSoundPlayer.shared.stopAll() }
+                } label: {
+                    Image(systemName: gameSoundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                }
+                .accessibilityLabel(gameSoundEnabled ? "关闭游戏音效" : "开启游戏音效")
+            }
+        }
+        .confirmationDialog("游戏菜单", isPresented: $showingMenu, titleVisibility: .visible) {
+            Button("重新开始", role: .destructive) { restart() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("重新开始会清空本局分数。")
+        }
         .task(id: app.sessionGeneration) {
             companion.newRound()
             companion.selected = nil
@@ -522,11 +560,14 @@ struct TetrisGameView: View {
             guard count > 0 else { return }
             companion.observe(snapshot(event: game.isGameOver ? "end" : "clear"), ended: game.isGameOver, app: app)
         }
+        .onChange(of: game.soundTick) { _, _ in
+            for event in game.drainSounds() { GameSoundPlayer.shared.play(event) }
+        }
         .onChange(of: game.isPaused) { _, paused in if paused { companion.flushPending() } }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { game.isPaused = true; companion.stop() }
+            if phase != .active { game.isPaused = true; companion.stop(); GameSoundPlayer.shared.stopAll() }
         }
-        .onDisappear { game.isPaused = true; companion.stop() }
+        .onDisappear { game.isPaused = true; companion.stop(); GameSoundPlayer.shared.stopAll() }
         .sheet(isPresented: $showingConversation) {
             TetrisCompanionConversation(model: companion,
                 summary: "\(game.isGameOver ? "这一局结束了" : "游戏已暂停") · \(game.score) 分 · 消除 \(game.lines) 行",
@@ -609,31 +650,6 @@ struct TetrisGameView: View {
                     onChoose: { game.isPaused = true; showingPartners = true },
                     onQuiet: { companion.setQuiet(!companion.quiet) },
                     onRetry: { Task { await companion.load(app: app) } })
-
-                Spacer(minLength: 8)
-
-                HStack(spacing: 8) {
-                    Button {
-                        game.isPaused.toggle()
-                    } label: {
-                        Image(systemName: game.isPaused ? "play.fill" : "pause.fill")
-                            .font(.headline)
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(GameButtonStyle())
-                    .disabled(game.isGameOver)
-                    .accessibilityLabel(game.isPaused ? "继续" : "暂停")
-
-                    Button {
-                        restart()
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.headline)
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(GameButtonStyle(tone: .secondary))
-                    .accessibilityLabel("重新开始")
-                }
             }
             .frame(width: companionWidth)
             .frame(maxHeight: .infinity, alignment: .top)
@@ -648,10 +664,17 @@ struct TetrisGameView: View {
         showingConversation = true
     }
 
+    private func togglePause() {
+        guard !game.isGameOver else { return }
+        game.isPaused.toggle()
+        GameSoundPlayer.shared.play(game.isPaused ? .pause : .resume)
+    }
+
     private func restart() {
         game = TetrisGame()
         companion.newRound()
         companion.send(snapshot(event: "start"), automatic: true, app: app)
+        GameSoundPlayer.shared.play(.start)
     }
 
     private func snapshot(event: String) -> TetrisCompanionRequest {
@@ -734,22 +757,6 @@ private struct TetrisNextPiece: View {
     }
 }
 
-private struct TetrisControlButton: View {
-    let symbol: String
-    let label: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.headline.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 48)
-        }
-        .buttonStyle(GameButtonStyle(heavyImpact: symbol == "arrow.down.to.line"))
-        .accessibilityLabel(label)
-    }
-}
-
 private enum TetrisKind: Int, CaseIterable {
     case cyan, blue, orange, yellow, green, purple, red
 
@@ -794,6 +801,9 @@ private struct TetrisGame {
     var isPaused = false
     private(set) var isGameOver = false
     private(set) var lockedPieces = 0
+    /// 规则层结果音效事件（硬降落地 / 消行 / 结束）队列；视图通过 soundTick 变化取走。
+    private(set) var soundTick = 0
+    private var queuedSounds: [GameSoundEvent] = []
 
     var dropInterval: Int { max(130, 620 - (lines / 10) * 55) }
     var activeCells: [TetrisCell] {
@@ -828,7 +838,7 @@ private struct TetrisGame {
             activeY += 1
             score += 1
         } else {
-            lockPiece()
+            lockPiece(fromHardDrop: false)
         }
     }
 
@@ -840,7 +850,7 @@ private struct TetrisGame {
             distance += 1
         }
         score += distance * 2
-        lockPiece()
+        lockPiece(fromHardDrop: true)
     }
 
     mutating func dropOne() {
@@ -848,8 +858,20 @@ private struct TetrisGame {
         if fits(kind: activeKind, rotation: rotation, x: activeX, y: activeY + 1) {
             activeY += 1
         } else {
-            lockPiece()
+            lockPiece(fromHardDrop: false)
         }
+    }
+
+    /// 取走并清空规则层累积的音效事件。
+    mutating func drainSounds() -> [GameSoundEvent] {
+        let out = queuedSounds
+        queuedSounds.removeAll()
+        return out
+    }
+
+    private mutating func emit(_ event: GameSoundEvent) {
+        queuedSounds.append(event)
+        soundTick += 1
     }
 
     static func color(for kind: TetrisKind) -> Color {
@@ -876,27 +898,34 @@ private struct TetrisGame {
         return true
     }
 
-    private mutating func lockPiece() {
+    private mutating func lockPiece(fromHardDrop: Bool) {
         lockedPieces += 1
         for cell in activeCells {
-            guard cell.row >= 0 else { isGameOver = true; return }
+            guard cell.row >= 0 else { isGameOver = true; emit(.gameOver); return }
             board[cell.row][cell.column] = activeKind
         }
-        clearFullRows()
+        let cleared = clearFullRows()
+        if fromHardDrop { emit(.hardDrop) }
+        if cleared == 1 { emit(.clearSingle) }
+        else if cleared > 1 { emit(.clearMulti) }
         activeKind = nextKind
         nextKind = TetrisKind.allCases.randomElement() ?? .cyan
         activeX = 3
         activeY = 0
         rotation = 0
-        if !fits(kind: activeKind, rotation: rotation, x: activeX, y: activeY) { isGameOver = true }
+        if !fits(kind: activeKind, rotation: rotation, x: activeX, y: activeY) {
+            isGameOver = true
+            emit(.gameOver)
+        }
     }
 
-    private mutating func clearFullRows() {
+    private mutating func clearFullRows() -> Int {
         let remaining = board.filter { $0.contains(where: { $0 == nil }) }
         let cleared = Self.height - remaining.count
-        guard cleared > 0 else { return }
+        guard cleared > 0 else { return 0 }
         board = Array(repeating: Array<TetrisKind?>(repeating: nil, count: Self.width), count: cleared) + remaining
         lines += cleared
         score += [0, 100, 300, 500, 800][min(cleared, 4)]
+        return cleared
     }
 }

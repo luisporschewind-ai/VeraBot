@@ -82,6 +82,9 @@
 		88F55501313C9192D2B32DCC /* LibraryFileList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C13062B1AA887E66BAAFDF /* LibraryFileList.swift */; };
 		8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6508701B3F97F7E98B01C00C /* MiniGameViews.swift */; };
 		9EA1559753114601BC02AC18 /* SnakeGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */; };
+		E5F60718293A4B5C6D7E8F9A /* GameSoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* GameSoundPlayer.swift */; };
+		F60718293A4B5C6D7E8F9A0B /* HandheldGameControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* HandheldGameControls.swift */; };
+		D4E5F60718293A4B5C6D7E8F /* Sounds in Resources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7E /* Sounds */; };
 		90DE63991A28ECA890EAEC90 /* RobotAvatarLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35A8BF6FB6F9B69E3FCF260 /* RobotAvatarLabView.swift */; };
 		9218258188FF7E412112926B /* NoticeWorkbenchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3627B57D948744FB00258E /* NoticeWorkbenchView.swift */; };
 		92470A703C2920832344A5E2 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB9ED27A9D63CD4F97247CE7 /* ChatViewModel.swift */; };
@@ -214,6 +217,9 @@
 		5F1BF1E515F06F846F060286 /* LibraryDownloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryDownloadCoordinator.swift; sourceTree = "<group>"; };
 		6508701B3F97F7E98B01C00C /* MiniGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGameViews.swift; sourceTree = "<group>"; };
 		90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnakeGameView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* GameSoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSoundPlayer.swift; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B5C6D /* HandheldGameControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandheldGameControls.swift; sourceTree = "<group>"; };
+		C3D4E5F60718293A4B5C6D7E /* Sounds */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Sounds; path = "Resources/Sounds"; sourceTree = "<group>"; };
 		66CBDBDDF881B23288C5B2DE /* BotAvatarState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarState.swift; sourceTree = "<group>"; };
 		66CF4DCCF59659EF30A92860 /* TraceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceView.swift; sourceTree = "<group>"; };
 		6A2C0EE4C4696F262A48A1E0 /* AttachmentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViews.swift; sourceTree = "<group>"; };
@@ -378,6 +384,7 @@
 				2564D082318084A4C23F1920 /* BotTravelViews.swift */,
 				6508701B3F97F7E98B01C00C /* MiniGameViews.swift */,
 				90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */,
+				B2C3D4E5F60718293A4B5C6D /* HandheldGameControls.swift */,
 				469972256A4D27DA4A31462A /* PlaygroundAssistant.swift */,
 				37D62CE6269DD45B58CEA286 /* TetrisCompanionModel.swift */,
 				EE791D5EAF47FCBCA1F7DB50 /* TetrisCompanionViews.swift */,
@@ -458,6 +465,7 @@
 				F0B37A62E664594298BAA145 /* DefaultBotFigure.swift */,
 				24E41B39232EE3F793E7132D /* DismissToolbarButton.swift */,
 				B7227481F2AD38DA86774FEB /* Haptics.swift */,
+				A1B2C3D4E5F60718293A4B5C /* GameSoundPlayer.swift */,
 				C6F1E843EA28A08B8E15E700 /* InAppBrowser.swift */,
 				C69AA5EB92F7C7B8734E2038 /* JumpToLatestButton.swift */,
 				928A38EBE534F3CEE8CAB9D7 /* LiveBotAvatar.swift */,
@@ -655,6 +663,7 @@
 			children = (
 				BD018E46B9DECE36E52911C3 /* Assets.xcassets */,
 				53844451640BC069A307EBFE /* InfoPlist.xcstrings */,
+				C3D4E5F60718293A4B5C6D7E /* Sounds */,
 				5125B3302980F2B1DF91A6E6 /* App */,
 				F261C483BE3629EDEE71C8DD /* Core */,
 				824FD317D53272A5041F3ABF /* Features */,
@@ -800,6 +809,7 @@
 				F7D894C796113C610B5147A0 /* Assets.xcassets in Resources */,
 				2C540C8613D1C7DF7B3C493D /* InfoPlist.xcstrings in Resources */,
 				E01735FF5B567C482FAEABC1 /* NoticeSourceIndex.json in Resources */,
+				D4E5F60718293A4B5C6D7E8F /* Sounds in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -899,6 +909,8 @@
 				27494F7ABBEB25CC75180BEA /* MessageRow.swift in Sources */,
 				8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */,
 				9EA1559753114601BC02AC18 /* SnakeGameView.swift in Sources */,
+				E5F60718293A4B5C6D7E8F9A /* GameSoundPlayer.swift in Sources */,
+				F60718293A4B5C6D7E8F9A0B /* HandheldGameControls.swift in Sources */,
 				3AF7ADDA1EE83313DC02EAE0 /* NewMessagesDivider.swift in Sources */,
 				630543AFC2E0558CF3958272 /* NoticeInteractionLabView.swift in Sources */,
 				338520DCF09E9B94D45D925C /* NoticeLabView.swift in Sources */,
