@@ -162,10 +162,14 @@ final class NotificationEventSync {
                     case .awaitingConfirmation: tone = .confirmation
                     }
                 } else { tone = .information }
+                var bannerLink = note.link
+                if note.category == .task_result, let itemID = await app.linkedItemID(for: note) {
+                    bannerLink = "reminder/\(itemID)"
+                }
                 let notice = BotNotice(title: hidden ? "你有一条新通知" : note.title,
                     detail: hidden || settings.preview != "full" ? "" : note.body ?? "",
                     tone: tone, avatar: note.category == .task_result ? tone.avatar : .replying,
-                    actionTitle: "查看", duration: 5, link: note.link)
+                    actionTitle: "查看", duration: 5, link: bannerLink)
                 // Same conversation updates a visible notice during its 30-second aggregation window.
                 notices?.show(notice, key: "notification:\(note.id)", replacing: coalesced)
                 presented = true

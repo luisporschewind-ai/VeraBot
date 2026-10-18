@@ -7,12 +7,14 @@ struct ReminderEditorView: View {
     @Environment(\.dismiss) private var dismiss
     let reminder: Reminder?
     let bots: [Bot]
+    var checklistSeed: [ChecklistEntry] = []
     let onSaved: () async -> Void
 
     @State private var title = ""
     @State private var note = ""
     @State private var hasDate = false
     @State private var hasTime = true
+    @State private var notifyEnabled = true
     @State private var selectedDay = Date()
     @State private var selectedTime = Date()
     @State private var repeatPreset: ReminderRepeatPreset = .never
@@ -20,6 +22,7 @@ struct ReminderEditorView: View {
     @State private var assignee: Int?
     @State private var expectedVersion: Int?
     @State private var loadedReminder: Reminder?
+    @State private var checklistRows: [ChecklistDraft] = []
     @State private var errorText: String?
     @State private var conflict = false
     @State private var confirmDelete = false
@@ -28,6 +31,17 @@ struct ReminderEditorView: View {
     @State private var scheduleChanged = false
     @State private var repeatChanged = false
     @State private var timeSelectionChanged = false
+
+    private struct ChecklistDraft: Identifiable, Hashable {
+        let id: UUID
+        var text: String
+        var done: Bool
+        init(id: UUID = UUID(), text: String = "", done: Bool = false) {
+            self.id = id
+            self.text = text
+            self.done = done
+        }
+    }
 
     private var editorTimeZone: TimeZone {
         TimeZone(identifier: loadedReminder?.timeZone ?? reminder?.timeZone ?? TimeZone.current.identifier) ?? .current
@@ -84,7 +98,7 @@ struct ReminderEditorView: View {
             }
             Section {
                 CompactToggle(isOn: hasDateBinding) {
-                    Button("日期") { setHasDate(!hasDate) }
+                    Button("日期与时间") { setHasDate(!hasDate) }
                         .buttonStyle(.plain)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
@@ -92,7 +106,7 @@ struct ReminderEditorView: View {
                 if hasDate {
                     DatePicker("日期", selection: dayBinding, displayedComponents: .date)
                         .labelsHidden()
-                        .accessibilityLabel("提醒日期")
+                        .accessibilityLabel("安排日期")
                         .environment(\.timeZone, editorTimeZone)
                     CompactToggle(isOn: hasTimeBinding) {
                         Button("时间") { setHasTime(!hasTime) }
@@ -103,10 +117,30 @@ struct ReminderEditorView: View {
                     if hasTime {
                         DatePicker("时间", selection: timeBinding, displayedComponents: .hourAndMinute)
                             .labelsHidden()
-                            .accessibilityLabel("提醒时间")
+                            .accessibilityLabel("安排时间")
                             .environment(\.timeZone, editorTimeZone)
                     }
+                    Toggle("通知", isOn: $notifyEnabled)
+                } else {
+                    Text("关闭后为待办，默认不通知。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
+            }
+            Section("清单") {
+                ForEach($checklistRows) { $row in
+                    HStack {
+                        Button {
+                            row.done.toggle()
+                        } label: {
+                            Image(systemName: row.done ? "checkmark.circle.fill" : "circle")
+                        }
+                        .buttonStyle(.plain)
+                        TextField("子项", text: $row.text)
+                    }
+                }
+                .onDelete { checklistRows.remove(atOffsets: $0) }
+                Button("添加子项") { checklistRows.append(ChecklistDraft()) }
             }
             Section {
                 Picker("重复", selection: repeatBinding) {
@@ -114,6 +148,7 @@ struct ReminderEditorView: View {
                         Text(preset.title).tag(preset)
                     }
                 }
+                .disabled(!hasDate)
                 Picker("优先级", selection: $priority) {
                     Text("无").tag(0)
                     Text("低").tag(1)
@@ -127,7 +162,7 @@ struct ReminderEditorView: View {
                     }
                 }
             } footer: {
-                Text("归属的 Bot 可以查看和管理这条提醒。")
+                Text("归属的 Bot 可以查看和管理这条安排。")
             }
             if let reminder, reminder.createdBy == "bot" {
                 Section("来源") {
@@ -141,7 +176,7 @@ struct ReminderEditorView: View {
             }
             if reminder != nil {
                 Section {
-                    Button("删除提醒", role: .destructive) { confirmDelete = true }
+                    Button("删除", role: .destructive) { confirmDelete = true }
                         .disabled(saving)
                 }
             }
@@ -149,7 +184,7 @@ struct ReminderEditorView: View {
                 Text(errorText).foregroundStyle(.red)
             }
         }
-        .navigationTitle(reminder == nil ? "新建提醒" : "编辑提醒")
+        .navigationTitle(reminder == nil ? "新建安排" : "编辑安排")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { DismissToolbarButton { dismiss() } }
@@ -184,8 +219,11 @@ struct ReminderEditorView: View {
         guard enabled != hasDate else { return }
         hasDate = enabled
         scheduleChanged = true
-        guard enabled else { return }
-
+        if !enabled {
+            notifyEnabled = false
+            return
+        }
+        notifyEnabled = true
         let wasUndated = loadedReminder.map { $0.dueUTC == nil && $0.dueAt == nil } ?? true
         if wasUndated {
             let initial = Date().addingTimeInterval(120)
@@ -209,6 +247,7 @@ struct ReminderEditorView: View {
             note = reminder.note ?? ""
             hasDate = reminder.dueUTC != nil || reminder.dueAt != nil
             hasTime = !reminder.allDay
+            notifyEnabled = hasDate ? reminder.notify : false
             let originalDate = reminder.dueUTC ?? VeraBotDate.parse(reminder.dueAt) ?? Date()
             selectedDay = originalDate
             selectedTime = originalDate
@@ -216,18 +255,21 @@ struct ReminderEditorView: View {
             priority = reminder.priority
             assignee = reminder.assigneeBotId
             expectedVersion = reminder.version
+            checklistRows = checklistSeed.map { ChecklistDraft(text: $0.text, done: $0.done) }
         } else {
             let now = Date()
             title = ""
             note = ""
             hasDate = false
             hasTime = true
+            notifyEnabled = false
             selectedDay = now
             selectedTime = now
             repeatPreset = .never
             priority = 0
             assignee = nil
             expectedVersion = nil
+            checklistRows = []
         }
         scheduleChanged = false
         repeatChanged = false
@@ -261,27 +303,36 @@ struct ReminderEditorView: View {
             ? repeatPreset.rrule(on: scheduleDate ?? combinedSelectionDate(), calendar: editorCalendar)
             : nil
         let noteChanged = loadedReminder.map { note != ($0.note ?? "") } ?? !note.isEmpty
-        let body = ReminderWrite(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                                 note: noteChanged ? note : nil,
-                                 dueAt: scheduleDate.map(VeraBotDate.format),
-                                 clearDue: loadedReminder != nil && scheduleChanged && !hasDate,
-                                 timeZone: scheduleChanged ? editorTimeZone.identifier : nil,
-                                 allDay: scheduleChanged ? (hasDate && !hasTime) : nil,
-                                 rrule: rule,
-                                 clearRrule: clearRule,
-                                 priority: priority,
-                                 assigneeBotId: assignee,
-                                 clearAssignee: loadedReminder != nil && assignee == nil,
-                                 notify: scheduleChanged ? hasDate : nil,
-                                 expectedVersion: reminder == nil ? nil : expectedVersion,
-                                 clearNote: loadedReminder != nil && noteChanged && note.isEmpty)
+        let checklist = checklistRows.compactMap { row -> ChecklistWrite? in
+            let text = row.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return nil }
+            return ChecklistWrite(text: text, done: row.done)
+        }
+        let body = ItemWrite(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                             note: noteChanged ? note : nil,
+                             dueAt: scheduleDate.map(VeraBotDate.format),
+                             clearDue: loadedReminder != nil && scheduleChanged && !hasDate,
+                             timeZone: scheduleChanged ? editorTimeZone.identifier : nil,
+                             allDay: scheduleChanged ? (hasDate && !hasTime) : nil,
+                             rrule: rule,
+                             clearRrule: clearRule,
+                             priority: priority,
+                             assigneeBotId: assignee,
+                             clearAssignee: loadedReminder != nil && assignee == nil,
+                             notify: hasDate ? notifyEnabled : false,
+                             expectedVersion: reminder == nil ? nil : expectedVersion,
+                             clearNote: loadedReminder != nil && noteChanged && note.isEmpty,
+                             checklist: reminder == nil ? checklist : nil,
+                             sourceKind: reminder == nil ? "manual" : nil)
         do {
             if let reminder {
-                _ = try await app.api.updateReminder(id: reminder.id, body)
+                let updated = try await app.api.updateItem(id: reminder.id, body)
+                _ = try await app.api.replaceChecklist(
+                    id: reminder.id, expectedVersion: updated.reminder.version, items: checklist)
             } else {
-                _ = try await app.api.createReminder(body)
+                _ = try await app.api.createItem(body)
             }
-            if hasDate && NotificationCoordinator.shared.preferences.enabled {
+            if hasDate && notifyEnabled && NotificationCoordinator.shared.preferences.enabled {
                 await NotificationCoordinator.shared.requestReminderAuthorizationIfNeeded()
             }
             await onSaved()

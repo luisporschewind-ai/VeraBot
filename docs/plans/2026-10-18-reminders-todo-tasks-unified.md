@@ -1,7 +1,19 @@
 # 「安排」：提醒 · 待办 · 任务 一体化方案（Plan）
 
-日期：2026-10-18。状态：**已批准（2026-10-18）**。11 项决策全部定稿：除决策 2 外均按推荐执行；决策 2 定为 Tab / 模块改名「安排」（参考 Meta Muse 的 Upcoming）。P1 进入实施。
+日期：2026-10-18。状态：**已批准（2026-10-18）**；**P1 已实现（2026-10-18，待验收/部署）**。11 项决策全部定稿：除决策 2 外均按推荐执行；决策 2 定为 Tab / 模块改名「安排」（参考 Meta Muse 的 Upcoming）。
 基线：`origin/main` 42e77f8（schema v36）。时间均为 Asia/Shanghai (UTC+8)。
+
+### P1 进度
+
+| 项 | 状态 |
+|---|---|
+| v37 迁移 + 回填幂等 + `.bak-before-v37-*` | 已完成 |
+| `/api/items` 列表/详情/创建/动作/清单 | 已完成（P1 不创建 Bot 任务） |
+| Bot 工具待办 + checklist + `source_kind` | 已完成 |
+| `unified_items_test.py` + 既有 reminder 测试 | 已完成（本机跑通） |
+| iOS「安排」分组 / 详情 / 编辑清单 / 旧入口 / 通知 | 已完成（未跑 xcodebuild / swift test） |
+| 文档（CHANGELOG / STATUS / 设计增补 / 用例） | 已完成 |
+| P2 交给 Bot / 任务操作代理 / `propose_task` | 未开始 |
 
 ## 0. 一句话
 

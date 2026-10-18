@@ -92,7 +92,7 @@ struct InboxView: View {
 
     private func open(_ item: InboxNotification) async {
         _ = try? await app.api.markNotificationRead(item.id)
-        if let link = item.link { await app.open(link: link) }
+        await app.openNotification(item)
         await load()
     }
 

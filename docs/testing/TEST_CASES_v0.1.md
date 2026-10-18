@@ -766,6 +766,21 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 | CACHE-UI-03 | iOS | demo 退出 → boss 登录 → 手机号登录 → demo | 每一步 Cache.db 不存在或 0 条；首页、设置、记忆只显示当前账号 (CACHE_28 / CACHE_30)，没有上一个账号的 Bot、昵称、头像、记忆 | 模拟器通过 |
 | CACHE-UI-04 | iOS | 快速换账号时旧请求回来 | 丢弃结果 | 由 CACHE-K-06 + 代码审查覆盖，未做界面复现 |
 
+## 统一事项「安排」P1 (schema v37) — 2026-10-18
+
+自动化：`cd backend && PYTHONPATH=. <venv>/python scripts/test/unified_items_test.py`；既有 `reminder_test.py` 须仍通过。假时钟，不访问外网。方案 [2026-10-18-reminders-todo-tasks-unified.md](../plans/2026-10-18-reminders-todo-tasks-unified.md)。iOS Kit：`ItemTests.swift`（解码 / 五组分组 / 清单进度）；未在本交付中跑 `swift test` / `xcodebuild`。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| ITEMS-01 | 迁移 | v36→v37 两次启动 | 版本 37；`reminder_checklist`；回填 scheduled+owned（跳过 deleted/桥接）；备份一次；不重复回填 | 通过（本机） |
+| ITEMS-02 | API | view + 清单 | today/planned/todo；PUT/PATCH checklist；计数同步 | 通过 |
+| ITEMS-03 | API | 任务摘要 | 业务词映射；不暴露 lease/token/trace | 通过 |
+| ITEMS-04 | Bot | §5.2 + 工具 | 用户自建不可见；create 待办+checklist、`source_kind=chat`；越权「提醒不存在」 | 通过 |
+| ITEMS-05 | 兼容 | `/api/reminders` | 形状不变、附加字段；关联任务 complete 只完成事项 | 通过 |
+| ITEMS-UI-01 | iOS | Tab / 分组 | 「安排」；今天/计划/待办/Bot 任务；行内 2/5；筛选「仅 Bot 任务」 | 待测 |
+| ITEMS-UI-02 | iOS | 详情 / 编辑 | 点行进只读详情；清单可勾；编辑含日期开关与清单；删除红色确认 | 待测 |
+| ITEMS-UI-03 | iOS | 通知 / 旧入口 | 提醒通知→详情；任务结果→关联事项详情；对话/Bot「任务」→安排+Bot 筛选 | 待测 |
+
 ## 提醒与推送 R1 (schema v11) — 2026-10-03
 
 自动化：`cd backend && uv run python scripts/test/reminder_test.py` 与 `notify_test.py`。假时钟，不访问外网。设计 [REMINDER_PUSH_DESIGN.md](../design/REMINDER_PUSH_DESIGN.md) v1.0，字段对照 §8。iOS Kit `swift test` 于 main 6800822 上运行，148/148 通过；模拟器用例已测。

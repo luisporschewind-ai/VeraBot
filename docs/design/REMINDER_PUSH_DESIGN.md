@@ -1,5 +1,7 @@
 # 提醒与推送模块设计 (Reminder & Push/Notification Design) — v1.0 定稿
 
+> **2026-10-18 增补（统一事项 P1）**：原「提醒」Tab 改名为「安排」，`reminders` 扩展为统一事项（schema **v37**：`task_kind` / `task_id` / `source_kind` / 清单计数 + `reminder_checklist`），新用户 API `/api/items`。Bot 任务仍由 `scheduled_tasks` / `owned_tasks` 执行，事项只存链接与展示摘要（业务词：待执行 / 正在处理 / 等你处理 / 已完成 / 未完成）。§5.2 可见范围不变；`/api/reminders` 仅附加字段。完整方案见 [plans/2026-10-18-reminders-todo-tasks-unified.md](../plans/2026-10-18-reminders-todo-tasks-unified.md)。部署：备份后重启 API 应用 v37。
+
 > 状态：**v1.0 定稿**（Boss 于 2026-10-03 批准，§15 D1–D18 全部按推荐执行）。按 §14 R1 实施。
 > 实施与验收：**R1 已实现并合入 main（schema v11）**；Boss 于 2026-10-04 验收通过（模拟器）。点按提醒通知按 §9.5 执行（打开该提醒，不直接进对话），已按设计接受。真机与 APNs (R2) 未测。**2026-10-05 编辑页改版（PR #27，§10.2 括注）：REM-UI-02 需重验。**
 > 依据代码：`luisporschewind-ai/VeraBot` `main`（含缓存修复 `2a0dc0f` 之后的 main；`SCHEMA_VERSION = 9`），并参考未合并的 PR #6（头像）、**PR #7（插件 P1，schema v10，`builtin_reminder` 插件）**、PR #8（邮箱认领修复，schema 仍 v9）。

@@ -1,5 +1,12 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-18 · 「安排」P1：提醒 / 待办 / Bot 任务统一事项
+
+- 后端 schema **v37**：`reminders` 增加 `task_kind` / `task_id` / `source_kind` / 清单计数；新表 `reminder_checklist`；回填未删除周期任务与未挂周期的持续任务各一条关联事项（幂等）。迁移前自动 `.bak-before-v37-*`。
+- 新 API `/api/items`（列表 view、详情、创建待办/提醒+清单、complete/reopen/snooze/skip、清单 PUT/PATCH）；任务摘要只暴露业务词。`/api/reminders` 仅附加字段。Bot 工具 `create_reminder` / `manage_reminder` 支持无时间待办与 checklist，`source_kind=chat`。
+- iOS Tab「提醒」→「安排」；分组 今天/计划/待办/Bot 任务；先看后改详情；编辑支持日期开关与清单；对话/Bot 编辑「任务」跳转安排并按 Bot 筛选；任务结果通知优先开事项详情。VeraBotKit：`Item` / checklist / 任务摘要、`APIClient+Items`。
+- 文档与测试：`unified_items_test.py`；部署前备份正式库，重启 API 应用 v37。见[方案](plans/2026-10-18-reminders-todo-tasks-unified.md)。未跑 git / xcodebuild / swift test。
+
 ## 2026-10-17 · 游乐场接入 Bot 旅行；发现与探索 Tab 对调
 
 - iOS：Bot 旅行从「探索」想法详情迁入「游乐场 → 挑一个玩法」（`PlaygroundGame.travel` → `BotTravelStartView`）；探索列表移除 travel 项及详情特殊入口；游乐场底部「卡住时…」占位卡删除，游戏助手头像保留。

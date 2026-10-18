@@ -158,6 +158,12 @@ def to_public(row: dict, *, names: dict | None = None, now: datetime | None = No
         "cancelled_at": row.get("cancelled_at"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
+        # v37 起附加字段；旧客户端可忽略
+        "task_kind": row.get("task_kind"),
+        "task_id": row.get("task_id"),
+        "source_kind": row.get("source_kind"),
+        "checklist_done": int(row.get("checklist_done") or 0),
+        "checklist_total": int(row.get("checklist_total") or 0),
     }
 
 
@@ -324,7 +330,8 @@ def create_reminder(user_id: int, *, title: str, note: str | None = None, due_at
                     priority: int = 0, assignee_bot_id: int | None = None, source_message_id: int | None = None,
                     notify: bool | None = None, alert_offsets=None, created_by: str = "user",
                     bot_id: int | None = None, client: str = "ios", actor: str = "user",
-                    actor_bot_id: int | None = None, _connection=None) -> dict:
+                    actor_bot_id: int | None = None, source_kind: str | None = None,
+                    task_kind: str | None = None, task_id: int | None = None, _connection=None) -> dict:
     title, note = _check_text(title, note)
     priority = _check_priority(priority)
     tz_name = timezone_name or TIMEZONE
@@ -354,7 +361,7 @@ def create_reminder(user_id: int, *, title: str, note: str | None = None, due_at
         owner = assignee_bot_id or bot_id
         if owner and _open_count(c, user_id, owner) >= BOT_LIMIT:
             raise ReminderError(422, "这个 Bot 的未结束提醒已达上限（50）")
-        rid = _insert(c, user_id, {
+        fields = {
             "user_id": user_id, "bot_id": bot_id, "content": title, "due_at": due_local, "done": 0,
             "created_at": now, "title": title, "note": note, "timezone": tz_name, "due_utc": due_utc,
             "all_day": 1 if all_day else 0, "rrule": rule, "occurrence_index": 1, "status": "scheduled",
@@ -362,7 +369,15 @@ def create_reminder(user_id: int, *, title: str, note: str | None = None, due_at
             "assignee_bot_id": assignee_bot_id, "source_message_id": source_message_id, "client": client,
             "notify": 1 if notify else 0, "alert_offsets": offsets, "version": 1,
             "completed_at": None, "cancelled_at": None, "updated_at": now,
-        })
+            "checklist_done": 0, "checklist_total": 0,
+        }
+        if source_kind is not None:
+            fields["source_kind"] = source_kind
+        if task_kind is not None:
+            fields["task_kind"] = task_kind
+        if task_id is not None:
+            fields["task_id"] = task_id
+        rid = _insert(c, user_id, fields)
         _event(c, user_id, rid, "created", actor, None, "scheduled", actor_bot_id=actor_bot_id, client=client,
                occurrence_due_utc=due_utc, detail={"fields": ["title", "due_at", "rrule"]})
         return _public_id(c, user_id, rid)

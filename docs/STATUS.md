@@ -1,4 +1,9 @@
-# 项目状态 (STATUS) — 2026-10-17
+# 项目状态 (STATUS) — 2026-10-18
+
+## 2026-10-18 · 「安排」P1 已落地（待 Boss 验收 / 部署）
+
+- 后端 v37 + `/api/items` + 清单 + 任务摘要（业务词）+ 工具待办/清单；`unified_items_test.py` 与既有 `reminder_test.py` 已在本机通过。iOS「安排」Tab、分组、只读详情、清单、旧「任务」入口预筛选、任务结果通知进详情；Kit Item 模型与测试已写（未跑 swift test / xcodebuild）。
+- **部署**：正式库先备份，再重启 API 应用 schema v37（自动 `.bak-before-v37-*`）。P2（交给 Bot 创建与任务操作代理）未做。见 [方案](plans/2026-10-18-reminders-todo-tasks-unified.md)。
 
 ## 2026-10-18 · 「安排」：提醒 / 待办 / 任务一体化方案（已批准）
 

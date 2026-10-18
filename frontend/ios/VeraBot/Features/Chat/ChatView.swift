@@ -24,7 +24,6 @@ struct ChatView: View {
     @State private var draftSaveTask: Task<Void, Never>?
     @State private var speechBase = ""   // 开始录音前输入框已有的文字
     @FocusState private var focused: Bool
-    @State private var showTasks = false
     @State private var showInfo = false         // Bot 详情页（清空对话 / Bot 设置已移入详情页）
     @State private var confirmClearConversation = false
     @State private var confirmDeleteBot = false
@@ -147,9 +146,6 @@ struct ChatView: View {
             } message: {
                 Text(BotDeletion.message(vm.bot.name))
             }
-            .sheet(isPresented: $showTasks) {
-                NavigationStack { TaskListView(botID: vm.bot.id, botName: vm.bot.name) }
-            }
             .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: AttachmentLimits.maxPerMessage, selectionBehavior: .ordered, matching: .images)
             .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .plainText, .commaSeparatedText,
                 UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "docx") ?? .data,
@@ -208,7 +204,7 @@ struct ChatView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button("任务") { showTasks = true }
+                Button("任务") { app.openAgenda(filteredByBotID: vm.bot.id) }
                 Button(role: .destructive) {
                     confirmClearConversation = true
                 } label: {
@@ -333,7 +329,7 @@ struct ChatView: View {
         let next = ScrollBottomDetector.followsBottom(anchor: bottomAnchor, viewport: effectiveViewport, current: followsBottom)
         if next != followsBottom { followsBottom = next }
     }
-    private var hasTemporaryCover: Bool { showInfo || showTasks || showMemoryList || showPhotos || showFiles || showCamera || cameraDenied || browserCovered || travelTripToShow != nil || confirmClearConversation || confirmDeleteBot }
+    private var hasTemporaryCover: Bool { showInfo || showMemoryList || showPhotos || showFiles || showCamera || cameraDenied || browserCovered || travelTripToShow != nil || confirmClearConversation || confirmDeleteBot }
     private var canRead: Bool { pageVisible && scenePhase == .active && app.selectedTab == hostingTab && ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) && !hasTemporaryCover }
 
     /// 先查相机权限：未决定时系统弹窗；已拒绝则提示前往设置
@@ -398,7 +394,7 @@ struct ChatView: View {
     }
 
     private var notificationModalShown: Bool {
-        showInfo || showTasks || showMemoryList || showPhotos || showCamera || showFiles || travelTripToShow != nil
+        showInfo || showMemoryList || showPhotos || showCamera || showFiles || travelTripToShow != nil
     }
     private func updateNotificationVisibility() {
         guard pageVisible, app.selectedTab == hostingTab, ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) else { return }

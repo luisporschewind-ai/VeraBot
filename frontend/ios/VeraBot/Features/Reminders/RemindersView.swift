@@ -5,36 +5,33 @@ import VeraBotNetworking
 struct RemindersView: View {
     @Environment(AppState.self) private var app
     @State private var segment = 0
-    @State private var reminders: [Reminder] = []
+    @State private var items: [Item] = []
     @State private var bots: [Bot] = []
-    @State private var filter: ReminderListFilter = .all
+    @State private var filter: ItemListFilter = .all
     @State private var showDone = false
     @State private var notice: PageNotice?
-    @State private var viewing: Reminder?
-    @State private var editing: Reminder?
+    @State private var viewingID: Int?
     @State private var creating = false
     @State private var completedCount = 0
-    @State private var pendingDelete: Reminder?
+    @State private var pendingDelete: Item?
 
     var body: some View {
         NavigationStack {
-            // 整页只有一个列表在滚动：分段控件是列表里第一个分组的头（section header），在大标题「提醒」下方，
-            // 随内容一起滚动；大标题上滑时照常收进导航栏中间。不挂在安全区（safeAreaBar 会盖住大标题）。
             Group {
                 if segment == 0 {
-                    reminderList
+                    itemList
                 } else {
                     InboxView(header: AnyView(segmentPicker))
                 }
             }
-            .navigationTitle("提醒")
+            .navigationTitle("安排")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { filterMenu }
                 ToolbarItem(placement: .topBarTrailing) {
                     if segment == 0 {
                         Button { creating = true } label: { Image(systemName: "plus") }
-                            .accessibilityLabel("新建提醒")
+                            .accessibilityLabel("新建安排")
                     }
                 }
             }
@@ -43,18 +40,17 @@ struct RemindersView: View {
                     ReminderEditorView(reminder: nil, bots: bots) { await load() }
                 }
             }
-            .sheet(item: $viewing) { item in
-                NavigationStack { ReminderDetailView(reminder: item, bots: bots) { await load() } }
-            }
-            .sheet(item: $editing) { item in
-                NavigationStack {
-                    ReminderEditorView(reminder: item, bots: bots) { await load() }
+            .sheet(isPresented: Binding(get: { viewingID != nil }, set: { if !$0 { viewingID = nil } })) {
+                if let viewingID {
+                    NavigationStack {
+                        ReminderDetailView(itemID: viewingID, bots: bots) { await load() }
+                    }
                 }
             }
-            .confirmationDialog("删除重复提醒", isPresented: Binding(get: { pendingDelete != nil },
+            .confirmationDialog("删除重复安排", isPresented: Binding(get: { pendingDelete != nil },
                                                                   set: { if !$0 { pendingDelete = nil } }),
                                 titleVisibility: .visible, presenting: pendingDelete) { item in
-                if item.rrule != nil {
+                if item.reminder.rrule != nil {
                     Button("仅删除这一次") { Task { await remove(item, scope: "occurrence") } }
                     Button("删除整个系列", role: .destructive) { Task { await remove(item, scope: "series") } }
                 } else {
@@ -70,10 +66,16 @@ struct RemindersView: View {
             .onChange(of: app.pendingLink) { _, link in
                 apply(link)
             }
+            .onChange(of: app.pendingAgendaBotID) { _, botID in
+                if let botID {
+                    filter = .bot(botID)
+                    segment = 0
+                    app.pendingAgendaBotID = nil
+                }
+            }
         }
     }
 
-    /// 「提醒／通知」分段：作为列表第一个分组的头，位于大标题下方
     private var segmentPicker: some View {
         Picker("提醒或通知", selection: $segment) {
             Text("提醒").tag(0)
@@ -84,32 +86,32 @@ struct RemindersView: View {
         .padding(.bottom, 4)
     }
 
-    private var reminderList: some View {
+    private var itemList: some View {
         ThemedList {
             Section { } header: { segmentPicker }
             if let notice {
                 PageConnectionNotice(notice: notice) { Task { await load() } }
                     .connectionNoticeRow()
             }
-            let sections = ReminderGrouping.sections(reminders, filter: filter, showDone: showDone)
+            let sections = ItemGrouping.sections(items, filter: filter, showDone: showDone)
             ForEach(sections, id: \.0) { bucket, rows in
                 Section(bucket.title) {
                     ForEach(rows) { item in
-                        Button { editing = item } label: { ReminderRow(item: item) }
+                        Button { viewingID = item.id } label: { AgendaRow(item: item) }
                             .swipeActions(edge: .trailing) {
-                                if item.status != .done {
+                                if item.reminder.status != .done {
                                     Button("完成") { Task { await complete(item) } }.tint(.green)
                                 }
                                 Button("删除", role: .destructive) { pendingDelete = item }
                             }
                             .swipeActions(edge: .leading) {
-                                if item.status != .done && item.status != .cancelled {
+                                if item.reminder.status != .done && item.reminder.status != .cancelled {
                                     snoozeMenu(item)
                                 }
                             }
                             .contextMenu {
-                                Button("编辑") { editing = item }
-                                if item.status != .done { Button("完成") { Task { await complete(item) } } }
+                                Button("查看") { viewingID = item.id }
+                                if item.reminder.status != .done { Button("完成") { Task { await complete(item) } } }
                                 Button("删除", role: .destructive) { pendingDelete = item }
                             }
                     }
@@ -117,13 +119,13 @@ struct RemindersView: View {
             }
         }
         .overlay {
-            if reminders.isEmpty && notice == nil {
+            if items.isEmpty && notice == nil {
                 ContentUnavailableView {
-                    Label("暂无提醒", systemImage: "alarm")
+                    Label("暂无安排", systemImage: "alarm")
                 } description: {
                     Text("在对话里说「提醒我…」，或点右上角新建")
                 } actions: {
-                    Button("新建提醒") { creating = true }
+                    Button("新建安排") { creating = true }
                 }
             }
         }
@@ -135,6 +137,7 @@ struct RemindersView: View {
             Button("全部") { filter = .all }
             Button("我创建的") { filter = .createdByUser }
             Button("Bot 创建的") { filter = .createdByBot }
+            Button("仅 Bot 任务") { filter = .botTasksOnly }
             if !bots.isEmpty {
                 Menu("按 Bot") {
                     ForEach(bots) { bot in
@@ -149,7 +152,7 @@ struct RemindersView: View {
         .accessibilityLabel("筛选")
     }
 
-    private func snoozeMenu(_ item: Reminder) -> some View {
+    private func snoozeMenu(_ item: Item) -> some View {
         Menu("稍后") {
             ForEach(SnoozeChoice.allCases) { choice in
                 Button(choice.title) { Task { await snooze(item, choice) } }
@@ -159,11 +162,15 @@ struct RemindersView: View {
 
     private func load() async {
         do {
-            async let list = app.api.reminders()
+            async let list = app.api.items()
             async let botList = app.api.bots()
-            reminders = try await list.reminders
+            items = try await list.items
             bots = try await botList.bots
             notice = nil
+            if let botID = app.pendingAgendaBotID {
+                filter = .bot(botID)
+                app.pendingAgendaBotID = nil
+            }
             apply(app.pendingLink)
             await app.syncReminders()
         } catch {
@@ -171,20 +178,20 @@ struct RemindersView: View {
         }
     }
 
-    private func complete(_ item: Reminder) async {
-        if (try? await app.api.completeReminder(item.id, idempotencyKey: nil)) != nil {
+    private func complete(_ item: Item) async {
+        if (try? await app.api.completeItem(item.id)) != nil {
             completedCount += 1
         }
         await load()
     }
 
-    private func snooze(_ item: Reminder, _ choice: SnoozeChoice) async {
+    private func snooze(_ item: Item, _ choice: SnoozeChoice) async {
         let until = choice.until()?.ISO8601Format()
-        _ = try? await app.api.snoozeReminder(item.id, minutes: choice.minutes(), until: until, idempotencyKey: nil)
+        _ = try? await app.api.snoozeItem(item.id, minutes: choice.minutes(), until: until)
         await load()
     }
 
-    private func remove(_ item: Reminder, scope: String) async {
+    private func remove(_ item: Item, scope: String) async {
         _ = try? await app.api.deleteReminder(item.id, scope: scope)
         pendingDelete = nil
         await load()
@@ -195,12 +202,13 @@ struct RemindersView: View {
         switch link {
         case .reminder(let id):
             segment = 0
-            viewing = reminders.first { $0.id == id }
-            if viewing == nil, reminders.isEmpty { return }
-            if viewing == nil, !reminders.isEmpty { app.missingNotice = "内容已不存在" }
-        case .reminders(let bucket):
+            if items.contains(where: { $0.id == id }) || items.isEmpty == false {
+                viewingID = id
+            }
+            if items.isEmpty { return }
+            if !items.contains(where: { $0.id == id }) { app.missingNotice = "内容已不存在" }
+        case .reminders:
             segment = 0
-            if bucket == "due" { filter = .all }
         case .inbox:
             segment = 1
         default:
@@ -210,25 +218,38 @@ struct RemindersView: View {
     }
 }
 
-private struct ReminderRow: View {
-    let item: Reminder
+private struct AgendaRow: View {
+    let item: Item
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: item.done == 1 ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(item.status == .due ? .red : Color.secondary)
+            Image(systemName: item.reminder.done == 1 ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(item.reminder.status == .due ? .red : Color.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text(item.title).strikethrough(item.done == 1)
-                    if item.priority >= 2 {
+                    Text(item.title).strikethrough(item.reminder.done == 1)
+                    if item.reminder.priority >= 2 {
                         Image(systemName: "exclamationmark")
                             .font(.caption)
                             .foregroundStyle(Color.secondary)
                     }
+                    Spacer(minLength: 0)
+                    if let progress = item.checklistProgressText {
+                        Text(progress)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(Color.secondary)
+                    }
+                    if let task = item.task {
+                        Text(task.status)
+                            .font(.caption2.weight(.medium))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.15), in: Capsule())
+                    }
                 }
-                Text(ReminderTimeText.subtitle(item))
+                Text(ReminderTimeText.subtitle(item.reminder))
                     .font(.caption)
-                    .foregroundStyle(item.status == .due ? .red : Color.secondary)
+                    .foregroundStyle(item.reminder.status == .due ? .red : Color.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
