@@ -459,33 +459,34 @@ struct TetrisGameView: View {
     @State private var showingPartners = false
 
     var body: some View {
-        GeometryReader { proxy in
-            let availableHeight = max(200, proxy.size.height - 204 - (game.isPaused || game.isGameOver ? 40 : 0))
-            let boardWidth = min(290, max(100, proxy.size.width - 122), availableHeight / 2)
-            ScrollView {
-            VStack(spacing: 12) {
-                TetrisCompanionPresence(model: companion, onTalk: openConversation,
-                    onChoose: { game.isPaused = true; showingPartners = true },
-                    onQuiet: { companion.setQuiet(!companion.quiet) },
-                    onRetry: { Task { await companion.load(app: app) } })
-                scoreHeader
+        VStack(spacing: 12) {
+            scoreHeader
 
-                boardArea(width: boardWidth)
+            GeometryReader { proxy in
+                let companionWidth = min(112, max(96, proxy.size.width * 0.32))
+                let boardWidth = max(1, min(290, proxy.size.width - companionWidth - 12, proxy.size.height / 2))
+                boardArea(width: boardWidth, companionWidth: companionWidth)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
 
+            Group {
                 if game.isGameOver || game.isPaused {
                     Text(game.isGameOver ? "本局 \(game.score) 分 · 消除 \(game.lines) 行，点头像一起回顾。" : "游戏已暂停，准备好后继续。")
                         .font(.footnote.weight(.medium))
                         .foregroundStyle(Color.brand)
+                        .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 9)
                         .background(Color.brandSoft, in: RoundedRectangle(cornerRadius: 12))
+                } else {
+                    Color.clear.accessibilityHidden(true)
                 }
             }
-            .padding(18)
-            .frame(maxWidth: 480)
-            .frame(maxWidth: .infinity)
+            .frame(height: 44)
         }
-        }
+        .padding(18)
+        .frame(maxWidth: 480)
+        .frame(maxWidth: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 6) {
                 HStack(spacing: 10) {
@@ -591,7 +592,7 @@ struct TetrisGameView: View {
         }
     }
 
-    private func boardArea(width boardWidth: CGFloat) -> some View {
+    private func boardArea(width boardWidth: CGFloat, companionWidth: CGFloat) -> some View {
         HStack(spacing: 12) {
             TetrisBoard(game: game)
                 .frame(width: boardWidth, height: boardWidth * 2)
@@ -602,29 +603,39 @@ struct TetrisGameView: View {
                 TetrisNextPiece(kind: game.nextKind)
                     .frame(width: 74, height: 74)
                 Spacer(minLength: 8)
-                Button {
-                    game.isPaused.toggle()
-                } label: {
-                    Image(systemName: game.isPaused ? "play.fill" : "pause.fill")
-                        .font(.headline)
-                        .frame(width: 48, height: 44)
-                        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.plain)
-                .disabled(game.isGameOver)
-                .accessibilityLabel(game.isPaused ? "继续" : "暂停")
 
-                Button {
-                    restart()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.headline)
-                        .frame(width: 48, height: 44)
-                        .background(Color.brandSoft, in: RoundedRectangle(cornerRadius: 12))
+                TetrisCompanionPresence(model: companion, compact: boardWidth * 2 < 420,
+                    onTalk: openConversation,
+                    onChoose: { game.isPaused = true; showingPartners = true },
+                    onQuiet: { companion.setQuiet(!companion.quiet) },
+                    onRetry: { Task { await companion.load(app: app) } })
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 8) {
+                    Button {
+                        game.isPaused.toggle()
+                    } label: {
+                        Image(systemName: game.isPaused ? "play.fill" : "pause.fill")
+                            .font(.headline)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(GameButtonStyle())
+                    .disabled(game.isGameOver)
+                    .accessibilityLabel(game.isPaused ? "继续" : "暂停")
+
+                    Button {
+                        restart()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.headline)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(GameButtonStyle(tone: .secondary))
+                    .accessibilityLabel("重新开始")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("重新开始")
             }
+            .frame(width: companionWidth)
             .frame(maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity)
@@ -733,9 +744,8 @@ private struct TetrisControlButton: View {
             Image(systemName: symbol)
                 .font(.headline.weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: 48)
-                .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 13))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GameButtonStyle(heavyImpact: symbol == "arrow.down.to.line"))
         .accessibilityLabel(label)
     }
 }
