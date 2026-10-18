@@ -36,6 +36,7 @@ class ItemIn(BaseModel):
     alert_offsets: list[int] | None = None
     checklist: list[ChecklistIn | str] | None = None
     source_kind: str | None = "manual"
+    task: dict | None = None
 
 
 class ItemPatch(BaseModel):
@@ -141,7 +142,8 @@ def items_create(body: ItemIn, request: Request, user=Depends(current_user)):
             assignee_bot_id=body.assignee_bot_id, source_message_id=body.source_message_id,
             notify=body.notify, alert_offsets=body.alert_offsets,
             checklist=_checklist_payload(body.checklist), source_kind=body.source_kind or "manual",
-            client=_client(request), actor="user", created_by="user")
+            client=_client(request), actor="user", created_by="user",
+            task=body.task, idempotency_key=request.headers.get("idempotency-key"))
     except ReminderError as exc:
         _raise(exc)
     _idempotency_put(user["id"], request.headers.get("idempotency-key"), 201, created)
@@ -253,3 +255,34 @@ def items_checklist_patch(rid: int, cid: int, body: ChecklistPatch | None = None
         return service.toggle_checklist(user["id"], rid, cid, done=(body.done if body else None))
     except ReminderError as exc:
         _raise(exc)
+
+
+class TaskInputIn(BaseModel):
+    message: str
+
+
+@router.post("/api/items/{rid}/task/{action}")
+def item_task_action(rid: int, action: str, request: Request, user=Depends(current_user),
+                     body: TaskInputIn | None = None):
+    try:
+        return service.task_action(
+            user["id"], rid, action,
+            message=(body.message if body else None),
+            idempotency_key=request.headers.get("idempotency-key"))
+    except ReminderError as exc:
+        _raise(exc)
+
+
+@router.delete("/api/items/{rid}")
+def item_delete(rid: int, request: Request, user=Depends(current_user), scope: str = "series",
+                task: str = "keep"):
+    hit = _replay(user["id"], request)
+    if hit:
+        return JSONResponse(hit[1], status_code=hit[0])
+    try:
+        updated = service.delete_item(
+            user["id"], rid, scope=scope, task=task, actor="user", client=_client(request))
+    except ReminderError as exc:
+        _raise(exc)
+    _idempotency_put(user["id"], request.headers.get("idempotency-key"), 200, updated)
+    return updated

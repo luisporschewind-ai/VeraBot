@@ -18,9 +18,10 @@ public struct ItemWrite: Encodable, Sendable {
     public var expectedVersion: Int?
     public var checklist: [ChecklistWrite]?
     public var sourceKind: String?
+    public var task: ItemTaskWrite?
 
     enum CodingKeys: String, CodingKey {
-        case title, note, priority, notify, rrule, checklist
+        case title, note, priority, notify, rrule, checklist, task
         case dueAt = "due_at"
         case timeZone = "timezone"
         case allDay = "all_day"
@@ -33,7 +34,7 @@ public struct ItemWrite: Encodable, Sendable {
                 timeZone: String? = nil, allDay: Bool? = nil, rrule: String? = nil, clearRrule: Bool = false,
                 priority: Int? = nil, assigneeBotId: Int? = nil, clearAssignee: Bool = false, notify: Bool? = nil,
                 expectedVersion: Int? = nil, clearNote: Bool = false, checklist: [ChecklistWrite]? = nil,
-                sourceKind: String? = nil) {
+                sourceKind: String? = nil, task: ItemTaskWrite? = nil) {
         self.title = title
         self.note = note
         self.clearNote = clearNote
@@ -50,6 +51,7 @@ public struct ItemWrite: Encodable, Sendable {
         self.expectedVersion = expectedVersion
         self.checklist = checklist
         self.sourceKind = sourceKind
+        self.task = task
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -66,6 +68,43 @@ public struct ItemWrite: Encodable, Sendable {
         try c.encodeIfPresent(expectedVersion, forKey: .expectedVersion)
         try c.encodeIfPresent(checklist, forKey: .checklist)
         try c.encodeIfPresent(sourceKind, forKey: .sourceKind)
+        try c.encodeIfPresent(task, forKey: .task)
+    }
+}
+
+public struct ItemTaskWrite: Encodable, Sendable {
+    public var botID: Int
+    public var instruction: String
+    public var mode: String
+    public var startAt: String?
+    public var timeZone: String?
+    public var repeatRule: String?
+    public var weekdays: [Int]?
+    public var completionCriteria: String?
+    public var tokenLimit: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case mode, instruction, weekdays
+        case repeatRule = "repeat"
+        case botID = "bot_id"
+        case startAt = "start_at"
+        case timeZone = "timezone"
+        case completionCriteria = "completion_criteria"
+        case tokenLimit = "token_limit"
+    }
+
+    public init(botID: Int, instruction: String, mode: String, startAt: String? = nil,
+                timeZone: String? = nil, repeatRule: String? = nil, weekdays: [Int]? = nil,
+                completionCriteria: String? = nil, tokenLimit: Int? = nil) {
+        self.botID = botID
+        self.instruction = instruction
+        self.mode = mode
+        self.startAt = startAt
+        self.timeZone = timeZone
+        self.repeatRule = repeatRule
+        self.weekdays = weekdays
+        self.completionCriteria = completionCriteria
+        self.tokenLimit = tokenLimit
     }
 }
 
@@ -146,5 +185,29 @@ extension APIClient {
     public func toggleChecklist(id: Int, checklistID: Int, done: Bool? = nil) async throws -> Item {
         try await call("/api/items/\(id)/checklist/\(checklistID)", method: "PATCH",
                        body: try encode(ChecklistToggleBody(done: done)))
+    }
+
+    private struct ItemTaskInputBody: Encodable {
+        var message: String
+    }
+
+    public func itemTaskAction(id: Int, action: String, message: String? = nil,
+                               idempotencyKey: String? = nil) async throws -> Item {
+        let body: Data
+        if let message {
+            body = try encode(ItemTaskInputBody(message: message))
+        } else {
+            body = Data("{}".utf8)
+        }
+        return try await call("/api/items/\(id)/task/\(action)", method: "POST", body: body,
+                              headers: idempotency(idempotencyKey))
+    }
+
+    public func deleteItem(_ id: Int, scope: String = "series", stopTask: Bool,
+                           idempotencyKey: String? = nil) async throws -> Reminder {
+        var params: [URLQueryItem] = [.init(name: "scope", value: scope),
+                                      .init(name: "task", value: stopTask ? "stop" : "keep")]
+        return try await call("/api/items/\(id)", method: "DELETE", query: params,
+                              headers: idempotency(idempotencyKey))
     }
 }

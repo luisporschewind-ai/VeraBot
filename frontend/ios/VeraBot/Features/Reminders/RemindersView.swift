@@ -47,14 +47,17 @@ struct RemindersView: View {
                     }
                 }
             }
-            .confirmationDialog("删除重复安排", isPresented: Binding(get: { pendingDelete != nil },
+            .confirmationDialog("删除安排", isPresented: Binding(get: { pendingDelete != nil },
                                                                   set: { if !$0 { pendingDelete = nil } }),
                                 titleVisibility: .visible, presenting: pendingDelete) { item in
-                if item.reminder.rrule != nil {
-                    Button("仅删除这一次") { Task { await remove(item, scope: "occurrence") } }
-                    Button("删除整个系列", role: .destructive) { Task { await remove(item, scope: "series") } }
+                if item.hasTask {
+                    Button("删除并停止 Bot 任务", role: .destructive) { Task { await remove(item, scope: "series", stopTask: true) } }
+                    Button("仅删除事项") { Task { await remove(item, scope: "series", stopTask: false) } }
+                } else if item.reminder.rrule != nil {
+                    Button("仅删除这一次") { Task { await remove(item, scope: "occurrence", stopTask: false) } }
+                    Button("删除整个系列", role: .destructive) { Task { await remove(item, scope: "series", stopTask: false) } }
                 } else {
-                    Button("删除", role: .destructive) { Task { await remove(item, scope: "series") } }
+                    Button("删除", role: .destructive) { Task { await remove(item, scope: "series", stopTask: false) } }
                 }
                 Button("取消", role: .cancel) {}
             }
@@ -191,8 +194,12 @@ struct RemindersView: View {
         await load()
     }
 
-    private func remove(_ item: Item, scope: String) async {
-        _ = try? await app.api.deleteReminder(item.id, scope: scope)
+    private func remove(_ item: Item, scope: String, stopTask: Bool) async {
+        if item.hasTask {
+            _ = try? await app.api.deleteItem(item.id, scope: scope, stopTask: stopTask)
+        } else {
+            _ = try? await app.api.deleteReminder(item.id, scope: scope)
+        }
         pendingDelete = nil
         await load()
     }

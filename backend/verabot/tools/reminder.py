@@ -243,3 +243,40 @@ async def manage_reminder(ctx: ToolContext, action: str, id: int | None = None, 
             return _scope(ctx, exc)
         return {"error": exc.message}
     return {"ok": True, "id": updated["id"], "reminder": updated, "summary": summary}
+
+
+@tool("propose_task",
+      "在对话里向用户提议「交给我定期/持续做」。只生成确认卡片，用户点确认后才真正创建任务和事项；"
+      "普通聊天不要直接创建任务。mode 用 once（到点做一次）、repeat（按周期）或 owned（持续直到完成）；"
+      "owned 需要用户已开启主动任务。start_at 用 ISO8601。",
+      {"type": "object", "properties": {
+          "title": {"type": "string", "description": "任务目标（也是事项标题）"},
+          "instruction": {"type": "string", "description": "具体要做什么，可省略（默认等于 title）"},
+          "mode": {"type": "string", "enum": ["once", "repeat", "owned"]},
+          "bot_id": {"type": "integer", "description": "负责的 Bot id，默认自己"},
+          "start_at": {"type": "string", "description": "首次执行时间 ISO8601；once/repeat 必填"},
+          "timezone": {"type": "string", "description": "时区，默认 Asia/Shanghai"},
+          "repeat": {"type": "string", "enum": ["daily", "weekdays", "weekly"], "description": "repeat 模式的频率"},
+          "weekdays": {"type": "array", "items": {"type": "integer"}, "description": "weekly 的星期（0=周一…6=周日）"},
+          "completion_criteria": {"type": "string", "description": "owned 模式的完成标准"},
+          "token_limit": {"type": "integer", "description": "owned 模式的用量上限，默认 20000"}},
+       "required": ["title", "mode"]})
+async def propose_task(ctx: ToolContext, title: str, mode: str, instruction: str | None = None,
+                       bot_id: int | None = None, start_at: str | None = None, timezone: str | None = None,
+                       repeat: str | None = None, weekdays: list | None = None,
+                       completion_criteria: str | None = None, token_limit: int | None = None):
+    from ..services.items import service as item_service
+    from ..services.reminders.service import ReminderError
+    spec = {"title": title, "instruction": instruction or title, "mode": mode, "bot_id": bot_id or ctx.bot["id"],
+            "start_at": start_at, "timezone": timezone or TIMEZONE, "repeat": repeat,
+            "weekdays": weekdays or [], "completion_criteria": completion_criteria,
+            "token_limit": token_limit}
+    try:
+        pending = item_service.propose_task(
+            ctx.user_id, ctx.bot, spec,
+            source_message_id=ctx.user_message_id,
+            group_id=getattr(ctx, "group_id", None))
+    except ReminderError as exc:
+        return {"error": exc.message}
+    return {**pending, "ok": True,
+            "summary": f"已提议「{title}」，请用户确认后交给 Bot"}

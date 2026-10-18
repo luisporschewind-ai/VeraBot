@@ -65,11 +65,15 @@ def _task_summary(c, user_id: int, row: dict) -> dict | None:
         else:
             key = "pending"
         summary = _short((run or {}).get("result_text") or (run or {}).get("error_summary"))
+        history = [
+            {"at": r.get("finished_at") or r.get("created_at"), "ok": r.get("state") == "succeeded"}
+            for r in item_store.scheduled_runs_history(c, int(tid))
+        ]
         return {
             "kind": "scheduled", "id": int(tid), "status": STATUS_LABELS[key], "status_key": key,
             "next_run": task.get("next_run_at_utc"), "last_result_summary": summary,
             "needs_user": needs_user, "message_id": (run or {}).get("message_id"),
-            "bot_id": task.get("bot_id"), "title": task.get("title"),
+            "bot_id": task.get("bot_id"), "title": task.get("title"), "history": history,
         }
     task = item_store.owned_task_row(c, user_id, int(tid))
     if task is None:
@@ -100,10 +104,17 @@ def _task_summary(c, user_id: int, row: dict) -> dict | None:
             summary = _short(payload.get("text") or payload.get("summary") or payload.get("result"))
         elif isinstance(payload, str):
             summary = _short(payload)
+    wait = item_store.owned_open_wait(c, int(tid))
+    history = [
+        {"at": s.get("created_at"), "ok": s.get("status") == "completed"}
+        for s in item_store.owned_steps_history(c, int(tid))
+    ]
     return {
         "kind": "owned", "id": int(tid), "status": STATUS_LABELS[key], "status_key": key,
         "next_run": None, "last_result_summary": summary, "needs_user": needs_user,
         "message_id": message_id, "bot_id": task.get("owner_bot_id"), "title": task.get("goal"),
+        "history": history, "wait_question": (wait or {}).get("question"),
+        "wait_action_id": (wait or {}).get("action_id"),
     }
 
 
@@ -205,15 +216,27 @@ def create_item(user_id: int, *, title: str, note: str | None = None, due_at: st
                 priority: int = 0, assignee_bot_id: int | None = None, source_message_id: int | None = None,
                 notify: bool | None = None, alert_offsets=None, checklist=None,
                 source_kind: str | None = "manual", client: str = "ios", actor: str = "user",
-                actor_bot_id: int | None = None, created_by: str = "user", bot_id: int | None = None) -> dict:
+                actor_bot_id: int | None = None, created_by: str = "user", bot_id: int | None = None,
+                task: dict | None = None, idempotency_key: str | None = None) -> dict:
     if source_kind is not None and source_kind not in {"manual", "chat", "group", "feed", "migration"}:
         raise ReminderError(422, "source_kind 无效")
+    task_kind = task_id = None
+    if task:
+        task_kind, task_id, task_due, task_assignee = _create_task(
+            user_id, task, title=title, idempotency_key=idempotency_key)
+        if assignee_bot_id is None:
+            assignee_bot_id = task_assignee
+        if task_due and due_at is None:
+            due_at = task_due
+        if notify is None:
+            notify = False
     entries = _normalize_checklist(checklist)
     created = reminder_service.create_reminder(
         user_id, title=title, note=note, due_at=due_at, timezone_name=timezone_name, all_day=all_day,
         rrule=rrule, priority=priority, assignee_bot_id=assignee_bot_id, source_message_id=source_message_id,
         notify=notify, alert_offsets=alert_offsets, created_by=created_by, bot_id=bot_id, client=client,
-        actor=actor, actor_bot_id=actor_bot_id, source_kind=source_kind)
+        actor=actor, actor_bot_id=actor_bot_id, source_kind=source_kind,
+        task_kind=task_kind, task_id=task_id)
     if entries:
         with db.tx() as c:
             _write_checklist(c, user_id, created["id"], entries)
@@ -288,3 +311,194 @@ def find_item_for_notification(user_id: int, *, source_kind: str | None = None,
         if row is None:
             return None
         return to_item(row, names=_names(c, user_id, [row]), task=_task_summary(c, user_id, row))
+
+
+# ---------------------------------------------------------------------------
+# P2：交给 Bot（创建任务 + 关联、操作代理、写回同步、propose_task）
+# ---------------------------------------------------------------------------
+
+TASK_MODES = ("once", "repeat", "owned")
+SCHEDULED_REPEATS = ("daily", "weekdays", "weekly")
+
+
+def _validate_task_spec(task: dict) -> dict:
+    if not isinstance(task, dict):
+        raise ReminderError(422, "task 格式无效")
+    mode = task.get("mode") or "once"
+    if mode not in TASK_MODES:
+        raise ReminderError(422, "执行方式无效")
+    instruction = str(task.get("instruction") or "").strip()
+    if not instruction:
+        raise ReminderError(422, "请说明交给 Bot 做什么")
+    if len(instruction) > 2000:
+        raise ReminderError(422, "任务内容最多 2000 个字")
+    bot_id = task.get("bot_id")
+    if bot_id is None or not isinstance(bot_id, int) or bot_id <= 0:
+        raise ReminderError(422, "请选择负责的 Bot")
+    out = {"mode": mode, "instruction": instruction, "bot_id": int(bot_id)}
+    if mode in ("once", "repeat"):
+        start_at = str(task.get("start_at") or "").strip()
+        if not start_at:
+            raise ReminderError(422, "请选择任务执行时间")
+        out["start_at"] = start_at
+        out["timezone"] = task.get("timezone") or TIMEZONE
+        if mode == "repeat":
+            repeat = task.get("repeat") or "daily"
+            if repeat not in SCHEDULED_REPEATS:
+                raise ReminderError(422, "重复规则无效")
+            out["repeat"] = repeat
+            weekdays = task.get("weekdays") or []
+            if repeat == "weekly":
+                if not isinstance(weekdays, list) or not weekdays or any(
+                        not isinstance(d, int) or d not in range(7) for d in weekdays):
+                    raise ReminderError(422, "每周规则需要不重复的星期（0–6）")
+            out["weekdays"] = sorted(set(int(d) for d in weekdays))
+    else:
+        criteria = str(task.get("completion_criteria") or "").strip()
+        if not criteria:
+            raise ReminderError(422, "持续任务需要完成标准")
+        out["completion_criteria"] = criteria
+        out["token_limit"] = task.get("token_limit")
+    return out
+
+
+def _create_task(user_id: int, task: dict, *, title: str, idempotency_key: str | None):
+    spec = _validate_task_spec(task)
+    bot = db.get_bot(user_id, spec["bot_id"])
+    if bot is None:
+        raise ReminderError(422, "负责的 Bot 不存在")
+    key = idempotency_key or uuid_hex()
+    if spec["mode"] == "owned":
+        from ..owned_tasks import service as owned_service
+        from ..primary_bot import get as primary_get
+        if not primary_get(user_id)["active_enabled"]:
+            raise ReminderError(409, "持续任务需要先开启「允许主动任务」", "active_disabled")
+        created = owned_service.create(
+            user_id,
+            {"bot_id": spec["bot_id"], "goal": title[:200],
+             "completion_criteria": spec["completion_criteria"],
+             "token_limit": spec.get("token_limit") or 20000},
+            key,
+        )
+        return "owned", created["id"], None, spec["bot_id"]
+    from ..scheduled_tasks import service as scheduled_service
+    from ..scheduled_tasks.contracts import TaskError
+    payload = {
+        "bot_id": spec["bot_id"],
+        "title": title[:200],
+        "instruction": spec["instruction"],
+        "start_at": spec["start_at"],
+        "timezone": spec["timezone"],
+        "repeat": spec["mode"] if spec["mode"] == "once" else spec.get("repeat", "daily"),
+        "weekdays": spec.get("weekdays", []),
+        "execution_mode": "read_only",
+    }
+    try:
+        created = scheduled_service.create(user_id, payload, key)
+    except TaskError as exc:
+        raise ReminderError(exc.status, exc.message, exc.code) from exc
+    return "scheduled", created["id"], created.get("next_run_at_utc"), spec["bot_id"]
+
+
+def _task_row(user_id: int, kind: str, task_id: int):
+    with db.tx() as c:
+        if kind == "scheduled":
+            return item_store.scheduled_task_row(c, user_id, task_id)
+        return item_store.owned_task_row(c, user_id, task_id)
+
+
+def task_action(user_id: int, rid: int, action: str, *, message: str | None = None,
+                idempotency_key: str | None = None) -> dict:
+    from ..scheduled_tasks import service as scheduled_service
+    from ..scheduled_tasks.contracts import TaskError
+    from ..owned_tasks import service as owned_service
+    with db.tx() as c:
+        row = item_store.fetch_item(c, user_id, rid)
+        if row is None or row.get("status") == "cancelled":
+            raise ReminderError(404, "事项不存在")
+        kind = row.get("task_kind")
+        tid = row.get("task_id")
+        if not kind or tid is None:
+            raise ReminderError(409, "这件事项没有关联任务", "no_task")
+    try:
+        if kind == "scheduled":
+            task = _task_row(user_id, "scheduled", int(tid))
+            if task is None:
+                raise TaskError("not_found", "任务已结束", 409)
+            version = int(task["version"])
+            if action in ("pause", "resume"):
+                scheduled_service.transition(user_id, int(tid), action, version)
+            elif action == "run":
+                scheduled_service.run_now(user_id, int(tid), idempotency_key or uuid_hex())
+            else:
+                raise TaskError("invalid_action", "周期任务只支持 暂停/继续/立即执行", 422)
+        elif kind == "owned":
+            task = _task_row(user_id, "owned", int(tid))
+            if task is None:
+                raise TaskError("not_found", "任务已结束", 409)
+            version = int(task["version"])
+            if action == "stop":
+                owned_service.control(user_id, int(tid), "stop", version)
+            elif action == "continue":
+                owned_service.control(user_id, int(tid), "continue", version)
+            elif action == "input":
+                text = (message or "").strip()
+                if not text:
+                    raise TaskError("invalid_input", "请填写回复内容", 422)
+                owned_service.submit_input(user_id, int(tid), {"message": text},
+                                           idempotency_key or uuid_hex(), version)
+            else:
+                raise TaskError("invalid_action", "持续任务只支持 停止/继续/回复", 422)
+        else:
+            raise TaskError("invalid_action", "不支持的任务类型", 422)
+    except TaskError as exc:
+        raise ReminderError(exc.status, exc.message, exc.code) from exc
+    return get_item(user_id, rid)
+
+
+def delete_item(user_id: int, rid: int, *, scope: str = "series", task: str = "keep",
+                actor: str = "user", actor_bot_id: int | None = None, client: str = "ios") -> dict:
+    with db.tx() as c:
+        row = item_store.fetch_item(c, user_id, rid)
+        if row is None or row.get("status") == "cancelled":
+            raise ReminderError(404, "事项不存在")
+        kind = row.get("task_kind")
+        tid = row.get("task_id")
+    if task == "stop" and kind and tid is not None:
+        try:
+            if kind == "scheduled":
+                from ..scheduled_tasks import service as scheduled_service
+                t = _task_row(user_id, "scheduled", int(tid))
+                if t is not None:
+                    scheduled_service.transition(user_id, int(tid), "delete", int(t["version"]))
+            elif kind == "owned":
+                from ..owned_tasks import service as owned_service
+                t = _task_row(user_id, "owned", int(tid))
+                if t is not None:
+                    owned_service.control(user_id, int(tid), "stop", int(t["version"]))
+        except Exception:
+            import logging
+            logging.getLogger("verabot.items").warning("stop linked task failed item=%s kind=%s", rid, kind)
+    return reminder_service.cancel_reminder(user_id, rid, scope=scope, actor=actor,
+                                            actor_bot_id=actor_bot_id, client=client)
+
+
+def propose_task(user_id: int, bot: dict, spec: dict, *, source_message_id: int | None = None,
+                 group_id: int | None = None) -> dict:
+    """Bot 在对话里提议交办任务：冻结参数进 pending_actions，用户确认后才创建。"""
+    from ..actions import create_propose_pending
+    title = str(spec.get("title") or spec.get("goal") or "").strip()
+    if not title:
+        raise ReminderError(422, "请说明任务目标")
+    merged = {**spec, "title": title[:200],
+              "instruction": str(spec.get("instruction") or title).strip(),
+              "bot_id": spec.get("bot_id") or bot.get("id")}
+    clean = _validate_task_spec(merged)
+    clean["title"] = merged["title"]
+    return create_propose_pending(user_id, bot, clean, source_message_id=source_message_id,
+                                  group_id=group_id)
+
+
+def uuid_hex() -> str:
+    import uuid
+    return uuid.uuid4().hex

@@ -9,6 +9,28 @@ public enum ItemTaskStatusLabel: String, Sendable, Hashable {
     case failed = "未完成"
 }
 
+public struct ItemTaskHistoryEntry: Codable, Sendable, Hashable {
+    public var at: Date?
+    public var ok: Bool
+
+    public init(at: Date? = nil, ok: Bool = true) {
+        self.at = at
+        self.ok = ok
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let raw = try c.decodeIfPresent(String.self, forKey: .at) {
+            at = VeraBotDate.parse(raw)
+        } else {
+            at = nil
+        }
+        ok = try c.decodeIfPresent(Bool.self, forKey: .ok) ?? true
+    }
+
+    enum CodingKeys: String, CodingKey { case at, ok }
+}
+
 public struct ItemTaskSummary: Codable, Sendable, Hashable {
     public var kind: String
     public var id: Int
@@ -20,20 +42,26 @@ public struct ItemTaskSummary: Codable, Sendable, Hashable {
     public var messageId: Int?
     public var botId: Int?
     public var title: String?
+    public var history: [ItemTaskHistoryEntry]
+    public var waitQuestion: String?
+    public var waitActionId: Int?
 
     enum CodingKeys: String, CodingKey {
-        case kind, id, status, title
+        case kind, id, status, title, history
         case statusKey = "status_key"
         case nextRun = "next_run"
         case lastResultSummary = "last_result_summary"
         case needsUser = "needs_user"
         case messageId = "message_id"
         case botId = "bot_id"
+        case waitQuestion = "wait_question"
+        case waitActionId = "wait_action_id"
     }
 
     public init(kind: String, id: Int, status: String, statusKey: String? = nil, nextRun: Date? = nil,
                 lastResultSummary: String? = nil, needsUser: Bool = false, messageId: Int? = nil,
-                botId: Int? = nil, title: String? = nil) {
+                botId: Int? = nil, title: String? = nil, history: [ItemTaskHistoryEntry] = [],
+                waitQuestion: String? = nil, waitActionId: Int? = nil) {
         self.kind = kind
         self.id = id
         self.status = status
@@ -44,6 +72,9 @@ public struct ItemTaskSummary: Codable, Sendable, Hashable {
         self.messageId = messageId
         self.botId = botId
         self.title = title
+        self.history = history
+        self.waitQuestion = waitQuestion
+        self.waitActionId = waitActionId
     }
 
     public init(from decoder: Decoder) throws {
@@ -62,6 +93,9 @@ public struct ItemTaskSummary: Codable, Sendable, Hashable {
         messageId = try c.decodeIfPresent(Int.self, forKey: .messageId)
         botId = try c.decodeIfPresent(Int.self, forKey: .botId)
         title = try c.decodeIfPresent(String.self, forKey: .title)
+        history = try c.decodeIfPresent([ItemTaskHistoryEntry].self, forKey: .history) ?? []
+        waitQuestion = try c.decodeIfPresent(String.self, forKey: .waitQuestion)
+        waitActionId = try c.decodeIfPresent(Int.self, forKey: .waitActionId)
     }
 }
 
