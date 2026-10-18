@@ -83,6 +83,7 @@
 		879ADDA69524DA013A017926 /* DelegationLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82FE46070A1C055EA45932DF /* DelegationLogView.swift */; };
 		88F55501313C9192D2B32DCC /* LibraryFileList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C13062B1AA887E66BAAFDF /* LibraryFileList.swift */; };
 		8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6508701B3F97F7E98B01C00C /* MiniGameViews.swift */; };
+		9EA1559753114601BC02AC18 /* SnakeGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */; };
 		90DE63991A28ECA890EAEC90 /* RobotAvatarLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35A8BF6FB6F9B69E3FCF260 /* RobotAvatarLabView.swift */; };
 		9218258188FF7E412112926B /* NoticeWorkbenchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3627B57D948744FB00258E /* NoticeWorkbenchView.swift */; };
 		92470A703C2920832344A5E2 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB9ED27A9D63CD4F97247CE7 /* ChatViewModel.swift */; };
@@ -215,6 +216,7 @@
 		5E38B55E95E3B2A626D322D3 /* ReminderEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderEditorView.swift; sourceTree = "<group>"; };
 		5F1BF1E515F06F846F060286 /* LibraryDownloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryDownloadCoordinator.swift; sourceTree = "<group>"; };
 		6508701B3F97F7E98B01C00C /* MiniGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGameViews.swift; sourceTree = "<group>"; };
+		90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnakeGameView.swift; sourceTree = "<group>"; };
 		66CBDBDDF881B23288C5B2DE /* BotAvatarState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarState.swift; sourceTree = "<group>"; };
 		66CF4DCCF59659EF30A92860 /* TraceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceView.swift; sourceTree = "<group>"; };
 		6A2C0EE4C4696F262A48A1E0 /* AttachmentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViews.swift; sourceTree = "<group>"; };
@@ -384,6 +386,7 @@
 				DD5C449AFCEF9298A046CB11 /* BotTravelStore.swift */,
 				2564D082318084A4C23F1920 /* BotTravelViews.swift */,
 				6508701B3F97F7E98B01C00C /* MiniGameViews.swift */,
+				90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */,
 				469972256A4D27DA4A31462A /* PlaygroundAssistant.swift */,
 				37D62CE6269DD45B58CEA286 /* TetrisCompanionModel.swift */,
 				EE791D5EAF47FCBCA1F7DB50 /* TetrisCompanionViews.swift */,
@@ -904,6 +907,7 @@
 				77F3C0E2BB3860538F135486 /* MessageContentView.swift in Sources */,
 				27494F7ABBEB25CC75180BEA /* MessageRow.swift in Sources */,
 				8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */,
+				9EA1559753114601BC02AC18 /* SnakeGameView.swift in Sources */,
 				3AF7ADDA1EE83313DC02EAE0 /* NewMessagesDivider.swift in Sources */,
 				630543AFC2E0558CF3958272 /* NoticeInteractionLabView.swift in Sources */,
 				338520DCF09E9B94D45D925C /* NoticeLabView.swift in Sources */,
