@@ -31,9 +31,17 @@ private struct FeedScreen: View {
     @State private var bots: [Bot] = []
     @State private var botError: String?
     @State private var sheet: FeedSheet?
+    @State private var detail: FeedItem?
+    @State private var chat: FeedChatRoute?
+    @State private var handoffTask: Task<Void, Never>?
+    @State private var discussingItemID: Int?
+    @State private var discussionError: String?
     var body: some View {
         List {
             Section { filters }
+                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
             if let setupError = vm.setupError { FeedErrorRow(message: setupError) { Task { await vm.loadSetup() } } }
             if let error = vm.error { FeedErrorRow(message: error) { Task { await vm.load() } } }
             if let botError { FeedErrorRow(message: botError) { Task { await loadBots() } } }
@@ -57,9 +65,12 @@ private struct FeedScreen: View {
             } else {
                 Section {
                     ForEach(vm.items) { item in
-                        NavigationLink {
-                            FeedDetailView(initialItem: item, vm: vm, bots: bots)
-                        } label: { FeedCard(item: item) }
+                        FeedCard(item: item, bots: bots, busy: vm.busy,
+                                 preparing: discussingItemID == item.id && vm.busy,
+                                 open: { detail = item }, discuss: { bot in discuss(item: item, bot: bot) })
+                        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                         .swipeActions(edge: .trailing) {
                             Button("不感兴趣", role: .destructive) { Task { await vm.setState(id: item.id, state: FeedItemState(dismissed: true)) } }
                             Button(item.saved ? "取消收藏" : "收藏") { Task { await vm.setState(id: item.id, state: FeedItemState(saved: !item.saved)) } }.tint(.orange)
@@ -74,17 +85,24 @@ private struct FeedScreen: View {
                 }
             }
         }
-        .navigationTitle("发现")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("关注计划", systemImage: "slider.horizontal.3") { sheet = .plan }
-                    Button("订阅来源", systemImage: "dot.radiowaves.left.and.right") { sheet = .sources }
-                    Button("刷新", systemImage: "arrow.clockwise") { Task { await vm.refresh() } }
-                } label: { Image(systemName: "ellipsis.circle") }
-                .accessibilityLabel("发现管理")
-            }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.appBackground)
+        .contentMargins(.top, 0, for: .scrollContent)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(item: $detail) { item in
+            FeedDetailView(initialItem: item, vm: vm, bots: bots)
+                .toolbar(.visible, for: .navigationBar)
         }
+        .navigationDestination(item: $chat) { route in
+            FeedDiscussionView(route: route)
+                .toolbar(.visible, for: .navigationBar)
+        }
+        .alert("无法准备讨论", isPresented: Binding(get: { discussionError != nil }, set: { if !$0 { discussionError = nil } })) {
+            Button("知道了", role: .cancel) { discussionError = nil }
+        } message: { Text(discussionError ?? "") }
         .sheet(item: $sheet) { value in
             NavigationStack {
                 switch value {
@@ -99,9 +117,10 @@ private struct FeedScreen: View {
             await feedLoad
         }
         .refreshable { await vm.refresh() }
+        .onDisappear { handoffTask?.cancel(); handoffTask = nil }
     }
     private var filters: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Picker("内容类型", selection: Binding(get: { vm.query.kind ?? "" }, set: { kind in
                 var query = vm.query; query.kind = kind.isEmpty ? nil : kind
                 Task { await vm.apply(query: query) }
@@ -122,8 +141,28 @@ private struct FeedScreen: View {
                     var query = vm.query; query.savedOnly = saved
                     Task { await vm.apply(query: query) }
                 })).fixedSize()
+                managementMenu
             }.font(.subheadline)
         }.padding(.vertical, 4)
+    }
+    private var managementMenu: some View {
+        Menu {
+            Button("关注计划", systemImage: "slider.horizontal.3") { sheet = .plan }
+            Button("订阅来源", systemImage: "dot.radiowaves.left.and.right") { sheet = .sources }
+            Button("刷新", systemImage: "arrow.clockwise") { Task { await vm.refresh() } }
+        } label: {
+            Image(systemName: "ellipsis.circle").font(.title3).frame(minWidth: 36, minHeight: 36)
+        }.accessibilityLabel("发现管理")
+    }
+    private func discuss(item: FeedItem, bot: Bot) {
+        handoffTask?.cancel()
+        discussingItemID = item.id
+        handoffTask = Task {
+            let context = await vm.context(id: item.id, botID: bot.id, allowedBotIDs: Set(bots.map(\.id)))
+            guard !Task.isCancelled else { return }
+            if let context { chat = FeedChatRoute(bot: bot, draft: context.prompt) }
+            else { discussionError = vm.error ?? "无法准备讨论，请稍后重试。" }
+        }
     }
     private func loadBots() async {
         do {

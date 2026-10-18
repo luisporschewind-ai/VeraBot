@@ -2,7 +2,7 @@ import SwiftUI
 import VeraBotCore
 import VeraBotData
 
-private struct FeedChatRoute: Hashable, Identifiable {
+struct FeedChatRoute: Hashable, Identifiable {
     let bot: Bot
     let draft: String
     var id: Int { bot.id }
@@ -73,7 +73,7 @@ struct FeedDetailView: View {
             }
         }
         .navigationDestination(item: $chat) { route in
-            ChatView(bot: route.bot, api: app.api, repository: app.conversationRepository, initialDraft: route.draft, hostingTab: 5)
+            FeedDiscussionView(route: route)
         }
     }
     private var safeOriginalURL: URL? {
@@ -124,5 +124,15 @@ private struct FeedAskBotSheet: View {
     }
     private func cancelHandoff() {
         handoffTask?.cancel(); handoffTask = nil
+    }
+}
+
+
+struct FeedDiscussionView: View {
+    @Environment(AppState.self) private var app
+    let route: FeedChatRoute
+    var body: some View {
+        ChatView(bot: route.bot, api: app.api, repository: app.conversationRepository,
+                 initialDraft: route.draft, hostingTab: 5)
     }
 }

@@ -915,6 +915,8 @@ VERABOT_MCP_LIVE_TESTS=1 uv run python scripts/test/mcp_test.py
 
 ## 个性化 Feed FEED-01～08（2026-10-17）
 
+2026-10-18补充：无顶部大标题，四类卡片显示真实来源图文；Bot菜单与正文详情独立点击，Discuss直达本条引用草稿。一次Intel编译通过、四类预览及一次音频Discuss检查完成，不代表真实模型回答或用户手动验收。见[记录](../tasks/2026-10-18-feed-cards.md)。
+
 - FEED-01：底部第五项「发现」，原入口顺序保留；未配置、空列表、来源失败提示。
 - FEED-02：关注计划版本冲突、Bot归属、记忆权限及请求关闭开关；来源确认后启用。
 - FEED-03：RSS/Atom/音视频真实解析、公网校验、重定向和压缩/XML读取上限。
