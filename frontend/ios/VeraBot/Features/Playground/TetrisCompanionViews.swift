@@ -3,57 +3,94 @@ import VeraBotCore
 
 struct TetrisCompanionPresence: View {
     let model: TetrisCompanionModel
+    var compact = false
     let onTalk: () -> Void
     let onChoose: () -> Void
     let onQuiet: () -> Void
     let onRetry: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        VStack(spacing: 6) {
             if let bot = model.selected {
+                Text(message ?? " ")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(compact ? 2 : 3)
+                    .padding(.horizontal, 6)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: compact ? 44 : 56)
+                    .background {
+                        if message != nil {
+                            RoundedRectangle(cornerRadius: 12).fill(Color.brandSoft)
+                        }
+                    }
+                    .accessibilityHidden(message == nil)
+
                 Button(action: onTalk) {
                     ZStack {
                         Color.clear
                         LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
                                       hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt,
-                                      size: 48, action: model.action, animated: true,
+                                      size: compact ? 56 : 72, action: model.action, animated: true,
                                       appearance: bot.supportedAppearance)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
-                    .frame(width: 48, height: 48)
+                    .frame(width: compact ? 56 : 72, height: compact ? 56 : 72)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("和\(bot.name)说话，暂停游戏")
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { onTalk() }
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(bot.name).font(.subheadline.bold())
-                        Text(model.quiet ? "安静陪着你" : "陪你玩").font(.caption).foregroundStyle(.secondary)
+                .accessibilityIdentifier("tetris-companion-avatar")
+
+                Text(bot.name)
+                    .font(.caption.bold())
+                    .lineLimit(1)
+                Text(model.quiet ? "安静陪着你" : "陪你玩")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                HStack(spacing: 0) {
+                    Button("聊聊", action: onTalk)
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .accessibilityLabel("暂停游戏，和\(bot.name)聊聊")
+                    Menu {
+                        Button("换个伙伴", action: onChoose)
+                        Button(model.quiet ? "恢复主动回应" : "先安静陪我", action: onQuiet)
+                        Button("暂停聊聊", action: onTalk)
+                    } label: {
+                        Image(systemName: "ellipsis").frame(width: 44, height: 44)
                     }
-                    Text(model.error ?? (model.text.isEmpty ? (model.requesting ? "正在准备回应…" : "点头像说说话，我会先暂停这一局。") : model.text))
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    .accessibilityLabel("陪玩选项")
+                    .accessibilityIdentifier("tetris-companion-options")
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Menu {
-                    Button("换个伙伴", action: onChoose)
-                    Button(model.quiet ? "恢复主动回应" : "先安静陪我", action: onQuiet)
-                    Button("暂停聊聊", action: onTalk)
-                } label: {
-                    Image(systemName: "ellipsis").frame(width: 30, height: 44)
-                }
-                .accessibilityLabel("陪玩选项")
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.brand)
             } else {
                 Image(systemName: "person.crop.circle.badge.plus").font(.title2).foregroundStyle(Color.brand)
                 Text(model.loading ? "正在邀请伙伴…" : (model.loadError ?? "先到助理页创建一个 Bot，就能邀请它陪玩。"))
-                    .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-                if model.loadError != nil { Button("重试", action: onRetry).font(.caption) }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                if model.loadError != nil {
+                    Button("重试", action: onRetry).font(.caption).frame(minHeight: 44)
+                }
             }
         }
-        .padding(12)
-        .background(Color.brandSoft, in: RoundedRectangle(cornerRadius: 17))
+        .frame(maxWidth: .infinity)
+    }
+
+    private var message: String? {
+        if let error = model.error { return error }
+        guard !model.quiet else { return nil }
+        if !model.text.isEmpty { return model.text }
+        return model.requesting ? "正在回应…" : nil
     }
 }
 
