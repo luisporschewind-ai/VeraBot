@@ -110,7 +110,7 @@ struct MainTabView: View {
                 .badge(app.unreadCount)
                 .tag(1)
             ExploreIdeasView()
-                .tabItem { Label("探索", systemImage: "sparkle.magnifyingglass") }
+                .tabItem { Label("空间", systemImage: "sparkle.magnifyingglass") }
                 .tag(4)
         }
         .task {

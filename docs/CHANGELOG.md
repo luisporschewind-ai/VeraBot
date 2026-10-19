@@ -1,5 +1,10 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-19 · 游乐场推荐卡片 + 「空间」
+
+- iOS 游乐场：`PlaygroundFeature.all` 驱动的横向分页卡片（`FeaturedGamesCarousel`），数独 / 推箱子 / Bot 漂流瓶（即将推出）；推箱子不再出现在下方列表。
+- 「探索」Tab 与导航标题改为「空间」，tag 与路由不变。
+
 ## 2026-10-19 · 隐藏二十问入口
 
 - iOS 游乐场列表过滤 `.twentyQuestions`；`TwentyQuestionsGameView` 等代码保留。助手开场与 FEATURES 去掉二十问入口描述。

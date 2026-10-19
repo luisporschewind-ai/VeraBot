@@ -39,15 +39,12 @@ struct PlaygroundView: View {
                         }
                     }
 
-                    Button { showingSudoku = true } label: {
-                        SudokuFeatureCard()
-                    }
-                    .buttonStyle(.plain)
+                    FeaturedGamesCarousel(features: PlaygroundFeature.all) { open($0) }
 
                     VStack(alignment: .leading, spacing: 12) {
                         WorldSectionTitle(title: "挑一个玩法", subtitle: "短短几分钟，也可以一起开心一下")
                         VStack(spacing: 10) {
-                            ForEach(PlaygroundGame.allCases.filter { $0 != .sudoku && $0 != .twentyQuestions }) { game in
+                            ForEach(PlaygroundGame.allCases.filter { !PlaygroundFeature.featuredGames.contains($0) && $0 != .twentyQuestions }) { game in
                                 Button { open(game) } label: {
                                     GameIdeaRow(game: game)
                                 }
@@ -177,17 +174,100 @@ struct PlaygroundView: View {
     }
 }
 
-private struct SudokuFeatureCard: View {
+/// 游乐场顶部可左右滑动的推荐卡片。按数组顺序展示，新增游戏只需在 `all` 里加一项。
+private struct PlaygroundFeature: Identifiable {
+    enum Glyph { case sudoku, symbol(String) }
+
+    let id: String
+    let game: PlaygroundGame?          // nil = 即将推出，点按无动作
+    let badge: String
+    let badgeSymbol: String
+    let title: String
+    let subtitle: String
+    let glyph: Glyph
+    let action: String
+    let colors: [Color]
+
+    var isAvailable: Bool { game != nil }
+
+    static let all: [PlaygroundFeature] = [
+        PlaygroundFeature(id: "sudoku", game: .sudoku, badge: "数字游戏", badgeSymbol: "sparkles",
+                          title: "数独", subtitle: "一起找线索，享受解开谜题的瞬间。",
+                          glyph: .sudoku, action: "来一盘数独",
+                          colors: [Color.brandFill, Color.brandAccent]),
+        PlaygroundFeature(id: "sokoban", game: .sokoban, badge: "益智路线", badgeSymbol: "shippingbox",
+                          title: "推箱子", subtitle: "规划每一步，把箱子推到目标点。",
+                          glyph: .symbol("shippingbox.fill"), action: "推一局",
+                          colors: [Color.brandAccent, Color.brandFill]),
+        PlaygroundFeature(id: "drift-bottle", game: nil, badge: "Bot 互动", badgeSymbol: "paperplane",
+                          title: "Bot 漂流瓶", subtitle: "写下一句话，看看会漂到哪位 Bot 那里。",
+                          glyph: .symbol("paperplane.fill"), action: "敬请期待",
+                          colors: [Color.brandFill.opacity(0.75), Color.brandAccent.opacity(0.75)])
+    ]
+
+    static var featuredGames: Set<PlaygroundGame> { Set(all.compactMap(\.game)) }
+}
+
+private struct FeaturedGamesCarousel: View {
+    let features: [PlaygroundFeature]
+    let onOpen: (PlaygroundGame) -> Void
+    @State private var currentID: String?
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 12) {
+                    ForEach(features) { feature in
+                        card(feature)
+                            .containerRelativeFrame(.horizontal)
+                            .id(feature.id)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $currentID)
+
+            if features.count > 1 {
+                HStack(spacing: 7) {
+                    ForEach(features) { feature in
+                        Capsule()
+                            .fill(feature.id == (currentID ?? features.first?.id) ? Color.brand : Color.brand.opacity(0.22))
+                            .frame(width: feature.id == (currentID ?? features.first?.id) ? 18 : 7, height: 7)
+                            .animation(.snappy, value: currentID)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("第 \((features.firstIndex { $0.id == (currentID ?? features.first?.id) } ?? 0) + 1) 张，共 \(features.count) 张")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func card(_ feature: PlaygroundFeature) -> some View {
+        if let game = feature.game {
+            Button { onOpen(game) } label: { FeatureCard(feature: feature) }
+                .buttonStyle(.plain)
+        } else {
+            FeatureCard(feature: feature)
+                .accessibilityHint("即将推出")
+        }
+    }
+}
+
+private struct FeatureCard: View {
+    let feature: PlaygroundFeature
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Label("数字游戏", systemImage: "sparkles")
+                Label(feature.badge, systemImage: feature.badgeSymbol)
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(.white.opacity(0.20), in: Capsule())
                 Spacer()
-                Text("可以开局")
+                Text(feature.isAvailable ? "可以开局" : "即将推出")
                     .font(.caption2.weight(.semibold))
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
@@ -195,24 +275,26 @@ private struct SudokuFeatureCard: View {
             }
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("数独")
+                    Text(feature.title)
                         .font(.title.bold())
-                    Text("一起找线索，享受解开谜题的瞬间。")
+                    Text(feature.subtitle)
                         .font(.subheadline)
                         .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(2, reservesSpace: true)
                         .foregroundStyle(.white.opacity(0.88))
                 }
                 Spacer(minLength: 0)
-                SudokuGlyph()
+                glyph
                     .frame(width: 78, height: 78)
                     .accessibilityHidden(true)
             }
             HStack(spacing: 6) {
-                Text("来一盘数独")
+                Text(feature.action)
                     .font(.footnote.weight(.semibold))
-                Image(systemName: "arrow.right")
-                    .font(.caption.weight(.bold))
+                if feature.isAvailable {
+                    Image(systemName: "arrow.right")
+                        .font(.caption.weight(.bold))
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
@@ -222,10 +304,23 @@ private struct SudokuFeatureCard: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            LinearGradient(colors: [Color.brandFill, Color.brandAccent], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: feature.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var glyph: some View {
+        switch feature.glyph {
+        case .sudoku:
+            SudokuGlyph()
+        case .symbol(let name):
+            Image(systemName: name)
+                .font(.system(size: 40, weight: .semibold))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
     }
 }
 
@@ -829,7 +924,7 @@ struct ExploreIdeasView: View {
             }
             .listStyle(.insetGrouped)
             .themedPageBackground()
-            .navigationTitle("探索")
+            .navigationTitle("空间")
             .navigationBarTitleDisplayMode(.large)
         }
     }
