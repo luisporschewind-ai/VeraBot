@@ -1,5 +1,9 @@
 # 文档索引 (Docs index)
 
+- [「安排」P2 交给 Bot](tasks/2026-10-18-unified-items-p2.md)：创建表单、任务操作代理、propose_task 确认卡片、下线 TaskListView。
+- [俄罗斯方块掌机按键 v2](tasks/2026-10-18-tetris-controls-v2.md)：十字方向键 + 斜排 A/B + START/SELECT。
+- [游戏音效 v1](tasks/2026-10-18-game-sound-effects.md)：共用播放器、自合成短音、会话协调、音效开关。
+
 - [Bot 个性化 Feed](tasks/2026-10-17-personal-feed.md)：统一信息流、底部「发现」Tab、后台采集与当前实施状态。
 - [Feed 验证记录](testing/2026-10-17-personal-feed.md)：四类真实来源、HTTP/回归证据、原生与用户验收边界。
 

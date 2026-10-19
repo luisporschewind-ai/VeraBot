@@ -1,5 +1,24 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-18 · 「安排」P2：交给 Bot 执行
+
+- 后端：`POST /api/items` 支持可选 `task`（once/repeat→scheduled、owned→owned），同请求关联 `task_kind/task_id` 并复用 Idempotency-Key；操作代理 `/api/items/{id}/task/{pause|resume|run|stop|continue|input}` 不暴露 step/lease/token/trace；`services/items/sync.py` 写回同步（owned 完成→事项自动完成、任务删除/停止→解除关联标注「任务已结束」、scheduled 推进→事项 due 跟随 next_run）；`propose_task` 工具走 `pending_actions` 确认卡片，确认后才建任务+事项；`DELETE /api/items/{id}?task=stop|keep`。
+- iOS：编辑器「交给 Bot 执行」开关（选 Bot / 指令 / 一次·周期·持续，持续无权限给原因+设置入口）；详情任务区块（状态胶囊 / 下次执行 / 最近结果+查看全文 / 执行记录 / 等你处理内联问答 / 任务操作 / 删除并停止）；通知点按聚焦回答区块；下线 `TaskListView` 并清理工程引用。
+- 测试：`unified_items_p2_test.py` P2-01~10 全绿；`unified_items_test.py` 无回归；`swift test` 388/388；`xcodebuild`（iPhone 17 模拟器）BUILD SUCCEEDED。见[任务记录](tasks/2026-10-18-unified-items-p2.md)。
+
+## 2026-10-18 · 俄罗斯方块掌机按键 v2
+
+- 五键横排改为：左侧一体十字（左/右移动、向下缓降；上方向留空不绑定）+ 右侧斜排圆形 A(旋转)/B(直接落下) + 下中 START(暂停/继续)/SELECT(菜单，重开收进菜单)。受掌机启发、非 1:1 复刻；命中区≥44pt、按压行程+触感、长按连续移动、遵守触感开关与减少动态效果。见[任务记录](tasks/2026-10-18-tetris-controls-v2.md)。
+
+## 2026-10-18 · 游戏音效 v1
+
+- 俄罗斯方块 + 贪吃蛇共用 `GameSoundPlayer`（有限 AVAudioPlayer 池 + `.ambient` 会话，遵守静音、可混音、不启用后台音频）；10 个短音由 `frontend/ios/Tools/gen_game_sounds.py` 用标准库确定性合成（单声道 44100Hz 16bit，约 65KB，自行合成无第三方授权）。
+- 会话协调：录音/朗读优先，游戏只在未占用时播放；中断/耳机断开/后台/锁屏立即停声不补播。独立「游戏音效」设置（默认开启）+ 游戏内扬声器快捷开关。见[任务记录](tasks/2026-10-18-game-sound-effects.md)。
+
+## 2026-10-18 · 集成修复与收尾
+
+- 修复 v34 迁移 `row['payload']` 对 tuple 取值导致的升级崩溃；修正 STATUS 文档漂移（P1 已部署/已验证、Feed 已合入 main）。补齐 P2 的 `VeraBotAPI` 协议声明与默认实现（`itemTaskAction`/`deleteItem`）、修正 `GameButtonStyle` 参数顺序。
+
 ## 2026-10-18 · 游戏按钮增加实体按键触感
 
 - 贪吃蛇和俄罗斯方块操作按钮接入 `GameButtonStyle`：按下短震、轻微下压、底座与边缘反馈、松手弹回；硬降使用更强 impact。

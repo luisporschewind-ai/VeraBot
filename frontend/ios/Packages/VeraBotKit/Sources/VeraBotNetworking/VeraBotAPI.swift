@@ -117,6 +117,8 @@ public protocol VeraBotAPI: Sendable {
     func replaceChecklist(id: Int, expectedVersion: Int, items: [ChecklistWrite],
                           idempotencyKey: String?) async throws -> Item
     func toggleChecklist(id: Int, checklistID: Int, done: Bool?) async throws -> Item
+    func itemTaskAction(id: Int, action: String, message: String?, idempotencyKey: String?) async throws -> Item
+    func deleteItem(_ id: Int, scope: String, stopTask: Bool, idempotencyKey: String?) async throws -> Reminder
     /// Bot 托管任务详情（事项详情页跳转用）
     func ownedTask(_ id: Int) async throws -> OwnedTask
     func notifications(unread: Bool, category: String?) async throws -> NotificationsResponse
@@ -282,6 +284,12 @@ public extension VeraBotAPI {
     }
     func toggleChecklist(id: Int, checklistID: Int, done: Bool? = nil) async throws -> Item {
         throw APIError(status: 501, message: "事项接口暂不可用")
+    }
+    func itemTaskAction(id: Int, action: String, message: String? = nil, idempotencyKey: String? = nil) async throws -> Item {
+        throw APIError(status: 501, message: "事项任务接口暂不可用")
+    }
+    func deleteItem(_ id: Int, scope: String = "series", stopTask: Bool, idempotencyKey: String? = nil) async throws -> Reminder {
+        throw APIError(status: 501, message: "事项删除接口暂不可用")
     }
     func ownedTask(_ id: Int) async throws -> OwnedTask {
         throw APIError(status: 501, message: "任务接口暂不可用")

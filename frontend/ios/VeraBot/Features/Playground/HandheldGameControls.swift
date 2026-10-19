@@ -165,7 +165,7 @@ struct GameFaceCluster: View {
                         .font(.title3.bold().monospacedDigit())
                         .frame(width: 56, height: 56)
                 }
-                .buttonStyle(GameButtonStyle(shape: AnyShape(Circle()), heavyImpact: true))
+                .buttonStyle(GameButtonStyle(heavyImpact: true, shape: AnyShape(Circle())))
                 .accessibilityLabel("直接落下")
                 Text("直接落下").font(.caption2).foregroundStyle(.secondary)
             }
@@ -188,6 +188,6 @@ struct GamePillKey: View {
                 .padding(.horizontal, 12)
                 .frame(minHeight: 44)
         }
-        .buttonStyle(GameButtonStyle(shape: AnyShape(Capsule()), heavyImpact: heavyImpact))
+        .buttonStyle(GameButtonStyle(heavyImpact: heavyImpact, shape: AnyShape(Capsule())))
     }
 }
