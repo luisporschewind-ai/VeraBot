@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## [Unreleased] · 2026-10-19 发现页隐藏「仅收藏」
+
+- iOS `FeedView`：隐藏「仅收藏」Toggle；`FeedQuery.savedOnly` / `saved_only` 接口与收藏功能保留，默认 `false`。
+
 ## [Unreleased] · 2026-10-19 空间页留白
 
 - iOS 空间页原想法清单移到右上角灯泡按钮的二级页面，保留全部想法及详情；页面主体留白，等待用户设计。
