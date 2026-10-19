@@ -892,41 +892,61 @@ private struct MemoryShelfCard: View {
 }
 
 struct ExploreIdeasView: View {
+    var body: some View {
+        NavigationStack {
+            Color.appBackground
+                .ignoresSafeArea()
+                .navigationTitle("空间")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            ExploreIdeasListView()
+                                .toolbar(.hidden, for: .tabBar)
+                        } label: {
+                            Label("想法", systemImage: "lightbulb")
+                        }
+                        .accessibilityIdentifier("space.ideas")
+                    }
+                }
+        }
+    }
+}
+
+private struct ExploreIdeasListView: View {
     private let groups = ExploreIdea.groups
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("想法正在这里慢慢长大")
-                            .font(.headline)
-                        Text("点开一项，看看它可能带来的体验和后续规划。")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 8)
-                    .listRowBackground(Color.clear)
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("想法正在这里慢慢长大")
+                        .font(.headline)
+                    Text("点开一项，看看它可能带来的体验和后续规划。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 8)
+                .listRowBackground(Color.clear)
+            }
 
-                ForEach(groups) { group in
-                    Section(group.title) {
-                        ForEach(group.ideas) { idea in
-                            NavigationLink {
-                                ExploreIdeaDetailView(idea: idea)
-                                    .toolbar(.hidden, for: .tabBar)
-                            } label: {
-                                ExploreIdeaRow(idea: idea)
-                            }
+            ForEach(groups) { group in
+                Section(group.title) {
+                    ForEach(group.ideas) { idea in
+                        NavigationLink {
+                            ExploreIdeaDetailView(idea: idea)
+                                .toolbar(.hidden, for: .tabBar)
+                        } label: {
+                            ExploreIdeaRow(idea: idea)
                         }
                     }
                 }
             }
-            .listStyle(.insetGrouped)
-            .themedPageBackground()
-            .navigationTitle("空间")
-            .navigationBarTitleDisplayMode(.large)
         }
+        .listStyle(.insetGrouped)
+        .themedPageBackground()
+        .navigationTitle("想法")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
