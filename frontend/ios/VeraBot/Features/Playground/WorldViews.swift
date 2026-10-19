@@ -718,186 +718,13 @@ private struct GameIdeaRow: View {
     }
 }
 
-struct IslandView: View {
-    @Environment(AppState.self) private var app
-    @State private var bots: [Bot] = []
-    @State private var notice: PageNotice?
-    @State private var loading = false
-
-    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 25) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("我的小岛")
-                            .font(.largeTitle.bold())
-                            .foregroundStyle(Color.brandText)
-                        Text("一片属于你和 Bot 伙伴的小天地。")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    ContinueTogetherCard()
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        WorldSectionTitle(title: "你的 Bot 团队", subtitle: "找一位伙伴，聊聊接下来想做的事")
-                        if loading && bots.isEmpty {
-                            ProgressView("正在找你的伙伴…")
-                                .frame(maxWidth: .infinity, minHeight: 100)
-                        } else if let notice {
-                            PageConnectionNotice(notice: notice, retrying: loading) { Task { await loadBots() } }
-                        } else if bots.isEmpty {
-                            ContentUnavailableView("还没有 Bot 伙伴", systemImage: "person.2", description: Text("创建一位 Bot，就可以邀请它一起聊天和做事。"))
-                        } else {
-                            LazyVGrid(columns: columns, spacing: 12) {
-                                ForEach(bots) { bot in
-                                    NavigationLink {
-                                        ChatView(bot: bot, api: app.api, repository: app.conversationRepository)
-                                            .toolbar(.hidden, for: .tabBar)
-                                    } label: {
-                                        IslandBotCard(bot: bot)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        WorldSectionTitle(title: "共同收藏", subtitle: "你们一起经历过的，会在这里留下痕迹")
-                        MemoryShelfCard()
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 28)
-                .frame(maxWidth: 560)
-                .frame(maxWidth: .infinity)
-            }
-            .themedPageBackground()
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .task { await loadBots() }
-            .refreshable { await loadBots() }
-        }
-    }
-
-    private func loadBots() async {
-        loading = true
-        defer { loading = false }
-        do {
-            let response = try await app.api.bots()
-            guard app.token != nil else { return }
-            bots = BotOrdering.sorted(response.bots)
-            for bot in response.bots {
-                app.avatars.reconcileBot(id: bot.id, hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt)
-            }
-            notice = nil
-        } catch {
-            notice = .fromLoad(error, message: app.message(for: error))
-        }
-    }
-}
-
-private struct ContinueTogetherCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label("正在继续", systemImage: "arrow.turn.down.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.brand)
-                Spacer()
-                Image(systemName: "sparkle")
-                    .foregroundStyle(Color.brandAccent)
-            }
-            VStack(alignment: .leading, spacing: 5) {
-                Text("下一段共同经历，等你来开启")
-                    .font(.headline)
-                Text("开始一局游戏，或和伙伴聊聊你正在做的事。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            HStack(spacing: 7) {
-                Image(systemName: "gamecontroller")
-                Text("从游乐场开始")
-            }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Color.brand)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.brandSoft, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-}
-
-private struct IslandBotCard: View {
-    let bot: Bot
-    @Environment(AppState.self) private var app
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            LiveBotAvatar(botID: bot.id, emoji: bot.avatar, color: bot.color,
-                          hasAvatar: bot.hasAvatar, updatedAt: bot.avatarUpdatedAt, size: 54,
-                          appearance: bot.supportedAppearance)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(bot.name)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Text(bot.persona.isEmpty ? "点这里，和伙伴聊聊" : bot.persona)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(height: 32, alignment: .topLeading)
-            }
-            HStack(spacing: 5) {
-                Image(systemName: "bubble.left")
-                Text("去找它")
-            }
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(Color.brand)
-        }
-        .frame(maxWidth: .infinity, minHeight: 142, alignment: .leading)
-        .padding(14)
-        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-}
-
-private struct MemoryShelfCard: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "heart.text.square")
-                .font(.title2)
-                .foregroundStyle(Color.brandAccent)
-                .frame(width: 48, height: 48)
-                .background(Color.appBackground, in: RoundedRectangle(cornerRadius: 15))
-            VStack(alignment: .leading, spacing: 4) {
-                Text("第一张纪念卡还空着")
-                    .font(.subheadline.weight(.semibold))
-                Text("一起完成一件事后，把这段经历收进来。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 18))
-    }
-}
-
 struct ExploreIdeasView: View {
     var body: some View {
         NavigationStack {
-            Color.appBackground
-                .ignoresSafeArea()
+            SpaceHomeContent()
+                .themedPageBackground()
                 .navigationTitle("空间")
-                .navigationBarTitleDisplayMode(.large)
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink {
@@ -1046,7 +873,7 @@ private struct DetailInfoCard: View {
     }
 }
 
-private struct WorldSectionTitle: View {
+struct WorldSectionTitle: View {
     let title: String
     var subtitle: String? = nil
 

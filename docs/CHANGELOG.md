@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## [Unreleased] · 2026-10-20 空间页「家」
+
+- iOS 空间页：Bot 团队状态条（旅行中/正在执行任务/空闲，点开对话）、「正在继续」卡（仅有真实进行中事项时显示）、「共同纪念」旅行纪念卡墙；「想法」入口保留。数据来自本机旅行记录与现有 `/api/items`，无新接口。
+
 ## [Unreleased] · 2026-10-19 发现页隐藏「仅收藏」
 
 - iOS `FeedView`：隐藏「仅收藏」Toggle；`FeedQuery.savedOnly` / `saved_only` 接口与收藏功能保留，默认 `false`。
