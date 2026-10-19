@@ -89,9 +89,9 @@ private struct FeedScreen: View {
         .scrollContentBackground(.hidden)
         .background(Color.appBackground)
         .contentMargins(.top, 0, for: .scrollContent)
-        .navigationTitle("")
+        .navigationTitle("发现")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.visible, for: .navigationBar)
         .navigationDestination(item: $detail) { item in
             FeedDetailView(initialItem: item, vm: vm, bots: bots)
                 .toolbar(.visible, for: .navigationBar)
