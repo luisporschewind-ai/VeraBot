@@ -18,6 +18,9 @@ final class TetrisCompanionModel {
     private var policy = TetrisCompanionPolicy()
     private var requestTask: Task<Void, Never>?
     private var reactionTask: Task<Void, Never>?
+    private var bubbleTask: Task<Void, Never>?
+    private var reactionPolicy = TetrisCompanionReactionPolicy()
+    private var reactionEpoch = UUID()
     private var epoch = UUID()
     private var pendingText: String?
     private var lastLines = 0
@@ -57,6 +60,7 @@ final class TetrisCompanionModel {
         text = ""
         policy = TetrisCompanionPolicy()
         policy.isQuiet = quiet
+        reactionPolicy = TetrisCompanionReactionPolicy()
         lastLines = 0
     }
 
@@ -67,22 +71,38 @@ final class TetrisCompanionModel {
         if value { text = "" }
     }
 
+    func synchronize(lines: Int) {
+        lastLines = lines
+        paused()
+    }
+
     func observe(_ snapshot: TetrisCompanionRequest, ended: Bool, app: AppState) {
         flushPending()
         let cleared = max(0, snapshot.lines - lastLines)
         lastLines = snapshot.lines
-        if cleared > 0 {
-            action = .success
+        let event: TetrisEventKind = ended ? .ended : (cleared > 0 ? .linesCleared : .locked)
+        if let reaction = reactionPolicy.consume(event: event, height: snapshot.height, cleared: cleared) {
+            switch reaction.kind {
+            case .idle: action = .idle
+            case .smile: action = .smile
+            case .success: action = .success
+            case .warning: action = .warning
+            case .failure: action = .failure
+            }
             reactionTask?.cancel()
+            reactionEpoch = UUID()
+            let token = TetrisCompanionEpoch(round: reactionEpoch, partner: selected?.id ?? 0, session: app.sessionGeneration)
             reactionTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(2))
-                guard !Task.isCancelled else { return }
-                self?.action = .idle
+                try? await Task.sleep(for: .milliseconds(reaction.durationMs))
+                guard let self, !Task.isCancelled,
+                      token.accepts(round: self.reactionEpoch, partner: self.selected?.id ?? 0, session: app.sessionGeneration) else { return }
+                self.action = .idle
+                self.reactionTask = nil
             }
         }
         if ended {
             send(snapshot, automatic: true, app: app)
-        } else if cleared >= 2 {
+        } else if (2...4).contains(cleared) {
             var request = snapshot
             request.cleared = cleared
             send(request, automatic: true, app: app)
@@ -92,13 +112,14 @@ final class TetrisCompanionModel {
     func send(_ request: TetrisCompanionRequest, automatic: Bool, app: AppState) {
         guard let bot = selected else { return }
         if automatic {
-            guard !requesting, policy.reserve(at: Date().timeIntervalSince1970) else { return }
+            let event: TetrisCompanionPolicy.Event = request.event == "end" ? .end : (request.event == "start" ? .start : .highlight)
+            guard !requesting, policy.reserve(event: event, at: ProcessInfo.processInfo.systemUptime) else { return }
         } else if requesting && !automaticInFlight {
             return
         }
-        let celebrating = automatic && action == .success
+        let celebrating = automatic && reactionTask != nil
         stop(preservingReaction: celebrating)
-        let token = epoch
+        let token = TetrisCompanionEpoch(round: epoch, partner: bot.id, session: app.sessionGeneration)
         let session = app.sessionGeneration
         var payload = request
         payload.history = Array(turns.suffix(8))
@@ -107,25 +128,30 @@ final class TetrisCompanionModel {
         }
         requesting = true
         automaticInFlight = automatic
-        action = automatic ? (celebrating ? .success : .idle) : .thinking
+        action = automatic ? (celebrating ? action : .idle) : .thinking
         let api = app.api
         requestTask = Task { [weak self] in
             do {
                 let response = try await api.tetrisCompanion(botID: bot.id, request: payload)
-                guard let self, !Task.isCancelled, self.epoch == token, app.isCurrentSession(session) else { return }
+                guard let self, !Task.isCancelled,
+                      token.accepts(round: self.epoch, partner: self.selected?.id ?? 0, session: app.sessionGeneration),
+                      app.isCurrentSession(session) else { return }
+                let reply = automatic ? String(response.text.prefix(24)) : response.text
                 if automatic && request.event == "clear" {
-                    self.pendingText = response.text
-                } else { self.text = response.text }
-                self.turns.append(TetrisCompanionTurn(role: "assistant", content: response.text))
+                    self.pendingText = reply
+                } else { self.showText(reply) }
+                self.turns.append(TetrisCompanionTurn(role: "assistant", content: reply))
                 self.requesting = false
                 self.automaticInFlight = false
-                if self.action != .success { self.action = .idle }
+                if self.reactionTask == nil { self.action = .idle }
             } catch {
-                guard let self, !Task.isCancelled, self.epoch == token, app.isCurrentSession(session) else { return }
+                guard let self, !Task.isCancelled,
+                      token.accepts(round: self.epoch, partner: self.selected?.id ?? 0, session: app.sessionGeneration),
+                      app.isCurrentSession(session) else { return }
                 self.error = "陪玩回应暂时没连上，你仍可以继续玩。"
                 self.requesting = false
                 self.automaticInFlight = false
-                if self.action != .success { self.action = .idle }
+                if self.reactionTask == nil { self.action = .idle }
             }
         }
     }
@@ -137,8 +163,28 @@ final class TetrisCompanionModel {
     }
 
     func flushPending() {
-        if let pendingText, !quiet { text = pendingText }
+        if let pendingText, !quiet { showText(pendingText) }
         pendingText = nil
+    }
+
+    func paused() {
+        flushPending()
+        reactionEpoch = UUID()
+        reactionTask?.cancel()
+        reactionTask = nil
+        action = .idle
+    }
+
+    private func showText(_ value: String) {
+        text = value
+        bubbleTask?.cancel()
+        let token = epoch
+        bubbleTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard let self, !Task.isCancelled, self.epoch == token else { return }
+            self.text = ""
+            self.bubbleTask = nil
+        }
     }
 
     func stop(preservingReaction: Bool = false) {
@@ -146,7 +192,15 @@ final class TetrisCompanionModel {
         epoch = UUID()
         requestTask?.cancel()
         requestTask = nil
-        if !preservingReaction { reactionTask?.cancel(); action = .idle }
+        bubbleTask?.cancel()
+        bubbleTask = nil
+        text = ""
+        if !preservingReaction {
+            reactionEpoch = UUID()
+            reactionTask?.cancel()
+            reactionTask = nil
+            action = .idle
+        }
         requesting = false
         automaticInFlight = false
         error = nil

@@ -52,7 +52,8 @@ struct SnakeGameView: View {
                         let dx = value.translation.width
                         let dy = value.translation.height
                         guard max(abs(dx), abs(dy)) >= 16 else { return }
-                        game.turn(abs(dx) > abs(dy) ? (dx > 0 ? .right : .left) : (dy > 0 ? .down : .up))
+                        let accepted = game.turn(abs(dx) > abs(dy) ? (dx > 0 ? .right : .left) : (dy > 0 ? .down : .up))
+                        if accepted { GameSoundPlayer.shared.play(.keyPress) }
                     })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -84,7 +85,7 @@ struct SnakeGameView: View {
                     onDown: { game.turn(.down); GameSoundPlayer.shared.play(.keyPress) },
                     onLeft: { game.turn(.left); GameSoundPlayer.shared.play(.keyPress) },
                     onRight: { game.turn(.right); GameSoundPlayer.shared.play(.keyPress) },
-                    repeatInterval: nil
+                    repeatEnabled: false
                 )
                 Text("滑动棋盘或使用方向键 · 不能直接掉头")
                     .font(.caption2)
@@ -103,7 +104,7 @@ struct SnakeGameView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     gameSoundEnabled.toggle()
-                    if !gameSoundEnabled { GameSoundPlayer.shared.stopAll() }
+                    GameSoundPlayer.shared.setEnabled(gameSoundEnabled)
                 } label: {
                     Image(systemName: gameSoundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 }
@@ -132,15 +133,19 @@ struct SnakeGameView: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .onAppear { loadBestScore() }
-        .onChange(of: app.sessionGeneration) { _, _ in restart(); loadBestScore() }
+        .onAppear { loadBestScore(); GameSoundPlayer.shared.activate() }
+        .onChange(of: gameSoundEnabled) { _, enabled in GameSoundPlayer.shared.setEnabled(enabled) }
+        .onChange(of: app.sessionGeneration) { _, _ in GameSoundPlayer.shared.stopAll(); restart(); loadBestScore() }
         .onChange(of: game.score) { _, score in
             guard score > bestScore else { return }
             bestScore = score
             UserDefaults.standard.set(score, forKey: bestScoreKey)
         }
         .onChange(of: game.soundEventsVersion) { _, _ in
-            for event in game.drainSoundEvents() { GameSoundPlayer.shared.play(event) }
+            let events = game.drainSoundEvents()
+            if scenePhase == .active && game.phase != .paused {
+                for event in events { GameSoundPlayer.shared.play(event) }
+            }
         }
         .onChange(of: scenePhase) { _, phase in if phase != .active { pause(); GameSoundPlayer.shared.stopAll() } }
         .onDisappear { pause(); GameSoundPlayer.shared.stopAll() }
@@ -198,21 +203,25 @@ struct SnakeGameView: View {
     private func primaryAction() {
         switch game.phase {
         case .running:
-            pause()
-            GameSoundPlayer.shared.play(.pause)
+            game.pause(); clockGeneration = UUID()
+            GameSoundPlayer.shared.pauseWithConfirmation()
         case .ready:
+            GameSoundPlayer.shared.activate()
             game.start(); clockGeneration = UUID()
             GameSoundPlayer.shared.play(.start)
         case .paused:
+            GameSoundPlayer.shared.activate()
             game.start(); clockGeneration = UUID()
             GameSoundPlayer.shared.play(.resume)
         case .lost, .won:
             restart()
+            GameSoundPlayer.shared.activate()
+            game.start(); clockGeneration = UUID()
             GameSoundPlayer.shared.play(.start)
         }
     }
 
-    private func pause() { game.pause(); clockGeneration = UUID() }
+    private func pause() { game.pause(); clockGeneration = UUID(); GameSoundPlayer.shared.stopAll() }
     private func restart() { game = SnakeGame(); clockGeneration = UUID() }
 }
 

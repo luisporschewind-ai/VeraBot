@@ -65,11 +65,12 @@ public struct SnakeGame: Sendable {
         phase = .paused
     }
 
-    public mutating func turn(_ requested: Direction) {
-        guard phase == .running, queuedDirections.count < 2 else { return }
+    @discardableResult public mutating func turn(_ requested: Direction) -> Bool {
+        guard phase == .running, queuedDirections.count < 2 else { return false }
         let previous = queuedDirections.last ?? direction
-        guard requested != previous, requested != previous.opposite else { return }
+        guard requested != previous, requested != previous.opposite else { return false }
         queuedDirections.append(requested)
+        return true
     }
 
     public mutating func tick() {

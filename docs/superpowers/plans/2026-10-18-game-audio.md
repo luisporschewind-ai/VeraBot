@@ -10,7 +10,11 @@
 
 **Spec:** [音效方案](../../product/2026-10-18-game-sound-effects-proposal.md)、[执行基线 §6、§8](../specs/2026-10-18-game-upgrade-execution-baseline.md)。
 
-**状态（2026-10-19）：**用户已交DeepSeek Harness并确认执行结束；音效v1已由`0bbcd05`实现、`ec5b66c`合入main。A1–A3部分完成，A4未见验收；实际采用自产10项44.1kHz短音与布尔占用标记，并非原计划全部参数/租约/策略已经实现。剩余以现有代码增量补齐，见[证据与差异](../../tasks/2026-10-19-game-plans-progress-audit.md)和[总账](../../tasks/2026-10-18-game-upgrade-progress.md)。以下原计划保留作验收参照，不再把音效首版描述成尚未开发。
+**状态（2026-10-19续推）：**A1采用保留原10项44.1kHz自产短音的替代实施；manifest/试听页/11项资源测试已交付，最终听感待验收。A2/A3租约、录音代次门与四路策略已实现并通过审查/回归，A4双机试听与中断验收未完成。whole-class MainActor改为MainActor获取/撤销与同步锁释放，理由和成本见执行账。未合入/提交/推送。 见[唯一总账](../../tasks/2026-10-18-game-upgrade-progress.md)。
+
+## 本轮替代实施与路径对齐
+
+原计划8项/48kHz/CC0下载路径已替换：保留现有10项44.1kHz/16bit/mono、66,328bytes自产素材，最终资源在 `frontend/ios/VeraBot/Resources/Sounds/`，manifest在同目录，试听页在 `docs/design/audio-candidates/index.html`，校验命令 `python3 scripts/check_game_audio.py`。不再为凑原路径复制资源或重复下载；原要求留作历史参照。播放器实际路径 `Core/UI/GameSoundPlayer.swift`。11项资源测试已通过；最终试听选择仍未完成。
 
 ## Global Constraints
 
@@ -51,20 +55,20 @@
 
 **Produces:** `@MainActor public final class AudioSessionCoordinator`；`acquire(owner: AudioOwner,onRevoked: @MainActor () -> Void) throws -> AudioLease?`、`release(_ lease: AudioLease) throws`、`owns(_ lease: AudioLease) -> Bool`。owner为recording/tts/game；lease含UUID与递增generation。共享SystemAudioSessionDriver封装category/setActive，可注入fake供测试。
 
-- [ ] 新建 `@Suite struct AudioSessionCoordinatorTests`：game→tts先调用game.stop再改category；tts→recording同理；recording期间game acquire返回nil且driver未prepare/activate；释放旧game/tts lease不调用deactivate。先测失败再实现。
-- [ ] 明确转换：同级不同实例不抢占，返回nil；较高优先先撤销旧lease、同步调用onRevoked，再配置新session；旧回调release为no-op。激活失败清空新owner并停止相应功能，不自动恢复旧播放。deactivate失败保留待清理标记，只在没有新owner时重试，绝不能迟到关闭新owner；补fake错误测试。
-- [ ] TTS的SystemSpeechAudioSession通过同一coordinator获取tts lease，保持现有 `SpeechAudioSession` 测试注入；录音通过recording lease，录音开始仍停止SpeechPlayer。App只构造一份协调器，默认实例也指向同一shared，避免页面各建一份。
-- [ ] Run `swift test --package-path frontend/ios/Packages/VeraBotKit --filter 'AudioSessionCoordinatorTests|SpeechPlayback'`，预期全绿；既有返回列表/临时弹层/退出/取消/后台规则保持原测试。录音启动失败、取消和正常结束均释放自身lease。
-- [ ] App单次构建验证集成。此任务无需最终素材即可交付；暂未有播放器时不假设游戏租约已在真实场景得到验收。
+- [x] 新建 `@Suite struct AudioSessionCoordinatorTests`：game→tts先调用game.stop再改category；tts→recording同理；recording期间game acquire返回nil且driver未prepare/activate；释放旧game/tts lease不调用deactivate。先测失败再实现。
+- [x] 明确转换：同级不同实例不抢占，返回nil；较高优先先撤销旧lease、同步调用onRevoked，再配置新session；旧回调release为no-op。激活失败清空新owner并停止相应功能，不自动恢复旧播放。deactivate失败保留待清理标记，只在没有新owner时重试，绝不能迟到关闭新owner；补fake错误测试。
+- [x] TTS的SystemSpeechAudioSession通过同一coordinator获取tts lease，保持现有 `SpeechAudioSession` 测试注入；录音通过recording lease，录音开始仍停止SpeechPlayer。App只构造一份协调器，默认实例也指向同一shared，避免页面各建一份。
+- [x] Run `swift test --package-path frontend/ios/Packages/VeraBotKit --filter 'AudioSessionCoordinatorTests|SpeechPlayback'`，预期全绿；既有返回列表/临时弹层/退出/取消/后台规则保持原测试。录音启动失败、取消和正常结束均释放自身lease。
+- [x] App单次构建验证集成。此任务无需最终素材即可交付；暂未有播放器时不假设游戏租约已在真实场景得到验收。
 
 ## A3：事件策略、播放器与两款游戏绑定
 
 **Consumes:** L1的TetrisEvent、已有SnakeGame每步结果；A2租约，A1最终8项资源。**Produces:** Core `GameSoundEvent`、`GameSoundPolicy.request(event:id:nowMs:) -> [GameSoundCommand]`、`setEnabled(_:)`、`setActive(_:)`、`routeDisconnected()`、`reset(sessionID:)`；command为play(event,gain)/stopVoice(id)/stopAll。App `@MainActor GameSoundPlayer.play(event:id:)`、`activate()`、`deactivate()`执行命令。
 
-- [ ] 新建`GameSoundPolicyTests`：key@0播放、@79拒绝、@80播放；同session同id只播一次；reset新session可接受新事件；voice满4路时低优先不打断高优先，终局淘汰最低优先最老者；clear停尚未结束hardDrop；禁用/后台/routeDisconnected后清音并拒绝后续，必须显式开启才解除耳机断开静默。先红后实现，所有时间用注入clock。
-- [ ] AVAudioPlayer池最多4个在播，资源8条预加载；只有`coordinator.owns(gameLease)`时prepare/play。完成回调清voice并按当前lease重新准备，不缓存过时播放请求。被抢占先stop所有players，不能自行抢回会话；前台仍有效且高优先释放后才尝试新lease。
-- [ ] 方向/A按下播keyPress（B省按键声，仅落地事件播hardDrop）；START状态实际改变播stateConfirm；重力和每格下降无声；蛇按钮按下或有效滑动入队给一次keyPress、吃食/结束按步结果发唯一id。Tetris只消费L1事件，不能从View.body、分数观察器或快照恢复猜声音。
-- [ ] 新增 `SettingsKeys.gameSoundEnabled`；设置通用与游戏菜单绑定同一持久值，切换立即生效，现有haptics key不变。添加资源到Resources构建阶段，检查bundle能定位8个文件。暂停、离页、scene非active、音频中断、route断开统一deactivate，不申请后台音频。
+- [x] 新建`GameSoundPolicyTests`：key@0播放、@79拒绝、@80播放；同session同id只播一次；reset新session可接受新事件；voice满4路时低优先不打断高优先，终局淘汰最低优先最老者；clear停尚未结束hardDrop；禁用/后台/routeDisconnected后清音并拒绝后续，必须显式开启才解除耳机断开静默。先红后实现，所有时间用注入clock。
+- [x] AVAudioPlayer池最多4个在播，资源8条预加载；只有`coordinator.owns(gameLease)`时prepare/play。完成回调清voice并按当前lease重新准备，不缓存过时播放请求。被抢占先stop所有players，不能自行抢回会话；前台仍有效且高优先释放后才尝试新lease。
+- [x] 方向/A按下播keyPress（B省按键声，仅落地事件播hardDrop）；START状态实际改变播stateConfirm；重力和每格下降无声；蛇按钮按下或有效滑动入队给一次keyPress、吃食/结束按步结果发唯一id。Tetris只消费L1事件，不能从View.body、分数观察器或快照恢复猜声音。
+- [x] 新增 `SettingsKeys.gameSoundEnabled`；设置通用与游戏菜单绑定同一持久值，切换立即生效，现有haptics key不变。添加资源到Resources构建阶段，检查bundle能定位8个文件。暂停、离页、scene非active、音频中断、route断开统一deactivate，不申请后台音频。
 - [ ] Run策略/协调器/语音/蛇/Tetris专项与素材脚本，再包全量和App构建；填人工V-06。没有新的已知缺口才交付A3；生成实际包增量和资源列表，目标1MiB超出时明确记录，不偷换为“已达到”。
 
 ## A4：真机声音与中断验收

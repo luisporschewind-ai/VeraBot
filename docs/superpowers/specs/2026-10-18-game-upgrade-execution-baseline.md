@@ -95,7 +95,7 @@ controller 只有 player/bot；runState 为 paused/running/over；交接中是�
 
 reclaim 先持久化pending操作并禁止普通planner提交；非消行阶段在下个安全步暂停、epoch+1并废止旧worker租约，返回完整最新状态与player归属。若正在clearing，只允许独立transition路径按原剩余逻辑时间完成本次清行（正常≤180ms），暂停新生成的下一块再交回，不能额外执行Bot动作。过渡中崩溃仍从已提交计时恢复，查询返回pending，客户端保持冻结；不持有跨等待数据库事务。客户端同步后倒数恢复。暂停/换Bot同样先确认状态；旧worker即使仍在计算也不能提交。再次交出需携带前次返回的server version和新本地快照。clientID存储在当前安装内，服务端以登录userID鉴权，clientID仅绑定回接设备，不作为鉴权凭据。
 
-服务端独立受监督进程 `python -m verabot.services.tetris_sessions`，不依赖手机，不占聊天/定时任务worker。默认最多16局活跃、每用户1局；租约10s、每2s续租；API仅在worker心跳10s内且有容量时接受新接管。worker每100ms最多推进100ms逻辑并原子持久化快照与事件，再发布版本；故障恢复从最后提交点重新计时，不按现实停机时间补落。逻辑步10ms，CPU规划有预算，不能阻塞其他会话。
+服务端独立受监督进程 `python -m verabot.services.tetris_sessions`，不依赖手机，不占聊天/定时任务worker。当前实测容量上限4局（16/8局未达标；4局600秒p95 89.329ms通过，详见接管证据）、每用户1局；租约10s、每2s续租；API仅在worker心跳10s内且有容量时接受新接管。worker每20ms扫描到期局，每100ms最多推进100ms逻辑并原子持久化快照与事件，再发布版本；故障恢复从最后提交点重新计时，不按现实停机时间补落。逻辑步10ms，CPU规划有预算，不能阻塞其他会话。
 
 首版前台每250ms读取最新状态，paused每2s读取，后台停止轮询；服务端驱动，客户端不得自行补走。每次读取返回≤64KiB，事件最多100条且有cursor与快照降级；同eventSequence去重，重入只展示最新进度。进行中记录保留，结束7天后清理快照/事件/幂等记录；删除账号立即按外键与服务规则清理。
 

@@ -10,7 +10,7 @@ struct TetrisCompanionRequest {
     let event: String; let score: Int; let lines: Int; let height: Int; let holes: Int
     var cleared = 0; var message = ""; var history: [TetrisCompanionTurn] = []
 }
-enum BotAvatarState { case idle, success, thinking }
+enum BotAvatarState { case idle, smile, success, warning, failure, thinking }
 @MainActor final class FakeAPI {
     var pending: [CheckedContinuation<TetrisCompanionReply, Error>] = []
     func bots() async throws -> BotsResponse { fatalError("not used") }
@@ -24,9 +24,9 @@ enum BotAvatarState { case idle, success, thinking }
 }
 @MainActor final class AppState {
     let api = FakeAPI()
-    var sessionGeneration = 0
+    var sessionGeneration: UInt64 = 0
     let userID: Int? = 9123456
-    func isCurrentSession(_ value: Int) -> Bool { value == sessionGeneration }
+    func isCurrentSession(_ value: UInt64) -> Bool { value == sessionGeneration }
 }
 @main struct Check {
     @MainActor static func main() async throws {
@@ -67,6 +67,13 @@ enum BotAvatarState { case idle, success, thinking }
         await settle()
         precondition(model.text.isEmpty)
         model.newRound()
+        model.observe(TetrisCompanionRequest(event: "end", score: 200, lines: 0, height: 20, holes: 1), ended: true, app: app)
+        await settle()
+        precondition(model.action == .failure && model.requesting, "End reaction must stay gentle failure while auto-reply is in flight")
+        try app.api.finish("take your time")
+        await settle()
+        precondition(model.action == .failure)
+        model.newRound()
         model.setQuiet(true)
         model.send(request, automatic: true, app: app)
         await settle()
@@ -80,6 +87,17 @@ enum BotAvatarState { case idle, success, thinking }
         await settle()
         precondition(model.text == "manual response")
         model.stop()
+        model.newRound()
+        model.setQuiet(false)
+        model.send(request, automatic: true, app: app)
+        await settle()
+        try app.api.finish(String(repeating: "陪", count: 60))
+        await settle()
+        precondition(model.text.count == 24 && model.turns.last?.content.count == 24, "Older server responses must obey the local short bubble limit")
+        model.newRound()
+        model.observe(TetrisCompanionRequest(event: "clear", score: 800, lines: 8, height: 4, holes: 0), ended: false, app: app)
+        await settle()
+        precondition(app.api.pending.isEmpty, "Historical multiple clears must not be invented as one clear")
         print("PASS: manual priority, celebration, delayed display, restart/session guards, quiet/manual")
     }
 }

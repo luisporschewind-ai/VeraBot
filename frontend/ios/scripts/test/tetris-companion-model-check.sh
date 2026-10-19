@@ -10,5 +10,9 @@ trap 'rm -f "$check_binary"' EXIT
 swiftc -parse-as-library -I "$module_path" \
   frontend/ios/scripts/test/tetris-companion-model-check.swift \
   frontend/ios/VeraBot/Features/Playground/TetrisCompanionModel.swift \
-  "$package_path/Sources/VeraBotCore/TetrisCompanionPolicy.swift" -o "$check_binary"
+  "$package_path/Sources/VeraBotCore/TetrisCompanionPolicy.swift" \
+  "$package_path/Sources/VeraBotCore/TetrisCompanionReactionPolicy.swift" \
+  "$package_path/Sources/VeraBotCore/TetrisGame.swift" \
+  "$package_path/Sources/VeraBotCore/TetrisRules.swift" \
+  "$package_path/Sources/VeraBotCore/GameSoundEvent.swift" -o "$check_binary"
 "$check_binary"

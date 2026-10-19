@@ -119,3 +119,7 @@ app.include_router(library_router.router)
 
 from .api.routers import feed
 app.include_router(feed.router)
+
+# Tetris API only persists commands; its independent worker is never started here.
+from .api.routers import tetris_sessions
+app.include_router(tetris_sessions.router)

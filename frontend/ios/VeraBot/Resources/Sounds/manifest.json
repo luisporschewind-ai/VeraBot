@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "origin": "original-synthesis",
+  "generator": "frontend/ios/Tools/gen_game_sounds.py",
+  "generatorSHA256": "590795bc409db0103efc96143ca394a67b24114d28a445af40c79335361a331a",
+  "assets": [
+    {
+      "file": "clear_multi.wav",
+      "sha256": "932ac4e41530f4ca82f8484e48ea63448f853fa573b3eb0c77824163e9f76f78",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 70.0
+    },
+    {
+      "file": "clear_single.wav",
+      "sha256": "c967f5b294acc03766292b3620076bbb99c625aa6d57feba599ea73f9459bdff",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 85.011
+    },
+    {
+      "file": "eat.wav",
+      "sha256": "256d3c0550851699fa042d0558f2cd109fcd5b048a30c77baea17d31d56d7f05",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 70.0
+    },
+    {
+      "file": "game_over.wav",
+      "sha256": "3f69ac977634c038bcdb1f3d07b001178c83e195043d9dcd7c862e61fa28df86",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 120.0
+    },
+    {
+      "file": "hard_drop.wav",
+      "sha256": "7ee465145ca0e2cc67a63bb83322a36ba059fcd52a0cdacdc92457c3a097b637",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 95.011
+    },
+    {
+      "file": "key_press.wav",
+      "sha256": "3ac53737957adb677b3c556bf728888cd1df8f459fb9845e919ab3b6466ffcf4",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 41.995
+    },
+    {
+      "file": "pause.wav",
+      "sha256": "164dd822cc4d30d01040f8751a351efb81e48764b1c2fe80a1143811918502e6",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 60.0
+    },
+    {
+      "file": "resume.wav",
+      "sha256": "9c32c127aaf18674d804cd5430c9edaed5d0ba54b105049ad33c4c87603235d9",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 60.0
+    },
+    {
+      "file": "start.wav",
+      "sha256": "4ec95019d316bbdf6b587a14521a6b4808262eb1c96f8e7b89fe87bd0670b403",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 55.011
+    },
+    {
+      "file": "win.wav",
+      "sha256": "c0ea3f3e8422a4433b3b30fb2bc857be1f7b1703f76fa09bf9c1dd4bf2daf588",
+      "sampleRate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "durationMs": 90.0
+    }
+  ]
+}

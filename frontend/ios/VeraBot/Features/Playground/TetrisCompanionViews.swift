@@ -4,6 +4,7 @@ import VeraBotCore
 struct TetrisCompanionPresence: View {
     let model: TetrisCompanionModel
     var compact = false
+    var activity: String? = nil
     let onTalk: () -> Void
     let onChoose: () -> Void
     let onQuiet: () -> Void
@@ -49,7 +50,7 @@ struct TetrisCompanionPresence: View {
                 Text(bot.name)
                     .font(.caption.bold())
                     .lineLimit(1)
-                Text(model.quiet ? "安静陪着你" : "陪你玩")
+                Text(activity ?? (model.quiet ? "安静陪着你" : "陪你玩"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
