@@ -12,6 +12,11 @@
 
 - iOS `MainTabView`：「发现」移到第 2 位、「安排」移到第 4 位；tag 不变，其余不变。
 
+## 2026-10-19 · 游戏计划执行后进度核对（仅文档）
+
+- 核对DeepSeek Harness执行后的代码/提交和原三项计划：掌机与音效首版已进main，完整计划仍有差异，云端未见仓库交付；分别记录构建声明、测试覆盖、设备安装与验收状态。
+- 从stash仅恢复6份缺失计划文档，更新[总账](tasks/2026-10-18-game-upgrade-progress.md)、原方案入口与[核对记录](tasks/2026-10-19-game-plans-progress-audit.md)。未改产品代码或运行服务，未提交/推送。
+
 ## 2026-10-19 · 「安排」页小标题
 
 - iOS `RemindersView` 导航标题 `.large` → `.inline`；其余不变。

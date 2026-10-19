@@ -1,6 +1,8 @@
 # 2026-10-18 · 游戏音效 v1（俄罗斯方块 + 贪吃蛇）
 
-日期：2026-10-18（实现于 2026-10-19 凌晨）。按 [游戏音效方案](product/2026-10-18-game-sound-effects-proposal.md) §2 / §4 / §5 落地首版：约 10 个短音，共用播放器，素材自行合成、无第三方授权。只改 iOS + 音频资源，不改后端。
+日期：2026-10-18（实现于 2026-10-19 凌晨）。按 [游戏音效方案](../product/2026-10-18-game-sound-effects-proposal.md) §2 / §4 / §5 落地首版：约 10 个短音，共用播放器，素材自行合成、无第三方授权。只改 iOS + 音频资源，不改后端。
+
+2026-10-19核对：已合入main，实读10个WAV共66,328 bytes；后续集成文档称模拟器构建安装通过，首次“未构建”记录保留其环境范围。本轮未重跑或听测；原完整音效计划A1–A3部分完成，A4未见双机验收。会话标记不等于租约所有权，按事件池不等于全局4路优先级，详见[核对记录](2026-10-19-game-plans-progress-audit.md)。
 
 ## 素材与授权
 
@@ -42,7 +44,7 @@
 
 ## 验证
 
-- `swift test --disable-sandbox`（VeraBotKit）：**388 项 / 3 suites 全绿**（含新增 `GameSoundEvent` / `AudioSessionOwner` / `SnakeGame` 规则事件）。
+- 原执行记录报告 `swift test --disable-sandbox`（VeraBotKit）388项通过。2026-10-19源码核对未发现新增GameSoundEvent/AudioSessionOwner/声音队列专项测试，不能将全包通过说成这些新行为已获专项覆盖；本轮未重新运行测试。
 - `plutil -lint project.pbxproj` 通过。
 - `xcodebuild`（iPhone 17 / iOS 26 模拟器）**未构建**：沙箱拒绝写入 `~/Library/Caches/org.swift.swiftpm`（`Operation not permitted`），按要求未申请权限。
 - 未跑真机、未试听；首音/连点延迟、音量、叠加削波、静音开关、耳机断开等仍需 iPhone 11 / 12 Pro Max 真机确认。

@@ -1,5 +1,8 @@
 # 文档索引 (Docs index)
 
+- [三项游戏计划统一进度](tasks/2026-10-18-game-upgrade-progress.md)与[DeepSeek Harness执行后核对](tasks/2026-10-19-game-plans-progress-audit.md)：2026-10-19按代码/提交对齐，掌机与音效部分完成、云端未见仓库交付。
+- 恢复的详细计划：[本地操作/规则/陪玩](superpowers/plans/2026-10-18-tetris-local-upgrade.md)、[游戏音效](superpowers/plans/2026-10-18-game-audio.md)、[云端接管](superpowers/plans/2026-10-18-tetris-cloud-takeover.md)；配套[执行基线](superpowers/specs/2026-10-18-game-upgrade-execution-baseline.md)与[验收清单](testing/2026-10-18-game-upgrade-acceptance.md)。
+
 - [「安排」P2 交给 Bot](tasks/2026-10-18-unified-items-p2.md)：创建表单、任务操作代理、propose_task 确认卡片、下线 TaskListView。
 - [俄罗斯方块掌机按键 v2](tasks/2026-10-18-tetris-controls-v2.md)：十字方向键 + 斜排 A/B + START/SELECT。
 - [游戏音效 v1](tasks/2026-10-18-game-sound-effects.md)：共用播放器、自合成短音、会话协调、音效开关。
