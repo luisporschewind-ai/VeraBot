@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-19 · 隐藏二十问入口
+
+- iOS 游乐场列表过滤 `.twentyQuestions`；`TwentyQuestionsGameView` 等代码保留。助手开场与 FEATURES 去掉二十问入口描述。
+
 ## 2026-10-19 · 探索页过滤已实现想法
 
 - iOS `ExploreIdea.groups` 移除 `games`（已由游乐场实现）；其余想法保留。

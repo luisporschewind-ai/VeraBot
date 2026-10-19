@@ -47,7 +47,7 @@ struct PlaygroundView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         WorldSectionTitle(title: "挑一个玩法", subtitle: "短短几分钟，也可以一起开心一下")
                         VStack(spacing: 10) {
-                            ForEach(PlaygroundGame.allCases.filter { $0 != .sudoku }) { game in
+                            ForEach(PlaygroundGame.allCases.filter { $0 != .sudoku && $0 != .twentyQuestions }) { game in
                                 Button { open(game) } label: {
                                     GameIdeaRow(game: game)
                                 }
