@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-19 · 探索页过滤已实现想法
+
+- iOS `ExploreIdea.groups` 移除 `games`（已由游乐场实现）；其余想法保留。
+
 ## 2026-10-19 · 底部 Tab 调换
 
 - iOS `MainTabView`：「发现」移到第 2 位、「安排」移到第 4 位；tag 不变，其余不变。

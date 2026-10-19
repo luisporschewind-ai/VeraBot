@@ -971,7 +971,6 @@ private struct ExploreIdea: Identifiable {
             ExploreIdea(id: "space", category: "探索与旅程", title: "Bot Space 与发现", summary: "发现 Bot、活动、知识或新的主题空间。", experience: "用户可以通过主题空间找到适合当下的一位 Bot 或一件可做的事。", botRole: "担任空间里的伙伴或向导，让用户知道这里能做什么。", steps: ["厘清 Space 与小岛的关系", "确定 Discover／Find 的对象", "挑一个主题空间示例"], symbol: "safari")
         ]),
         ExploreIdeaGroup(title: "游戏与互动", ideas: [
-            ExploreIdea(id: "games", category: "游戏与互动", title: "数独、推箱子与小游戏", summary: "Bot 可以当队友、对手或温和的提示者。", experience: "规则清楚、随时能开始的小游戏，为用户带来一段轻松互动。", botRole: "按游戏担任角色；当用户卡住时先了解卡点，再提供适度提示。", steps: ["选定首个小游戏", "确定规则由程序负责的部分", "设计 Bot 的陪玩与提示方式"], symbol: "gamecontroller"),
             ExploreIdea(id: "social-play", category: "游戏与互动", title: "漂流瓶与广场", summary: "围绕轻互动、分享和热闹氛围继续探索。", experience: "用户可能遇到新故事、新玩法或来自他人的作品。", botRole: "在安全、清晰的社交边界里做主持人或同行者。", steps: ["确定内容来自用户、Bot 还是系统", "明确公开和互动的边界", "再决定是否需要社区入口"], symbol: "paperplane")
         ]),
         ExploreIdeaGroup(title: "伙伴与世界", ideas: [
