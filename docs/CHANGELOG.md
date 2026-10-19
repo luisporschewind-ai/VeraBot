@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-19 · 「安排」页小标题
+
+- iOS `RemindersView` 导航标题 `.large` → `.inline`；其余不变。
+
 ## 2026-10-19 · 「安排」API 501 阴影修复
 
 - `VeraBotAPI` 扩展不再用带默认参数的 501 占位阴影 `APIClient+Items`；改为更少参数的便利重载转发完整协议要求。安排列表 / 创建 / 完成 / 推迟 / 删除 / 清单 / 任务操作在 `any VeraBotAPI` 上可真正发请求。

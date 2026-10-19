@@ -25,7 +25,7 @@ struct RemindersView: View {
                 }
             }
             .navigationTitle("安排")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { filterMenu }
                 ToolbarItem(placement: .topBarTrailing) {
