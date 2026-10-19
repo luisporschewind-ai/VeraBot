@@ -1,5 +1,9 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-19 · 底部 Tab 调换
+
+- iOS `MainTabView`：「发现」移到第 2 位、「安排」移到第 4 位；tag 不变，其余不变。
+
 ## 2026-10-19 · 「安排」页小标题
 
 - iOS `RemindersView` 导航标题 `.large` → `.inline`；其余不变。
