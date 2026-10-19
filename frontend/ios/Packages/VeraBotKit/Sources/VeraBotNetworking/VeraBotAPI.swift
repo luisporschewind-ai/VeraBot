@@ -254,42 +254,44 @@ public extension VeraBotAPI {
     func ensureOpeningTemplates(botID: Int) async throws -> Bot {
         throw APIError(status: 501, message: "开场词模板接口暂不可用")
     }
-    func items(view: String? = nil, botID: Int? = nil, cursor: String? = nil, limit: Int = 200) async throws -> ItemsResponse {
-        throw APIError(status: 501, message: "事项接口暂不可用")
+    // 事项接口：协议要求无默认参数。带默认值的同名同参便利重载会静态阴影 APIClient
+    //（`any VeraBotAPI` 上 `items()` 等永远落到抛 501 的扩展）。这里用「参数更少」的
+    // 重载转发到完整协议要求，避免递归并让见证表走到真实实现。
+    func items(view: String? = nil, botID: Int? = nil, cursor: String? = nil) async throws -> ItemsResponse {
+        try await items(view: view, botID: botID, cursor: cursor, limit: 200)
+    }
+    func createItem(_ body: ItemWrite) async throws -> Item {
+        try await createItem(body, idempotencyKey: nil)
+    }
+    func updateItem(id: Int, _ body: ItemWrite) async throws -> Item {
+        try await updateItem(id: id, body, idempotencyKey: nil)
+    }
+    func completeItem(_ id: Int) async throws -> Item {
+        try await completeItem(id, idempotencyKey: nil)
+    }
+    func reopenItem(_ id: Int) async throws -> Item {
+        try await reopenItem(id, idempotencyKey: nil)
+    }
+    func snoozeItem(_ id: Int, minutes: Int? = nil, until: String? = nil) async throws -> Item {
+        try await snoozeItem(id, minutes: minutes, until: until, idempotencyKey: nil)
+    }
+    func skipItem(_ id: Int) async throws -> Item {
+        try await skipItem(id, idempotencyKey: nil)
+    }
+    func replaceChecklist(id: Int, expectedVersion: Int, items: [ChecklistWrite]) async throws -> Item {
+        try await replaceChecklist(id: id, expectedVersion: expectedVersion, items: items, idempotencyKey: nil)
+    }
+    func toggleChecklist(id: Int, checklistID: Int) async throws -> Item {
+        try await toggleChecklist(id: id, checklistID: checklistID, done: nil)
+    }
+    func itemTaskAction(id: Int, action: String, message: String? = nil) async throws -> Item {
+        try await itemTaskAction(id: id, action: action, message: message, idempotencyKey: nil)
+    }
+    func deleteItem(_ id: Int, scope: String = "series", stopTask: Bool) async throws -> Reminder {
+        try await deleteItem(id, scope: scope, stopTask: stopTask, idempotencyKey: nil)
     }
     func item(id: Int) async throws -> Item {
         throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func createItem(_ body: ItemWrite, idempotencyKey: String? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func updateItem(id: Int, _ body: ItemWrite, idempotencyKey: String? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func completeItem(_ id: Int, idempotencyKey: String? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func reopenItem(_ id: Int, idempotencyKey: String? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func snoozeItem(_ id: Int, minutes: Int? = nil, until: String? = nil, idempotencyKey: String? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func skipItem(_ id: Int, idempotencyKey: String? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func replaceChecklist(id: Int, expectedVersion: Int, items: [ChecklistWrite],
-                          idempotencyKey: String? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func toggleChecklist(id: Int, checklistID: Int, done: Bool? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项接口暂不可用")
-    }
-    func itemTaskAction(id: Int, action: String, message: String? = nil, idempotencyKey: String? = nil) async throws -> Item {
-        throw APIError(status: 501, message: "事项任务接口暂不可用")
-    }
-    func deleteItem(_ id: Int, scope: String = "series", stopTask: Bool, idempotencyKey: String? = nil) async throws -> Reminder {
-        throw APIError(status: 501, message: "事项删除接口暂不可用")
     }
     func ownedTask(_ id: Int) async throws -> OwnedTask {
         throw APIError(status: 501, message: "任务接口暂不可用")

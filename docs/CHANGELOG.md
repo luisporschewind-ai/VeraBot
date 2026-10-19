@@ -1,5 +1,11 @@
 # 更新日志 (CHANGELOG)
 
+## 2026-10-19 · 「安排」API 501 阴影修复
+
+- `VeraBotAPI` 扩展不再用带默认参数的 501 占位阴影 `APIClient+Items`；改为更少参数的便利重载转发完整协议要求。安排列表 / 创建 / 完成 / 推迟 / 删除 / 清单 / 任务操作在 `any VeraBotAPI` 上可真正发请求。
+- 回归：`ItemsAPIDispatchTests.existentialItemsOmittingArgsHitsAPIClientNot501Placeholder`。
+
+
 ## 2026-10-18 · 「安排」P2：交给 Bot 执行
 
 - 后端：`POST /api/items` 支持可选 `task`（once/repeat→scheduled、owned→owned），同请求关联 `task_kind/task_id` 并复用 Idempotency-Key；操作代理 `/api/items/{id}/task/{pause|resume|run|stop|continue|input}` 不暴露 step/lease/token/trace；`services/items/sync.py` 写回同步（owned 完成→事项自动完成、任务删除/停止→解除关联标注「任务已结束」、scheduled 推进→事项 due 跟随 next_run）；`propose_task` 工具走 `pending_actions` 确认卡片，确认后才建任务+事项；`DELETE /api/items/{id}?task=stop|keep`。

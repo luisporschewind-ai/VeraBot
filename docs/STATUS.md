@@ -1,4 +1,10 @@
-# 项目状态 (STATUS) — 2026-10-18
+# 项目状态 (STATUS) — 2026-10-19
+
+## 2026-10-19 · 「安排」列表 501 阴影修复
+
+- 根因：`VeraBotAPI` 协议扩展里带默认参数的 501 占位与协议要求同名，`any VeraBotAPI` 上 `items()` / `createItem` 等省略参数的调用静态落到占位并抛 501，请求从未发出；模拟器「安排」只显示「暂时连接不上」。
+- 修复：删掉同参 501 占位，改为参数更少的便利重载转发到完整协议要求；新增 `ItemsAPIDispatchTests`（`(client as any VeraBotAPI).items()` 必须打到 `/api/items`）。未推送，仅本地 main。
+
 
 ## 2026-10-18 · 「安排」P2：交给 Bot（已实现并构建，待 Boss 验收）
 
