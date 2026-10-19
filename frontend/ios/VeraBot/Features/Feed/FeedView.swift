@@ -137,10 +137,8 @@ private struct FeedScreen: View {
                     ForEach(bots) { Text($0.name).tag($0.id) }
                 }
                 Spacer()
-                Toggle("仅收藏", isOn: Binding(get: { vm.query.savedOnly }, set: { saved in
-                    var query = vm.query; query.savedOnly = saved
-                    Task { await vm.apply(query: query) }
-                })).fixedSize()
+                // 「仅收藏」开关已隐藏（Boss 2026-10-19）；收藏功能与 FeedQuery.savedOnly 保留，
+                // 查询不持久化，每次启动默认显示全部。
                 managementMenu
             }.font(.subheadline)
         }.padding(.vertical, 4)
