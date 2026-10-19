@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verabot.local/contracts/tetris-session-v1.schema.json",
+  "title": "Tetris session v1 / vera-tetris-2",
+  "$defs": {
+    "Piece": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "maximum": 7,
+          "minimum": 1,
+          "title": "Kind",
+          "type": "integer"
+        },
+        "rotation": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Rotation",
+          "type": "integer"
+        },
+        "x": {
+          "maximum": 9,
+          "minimum": -4,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "maximum": 19,
+          "minimum": -4,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "rotation",
+        "x",
+        "y"
+      ],
+      "title": "Piece",
+      "type": "object"
+    },
+    "Snapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "ruleVersion": {
+          "const": "vera-tetris-2",
+          "title": "Ruleversion",
+          "type": "string"
+        },
+        "board": {
+          "items": {
+            "maximum": 7,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 200,
+          "minItems": 200,
+          "title": "Board",
+          "type": "array"
+        },
+        "active": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Piece"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "next": {
+          "maximum": 7,
+          "minimum": 1,
+          "title": "Next",
+          "type": "integer"
+        },
+        "bag": {
+          "items": {
+            "maximum": 7,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 7,
+          "title": "Bag",
+          "type": "array"
+        },
+        "rngState": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "title": "Rngstate",
+          "type": "integer"
+        },
+        "score": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        },
+        "lines": {
+          "maximum": 100000,
+          "minimum": 0,
+          "title": "Lines",
+          "type": "integer"
+        },
+        "lockedPieces": {
+          "minimum": 0,
+          "title": "Lockedpieces",
+          "type": "integer"
+        },
+        "phase": {
+          "enum": [
+            "ready",
+            "running",
+            "clearing",
+            "paused",
+            "over"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "resumePhase": {
+          "anyOf": [
+            {
+              "enum": [
+                "running",
+                "clearing"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resumephase"
+        },
+        "logicalTimeMs": {
+          "maximum": 31536000000,
+          "minimum": 0,
+          "title": "Logicaltimems",
+          "type": "integer"
+        },
+        "stepRemainderMs": {
+          "maximum": 9,
+          "minimum": 0,
+          "title": "Stepremainderms",
+          "type": "integer"
+        },
+        "gravityRemainingMs": {
+          "maximum": 620,
+          "minimum": 1,
+          "title": "Gravityremainingms",
+          "type": "integer"
+        },
+        "lockRemainingMs": {
+          "maximum": 500,
+          "minimum": 0,
+          "title": "Lockremainingms",
+          "type": "integer"
+        },
+        "lockResetCount": {
+          "maximum": 15,
+          "minimum": 0,
+          "title": "Lockresetcount",
+          "type": "integer"
+        },
+        "clearRemainingMs": {
+          "maximum": 180,
+          "minimum": 0,
+          "title": "Clearremainingms",
+          "type": "integer"
+        },
+        "pendingClearRows": {
+          "items": {
+            "maximum": 19,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 4,
+          "title": "Pendingclearrows",
+          "type": "array"
+        },
+        "eventSequence": {
+          "maximum": 9000000000000000,
+          "minimum": 0,
+          "title": "Eventsequence",
+          "type": "integer"
+        },
+        "endReason": {
+          "anyOf": [
+            {
+              "enum": [
+                "topOut",
+                "blockedSpawn"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endreason"
+        }
+      },
+      "required": [
+        "ruleVersion",
+        "board",
+        "next",
+        "bag",
+        "rngState",
+        "score",
+        "lines",
+        "lockedPieces",
+        "phase",
+        "logicalTimeMs",
+        "stepRemainderMs",
+        "gravityRemainingMs",
+        "lockRemainingMs",
+        "lockResetCount",
+        "clearRemainingMs",
+        "pendingClearRows",
+        "eventSequence"
+      ],
+      "title": "Snapshot",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "enum": [
+                "start",
+                "pause",
+                "resume",
+                "moveLeft",
+                "moveRight",
+                "softDrop",
+                "rotateClockwise",
+                "hardDrop"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "elapsed": {
+          "anyOf": [
+            {
+              "maximum": 31536000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Elapsed"
+        }
+      },
+      "title": "Step",
+      "type": "object"
+    },
+    "HandoffRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "requestID": {
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "title": "Requestid",
+          "type": "string"
+        },
+        "clientID": {
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "title": "Clientid",
+          "type": "string"
+        },
+        "expectedVersion": {
+          "minimum": 0,
+          "title": "Expectedversion",
+          "type": "integer"
+        },
+        "expectedEpoch": {
+          "minimum": 0,
+          "title": "Expectedepoch",
+          "type": "integer"
+        },
+        "botID": {
+          "minimum": 1,
+          "title": "Botid",
+          "type": "integer"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/Snapshot"
+        }
+      },
+      "required": [
+        "requestID",
+        "clientID",
+        "expectedVersion",
+        "expectedEpoch",
+        "botID",
+        "snapshot"
+      ],
+      "title": "HandoffRequest",
+      "type": "object"
+    },
+    "CommandRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "requestID": {
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "title": "Requestid",
+          "type": "string"
+        },
+        "clientID": {
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "title": "Clientid",
+          "type": "string"
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "title": "Expectedversion",
+          "type": "integer"
+        },
+        "expectedEpoch": {
+          "minimum": 1,
+          "title": "Expectedepoch",
+          "type": "integer"
+        },
+        "command": {
+          "enum": [
+            "handoff",
+            "pauseBot",
+            "resumeBot",
+            "reclaim",
+            "end",
+            "changeBot"
+          ],
+          "title": "Command",
+          "type": "string"
+        },
+        "botID": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Botid"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Snapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requestID",
+        "clientID",
+        "expectedVersion",
+        "expectedEpoch",
+        "command"
+      ],
+      "title": "CommandRequest",
+      "type": "object"
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/HandoffRequest"
+    },
+    {
+      "$ref": "#/$defs/CommandRequest"
+    }
+  ]
+}

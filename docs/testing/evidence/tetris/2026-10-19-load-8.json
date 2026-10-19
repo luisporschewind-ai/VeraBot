@@ -1,0 +1,21 @@
+{
+  "durationSeconds": 600.08,
+  "users": 8,
+  "startedRounds": 614,
+  "pollIntervalMs": 250,
+  "apiRequests": 19355,
+  "apiP95Ms": 174.24883099738508,
+  "workerSamples": 39140,
+  "workerLatenessP95Ms": 147.899,
+  "workerErrors": 0,
+  "workerRejected": 59,
+  "maxPlanningQueue": 2,
+  "controlConflicts": 122,
+  "reclaims": 117,
+  "reclaimP95Ms": 495.6002330291085,
+  "sqliteProbeWaitP95Ms": 117.70346300909296,
+  "workerMainCPUMaxPercent": 68.3,
+  "httpFailures": [],
+  "integrity": "ok",
+  "pass": false
+}

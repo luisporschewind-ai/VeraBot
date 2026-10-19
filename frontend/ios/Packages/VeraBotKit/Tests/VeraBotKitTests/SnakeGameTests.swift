@@ -16,6 +16,18 @@ import Testing
         for _ in 0..<times { game.tick(using: &random) }
     }
 
+    @Test func inputReportsOnlyAcceptedTurnsForSwipeFeedback() {
+        var g = game()
+        let ready = g.turn(.up)
+        g.start()
+        let reverse = g.turn(.left)
+        let accepted = g.turn(.up)
+        let duplicate = g.turn(.up)
+        #expect(ready == false)
+        #expect(reverse == false)
+        #expect(accepted == true)
+        #expect(duplicate == false)
+    }
     @Test func waitsForStartAndMovesOneCellPerTick() {
         var g = game()
         let head = g.snake[0]

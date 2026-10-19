@@ -33,6 +33,7 @@ struct GeneralSettingsSection: View {
             CompactToggle(isOn: $gameSoundEnabled) {
                 Label("游戏音效", systemImage: "speaker.wave.2")
             }
+            .onChange(of: gameSoundEnabled) { _, enabled in GameSoundPlayer.shared.setEnabled(enabled) }
 
             CompactToggle(isOn: $quickPromptsEnabled) {
                 Label("快捷提问", systemImage: "text.bubble")

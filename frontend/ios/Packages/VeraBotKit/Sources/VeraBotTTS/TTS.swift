@@ -51,19 +51,24 @@ protocol SpeechAudioSession {
     func deactivate() throws
 }
 
-struct SystemSpeechAudioSession: SpeechAudioSession {
-    func activate() throws {
-        #if os(iOS)
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-        try session.setActive(true)
-        #endif
-    }
+@MainActor
+final class SystemSpeechAudioSession: SpeechAudioSession {
+    var onRevoked: (@MainActor @Sendable () -> Void)?
+    private var lease: AudioLease?
+    private let coordinator: AudioSessionCoordinator
+    init(coordinator: AudioSessionCoordinator = .shared) { self.coordinator = coordinator }
 
+    func activate() throws {
+        guard let acquired = try coordinator.acquire(owner: .tts, onRevoked: { [weak self] in
+            self?.lease = nil
+            self?.onRevoked?()
+        }) else { throw NSError(domain: "VeraBot.AudioSession", code: 1, userInfo: [NSLocalizedDescriptionKey: "录音进行中，暂不能朗读"]) }
+        lease = acquired
+    }
     func deactivate() throws {
-        #if os(iOS)
-        try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        #endif
+        guard let lease else { return }
+        try coordinator.release(lease)
+        self.lease = nil
     }
 }
 
@@ -87,6 +92,7 @@ public final class LocalTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDeleg
         session = SystemSpeechAudioSession()
         super.init()
         synth.delegate = self
+        (session as? SystemSpeechAudioSession)?.onRevoked = { [weak self] in self?.stop() }
     }
 
     init(synth: any SpeechSynthesizing, session: any SpeechAudioSession) {
@@ -94,6 +100,7 @@ public final class LocalTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDeleg
         self.session = session
         super.init()
         synth.delegate = self
+        (session as? SystemSpeechAudioSession)?.onRevoked = { [weak self] in self?.stop() }
     }
 
     public func speak(_ text: String, onFinish: @escaping @MainActor () -> Void) {
@@ -102,7 +109,6 @@ public final class LocalTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDeleg
         do {
             try session.activate()
             sessionActive = true
-            AudioSessionOwner.shared.setSpeaking(true)
         } catch {
             finish()
             return
@@ -132,7 +138,6 @@ public final class LocalTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDeleg
                 sessionActive = false
             } catch { /* 保留占用标记，下次 stop 时重试释放。 */ }
         }
-        AudioSessionOwner.shared.setSpeaking(false)
         cb?()
     }
 

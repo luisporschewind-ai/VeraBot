@@ -99,16 +99,16 @@ struct MainTabView: View {
             BotListView()
                 .tabItem { Label("助理", systemImage: "bubble.left.and.bubble.right") }
                 .tag(0)
+            FeedView()
+                .tabItem { Label("发现", systemImage: "newspaper") }
+                .tag(5)
+            PlaygroundView()
+                .tabItem { Label("游乐场", systemImage: "gamecontroller") }
+                .tag(2)
             RemindersView()
                 .tabItem { Label("安排", systemImage: "alarm") }
                 .badge(app.unreadCount)
                 .tag(1)
-            PlaygroundView()
-                .tabItem { Label("游乐场", systemImage: "gamecontroller") }
-                .tag(2)
-            FeedView()
-                .tabItem { Label("发现", systemImage: "newspaper") }
-                .tag(5)
             ExploreIdeasView()
                 .tabItem { Label("探索", systemImage: "sparkle.magnifyingglass") }
                 .tag(4)

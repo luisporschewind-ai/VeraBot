@@ -64,5 +64,7 @@ def init_db():
     backup_before_v33()
     backup_before_v35()
     backup_before_v37()
+    from .migrations.v038_tetris_sessions import backup_before_v38
+    backup_before_v38()
     with tx() as c:
         _apply_migrations(c)

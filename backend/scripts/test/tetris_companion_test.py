@@ -44,7 +44,7 @@ class CompanionTests(unittest.TestCase):
     def test_short_auto_reply_and_provider_failure(self):
         with patch('verabot.db.get_bot', return_value={"id": 7}), patch('verabot.db.token_budget', return_value=(0, 1000)), patch('verabot.db.log_usage') as usage, patch('verabot.services.llm.complete_json', new_callable=AsyncMock, return_value=('{"text":"' + '好' * 200 + '"}', {})):
             result = self.client.post('/api/bots/7/tetris-companion', json={**self.body, "event": "start"})
-            self.assertEqual(len(result.json()['text']), 60)
+            self.assertEqual(len(result.json()['text']), 24)
             usage.assert_called_once()
         with patch('verabot.db.get_bot', return_value={"id": 7}), patch('verabot.db.token_budget', return_value=(0, 1000)), patch('verabot.db.log_usage') as usage, patch('verabot.services.llm.complete_json', new_callable=AsyncMock, side_effect=RuntimeError('provider secret')):
             response = self.client.post('/api/bots/7/tetris-companion', json=self.body)

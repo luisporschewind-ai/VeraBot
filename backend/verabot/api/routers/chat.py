@@ -133,4 +133,4 @@ async def tetris_companion(bot_id: int, body: CompanionIn, user=Depends(current_
             raise ValueError('empty reply')
     except (ValueError, AttributeError, TypeError) as exc:
         raise HTTPException(502, '陪玩回应暂时没准备好，请稍后再试') from exc
-    return {'text': text[:180 if body.event in ('chat', 'pause') else 60]}
+    return {'text': text[:180 if body.event in ('chat', 'pause') else 24]}

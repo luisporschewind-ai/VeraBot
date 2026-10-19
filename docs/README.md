@@ -1,5 +1,8 @@
 # 文档索引 (Docs index)
 
+- [游戏改版最新总账](tasks/2026-10-18-game-upgrade-progress.md)：三项计划工程、测试、部署与人工验收分别记录。
+- [代玩验证证据](testing/2026-10-18-tetris-takeover-evidence.md) · [运行与回滚](operations/2026-10-19-tetris-worker.md) · [新包双机交付](tasks/2026-10-19-game-upgrade-two-iphones.md)。
+
 - [「安排」P2 交给 Bot](tasks/2026-10-18-unified-items-p2.md)：创建表单、任务操作代理、propose_task 确认卡片、下线 TaskListView。
 - [俄罗斯方块掌机按键 v2](tasks/2026-10-18-tetris-controls-v2.md)：十字方向键 + 斜排 A/B + START/SELECT。
 - [游戏音效 v1](tasks/2026-10-18-game-sound-effects.md)：共用播放器、自合成短音、会话协调、音效开关。
