@@ -2,7 +2,7 @@
 
 日期：2026-10-18。关联[执行基线](../superpowers/specs/2026-10-18-game-upgrade-execution-baseline.md)与[唯一进度总账](../tasks/2026-10-18-game-upgrade-progress.md)。
 
-2026-10-19续推结论：本地规则/掌机/陪玩、音效与云端接管工程已在独立工作树完成并通过自动回归；新App模拟器构建安装启动通过，真机同包已装两机，主机已启动、备机按用户安排稍后启动。正式库与服务未部署，双机手感/听感、锁屏/终止App代玩均未验收。下方人工复选框保持未勾，当前证据以[总账](../tasks/2026-10-18-game-upgrade-progress.md)为准。
+2026-10-19 Main交付更新：前后端已提交66c4e12并合入本地Main c5308b7；本机Main API已迁移schema38、worker已就绪。三端明确为主机iPhone12ProMax、备机iPhone11、模拟器，按Main构建安装。用户在Main验收，以下人工复选框仍未勾，安装/启动不代签。最新状态见[Main交付](../tasks/2026-10-19-game-main-acceptance.md)。
 
 ## 记录格式
 

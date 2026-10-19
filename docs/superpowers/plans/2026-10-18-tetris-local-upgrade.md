@@ -10,7 +10,7 @@
 
 **Spec:** [执行基线 §1–5、§8](../specs/2026-10-18-game-upgrade-execution-baseline.md)、[已确认掌机v2](../../product/2026-10-18-tetris-controls-visual-proposal.md)。
 
-**状态（2026-10-19续推）：**L1–L4工程实现与自动验证已完成，最新Swift全量472项通过，App模拟器构建/安装/启动通过；L2/L4及规则体验的双机人工验收仍未完成。代码在独立工作树，未合入/提交/推送。旧Harness起点见核对记录；当前状态以总账为准。 见[唯一总账](../../tasks/2026-10-18-game-upgrade-progress.md)。
+**状态（2026-10-19 Main验收）：**L1–L4工程已交付并合入本地Main c5308b7，Main完整Swift472项通过；三端指主机iPhone12ProMax、备机iPhone11、模拟器，均按Main构建安装。布局/手感/陪玩等用户人工验收仍待完成。 见[Main交付](../../tasks/2026-10-19-game-main-acceptance.md)。
 
 ## Global Constraints
 

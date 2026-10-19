@@ -10,7 +10,7 @@
 
 **Spec:** [接管方案](../../product/2026-10-18-tetris-bot-takeover-proposal.md)、[执行基线 §4、§7、§8](../specs/2026-10-18-game-upgrade-execution-baseline.md)。
 
-**状态（2026-10-19续推）：**C1–C3协议、schema38/API/存储、规划/worker已实现并通过隔离测试；C4生产客户端模型/缓存/接口与页面接入完成，472项Swift测试及App模拟器构建通过，人工V-07未完成。C5隔离launchd首次心跳与SIGKILL自动重启通过；16局及8局10分钟均未达标；4局600秒p95 89.329ms/0错误/0 HTTP失败通过，当前容量固定4局。正式库未迁移、正式服务未部署，手机锁屏代玩尚不能作为已交付。 见[唯一总账](../../tasks/2026-10-18-game-upgrade-progress.md)。
+**状态（2026-10-19 Main验收）：**C1–C4已合入Main c5308b7，Main Swift472与后端41项通过。C5容量4局600秒p95 89.329ms通过；本机Main API/schema38及专属worker监督已部署，workerReady=true。三端用户V-07锁屏/终止App与回接验收仍未完成，C5整体不标完成。 见[Main交付](../../tasks/2026-10-19-game-main-acceptance.md)。
 
 ## Global Constraints
 
@@ -19,7 +19,7 @@
 - 每次提交验证userID、version、controlEpoch与有效lease；先持久化再发布，不因锁屏停止服务端。
 - 进行中保留，结束7天后清理；后台手机停声、停轮询，返回不补播历史事件。
 - 当前迁移源码最高37，计划新文件名v038；真正实施前重查版本/并行工作，若38被占用则顺延并统一更新计划、测试和注册，不能覆盖现有迁移。
-- 不占用聊天、定时、持续任务worker；无新第三方依赖、无Web改动、不在本轮执行正式部署。
+- 不占用聊天、定时、持续任务worker；无新第三方依赖、无Web改动；2026-10-19用户新授权本机Main验收后端发布，其他远程环境不在本轮部署。
 
 ## Review Focus
 

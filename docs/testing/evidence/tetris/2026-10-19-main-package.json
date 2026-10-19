@@ -1,0 +1,10 @@
+{
+  "codeCommit": "c5308b73e16c3e31bc6ae08dcbe7b42835b98739",
+  "mainCheckout": "/Users/admin/Desktop/VeraBot-v0.1",
+  "version": "0.1.0",
+  "build": "2026101701",
+  "bundleID": "com.verabot.app",
+  "package": "/tmp/verabot-main-game-acceptance-device/Build/Products/Debug-iphoneos/VeraBot.app",
+  "binarySHA256": "a5a8c5a4b675e32490fd0f2ce7cc568348cc0c469e37ea3ea1eb2aa61735f03c",
+  "recordedAt": "2026-10-19T17:14:59.443484+08:00"
+}

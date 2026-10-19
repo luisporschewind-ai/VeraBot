@@ -1,5 +1,7 @@
 # 云端代玩验证证据
 
+2026-10-19 Main更新：隔离阶段验证产物已提交66c4e12并合入Main c5308b7；本机验收后端已备份迁移schema38并启用专属worker，Main472项Swift/41项后端回归通过。下文“未提交/未部署”属于此前隔离阶段原始记录，当前部署与设备状态见[Main交付](../tasks/2026-10-19-game-main-acceptance.md)。
+
 2026-10-19，Intel Mac，隔离工作树 `game-upgrade`，基于 `875b608` 的未提交改动。仅临时数据库/测试服务；正式API/数据库未动。规则 `vera-tetris-2`，fixtureSHA256 `bd52a7eb5ed77ba516e6f53746fde5f619e6e2cc7e85d8668e81cede2c841ead`。
 
 ## 自动验证

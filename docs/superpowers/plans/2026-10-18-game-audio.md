@@ -10,7 +10,7 @@
 
 **Spec:** [音效方案](../../product/2026-10-18-game-sound-effects-proposal.md)、[执行基线 §6、§8](../specs/2026-10-18-game-upgrade-execution-baseline.md)。
 
-**状态（2026-10-19续推）：**A1采用保留原10项44.1kHz自产短音的替代实施；manifest/试听页/11项资源测试已交付，最终听感待验收。A2/A3租约、录音代次门与四路策略已实现并通过审查/回归，A4双机试听与中断验收未完成。whole-class MainActor改为MainActor获取/撤销与同步锁释放，理由和成本见执行账。未合入/提交/推送。 见[唯一总账](../../tasks/2026-10-18-game-upgrade-progress.md)。
+**状态（2026-10-19 Main验收）：**A1保留10条44.1kHz自产素材并补manifest/试听/校验；A2/A3租约、录音代次门、四路策略已合入Main c5308b7并通过回归。A1最终听感选择/A4真机中断与软件发声时延验收待用户；不以编译安装代签。 见[Main交付](../../tasks/2026-10-19-game-main-acceptance.md)。
 
 ## 本轮替代实施与路径对齐
 

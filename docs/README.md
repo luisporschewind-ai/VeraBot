@@ -1,5 +1,7 @@
 # 文档索引 (Docs index)
 
+- [Main三端验收交付](tasks/2026-10-19-game-main-acceptance.md)：前后端提交/合并、schema38与worker、本机Main包和三端安装状态。
+
 - [三项游戏计划统一进度](tasks/2026-10-18-game-upgrade-progress.md)与[DeepSeek Harness执行后核对](tasks/2026-10-19-game-plans-progress-audit.md)：2026-10-19按代码/提交对齐，掌机与音效部分完成、云端未见仓库交付。
 - 恢复的详细计划：[本地操作/规则/陪玩](superpowers/plans/2026-10-18-tetris-local-upgrade.md)、[游戏音效](superpowers/plans/2026-10-18-game-audio.md)、[云端接管](superpowers/plans/2026-10-18-tetris-cloud-takeover.md)；配套[执行基线](superpowers/specs/2026-10-18-game-upgrade-execution-baseline.md)与[验收清单](testing/2026-10-18-game-upgrade-acceptance.md)。
 - [游戏改版最新总账](tasks/2026-10-18-game-upgrade-progress.md)：三项计划工程、测试、部署与人工验收分别记录。
