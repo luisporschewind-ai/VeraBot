@@ -17,7 +17,6 @@
 		1541AC55DC33581F6199CE18 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018E0547CD9DEAEA350B90F9 /* SettingsView.swift */; };
 		178CA326EA102D7F48C613BE /* CreateBotSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE174E554FBF6F3E59113C3B /* CreateBotSheet.swift */; };
 		1AE2518B84C09B9A9F34889B /* ImagePreparer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC3329EDA197622902BD2BF4 /* ImagePreparer.swift */; };
-		1CC3CCC6F16D8B1C7931F023 /* ScheduledTaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C116643A86A80A4B0126F3B /* ScheduledTaskDetailView.swift */; };
 		1D659D66649D68D24B9B17CC /* BotAvatarWorkMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240A17C68083A8F055A6C48B /* BotAvatarWorkMotion.swift */; };
 		1E5329919C29C40AF386F3EF /* NotificationEventSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DEE9A94C3D87FF9185C17C /* NotificationEventSync.swift */; };
 		1F1C5EF7E47E0E34DC7C156D /* QuotaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43329B3D6D52AE8DF8D0A2F8 /* QuotaView.swift */; };
@@ -50,7 +49,6 @@
 		537492497C9BAB342493431E /* VeraBotPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = A35283AC7AC95EF39FB99F89 /* VeraBotPersistence */; };
 		5AD585D0D208A4A7B50A5A4D /* VeraBotNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = 79C21D574A0CD53982BAE0E3 /* VeraBotNetworking */; };
 		5D4818D92C47BE1F3D9D8828 /* GroupInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8315574B2BE38E4B08F2F0 /* GroupInfoView.swift */; };
-		5F5972A4843DFE6F846122E1 /* TaskListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841345AB52B290CA7FA3C8B7 /* TaskListView.swift */; };
 		5F6CD1791885FBB08ADDE97B /* SpeakButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB55B77A324DAF02CA91A074 /* SpeakButton.swift */; };
 		5FC2583ADE983456227AE227 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AFCFB9752B7AD58FB43B3D4 /* Theme.swift */; };
 		62B091DFF1AD9FDC2A836A17 /* LibraryUploadSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 743B45B3E6813674A2CDA778 /* LibraryUploadSheet.swift */; };
@@ -84,6 +82,9 @@
 		88F55501313C9192D2B32DCC /* LibraryFileList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C13062B1AA887E66BAAFDF /* LibraryFileList.swift */; };
 		8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6508701B3F97F7E98B01C00C /* MiniGameViews.swift */; };
 		9EA1559753114601BC02AC18 /* SnakeGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */; };
+		E5F60718293A4B5C6D7E8F9A /* GameSoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* GameSoundPlayer.swift */; };
+		F60718293A4B5C6D7E8F9A0B /* HandheldGameControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* HandheldGameControls.swift */; };
+		D4E5F60718293A4B5C6D7E8F /* Sounds in Resources */ = {isa = PBXBuildFile; fileRef = C3D4E5F60718293A4B5C6D7E /* Sounds */; };
 		90DE63991A28ECA890EAEC90 /* RobotAvatarLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35A8BF6FB6F9B69E3FCF260 /* RobotAvatarLabView.swift */; };
 		9218258188FF7E412112926B /* NoticeWorkbenchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3627B57D948744FB00258E /* NoticeWorkbenchView.swift */; };
 		92470A703C2920832344A5E2 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB9ED27A9D63CD4F97247CE7 /* ChatViewModel.swift */; };
@@ -118,7 +119,6 @@
 		C684C406F8E37DEB2D4D59D2 /* VeraBotTTS in Frameworks */ = {isa = PBXBuildFile; productRef = 909DF8AF7A080B4448FDF54C /* VeraBotTTS */; };
 		C756AF0B5D30CED1F6EA1207 /* AppState+Reminders.swift in Sources */ = {isa = PBXBuildFile; fileRef = F258A75A155690347B38F5D4 /* AppState+Reminders.swift */; };
 		C94FFEF2ABA96F6BA4373761 /* RobotAvatarInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50403B438362C1632FC6D8E8 /* RobotAvatarInteraction.swift */; };
-		CA60B012B5F549D3CC5DCC4F /* TaskEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F6598764912A69D30533D7 /* TaskEditorView.swift */; };
 		CA67141A594FD89490C720F2 /* AvatarLabCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC023CD71CD0F58088DC17A0 /* AvatarLabCharacterView.swift */; };
 		CA7375A31D7D2D3E06BDEAA8 /* BotWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4A833D366AA4080024C520A /* BotWelcomeView.swift */; };
 		D0EF60DC4F40A3140C6C0984 /* MemoryMonthlyReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1561EC16CBF6602ECFCC00DF /* MemoryMonthlyReviewView.swift */; };
@@ -217,6 +217,9 @@
 		5F1BF1E515F06F846F060286 /* LibraryDownloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryDownloadCoordinator.swift; sourceTree = "<group>"; };
 		6508701B3F97F7E98B01C00C /* MiniGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGameViews.swift; sourceTree = "<group>"; };
 		90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnakeGameView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* GameSoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSoundPlayer.swift; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B5C6D /* HandheldGameControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandheldGameControls.swift; sourceTree = "<group>"; };
+		C3D4E5F60718293A4B5C6D7E /* Sounds */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Sounds; path = "Resources/Sounds"; sourceTree = "<group>"; };
 		66CBDBDDF881B23288C5B2DE /* BotAvatarState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarState.swift; sourceTree = "<group>"; };
 		66CF4DCCF59659EF30A92860 /* TraceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceView.swift; sourceTree = "<group>"; };
 		6A2C0EE4C4696F262A48A1E0 /* AttachmentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViews.swift; sourceTree = "<group>"; };
@@ -231,7 +234,6 @@
 		7C57FDB9124DA5929858E01E /* AvatarPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarPicker.swift; sourceTree = "<group>"; };
 		7E023D66FA3B1A69E0533729 /* RobotAvatarMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotAvatarMotion.swift; sourceTree = "<group>"; };
 		82FE46070A1C055EA45932DF /* DelegationLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DelegationLogView.swift; sourceTree = "<group>"; };
-		841345AB52B290CA7FA3C8B7 /* TaskListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListView.swift; sourceTree = "<group>"; };
 		854E88B05E8C44B240FBBDC2 /* GroupMemberAvatarStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupMemberAvatarStack.swift; sourceTree = "<group>"; };
 		86DAA18566A4B082944D826A /* RemindersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersView.swift; sourceTree = "<group>"; };
 		86EF42DCE76C56C6E925620E /* BotAvatarTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarTemplate.swift; sourceTree = "<group>"; };
@@ -244,7 +246,6 @@
 		997F9E3F77BD98D7AA974F46 /* LibraryItemDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryItemDetailView.swift; sourceTree = "<group>"; };
 		99C5D4BF177CE569E20682AD /* CreateGroupSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGroupSheet.swift; sourceTree = "<group>"; };
 		9AC83BA1CFB125196681F434 /* ToolConfirmationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolConfirmationCard.swift; sourceTree = "<group>"; };
-		9C116643A86A80A4B0126F3B /* ScheduledTaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledTaskDetailView.swift; sourceTree = "<group>"; };
 		9D8EB86A257C58B0B241CC14 /* VeraBot.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VeraBot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9FC02FFEE70BE6F556F014DD /* ConversationReadVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationReadVisibility.swift; sourceTree = "<group>"; };
 		A04F0CA8424DCFEFC47975B2 /* FeedCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedCard.swift; sourceTree = "<group>"; };
@@ -289,7 +290,6 @@
 		DDF663872873FA1D121AF63F /* GroupConversationAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupConversationAvatar.swift; sourceTree = "<group>"; };
 		E168EA8883D7A127984AB6B4 /* NoticeSourceIndex.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = NoticeSourceIndex.json; sourceTree = "<group>"; };
 		E490B93C55EA3524C6C302C8 /* FeedDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedDetailView.swift; sourceTree = "<group>"; };
-		E5F6598764912A69D30533D7 /* TaskEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorView.swift; sourceTree = "<group>"; };
 		E74608DB8A82935CF4C9FF6D /* BotAvatarLabPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotAvatarLabPlayback.swift; sourceTree = "<group>"; };
 		EC3329EDA197622902BD2BF4 /* ImagePreparer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreparer.swift; sourceTree = "<group>"; };
 		ED18CB21A56DD778E9202E8D /* MemorySettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemorySettingsSection.swift; sourceTree = "<group>"; };
@@ -337,11 +337,8 @@
 		11B2A9217AE39BE88C13F997 /* Tasks */ = {
 			isa = PBXGroup;
 			children = (
-				9C116643A86A80A4B0126F3B /* ScheduledTaskDetailView.swift */,
 				D01143695E3733485422DE85 /* TaskApprovalView.swift */,
 				14C910691509604C35D073FD /* TaskDetailView.swift */,
-				E5F6598764912A69D30533D7 /* TaskEditorView.swift */,
-				841345AB52B290CA7FA3C8B7 /* TaskListView.swift */,
 			);
 			path = Tasks;
 			sourceTree = "<group>";
@@ -387,6 +384,7 @@
 				2564D082318084A4C23F1920 /* BotTravelViews.swift */,
 				6508701B3F97F7E98B01C00C /* MiniGameViews.swift */,
 				90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */,
+				B2C3D4E5F60718293A4B5C6D /* HandheldGameControls.swift */,
 				469972256A4D27DA4A31462A /* PlaygroundAssistant.swift */,
 				37D62CE6269DD45B58CEA286 /* TetrisCompanionModel.swift */,
 				EE791D5EAF47FCBCA1F7DB50 /* TetrisCompanionViews.swift */,
@@ -467,6 +465,7 @@
 				F0B37A62E664594298BAA145 /* DefaultBotFigure.swift */,
 				24E41B39232EE3F793E7132D /* DismissToolbarButton.swift */,
 				B7227481F2AD38DA86774FEB /* Haptics.swift */,
+				A1B2C3D4E5F60718293A4B5C /* GameSoundPlayer.swift */,
 				C6F1E843EA28A08B8E15E700 /* InAppBrowser.swift */,
 				C69AA5EB92F7C7B8734E2038 /* JumpToLatestButton.swift */,
 				928A38EBE534F3CEE8CAB9D7 /* LiveBotAvatar.swift */,
@@ -664,6 +663,7 @@
 			children = (
 				BD018E46B9DECE36E52911C3 /* Assets.xcassets */,
 				53844451640BC069A307EBFE /* InfoPlist.xcstrings */,
+				C3D4E5F60718293A4B5C6D7E /* Sounds */,
 				5125B3302980F2B1DF91A6E6 /* App */,
 				F261C483BE3629EDEE71C8DD /* Core */,
 				824FD317D53272A5041F3ABF /* Features */,
@@ -809,6 +809,7 @@
 				F7D894C796113C610B5147A0 /* Assets.xcassets in Resources */,
 				2C540C8613D1C7DF7B3C493D /* InfoPlist.xcstrings in Resources */,
 				E01735FF5B567C482FAEABC1 /* NoticeSourceIndex.json in Resources */,
+				D4E5F60718293A4B5C6D7E8F /* Sounds in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -908,6 +909,8 @@
 				27494F7ABBEB25CC75180BEA /* MessageRow.swift in Sources */,
 				8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */,
 				9EA1559753114601BC02AC18 /* SnakeGameView.swift in Sources */,
+				E5F60718293A4B5C6D7E8F9A /* GameSoundPlayer.swift in Sources */,
+				F60718293A4B5C6D7E8F9A0B /* HandheldGameControls.swift in Sources */,
 				3AF7ADDA1EE83313DC02EAE0 /* NewMessagesDivider.swift in Sources */,
 				630543AFC2E0558CF3958272 /* NoticeInteractionLabView.swift in Sources */,
 				338520DCF09E9B94D45D925C /* NoticeLabView.swift in Sources */,
@@ -935,14 +938,11 @@
 				B7B0782C8B16AA06169F82C4 /* RobotAvatarSkinRendering.swift in Sources */,
 				6E1AFA1868BB4484555EBF0F /* RobotAvatarSpecialMotion.swift in Sources */,
 				230A19987E405EA66FC7446E /* RobotAvatarView.swift in Sources */,
-				1CC3CCC6F16D8B1C7931F023 /* ScheduledTaskDetailView.swift in Sources */,
 				1541AC55DC33581F6199CE18 /* SettingsView.swift in Sources */,
 				5F6CD1791885FBB08ADDE97B /* SpeakButton.swift in Sources */,
 				E15570FCCF2494DA42F7FA60 /* SpeechInput.swift in Sources */,
 				44EFC09AD100B1F489902DFB /* TaskApprovalView.swift in Sources */,
 				B3D99C106145F44A3CE739F8 /* TaskDetailView.swift in Sources */,
-				CA60B012B5F549D3CC5DCC4F /* TaskEditorView.swift in Sources */,
-				5F5972A4843DFE6F846122E1 /* TaskListView.swift in Sources */,
 				AF9CAF3360CE91944172C3E9 /* TetrisCompanionModel.swift in Sources */,
 				463F8513E6AB62BDE6C1B2EA /* TetrisCompanionViews.swift in Sources */,
 				5FC2583ADE983456227AE227 /* Theme.swift in Sources */,

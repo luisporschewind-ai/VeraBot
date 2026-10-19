@@ -27,10 +27,12 @@ extension View {
 }
 
 /// 游戏实体按键：保留系统 Button 的点击/无障碍行为，只在按下沿触发一次触感。
+/// `shape` 可替换为圆形 / 胶囊，供 A/B 面键与 START/SELECT 复用同一按压观感。
 struct GameButtonStyle: ButtonStyle {
     enum Tone { case standard, primary, secondary }
     var tone: Tone = .standard
     var heavyImpact = false
+    var shape: AnyShape = AnyShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(SettingsKeys.appearance) private var appearance = "system"
@@ -38,7 +40,7 @@ struct GameButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed && isEnabled
         let filled = tone == .primary && appearance != "native"
-        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
+        let shape = self.shape
         return configuration.label
             .foregroundStyle(filled ? Color.white : (tone == .primary ? Color.primary : Color.brand))
             .background(filled ? Color.brandFill : (tone == .secondary ? Color.brandSoft : Color.sectionFill), in: shape)

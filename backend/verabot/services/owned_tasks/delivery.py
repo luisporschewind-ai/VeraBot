@@ -26,6 +26,10 @@ def flush():
      if not store.notify_with_savepoint(c,publish_result):
       logging.getLogger(__name__).warning('notification delivery failed step=%s',sid)
     store.mark_delivered(c,sid,mid)
+    completed=(state=='completed')
+   if completed:
+    from ..items.sync import on_owned_completed
+    on_owned_completed(item['user_id'],item['task_id'])
   except Exception:logging.getLogger(__name__).warning('task delivery pending step=%s',sid)
 
  with db.tx(immediate=True) as c:

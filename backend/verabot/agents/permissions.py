@@ -3,7 +3,7 @@ from .. import db
 from ..tools.registry import REGISTRY
 
 
-REMINDER_TOOLS = {"create_reminder", "list_reminders", "manage_reminder"}
+REMINDER_TOOLS = {"create_reminder", "list_reminders", "manage_reminder", "propose_task"}
 
 
 def is_permitted(bot: dict, name: str, depth: int) -> tuple[bool, str]:

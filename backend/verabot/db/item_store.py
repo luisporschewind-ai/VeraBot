@@ -108,6 +108,54 @@ def set_item_fields(conn, rid: int, user_id: int, fields: dict) -> None:
     conn.execute(f"UPDATE reminders SET {sets} WHERE id=? AND user_id=?", (*fields.values(), rid, user_id))
 
 
+def set_task_link(conn, rid: int, user_id: int, kind: str, task_id: int, updated_at: str) -> None:
+    conn.execute(
+        "UPDATE reminders SET task_kind=?, task_id=?, updated_at=? WHERE id=? AND user_id=?",
+        (kind, task_id, updated_at, rid, user_id),
+    )
+
+
+def clear_task_link(conn, rid: int, user_id: int, updated_at: str) -> None:
+    conn.execute(
+        "UPDATE reminders SET task_kind=NULL, task_id=NULL, updated_at=? WHERE id=? AND user_id=?",
+        (updated_at, rid, user_id),
+    )
+
+
+def advance_due(conn, rid: int, user_id: int, due_at: str, due_utc: str, version: int,
+                updated_at: str) -> None:
+    conn.execute(
+        "UPDATE reminders SET due_at=?, due_utc=?, version=?, updated_at=? WHERE id=? AND user_id=?",
+        (due_at, due_utc, version, updated_at, rid, user_id),
+    )
+
+
+def scheduled_runs_history(conn, task_id: int, limit: int = 8) -> list[dict]:
+    return rows(conn.execute(
+        """SELECT state, finished_at, created_at FROM scheduled_task_runs
+           WHERE task_id=? AND state NOT IN ('queued','running','retry_wait','skipped')
+           ORDER BY id DESC LIMIT ?""",
+        (task_id, limit),
+    ).fetchall())
+
+
+def owned_steps_history(conn, task_id: int, limit: int = 8) -> list[dict]:
+    return rows(conn.execute(
+        """SELECT status, created_at FROM owned_steps
+           WHERE task_id=? AND status IN ('completed','failed','interrupted')
+           ORDER BY id DESC LIMIT ?""",
+        (task_id, limit),
+    ).fetchall())
+
+
+def owned_open_wait(conn, task_id: int):
+    return row(conn.execute(
+        """SELECT question, action_id FROM owned_waits
+           WHERE task_id=? AND resolved_at IS NULL ORDER BY id DESC LIMIT 1""",
+        (task_id,),
+    ).fetchone())
+
+
 def scheduled_task_row(conn, user_id: int, task_id: int):
     return row(conn.execute(
         "SELECT * FROM scheduled_tasks WHERE id=? AND user_id=? AND state!='deleted'",

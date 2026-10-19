@@ -14,6 +14,10 @@ struct ReminderDetailView: View {
     @State private var pendingDelete = false
     @State private var ownedTask: OwnedTask?
     @State private var errorText: String?
+    @State private var taskAnswer = ""
+    @State private var taskBusy = false
+    @State private var confirmTaskStop = false
+    @FocusState private var answerFocused: Bool
 
     var body: some View {
         ThemedForm {
@@ -64,22 +68,82 @@ struct ReminderDetailView: View {
                 }
                 if let task = item.task {
                     Section("Bot 任务") {
-                        LabeledContent("状态", value: task.status)
+                        HStack {
+                            Text("状态").foregroundStyle(.secondary)
+                            Spacer()
+                            Text(task.status)
+                                .font(.caption.weight(.medium))
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(Color.secondary.opacity(0.15), in: Capsule())
+                        }
                         if let next = task.nextRun {
                             LabeledContent("下次执行", value: next.formatted(date: .abbreviated, time: .shortened))
                         }
                         if let summary = task.lastResultSummary, !summary.isEmpty {
-                            Text(summary).font(.subheadline)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("最近结果").font(.caption).foregroundStyle(.secondary)
+                                Text(summary).font(.subheadline)
+                            }
+                            if let botID = task.botId ?? item.reminder.assigneeBotId {
+                                Button("查看全文") {
+                                    let query = task.messageId.map { "?message=\($0)" } ?? ""
+                                    dismiss()
+                                    Task { await app.open(link: "bot/\(botID)/chat\(query)") }
+                                }
+                            }
                         }
-                        if let botID = task.botId ?? item.reminder.assigneeBotId {
-                            Button("查看对话") {
-                                let query = task.messageId.map { "?message=\($0)" } ?? ""
-                                dismiss()
-                                Task { await app.open(link: "bot/\(botID)/chat\(query)") }
+                        if !task.history.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("执行记录").font(.caption).foregroundStyle(.secondary)
+                                ForEach(Array(task.history.enumerated()), id: \.offset) { _, entry in
+                                    HStack {
+                                        Image(systemName: entry.ok ? "checkmark.circle" : "xmark.circle")
+                                            .foregroundStyle(entry.ok ? .green : .red)
+                                        Text(entry.at?.formatted(date: .abbreviated, time: .shortened) ?? "")
+                                            .font(.caption)
+                                        Spacer()
+                                    }
+                                }
                             }
                         }
                         if task.needsUser, task.kind == "owned" {
-                            Button("去处理") { Task { await openOwned(task.id) } }
+                            if let question = task.waitQuestion, !question.isEmpty {
+                                Text(question).font(.subheadline)
+                            }
+                            if let actionID = task.waitActionId {
+                                NavigationLink("查看并确认操作") {
+                                    TaskApprovalView(actionID: actionID, onResolved: { Task { await load() } })
+                                }
+                            } else {
+                                TextField("补充材料或下一步安排", text: $taskAnswer, axis: .vertical)
+                                    .focused($answerFocused)
+                                Button("回复并继续") { Task { await answerTask(task.id) } }
+                                    .disabled(taskBusy || taskAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            }
+                        }
+                        // 任务操作（不暴露内部字段）
+                        HStack(spacing: 12) {
+                            if task.kind == "scheduled" {
+                                Button(task.statusKey == "pending" ? "暂停" : "继续") {
+                                    Task { await actTask(task.id, task.statusKey == "pending" ? "pause" : "resume") }
+                                }
+                                Button("立即执行") { Task { await actTask(task.id, "run") } }
+                            } else if task.kind == "owned" {
+                                if task.statusKey == "needs_user" || task.statusKey == "failed" {
+                                    Button("继续") { Task { await actTask(task.id, "continue") } }
+                                }
+                                if task.statusKey != "done" {
+                                    Button("停止", role: .destructive) { confirmTaskStop = true }
+                                }
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(taskBusy)
+                        .confirmationDialog("停止这项任务？", isPresented: $confirmTaskStop, titleVisibility: .visible) {
+                            Button("停止任务", role: .destructive) {
+                                if let task = item.task { Task { await actTask(task.id, "stop") } }
+                            }
+                            Button("取消", role: .cancel) {}
                         }
                     }
                 }
@@ -115,11 +179,14 @@ struct ReminderDetailView: View {
             NavigationStack { TaskDetailView(initial: task) }
         }
         .confirmationDialog("删除这条安排？", isPresented: $pendingDelete, titleVisibility: .visible) {
-            if item?.reminder.rrule != nil {
-                Button("仅删除这一次") { Task { await remove(scope: "occurrence") } }
-                Button("删除整个系列", role: .destructive) { Task { await remove(scope: "series") } }
+            if item?.hasTask == true {
+                Button("删除并停止 Bot 任务", role: .destructive) { Task { await remove(scope: "series", stopTask: true) } }
+                Button("仅删除事项") { Task { await remove(scope: "series", stopTask: false) } }
+            } else if item?.reminder.rrule != nil {
+                Button("仅删除这一次") { Task { await remove(scope: "occurrence", stopTask: false) } }
+                Button("删除整个系列", role: .destructive) { Task { await remove(scope: "series", stopTask: false) } }
             } else {
-                Button("删除", role: .destructive) { Task { await remove(scope: "series") } }
+                Button("删除", role: .destructive) { Task { await remove(scope: "series", stopTask: false) } }
             }
             Button("取消", role: .cancel) {}
         }
@@ -137,6 +204,10 @@ struct ReminderDetailView: View {
         do {
             item = try await app.api.item(id: itemID)
             errorText = nil
+            if app.pendingItemFocusTask {
+                app.pendingItemFocusTask = false
+                answerFocused = true
+            }
         } catch {
             errorText = app.message(for: error)
         }
@@ -159,8 +230,35 @@ struct ReminderDetailView: View {
         }
     }
 
-    private func remove(scope: String) async {
-        _ = try? await app.api.deleteReminder(itemID, scope: scope)
+    private func answerTask(_ taskID: Int) async {
+        taskBusy = true
+        defer { taskBusy = false }
+        do {
+            item = try await app.api.itemTaskAction(id: itemID, action: "input", message: taskAnswer)
+            taskAnswer = ""
+            await changed()
+        } catch {
+            errorText = app.message(for: error)
+        }
+    }
+
+    private func actTask(_ taskID: Int, _ action: String) async {
+        taskBusy = true
+        defer { taskBusy = false }
+        do {
+            item = try await app.api.itemTaskAction(id: itemID, action: action)
+            await changed()
+        } catch {
+            errorText = app.message(for: error)
+        }
+    }
+
+    private func remove(scope: String, stopTask: Bool) async {
+        do {
+            _ = try await app.api.deleteItem(itemID, scope: scope, stopTask: stopTask)
+        } catch {
+            _ = try? await app.api.deleteReminder(itemID, scope: scope)
+        }
         pendingDelete = false
         await changed()
         dismiss()

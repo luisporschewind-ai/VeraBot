@@ -1,5 +1,7 @@
 # 俄罗斯方块布局、玩法与 Bot 陪玩改版提案
 
+2026-10-19执行对齐：用户已将三项计划交DeepSeek Harness，确认昨晚执行结束。右侧Bot与掌机/音效首版已有代码并合main；Core规则提取、规则升级与新陪玩调度未见完整交付。下文为原讨论来源，当前状态以[总账](../tasks/2026-10-18-game-upgrade-progress.md)、[核对证据](../tasks/2026-10-19-game-plans-progress-audit.md)与[本地实施计划](../superpowers/plans/2026-10-18-tetris-local-upgrade.md)为准，不把运行结束或界面落地等同全方案完成。
+
 日期：2026-10-18。状态：第一版讨论稿，供用户评审；新增玩法与云端接管尚未实现。用户随后明确要求先去掉顶部卡片、移到右侧；仅该位置调整已进入实现，见 [任务记录](../tasks/2026-10-18-tetris-companion-right-side.md)。
 
 当日补充：用户进一步要求 Bot 可接管当前一局，并明确离开 App 或锁屏后也需继续。新增机制见 [Bot 云端接管提案](2026-10-18-tetris-bot-takeover-proposal.md)；以下暂停约定按“玩家控制”和“云端接管”区分，接管仍为待评审方案。

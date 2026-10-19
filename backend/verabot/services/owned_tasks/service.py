@@ -50,9 +50,10 @@ def submit_input(uid,tid,payload,key,version):
 def check_version(t,v):
  if t['version']!=v:raise TaskError('version_conflict','任务已更新，请刷新',409)
 def control(uid,tid,action,version,bot_id=None):
+ ended=False
  with db.tx(immediate=True) as c:
   t=require(c,uid,tid);check_version(t,version)
-  if action=='stop':t=store.invalidate(c,t,'stopped','user_stopped')
+  if action=='stop':t=store.invalidate(c,t,'stopped','user_stopped');ended=True
   elif action in ('continue','transfer'):
    if t['state'] not in ('stopped','failed','interrupted','awaiting_user'):raise TaskError('invalid_state','当前任务不能继续或移交',409)
    if not primary_bot.get(uid)['active_enabled']:raise TaskError('active_disabled','主动任务已关闭',409)
@@ -71,7 +72,11 @@ def control(uid,tid,action,version,bot_id=None):
    store.reset_chain(c,tid)
    store.enqueue(c,t,{'continued':True})
   else:raise TaskError('invalid_action','无效操作',422)
-  return public(c,t)
+  result=public(c,t)
+ if ended:
+  from ..items.sync import on_task_ended
+  on_task_ended(uid,'owned',tid)
+ return result
 def events(uid,tid,after):
  with db.tx() as c:
   require(c,uid,tid)
