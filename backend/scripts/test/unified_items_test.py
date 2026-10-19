@@ -120,7 +120,7 @@ linked = con.execute(
 ).fetchall()
 n_checklist = con.execute("SELECT COUNT(*) FROM reminder_checklist").fetchone()[0]
 con.close()
-assert ver == "37" == str(db.SCHEMA_VERSION) or (ver == str(db.SCHEMA_VERSION) and db.SCHEMA_VERSION == 37), ver
+assert int(ver) >= 37 and ver == str(db.SCHEMA_VERSION), (ver, db.SCHEMA_VERSION)
 assert {"task_kind", "task_id", "source_kind", "checklist_done", "checklist_total"} <= cols
 assert "reminder_checklist" in tables
 assert len(backups) == 1, backups

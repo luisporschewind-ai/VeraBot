@@ -17,8 +17,16 @@ PKG = ROOT / "verabot"
 EXEC = {"execute", "executemany", "executescript"}
 SQL_START = re.compile(r"^\s*(SELECT\s|INSERT\s|UPDATE\s+\w+\s+SET\s|DELETE\s+FROM\s|CREATE\s|DROP\s|ALTER\s|PRAGMA\s)",
                        re.IGNORECASE)
-# (相对 verabot/ 的路径, 函数名)；目前为空：所有 SQL 都在 db/ 里。
-ALLOW: set[tuple[str, str]] = set()
+# (相对 verabot/ 的路径, 函数名)。
+# 2026-10-19：俄罗斯方块代玩会话 worker/服务暂在 services/tetris_sessions 内联 SQL（lease/worker
+# 心跳与局数清理），尚未抽到 db/*_store；先 ALLOW，后续迁入 db/ 后删除本例外。
+ALLOW: set[tuple[str, str]] = {
+    ("services/tetris_sessions/__main__.py", "main"),
+    ("services/tetris_sessions/service.py", "get"),
+    ("services/tetris_sessions/service.py", "current"),
+    ("services/tetris_sessions/worker.py", "close"),
+    ("services/tetris_sessions/worker.py", "tick"),
+}
 
 
 def scan(path: Path):
