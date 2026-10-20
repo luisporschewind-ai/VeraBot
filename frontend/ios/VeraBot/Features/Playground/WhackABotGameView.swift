@@ -271,7 +271,7 @@ private struct WhackABotHole: View {
     let onTap: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var tint: Color { holeColor?.color ?? Color.secondary }
+    private var tint: Color { holeColor?.color ?? Color(red: 0.22, green: 0.19, blue: 0.28) }
     private var reveal: CGFloat {
         guard let target else { return 0 }
         guard !reduceMotion else { return 1 }
@@ -288,11 +288,15 @@ private struct WhackABotHole: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 18)
                         .fill(Color.sectionFill.opacity(0.75))
-                    // Far rim and the shaded interior sit behind the Bot.
+                    // A colored inner wall with an inset shadow reads as a recess, not a raised ring.
                     Ellipse()
-                        .fill(LinearGradient(colors: [.black.opacity(0.72), .black.opacity(0.30)],
-                                             startPoint: .top, endPoint: .bottom))
-                        .overlay { Ellipse().strokeBorder(tint.opacity(holeColor == nil ? 0.45 : 0.95), lineWidth: 3) }
+                        .fill(tint.shadow(.inner(color: .black.opacity(0.75), radius: side * 0.055,
+                                                 x: 0, y: side * 0.035)))
+                        .overlay {
+                            Ellipse().fill(LinearGradient(colors: [.black.opacity(0.28), .clear],
+                                                          startPoint: .top, endPoint: .bottom))
+                        }
+                        .overlay { Ellipse().strokeBorder(.black.opacity(0.18), lineWidth: 0.5) }
                         .frame(width: side * 0.84, height: side * 0.28)
                         .position(x: side / 2, y: side * 0.76)
                     ZStack {
@@ -308,7 +312,9 @@ private struct WhackABotHole: View {
                     .mask(WhackABotOpeningMask())
                     // The near edge overlaps the lower face, establishing depth.
                     WhackABotNearRim()
-                        .stroke(tint.opacity(holeColor == nil ? 0.6 : 1), style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                        .stroke(LinearGradient(colors: [tint.opacity(0.12), tint.opacity(0.55), tint.opacity(0.12)],
+                                               startPoint: .leading, endPoint: .trailing),
+                                style: StrokeStyle(lineWidth: 1, lineCap: .butt))
                         .allowsHitTesting(false)
                     if let holeColor {
                         Text(holeColor.name)
@@ -328,7 +334,7 @@ private struct WhackABotHole: View {
             .aspectRatio(1, contentMode: .fit)
             .contentShape(RoundedRectangle(cornerRadius: 18))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(WhackABotHoleStyle())
         .animation(reduceMotion ? nil : .linear(duration: 0.05), value: elapsedMilliseconds)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
@@ -341,6 +347,11 @@ private struct WhackABotHole: View {
         if let points = target.pointsAwarded { return opening + (points > 0 ? "，已得分" : "，已扣分") }
         return opening + "，\(target.color.name)小 Bot 探头"
     }
+}
+
+/// Disabled holes remain visually solid; pause should stop input without making the Bot transparent.
+private struct WhackABotHoleStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { configuration.label }
 }
 
 private struct WhackABotOpeningMask: Shape {
