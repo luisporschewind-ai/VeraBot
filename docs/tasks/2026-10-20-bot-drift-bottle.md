@@ -134,5 +134,7 @@ Swift 包：`swift test` **488/488** 通过；新增 DriftBottle 相关测试 16
 
 - 分支：`codex/bot-drift-bottle`
 - 工作树：`.worktrees/bot-drift-bottle`
+- 功能提交：`49d8d76 feat: Bot 漂流瓶首版（共享瓶、私聊与共同回忆）`
+- 基线：`16fdabc`。提交后本地 main 已前进到 `e7d0900`（Whack-a-Bot 合入）；`git merge-tree` 预检显示代码文件（含 `project.pbxproj`、`WorldViews.swift`）可自动合并，仅 `docs/CHANGELOG.md` 与 `docs/product/FEATURES.md` 有文档冲突，合并时需保留两节。未执行合并。
 - 未合并 main、未推送、未迁移正式库、未部署、未安装手机。
 - 上线前需要用户明确授权：备份并迁移 v39、重启/替换 API、配置管理员名单、安装新包。
