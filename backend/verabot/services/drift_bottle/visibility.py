@@ -18,14 +18,11 @@ PLACEHOLDER_BLOCKED = "你已屏蔽这位投稿者"
 
 
 def _blocked_authors(c, user_id: int) -> set[int]:
-    rows = c.execute("SELECT blocked_user_id FROM drift_bottle_blocks WHERE user_id=?", (user_id,)).fetchall()
-    return {int(row[0]) for row in rows}
+    return store.blocked_author_ids(c, user_id)
 
 
 def _report_hidden(c, user_id: int) -> set[int]:
-    rows = c.execute("SELECT contribution_id FROM drift_bottle_report_hides WHERE user_id=?",
-                     (user_id,)).fetchall()
-    return {int(row[0]) for row in rows}
+    return store.report_hidden_contribution_ids(c, user_id)
 
 
 def public_contribution(c, user_id: int, row: dict, *, blocked: set[int] | None = None,

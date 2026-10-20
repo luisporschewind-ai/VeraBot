@@ -628,3 +628,14 @@ def cleanup_user(c, user_id: int, now: float):
     c.execute("DELETE FROM drift_bottle_reads WHERE user_id=?", (user_id,))
     c.execute("UPDATE drift_bottles SET origin_user_id=NULL,origin_bot_id=NULL WHERE origin_user_id=?",
               (user_id,))
+
+
+def blocked_author_ids(c, user_id: int) -> set[int]:
+    rows = c.execute("SELECT blocked_user_id FROM drift_bottle_blocks WHERE user_id=?", (user_id,)).fetchall()
+    return {int(row[0]) for row in rows}
+
+
+def report_hidden_contribution_ids(c, user_id: int) -> set[int]:
+    rows = c.execute("SELECT contribution_id FROM drift_bottle_report_hides WHERE user_id=?",
+                     (user_id,)).fetchall()
+    return {int(row[0]) for row in rows}
