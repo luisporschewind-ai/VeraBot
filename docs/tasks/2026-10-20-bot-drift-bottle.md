@@ -2,7 +2,7 @@
 
 ## 状态
 
-**实现完成，隔离环境验证完成，已合入本地 Main，待用户在主分支人工验收。** 未推送、未迁移正式数据库、未替换正式服务、未安装到手机。
+**实现完成，隔离环境验证完成，已合入本地 Main，正式库已备份并迁移 v39，Main API 已重启，模拟器已安装最终包，待用户在主分支人工验收。** 未推送、未安装到手机。
 
 - 设计：[已确认设计](../superpowers/specs/2026-10-19-bot-drift-bottle-design.md)
 - 计划：[执行计划](../superpowers/plans/2026-10-20-bot-drift-bottle.md)
@@ -103,7 +103,7 @@ Swift 包：`swift test` **488/488** 通过；新增 DriftBottle 相关测试 16
 - 临时 XCUITest（不提交）在 iPhone 17 Pro / iOS 26 模拟器跑通：
   登录 → 游乐场 → Bot 漂流瓶 → 捞瓶 → 阅读 → Bot opening → 私人聊天 → 留言 → 公开预览 → 放漂 → Bot 整理回忆 → 足迹 → 记录详情，**1/1 通过**。
 - 截图证据：[首页](../../assets/screenshots/ios/2026-10-20-drift-bottle/01-home.png)、[阅读](../../assets/screenshots/ios/2026-10-20-drift-bottle/02-reading.png)、[私聊](../../assets/screenshots/ios/2026-10-20-drift-bottle/03-private-chat.png)、[公开预览](../../assets/screenshots/ios/2026-10-20-drift-bottle/04-public-preview.png)、[回忆](../../assets/screenshots/ios/2026-10-20-drift-bottle/05-memory.png)、[足迹](../../assets/screenshots/ios/2026-10-20-drift-bottle/06-records.png)、[记录详情](../../assets/screenshots/ios/2026-10-20-drift-bottle/07-record-detail.png)。
-- 手动测试环境：临时 `8765` 测试后端已按用户要求停止；最终包仍安装在 iPhone 17 Pro 模拟器。用户将在本地 Main 上验证；Main 正式库仍为 v38，验证前需按部署决定启动 v39 后端或指向隔离库。
+- 手动测试环境：Main 正式库已迁移 v39，Main API 已重启在 `http://127.0.0.1:8000`；iPhone 17 Pro 模拟器已安装 Main 构建并指向该地址，可用正式库已有账号 `demo` 登录（密码沿用原环境）。临时 `8765` 测试后端已停止。
 
 ### 真实模型
 
@@ -119,12 +119,21 @@ Swift 包：`swift test` **488/488** 通过；新增 DriftBottle 相关测试 16
 
 用临时数据库验证：创建举报 → `--action hide` → 投稿 `hidden`、举报 `hidden`、审计行记录 `admin_user_id/action/reason`。未配置管理员身份时拒绝执行。
 
+## 正式库迁移与模拟器安装（2026-10-20）
+
+- 迁移前停止现有 API，备份正式库：
+  `backend/data/verabot.db.bak-before-v39-20261020-134818`（2.2 MB，权限 600）。
+- 迁移前后核心数据量保持不变：users 22、bots 112、messages 213、memories 14、feed_items 20、tetris_sessions 0；v39 漂流瓶表初始均为 0。
+- 迁移后 `schema_meta.version=39`，`PRAGMA integrity_check=ok`，`foreign_key_check` 无结果。
+- Main API 已用 Main 代码重启（PID 69701，`0.0.0.0:8000`）；`GET /api/health` 返回 ok；未登录访问漂流瓶 state 为 401；`demo` 账号登录后 state 200、上限 50、records 0。
+- Main 构建通过并安装到 iPhone 17 Pro / iOS 26 模拟器；App 服务器地址 `http://127.0.0.1:8000`，启动到登录页。
+- 正式库中暂无漂流瓶数据；人工验收可从“写一个新瓶”开始，跨账号捞瓶需第二个账号先放漂。
+
 ## 已知限制 / 待验
 
 - **人工验收未完成**：用户尚未在模拟器/真机点击体验、判断 Bot 语气与回忆卡质量。
 - **真机未安装**：按用户要求不安装到手机；正式签名/安装待用户指示。
-- **正式数据库未迁移**：本机正式库仍为 v38；v39 只在临时测试库和构建中验证。
-- **正式服务未替换**：未部署 v39 后端，未配置正式管理员名单。
+- **正式服务已用 Main 代码重启**（v39）；尚未配置正式管理员名单，管理员 CLI 需先设置 `VERABOT_DRIFT_BOTTLE_ADMINS`。
 - **没有账号删除 API**：当前产品没有删除账号入口；已实现触发器与 `cleanup_user`，并通过直接删除用户行验证。以后接入账号删除时必须调用/验证该路径。
 - **管理员仅 CLI**：首版不含运营后台；管理员名单通过环境变量配置。
 - **UI 自动测试工程未提交**：临时 XCUITest 项目用于本次证据，未进入仓库；可访问标识已保留，便于后续正式 UI 测试。
@@ -136,7 +145,7 @@ Swift 包：`swift test` **488/488** 通过；新增 DriftBottle 相关测试 16
 - 分支：`codex/bot-drift-bottle`
 - 工作树：`.worktrees/bot-drift-bottle`
 - 功能提交：`49d8d76 feat: Bot 漂流瓶首版（共享瓶、私聊与共同回忆）`
-- 已合入本地 Main（merge commit 见 `git log`）。
-- 基线：`16fdabc`。提交后本地 main 已前进到 `e7d0900`（Whack-a-Bot 合入）；`git merge-tree` 预检显示代码文件（含 `project.pbxproj`、`WorldViews.swift`）可自动合并，仅 `docs/CHANGELOG.md` 与 `docs/product/FEATURES.md` 有文档冲突，合并时需保留两节。未执行合并。
-- 已合入本地 main；未推送、未迁移正式库、未部署、未安装手机。
-- 上线前需要用户明确授权：备份并迁移 v39、重启/替换 API、配置管理员名单、安装新包。
+- 合并提交：`ca9d3dc merge: Bot 漂流瓶首版合入本地 Main`。
+- 基线 `16fdabc`；合并时本地 main 已前进到 `e7d0900`（Whack-a-Bot）。代码文件自动合并，`docs/CHANGELOG.md` 与 `docs/product/FEATURES.md` 的文档冲突已手工保留两节。
+- 已迁移正式库并重启 Main API；iPhone 17 Pro 模拟器已安装；未推送、未安装手机。
+- 剩余需用户决定：配置 `VERABOT_DRIFT_BOTTLE_ADMINS`、是否推送、是否安装到手机。

@@ -4,7 +4,7 @@
 
 schema v39 新增 `/api/games/drift-bottle/*`：共享文字瓶、私有相遇、公开投稿、回忆卡、撤回/举报/屏蔽、幂等操作与生成锁。业务路由只做鉴权和错误映射，规则在 `services/drift_bottle/`，SQL 在 `db/drift_bottle_store.py`。模型只返回私人文字，不能发布或改变租约。
 
-举报处理由受限 CLI `scripts/drift_bottle_admin.py` 执行，管理员名单来自 `VERABOT_DRIFT_BOTTLE_ADMINS`；详见[操作说明](../docs/tasks/2026-10-20-bot-drift-bottle-admin.md)。正式数据库未迁移，部署前先备份并在副本演练 v39。
+举报处理由受限 CLI `scripts/drift_bottle_admin.py` 执行，管理员名单来自 `VERABOT_DRIFT_BOTTLE_ADMINS`；详见[操作说明](../docs/tasks/2026-10-20-bot-drift-bottle-admin.md)。正式数据库已于 2026-10-20 备份并迁移 v39，Main API 已重启；回滚备份见任务记录。
 
 ## 个性化 Feed 后台（2026-10-17，未发布）
 

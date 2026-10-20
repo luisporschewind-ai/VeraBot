@@ -10,7 +10,7 @@
 
 **Spec:** [已确认设计](../specs/2026-10-19-bot-drift-bottle-design.md)。用户于 2026-10-20 确认整份方案，包括每瓶最多 50 条公开投稿；并非改为无限留言。
 
-状态：已按计划在 `codex/bot-drift-bottle` 隔离工作树实现；自动测试、模拟器构建与临时 UI 全流程、隔离真实模型验证完成，已合入本地 Main；未推送、未迁移正式库，人工验收待用户。执行记录见[任务记录](../../tasks/2026-10-20-bot-drift-bottle.md)。
+状态：已按计划在 `codex/bot-drift-bottle` 隔离工作树实现；自动测试、模拟器构建与临时 UI 全流程、隔离真实模型验证完成，已合入本地 Main，正式库已备份并迁移 v39，Main API 已重启，模拟器已安装；未推送、未安装手机，人工验收待用户。执行记录见[任务记录](../../tasks/2026-10-20-bot-drift-bottle.md)。
 
 ## Global Constraints
 

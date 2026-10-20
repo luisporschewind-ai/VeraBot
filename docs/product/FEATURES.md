@@ -10,7 +10,7 @@
 - 回忆：本功能独立保存，来源本次已读内容、实际对话和公开留言；放漂先落事实卡，有私聊时完成页尝试升级为 Bot 摘要，失败保留事实卡。
 - 审核：撤回、举报、屏蔽；举报即时对举报者隐藏并进入待处理队列，管理员 CLI 可 keep/hide/restore 并写审计。
 - API 前缀 `/api/games/drift-bottle`：`GET /state`、`POST /bottles`、`POST /draft-suggestions`、`POST /encounters`、`GET /encounters/{id}`、`POST /encounters/{id}/turns`、`POST /encounters/{id}/release`、`GET /records`、`GET /records/{id}`、`POST /encounters/{id}/memory`、`PATCH /records/{id}/memory`、`DELETE /records/{id}`、`DELETE /records/{id}/memory`、`POST /contributions/{id}/withdraw`、`POST /reports`、`POST /blocks`、`GET /operations/{request_id}`。
-- schema v39；已合入本地 Main。正式数据库未迁移、服务未部署、App 未安装手机；人工验收待用户。详见[任务记录](../tasks/2026-10-20-bot-drift-bottle.md)。
+- schema v39；已合入本地 Main，正式数据库已备份并迁移 v39，Main API 已重启，iOS 模拟器已安装；未推送、未安装手机。人工验收待用户。详见[任务记录](../tasks/2026-10-20-bot-drift-bottle.md)。
 
 ## Bot 个性化 Feed（2026-10-17，未发布工作区）
 
