@@ -107,6 +107,11 @@ MEMORY_VECTOR_DIM = 512
 MEMORY_VECTOR_MIN_SIMILARITY = float(os.getenv("VERABOT_MEMORY_VECTOR_MIN_SIMILARITY", "0.25"))
 MEMORY_VECTOR_THREADS = max(1, int(os.getenv("VERABOT_MEMORY_VECTOR_THREADS", "2")))
 
+# ---- Bot 漂流瓶（schema v39）----
+# 管理员处理举报的账号 ID（逗号分隔）。默认空：任何人都不能通过 CLI 处理举报。
+DRIFT_BOTTLE_ADMINS = {int(value) for value in os.getenv("VERABOT_DRIFT_BOTTLE_ADMINS", "").split(",")
+                       if value.strip().isdigit()}
+
 # ---- MCP（schema v8，见 docs/design/MCP_CAPABILITY.md）----
 # 地址、超时、重试与熔断都在调用时读取环境变量，测试可以在导入之后再改。
 # 默认请求协议 2025-06-18；服务器若协商更低版本（如 AWS 的 2025-03-26），客户端接受并在后续请求带上。

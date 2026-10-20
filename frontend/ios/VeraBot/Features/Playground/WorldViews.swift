@@ -11,6 +11,7 @@ struct PlaygroundView: View {
     @State private var showingSnake = false
     @State private var showingWhackABot = false
     @State private var showingTravel = false
+    @State private var showingDriftBottle = false
     @State private var gameAssistant: Bot?
     @State private var assistantChat: Bot?
     @State private var openingAssistant = false
@@ -89,6 +90,10 @@ struct PlaygroundView: View {
             }
             .navigationDestination(isPresented: $showingTravel) {
                 BotTravelStartView()
+                    .toolbar(.hidden, for: .tabBar)
+            }
+            .navigationDestination(isPresented: $showingDriftBottle) {
+                DriftBottleHomeView()
                     .toolbar(.hidden, for: .tabBar)
             }
         }
@@ -174,6 +179,7 @@ struct PlaygroundView: View {
         case .snake: showingSnake = true
         case .whackABot: showingWhackABot = true
         case .travel: showingTravel = true
+        case .driftBottle: showingDriftBottle = true
         case .sudoku: showingSudoku = true
         }
     }
@@ -204,10 +210,10 @@ private struct PlaygroundFeature: Identifiable {
                           title: "推箱子", subtitle: "规划每一步，把箱子推到目标点。",
                           glyph: .symbol("shippingbox.fill"), action: "推一局",
                           colors: [Color.brandAccent, Color.brandFill]),
-        PlaygroundFeature(id: "drift-bottle", game: nil, badge: "Bot 互动", badgeSymbol: "paperplane",
-                          title: "Bot 漂流瓶", subtitle: "写下一句话，看看会漂到哪位 Bot 那里。",
-                          glyph: .symbol("paperplane.fill"), action: "敬请期待",
-                          colors: [Color.brandFill.opacity(0.75), Color.brandAccent.opacity(0.75)])
+        PlaygroundFeature(id: "drift-bottle", game: .driftBottle, badge: "Bot 同行", badgeSymbol: "paperplane",
+                          title: "Bot 漂流瓶", subtitle: "和 Bot 一起读一封陌生人的来信，留下共同回忆。",
+                          glyph: .symbol("paperplane.fill"), action: "去海边看看",
+                          colors: [Color.brandFill.opacity(0.85), Color.brandAccent.opacity(0.85)])
     ]
 
     static var featuredGames: Set<PlaygroundGame> { Set(all.compactMap(\.game)) }
@@ -230,6 +236,7 @@ private struct FeaturedGamesCarousel: View {
                 }
                 .scrollTargetLayout()
             }
+            .accessibilityIdentifier("playground.features")
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $currentID)
 
@@ -253,6 +260,7 @@ private struct FeaturedGamesCarousel: View {
         if let game = feature.game {
             Button { onOpen(game) } label: { FeatureCard(feature: feature) }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("playground.feature.\(feature.id)")
         } else {
             FeatureCard(feature: feature)
                 .accessibilityHint("即将推出")
@@ -639,6 +647,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
     case snake
     case whackABot
     case travel
+    case driftBottle
 
     var id: String { rawValue }
 
@@ -651,6 +660,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
         case .snake: "贪吃蛇"
         case .whackABot: "打地鼠 · 小 Bot 版"
         case .travel: "Bot 旅行"
+        case .driftBottle: "Bot 漂流瓶"
         }
     }
 
@@ -663,6 +673,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
         case .snake: "point.topleft.down.to.point.bottomright.curvepath"
         case .whackABot: "hand.tap"
         case .travel: "map"
+        case .driftBottle: "water.waves"
         }
     }
 
@@ -675,6 +686,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
         case .snake: "滑动转向、吃食物长大，留意边界和自己的身体。"
         case .whackABot: "小 Bot 从洞里探头，点一点，挑战 60 秒手速。"
         case .travel: "派一位 Bot 出发，隔一段时间收获旅札和纪念卡。"
+        case .driftBottle: "和你的 Bot 一起读真实共享的文字瓶，聊聊感受，再决定留下什么。"
         }
     }
 
@@ -687,6 +699,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
         case .snake: "离线也能开局；支持方向键、暂停和重开，慢慢挑战本机最佳。"
         case .whackABot: "九宫格里找小 Bot；点中加 10 分，支持暂停、重开和本机最佳。"
         case .travel: "选择真实城市和探索主题；旅程分阶段揭晓，归来后旅札与纪念卡收进旅行相册。"
+        case .driftBottle: "捞取别人公开放在瓶里的文字，和 Bot 私下交流；只有你确认的留言会随瓶继续漂流。"
         }
     }
 }

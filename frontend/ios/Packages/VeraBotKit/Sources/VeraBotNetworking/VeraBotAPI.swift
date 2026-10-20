@@ -2,7 +2,7 @@ import Foundation
 import VeraBotCore
 
 /// VeraBot 后端 API 抽象（Service protocol）。App 只依赖此协议，便于替换实现（Mock / 预览 / 其他传输层）。
-public protocol VeraBotAPI: TetrisSessionAPI {
+public protocol VeraBotAPI: TetrisSessionAPI, DriftBottleAPI {
     func submitChatInput(botID: Int, input: ChatInputRequest) async throws -> ChatInputReceipt
     func chatInputReceipt(botID: Int, requestID: String) async throws -> ChatInputReceipt
     func chatExecution(botID: Int) async throws -> ChatExecutionSnapshot

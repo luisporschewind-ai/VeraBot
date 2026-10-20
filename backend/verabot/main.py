@@ -123,3 +123,7 @@ app.include_router(feed.router)
 # Tetris API only persists commands; its independent worker is never started here.
 from .api.routers import tetris_sessions
 app.include_router(tetris_sessions.router)
+
+# Bot 漂流瓶：共享文字瓶 + 私下同行交流。模型调用不改变流转状态。
+from .api.routers import drift_bottle
+app.include_router(drift_bottle.router)
