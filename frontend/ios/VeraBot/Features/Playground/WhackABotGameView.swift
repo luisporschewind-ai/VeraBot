@@ -22,7 +22,7 @@ struct WhackABotGameView: View {
                     Text("困难模式").tag(WhackABotGame.Mode.hard)
                 }
                 .pickerStyle(.segmented)
-                .disabled(game.phase == .running || game.phase == .paused)
+                .accessibilityHint("切换模式会清空本局，回到准备状态")
                 .accessibilityIdentifier("whack-bot-mode")
                 HStack {
                     statistic("得分", value: "\(game.score)")
@@ -134,14 +134,13 @@ struct WhackABotGameView: View {
             }
         }
         .padding(14)
-        .background(Color.brandSoft.opacity(0.55), in: RoundedRectangle(cornerRadius: 26))
         .overlay {
             if game.phase != .running {
                 VStack(spacing: 5) {
                     Text(overlayTitle).font(.subheadline.weight(.semibold))
                     Text(overlayDetail)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 14)
@@ -149,8 +148,7 @@ struct WhackABotGameView: View {
                 .frame(maxWidth: 270)
                 .background {
                     RoundedRectangle(cornerRadius: 18)
-                        .fill(.ultraThinMaterial)
-                        .opacity(0.45)
+                        .fill(.regularMaterial)
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 18)
@@ -271,7 +269,7 @@ private struct WhackABotHole: View {
     let onTap: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var tint: Color { holeColor?.color ?? Color(red: 0.22, green: 0.19, blue: 0.28) }
+    private var tint: Color { holeColor?.color ?? Color(red: 0.66, green: 0.66, blue: 0.70) }
     private var reveal: CGFloat {
         guard let target else { return 0 }
         guard !reduceMotion else { return 1 }
@@ -286,17 +284,15 @@ private struct WhackABotHole: View {
             GeometryReader { proxy in
                 let side = proxy.size.width
                 ZStack {
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(Color.sectionFill.opacity(0.75))
                     // A colored inner wall with an inset shadow reads as a recess, not a raised ring.
                     Ellipse()
-                        .fill(tint.shadow(.inner(color: .black.opacity(0.75), radius: side * 0.055,
+                        .fill(tint.shadow(.inner(color: .black.opacity(holeColor == nil ? 0.22 : 0.75), radius: side * 0.055,
                                                  x: 0, y: side * 0.035)))
                         .overlay {
-                            Ellipse().fill(LinearGradient(colors: [.black.opacity(0.28), .clear],
+                            Ellipse().fill(LinearGradient(colors: [.black.opacity(holeColor == nil ? 0.06 : 0.28), .clear],
                                                           startPoint: .top, endPoint: .bottom))
                         }
-                        .overlay { Ellipse().strokeBorder(.black.opacity(0.18), lineWidth: 0.5) }
+                        .overlay { Ellipse().strokeBorder(.black.opacity(holeColor == nil ? 0.08 : 0.18), lineWidth: 0.5) }
                         .frame(width: side * 0.84, height: side * 0.28)
                         .position(x: side / 2, y: side * 0.76)
                     ZStack {
@@ -389,7 +385,7 @@ private struct WhackABotRulesView: View {
                         Text("困难模式：洞口每局开始时随机配色，局内固定。只有 Bot 与所在洞口颜色相同才加 10 分；点中异色 Bot 扣 10 分，最低 0 分。洞口下方标有颜色名。")
                     }
                     Text("每过 20 秒节奏加快，同时探头的小 Bot 最多为 1、2、3 个。空点和漏掉都不扣分。")
-                    Text("命中率 = 得分命中次数 ÷ 点击次数；空点、重复点已判定的 Bot 均不扣分，但计入点击次数。普通、困难模式分别保存本机最佳，困难模式按本局结束时的得分记录；一局结束后可以切换模式。")
+                    Text("命中率 = 得分命中次数 ÷ 点击次数；空点、重复点已判定的 Bot 均不扣分，但计入点击次数。普通、困难模式分别保存本机最佳，困难模式按本局结束时的得分记录；随时可切换模式；切换会清空本局并回到准备状态。")
                 }
                 Section("随时休息") {
                     Text("可暂停、继续或重开；打开玩法、离开页面、切到后台或锁屏会暂停，回来后手动继续。")

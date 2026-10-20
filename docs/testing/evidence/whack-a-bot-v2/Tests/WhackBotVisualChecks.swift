@@ -21,7 +21,7 @@ final class WhackBotVisualChecks: XCTestCase {
         capture(app, "hard-ready")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "最低 0 分")).firstMatch.exists)
         primary.tap()
-        XCTAssertFalse(mode.isEnabled)
+        XCTAssertTrue(mode.isEnabled)
         capture(app, "hard-running")
         primary.tap()
         XCTAssertEqual(primary.label, "继续")
