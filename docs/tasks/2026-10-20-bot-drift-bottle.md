@@ -103,6 +103,7 @@ Swift 包：`swift test` **488/488** 通过；新增 DriftBottle 相关测试 16
 - 临时 XCUITest（不提交）在 iPhone 17 Pro / iOS 26 模拟器跑通：
   登录 → 游乐场 → Bot 漂流瓶 → 捞瓶 → 阅读 → Bot opening → 私人聊天 → 留言 → 公开预览 → 放漂 → Bot 整理回忆 → 足迹 → 记录详情，**1/1 通过**。
 - 截图证据：[首页](../../assets/screenshots/ios/2026-10-20-drift-bottle/01-home.png)、[阅读](../../assets/screenshots/ios/2026-10-20-drift-bottle/02-reading.png)、[私聊](../../assets/screenshots/ios/2026-10-20-drift-bottle/03-private-chat.png)、[公开预览](../../assets/screenshots/ios/2026-10-20-drift-bottle/04-public-preview.png)、[回忆](../../assets/screenshots/ios/2026-10-20-drift-bottle/05-memory.png)、[足迹](../../assets/screenshots/ios/2026-10-20-drift-bottle/06-records.png)、[记录详情](../../assets/screenshots/ios/2026-10-20-drift-bottle/07-record-detail.png)。
+- 手动测试环境：最终包已安装到 iPhone 17 Pro 模拟器；App 服务器地址为 `http://127.0.0.1:8765`，使用 `/tmp/verabot-drift-manual/verabot.db` 的隔离后端（真实模型），账号 `demo / verabot2026`，已预先放漂一封来自 `reader` 的信。该进程只监听本机、不接正式库；正式库仍为 v38。
 
 ### 真实模型
 
