@@ -1,5 +1,11 @@
 # VeraBot Backend (后端) — v0.1.0
 
+## Bot 漂流瓶后台（2026-10-20，未发布工作区）
+
+schema v39 新增 `/api/games/drift-bottle/*`：共享文字瓶、私有相遇、公开投稿、回忆卡、撤回/举报/屏蔽、幂等操作与生成锁。业务路由只做鉴权和错误映射，规则在 `services/drift_bottle/`，SQL 在 `db/drift_bottle_store.py`。模型只返回私人文字，不能发布或改变租约。
+
+举报处理由受限 CLI `scripts/drift_bottle_admin.py` 执行，管理员名单来自 `VERABOT_DRIFT_BOTTLE_ADMINS`；详见[操作说明](../docs/tasks/2026-10-20-bot-drift-bottle-admin.md)。正式数据库未迁移，部署前先备份并在副本演练 v39。
+
 ## 个性化 Feed 后台（2026-10-17，未发布）
 
 独立Feed模块及v36迁移位于personal-feed工作区；使用 `/api/feed/*` 管理关注计划、来源、阅读状态和引用草稿。先初始化明确指定的隔离数据库，再单独运行 `python -m verabot.services.feed`；worker不负责迁移，普通API启动沿用现有迁移行为，因此不要把未评审部署指向正式库。本机fake-IP DNS环境显式使用 `VERABOT_FEED_DOH=1`。
@@ -27,7 +33,7 @@ FastAPI + SQLite 的 VeraBot 服务端：账号、Bot 管理、SSE 流式对话�
 2. **Python**：按 `.python-version` (3.12) 由 uv 安装；失败时用 npmmirror 镜像 (`UV_PYTHON_INSTALL_MIRROR`)。
 3. **依赖**：`uv sync --frozen --no-dev`，严格按 `uv.lock` 安装到 `.venv/`；失败 (或 `VERABOT_FORCE_MIRROR=1`) 时改用清华 tuna 镜像 (`UV_INDEX_URL`，可用 `VERABOT_PYPI_MIRROR` 覆盖) 按 `requirements.txt` (同样锁定版本) 安装。
 4. **配置**：没有 `.env` 就从 `.env.example` 复制，并提示输入 DeepSeek Key (不回显，写入 `.env`，权限 600)。已 export 的环境变量优先于 `.env`。
-5. **数据库**：`init_db()` 建表与幂等迁移；当前含 **v37 统一事项**（`reminders` 任务关联与清单、`reminder_checklist`，迁移前 `.bak-before-v37-*`）。另有 v20 群聊、v23 定时任务、v27–v29 持续任务、v36 Feed 等。数据在 `data/verabot.db`。升级前先备份并在副本演练。用户事项 API：`/api/items`（见 `api/routers/items.py`）；旧 `/api/reminders` 保持兼容。
+5. **数据库**：`init_db()` 建表与幂等迁移；当前源码含 **v39 Bot 漂流瓶**；最近迁移含 v37 统一事项、v38 俄罗斯方块、v39 漂流瓶。另有 v20 群聊、v23 定时任务、v27–v29 持续任务、v36 Feed 等。数据在 `data/verabot.db`。升级前先备份并在副本演练。用户事项 API：`/api/items`（见 `api/routers/items.py`）；旧 `/api/reminders` 保持兼容。
 6. **启动** uvicorn，默认 `0.0.0.0:8000` (`HOST` / `PORT` 可改)。
 
 启动后：API 文档 <http://127.0.0.1:8000/docs>，健康检查 `GET /api/health` → `{"ok":true,...}`。

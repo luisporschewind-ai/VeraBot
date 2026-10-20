@@ -1,5 +1,9 @@
 # VeraBot 架构说明 (Architecture) — v0.1.0
 
+## Bot 漂流瓶增量（schema v39，隔离分支）
+
+公开瓶与私有相遇分离：`drift_bottles` / `drift_bottle_contributions` 保存共享文字，`drift_bottle_encounters` / `drift_bottle_turns` / `drift_bottle_memories` 只按账号读取；`drift_bottle_operations` 和生成锁保证重试、并发与迟到结果不重复。SQL 集中在 `db/drift_bottle_store.py`，服务在 `services/drift_bottle/`（契约、可见性、伙伴生成、举报处理、编排），HTTP 在 `api/routers/drift_bottle.py`；模型只返回私人文字，不能改变租约、公开内容或账号归属。真实共享状态以服务端为准，iOS 本地只缓存自己的草稿与私人轮次。
+
 ## 主 Bot 持续工作增量（隔离分支）
 
 v26账号设置、v27业务任务/步骤/输入/等待/事件/调用账目、v28周期桥接、v29确认关联及加密结果。API只提交和观察，owned Worker单独运行；群表/worker保持原作用域。SQL写入集中在db，owner/version/lease及当前权限共同约束实际调用，已知usage只记一次。

@@ -74,6 +74,8 @@ final class AppState {
     /// Last transport failure for the debug page; never rendered in product copy.
     var connectionDiagnostic: String?
     let avatars = AvatarStore()
+    /// 漂流瓶的账号内状态；由 activatePersistenceScope 按账号配置。
+    let driftBottle = DriftBottleModel()
     private(set) var conversationRepository: ConversationRepository?
     private var conversationDatabaseURL: URL?
     private var conversationDatabase: LocalDatabase?
@@ -361,10 +363,14 @@ final class AppState {
         conversationRepository = ConversationRepository(store: store, api: api, groupAPI: api,
                                                         sessionIsCurrent: { session.isCurrent(generation) })
         conversationDatabaseURL = url
+        Task {
+            await driftBottle.configure(api: api, server: baseURLString, userID: userID)
+        }
         setActivityForeground(appIsForeground)
     }
 
     private func invalidatePersistenceScope() {
+        driftBottle.reset(accountID: userID)
         libraryDownloads?.invalidateSession()
         libraryDownloads=nil;libraryRepository=nil
         activityObservation?.cancel(); activityObservation = nil
