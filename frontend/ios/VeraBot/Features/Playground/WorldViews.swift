@@ -9,6 +9,7 @@ struct PlaygroundView: View {
     @State private var showingTwentyQuestions = false
     @State private var showingTetris = false
     @State private var showingSnake = false
+    @State private var showingWhackABot = false
     @State private var showingTravel = false
     @State private var gameAssistant: Bot?
     @State private var assistantChat: Bot?
@@ -82,6 +83,9 @@ struct PlaygroundView: View {
             }
             .navigationDestination(isPresented: $showingSnake) {
                 SnakeGameView().toolbar(.hidden, for: .tabBar)
+            }
+            .navigationDestination(isPresented: $showingWhackABot) {
+                WhackABotGameView().toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: $showingTravel) {
                 BotTravelStartView()
@@ -168,6 +172,7 @@ struct PlaygroundView: View {
         case .twentyQuestions: showingTwentyQuestions = true
         case .tetris: showingTetris = true
         case .snake: showingSnake = true
+        case .whackABot: showingWhackABot = true
         case .travel: showingTravel = true
         case .sudoku: showingSudoku = true
         }
@@ -632,6 +637,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
     case twentyQuestions
     case tetris
     case snake
+    case whackABot
     case travel
 
     var id: String { rawValue }
@@ -643,6 +649,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
         case .twentyQuestions: "二十问"
         case .tetris: "俄罗斯方块"
         case .snake: "贪吃蛇"
+        case .whackABot: "打地鼠 · 小 Bot 版"
         case .travel: "Bot 旅行"
         }
     }
@@ -654,6 +661,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
         case .twentyQuestions: "bubble.left.and.text.bubble.right"
         case .tetris: "square.grid.4x3.fill"
         case .snake: "point.topleft.down.to.point.bottomright.curvepath"
+        case .whackABot: "hand.tap"
         case .travel: "map"
         }
     }
@@ -665,6 +673,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
         case .twentyQuestions: "Bot 想一个答案，你来提问，看看能不能猜中。"
         case .tetris: "旋转和摆放方块，消行得分，看看能坚持多久。"
         case .snake: "滑动转向、吃食物长大，留意边界和自己的身体。"
+        case .whackABot: "小 Bot 从洞里探头，点一点，挑战 60 秒手速。"
         case .travel: "派一位 Bot 出发，隔一段时间收获旅札和纪念卡。"
         }
     }
@@ -676,6 +685,7 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
         case .twentyQuestions: "Bot 负责主持和回答问题，也可以在你想换位置时与你交换角色。"
         case .tetris: "先享受方块下落和消行的节奏，后续再探索 Bot 可以怎样陪玩。"
         case .snake: "离线也能开局；支持方向键、暂停和重开，慢慢挑战本机最佳。"
+        case .whackABot: "九宫格里找小 Bot；点中加 10 分，支持暂停、重开和本机最佳。"
         case .travel: "选择真实城市和探索主题；旅程分阶段揭晓，归来后旅札与纪念卡收进旅行相册。"
         }
     }

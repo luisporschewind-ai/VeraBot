@@ -81,6 +81,7 @@
 		879ADDA69524DA013A017926 /* DelegationLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82FE46070A1C055EA45932DF /* DelegationLogView.swift */; };
 		88F55501313C9192D2B32DCC /* LibraryFileList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C13062B1AA887E66BAAFDF /* LibraryFileList.swift */; };
 		8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6508701B3F97F7E98B01C00C /* MiniGameViews.swift */; };
+		1C3D5E7F9A2B4C6D8E0F1A2B /* WhackABotGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B4C6D8E0F1A3C5D7E9F0A1B /* WhackABotGameView.swift */; };
 		9EA1559753114601BC02AC18 /* SnakeGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */; };
 		D49FEFCAD64B4A50ACB06031 /* TetrisGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21DB52B784A4CDB9506EA11 /* TetrisGameView.swift */; };
 		E5F60718293A4B5C6D7E8F9A /* GameSoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* GameSoundPlayer.swift */; };
@@ -217,6 +218,7 @@
 		5E38B55E95E3B2A626D322D3 /* ReminderEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderEditorView.swift; sourceTree = "<group>"; };
 		5F1BF1E515F06F846F060286 /* LibraryDownloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryDownloadCoordinator.swift; sourceTree = "<group>"; };
 		6508701B3F97F7E98B01C00C /* MiniGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGameViews.swift; sourceTree = "<group>"; };
+		2B4C6D8E0F1A3C5D7E9F0A1B /* WhackABotGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhackABotGameView.swift; sourceTree = "<group>"; };
 		90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnakeGameView.swift; sourceTree = "<group>"; };
 		A21DB52B784A4CDB9506EA11 /* TetrisGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TetrisGameView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B5C /* GameSoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSoundPlayer.swift; sourceTree = "<group>"; };
@@ -386,6 +388,7 @@
 				2564D082318084A4C23F1920 /* BotTravelViews.swift */,
 				6508701B3F97F7E98B01C00C /* MiniGameViews.swift */,
 				90E15BD2D51B46C0AD750EC1 /* SnakeGameView.swift */,
+				2B4C6D8E0F1A3C5D7E9F0A1B /* WhackABotGameView.swift */,
 				A21DB52B784A4CDB9506EA11 /* TetrisGameView.swift */,
 				B2C3D4E5F60718293A4B5C6D /* HandheldGameControls.swift */,
 				469972256A4D27DA4A31462A /* PlaygroundAssistant.swift */,
@@ -912,6 +915,7 @@
 				27494F7ABBEB25CC75180BEA /* MessageRow.swift in Sources */,
 				8FB00B73C663B8EC62A0E30E /* MiniGameViews.swift in Sources */,
 				9EA1559753114601BC02AC18 /* SnakeGameView.swift in Sources */,
+				1C3D5E7F9A2B4C6D8E0F1A2B /* WhackABotGameView.swift in Sources */,
 				D49FEFCAD64B4A50ACB06031 /* TetrisGameView.swift in Sources */,
 				E5F60718293A4B5C6D7E8F9A /* GameSoundPlayer.swift in Sources */,
 				F60718293A4B5C6D7E8F9A0B /* HandheldGameControls.swift in Sources */,

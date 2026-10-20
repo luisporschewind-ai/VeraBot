@@ -1,0 +1,116 @@
+{
+  "first": {
+    "schema": "xcodebuildmcp.output.capture-result",
+    "schemaVersion": "2",
+    "didError": false,
+    "error": null,
+    "data": {
+      "summary": {
+        "status": "SUCCEEDED"
+      },
+      "artifacts": {
+        "simulatorId": "6FD1E62D-DA65-42B1-81F5-554042006671"
+      },
+      "capture": {
+        "type": "runtime-snapshot",
+        "rs": "1",
+        "screenHash": "1hs1vre",
+        "seq": 9,
+        "count": 79,
+        "targets": [
+          "e16|tap|button|返回||BackButton",
+          "e20|tap|button|关闭游戏音效||speaker.wave.2.fill",
+          "e23|tap|button|玩法||",
+          "e61|tap|button|继续||whack-bot-primary",
+          "e64|tap|button|重开||whack-bot-restart"
+        ],
+        "scroll": [
+          "e28|swipe|scroll-view|||"
+        ],
+        "text": [
+          "e31|text|text|得分、0||",
+          "e32|text|text|得分||",
+          "e34|text|text|剩余时间、35 秒||",
+          "e35|text|text|剩余时间||",
+          "e37|text|text|本机最佳、10||",
+          "e38|text|text|本机最佳||",
+          "e33|text|text|0||",
+          "e36|text|text|35 秒||",
+          "e39|text|text|10||",
+          "e41|text|text|节奏 2 · 命中率 0%||",
+          "e40|text|text|小 Bot 出没中||",
+          "e43|text|text|休息一下||whack-bot-status",
+          "e44|text|text|倒计时已暂停， 准备好后点击继续。||whack-bot-status",
+          "e63|text|text|继续||",
+          "e66|text|text|重开||",
+          "e67|text|text|点中小 Bot +10 分 空点、漏掉不扣分，放轻松玩。||"
+        ],
+        "udid": "6FD1E62D-DA65-42B1-81F5-554042006671"
+      }
+    },
+    "nextSteps": [
+      "Refresh after layout changes: snapshot_ui({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\" })",
+      "Wait for UI to settle: wait_for_ui({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\", predicate: \"settled\" })",
+      "Batch same-screen taps: batch({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\", steps: [{\"action\":\"tap\",\"elementRef\":\"e16\"},{\"action\":\"tap\",\"elementRef\":\"e20\"}] })",
+      "Tap an elementRef: tap({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\", elementRef: \"e16\" })",
+      "Scroll visible content: swipe({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\", withinElementRef: \"e28\", direction: \"up\", distance: 0.5 })"
+    ]
+  },
+  "later": {
+    "schema": "xcodebuildmcp.output.capture-result",
+    "schemaVersion": "2",
+    "didError": false,
+    "error": null,
+    "data": {
+      "summary": {
+        "status": "SUCCEEDED"
+      },
+      "artifacts": {
+        "simulatorId": "6FD1E62D-DA65-42B1-81F5-554042006671"
+      },
+      "capture": {
+        "type": "runtime-snapshot",
+        "rs": "1",
+        "screenHash": "1hs1vre",
+        "seq": 10,
+        "count": 79,
+        "targets": [
+          "e16|tap|button|返回||BackButton",
+          "e20|tap|button|关闭游戏音效||speaker.wave.2.fill",
+          "e23|tap|button|玩法||",
+          "e61|tap|button|继续||whack-bot-primary",
+          "e64|tap|button|重开||whack-bot-restart"
+        ],
+        "scroll": [
+          "e28|swipe|scroll-view|||"
+        ],
+        "text": [
+          "e31|text|text|得分、0||",
+          "e32|text|text|得分||",
+          "e34|text|text|剩余时间、35 秒||",
+          "e35|text|text|剩余时间||",
+          "e37|text|text|本机最佳、10||",
+          "e38|text|text|本机最佳||",
+          "e33|text|text|0||",
+          "e36|text|text|35 秒||",
+          "e39|text|text|10||",
+          "e41|text|text|节奏 2 · 命中率 0%||",
+          "e40|text|text|小 Bot 出没中||",
+          "e43|text|text|休息一下||whack-bot-status",
+          "e44|text|text|倒计时已暂停， 准备好后点击继续。||whack-bot-status",
+          "e63|text|text|继续||",
+          "e66|text|text|重开||",
+          "e67|text|text|点中小 Bot +10 分 空点、漏掉不扣分，放轻松玩。||"
+        ],
+        "udid": "6FD1E62D-DA65-42B1-81F5-554042006671"
+      }
+    },
+    "nextSteps": [
+      "Refresh after layout changes: snapshot_ui({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\" })",
+      "Wait for UI to settle: wait_for_ui({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\", predicate: \"settled\" })",
+      "Batch same-screen taps: batch({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\", steps: [{\"action\":\"tap\",\"elementRef\":\"e16\"},{\"action\":\"tap\",\"elementRef\":\"e20\"}] })",
+      "Tap an elementRef: tap({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\", elementRef: \"e16\" })",
+      "Scroll visible content: swipe({ simulatorId: \"6FD1E62D-DA65-42B1-81F5-554042006671\", withinElementRef: \"e28\", direction: \"up\", distance: 0.5 })"
+    ]
+  }
+}
