@@ -8,6 +8,8 @@ enum BotAvatarWorkMotion {
         var frame = to
         frame.headX = mix(from.headX,to.headX); frame.headY = mix(from.headY,to.headY)
         frame.headScale = mix(from.headScale,to.headScale); frame.headRotation = mix(from.headRotation,to.headRotation)
+        // Settle the eye group by the shortest turn when leaving the loading animation.
+        frame.eyesRotation = from.eyesRotation + (to.eyesRotation - from.eyesRotation).remainder(dividingBy: 360) * k
         frame.antennaOffsetX = mix(from.antennaOffsetX,to.antennaOffsetX)
         frame.antennaOffsetY = mix(from.antennaOffsetY,to.antennaOffsetY)
         // Flashing retains the target state's rule, rather than fading into a separate accessory state.

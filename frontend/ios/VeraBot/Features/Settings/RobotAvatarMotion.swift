@@ -23,6 +23,8 @@ enum RobotAvatarMotion {
     }
     struct Frame {
         var eyes = [Eye(x: -34), Eye(x: 34)]
+        /// Rotation in degrees of both eyes around their shared center, within the face plane.
+        var eyesRotation = 0.0
         var headX = 0.0
         var headY = 0.0
         var headScale = 1.0
@@ -57,7 +59,7 @@ enum RobotAvatarMotion {
     }
     static func duration(_ action: RobotAvatarAction) -> Double {
         switch action {
-        case .idle, .input, .thinking, .recalling, .working, .delegating, .replying, .awaitingConfirmation: return .infinity
+        case .idle, .input, .loadingSpin, .thinking, .recalling, .working, .delegating, .replying, .awaitingConfirmation: return .infinity
         case .bored: return 3920
         case .waiting: return 3320
         case .waitingWrap: return 2520
@@ -88,6 +90,9 @@ enum RobotAvatarMotion {
         case .thinking,.recalling,.working,.delegating,.replying,.awaitingConfirmation:
             f = BotAvatarWorkMotion.sample(action,ms:t,reduced:reduced)
         case .idle: break
+        case .loadingSpin:
+            let period = action.descriptor.loopMS ?? 1600
+            f.eyesRotation = t.truncatingRemainder(dividingBy: period) / period * 360
         case .bored:
             let u = t - 800
             let x: Double, y: Double

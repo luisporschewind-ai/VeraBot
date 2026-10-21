@@ -84,8 +84,16 @@ struct RobotAvatarView: View {
                 RobotAvatarSkinRendering.draw(activeSkin,surface:surface,interaction:interaction,in:&head)
             }
             else { head.fill(headPath, with:.color(bodyColor)) }
+            var eyes = head
+            if frame.eyesRotation != 0 {
+                let centerX = 120 + (frame.eyes[0].x + frame.eyes[1].x) / 2
+                let centerY = 120 + (frame.eyes[0].y + frame.eyes[1].y) / 2
+                eyes.translateBy(x: centerX, y: centerY)
+                eyes.rotate(by: .degrees(frame.eyesRotation))
+                eyes.translateBy(x: -centerX, y: -centerY)
+            }
             for eye in frame.eyes {
-                var eyeContext = head
+                var eyeContext = eyes
                 eyeContext.translateBy(x: 120 + eye.x, y: 120 + eye.y)
                 eyeContext.scaleBy(x: eye.scaleX, y: eye.scaleY)
                 eyeContext.opacity = eye.opacity
@@ -196,7 +204,7 @@ struct RobotAvatarView: View {
             for i in 0..<2 { frame.eyes[i].x += gaze.width; frame.eyes[i].y += gaze.height }
         }
         // Original edge perspective: the eye nearer the silhouette compresses and shifts inward.
-        if interaction.overridesAction || ![.waiting, .waitingWrap, .warning, .random, .love].contains(action) {
+        if interaction.overridesAction || ![.waiting, .waitingWrap, .loadingSpin, .warning, .random, .love].contains(action) {
             for i in 0..<2 where frame.eyes[i].cursor == 0 {
                 let eye = frame.eyes[i]
                 let distance = i == 0 ? eye.x + 88 : 88 - eye.x

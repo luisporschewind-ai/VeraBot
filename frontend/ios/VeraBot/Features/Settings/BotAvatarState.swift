@@ -7,6 +7,7 @@ enum BotAvatarState: String, CaseIterable, Identifiable {
     case input, send, success, failure, warning, inspect, blocked, error, surprise, sleep, wake, love, random
     case starEyes = "star-eyes"
     case smile = "smile"
+    case loadingSpin = "loading-spin"
     case thinking, recalling, working, delegating, replying
     case awaitingConfirmation = "awaiting-confirmation"
     var id: String { rawValue }
@@ -37,6 +38,7 @@ enum BotAvatarState: String, CaseIterable, Identifiable {
         case .awaitingConfirmation: "等待确认"
         case .starEyes: "星星眼"
         case .smile: "微笑 · 月牙眼"
+        case .loadingSpin: "加载中 · 转圈"
         }
     }
     var detail: String {
@@ -66,17 +68,19 @@ enum BotAvatarState: String, CaseIterable, Identifiable {
         case .awaitingConfirmation: "面向你等待回应，轻点头提示确认"
         case .starEyes: "双眼变成圆润星星，明亮地轻轻闪烁"
         case .smile: "双眼弯成圆润月牙，轻轻笑起后自然睁开"
+        case .loadingSpin: "两只眼睛作为一组，贴着脸面连续转圈，头部保持不动"
         }
     }
     enum Category { case original, work }
     var category: Category { [.thinking,.recalling,.working,.delegating,.replying,.awaitingConfirmation].contains(self) ? .work : .original }
-    var continuous: Bool { self == .input || category == .work }
+    var continuous: Bool { self == .input || self == .loadingSpin || category == .work }
     var descriptor: BotAvatarStateDescriptor {
         let loop: Double? = switch self {
         case .thinking,.delegating,.awaitingConfirmation: 2400
         case .recalling: 2800
         case .working: 1800
         case .replying: 1200
+        case .loadingSpin: 1600
         default: nil
         }
         let antenna: Double? = switch self {
@@ -90,7 +94,7 @@ enum BotAvatarState: String, CaseIterable, Identifiable {
         default: nil
         }
         let length = RobotAvatarMotion.duration(self)
-        let demo = category == .work ? 4800 : (length.isFinite ? length + 800 : (self == .input ? 3000 : 2500))
+        let demo = category == .work || self == .loadingSpin ? 4800 : (length.isFinite ? length + 800 : (self == .input ? 3000 : 2500))
         return .init(title:title,detail:detail,category:category,continuous:continuous,loopMS:loop,demoMS:demo,antennaPeriodMS:antenna)
     }
 }
