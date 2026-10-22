@@ -19,6 +19,8 @@ struct ChatView: View {
     @State private var entered = false
     @State private var initialPositionReady = false
     @State private var followsBottom = true
+    @State private var userScrolling = false          // 只有用户主动滚动才改变 followsBottom，内容增长不算
+    @State private var pinScheduled = false           // 每次布局稳定只补滚一次，避免滚动回调里反复滚动
     @State private var bottomAnchor: CGRect = .zero   // 只在 updateFollowsBottom 里读，避免滚动时整页重算 body
     @State private var input = ""
     @State private var draftSaveTask: Task<Void, Never>?
@@ -247,12 +249,11 @@ struct ChatView: View {
                     }
                 }
                 Color.clear.frame(height: 1).id("bottom")
-                    .conversationBottomAnchor { bottomAnchor = $0; updateFollowsBottom() }
+                    .conversationBottomAnchor { bottomAnchor = $0; anchorMoved(proxy: proxy) }
             }
             .padding()
         }
         .conversationViewport($viewport)
-        .onChange(of: effectiveViewport) { updateFollowsBottom() }
         .coordinateSpace(name: "notificationChatViewport")
         .background {
             GeometryReader { geometry in
@@ -272,20 +273,32 @@ struct ChatView: View {
             if !entered && !vm.items.isEmpty {
                 if let target = highlightMessageID ?? reading.dividerMessageID, vm.items.contains(where: { $0.messageID == target }) {
                     proxy.scrollTo("m\(target)", anchor: .center)
+                    followsBottom = false   // 从通知/搜索定位到旧消息：保持阅读位置，不强制跳到底部
                 } else {
                     proxy.scrollTo("bottom", anchor: .bottom)
+                    followsBottom = true
                 }
                 entered = true
-            } else if followsBottom {
+            } else if followsBottom && !userScrolling {
+                // 用户正在上滑阅读时不能抢回位置；滚动停稳后会重新判定是否恢复跟随。
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
         }
+        .modifier(ChatScrollInteraction { scrolling in
+            if scrolling {
+                userScrolling = true
+            } else {
+                updateFollowsBottom()   // 滚动停稳后用最终位置结算
+                userScrolling = false
+            }
+        })
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
-            guard focused, !showInfo, followsBottom else { return }
+            guard focused, !showInfo, followsBottom, !userScrolling else { return }
             proxy.scrollTo("bottom", anchor: .bottom)
         }
         .overlay(alignment: .bottomTrailing) {
             JumpToLatestButton(visible: !followsBottom) {
+                followsBottom = true
                 withAnimation(.easeOut(duration: 0.25)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
@@ -325,9 +338,29 @@ struct ChatView: View {
         guard !composerViewport.isEmpty else { return viewport }
         return CGRect(x: viewport.minX, y: viewport.minY, width: viewport.width, height: max(0, min(viewport.maxY, composerViewport.minY) - viewport.minY))
     }
+    /// 只在用户滚动时调用：内容增长/布局修正造成的锚点位移不能取消「跟着新内容」。
     private func updateFollowsBottom() {
         let next = ScrollBottomDetector.followsBottom(anchor: bottomAnchor, viewport: effectiveViewport, current: followsBottom)
         if next != followsBottom { followsBottom = next }
+    }
+
+    /// 内容变长（流式回答、图片、LazyVStack 行高修正）后补一次贴底滚动，避免只滚到「旧底部」。
+    private func anchorMoved(proxy: ScrollViewProxy) {
+        if userScrolling {
+            updateFollowsBottom()
+            return
+        }
+        guard followsBottom, entered, initialPositionReady,
+              effectiveViewport.height > 0,
+              bottomAnchor.minY > effectiveViewport.maxY + 1 else { return }
+        guard !pinScheduled else { return }
+        pinScheduled = true
+        Task { @MainActor in
+            await Task.yield()
+            pinScheduled = false
+            guard followsBottom, !userScrolling else { return }
+            proxy.scrollTo("bottom", anchor: .bottom)
+        }
     }
     private var hasTemporaryCover: Bool { showInfo || showMemoryList || showPhotos || showFiles || showCamera || cameraDenied || browserCovered || travelTripToShow != nil || confirmClearConversation || confirmDeleteBot }
     private var canRead: Bool { pageVisible && scenePhase == .active && app.selectedTab == hostingTab && ConversationVisibilityPolicy.allowsConversation(selectedTab: app.selectedTab, isGroup: false) && !hasTemporaryCover }
