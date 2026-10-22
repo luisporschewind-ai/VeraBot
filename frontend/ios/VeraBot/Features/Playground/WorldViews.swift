@@ -21,12 +21,12 @@ struct PlaygroundView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 20) {
                     HStack(alignment: .center, spacing: 12) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("游乐场")
                                 .font(.largeTitle.bold())
-                                .foregroundStyle(Color.brandText)
+                                .foregroundStyle(PlaygroundPalette.text)
                             Text("和 Bot 一起玩点轻松的。")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
@@ -44,7 +44,14 @@ struct PlaygroundView: View {
                     FeaturedGamesCarousel(features: PlaygroundFeature.all) { open($0) }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        WorldSectionTitle(title: "挑一个玩法", subtitle: "短短几分钟，也可以一起开心一下")
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("挑一个玩法")
+                                .font(.title2.bold())
+                                .foregroundStyle(PlaygroundPalette.text)
+                            Text("短短几分钟，也可以一起开心一下")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         VStack(spacing: 10) {
                             ForEach(PlaygroundGame.allCases.filter { !PlaygroundFeature.featuredGames.contains($0) && $0 != .twentyQuestions }) { game in
                                 Button { open(game) } label: {
@@ -56,44 +63,50 @@ struct PlaygroundView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 20)
+                .padding(.top, 8)
                 .padding(.bottom, 28)
                 .frame(maxWidth: 560)
                 .frame(maxWidth: .infinity)
             }
-            .themedPageBackground()
+            .scrollContentBackground(.hidden)
+            .background(PlaygroundPalette.background)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $assistantChat) { bot in
                 ChatView(bot: bot, api: app.api, repository: app.conversationRepository)
+                    .toolbar(.visible, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
             }
             .onDisappear { assistantTask?.cancel(); assistantTask = nil }
             .navigationDestination(isPresented: $showingSudoku) {
                 SudokuGameView()
+                    .toolbar(.visible, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: $showingSokoban) {
-                SokobanGameView().toolbar(.hidden, for: .tabBar)
+                SokobanGameView().toolbar(.visible, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: $showingTwentyQuestions) {
-                TwentyQuestionsGameView().toolbar(.hidden, for: .tabBar)
+                TwentyQuestionsGameView().toolbar(.visible, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: $showingTetris) {
-                TetrisGameView().toolbar(.hidden, for: .tabBar)
+                TetrisGameView().toolbar(.visible, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: $showingSnake) {
-                SnakeGameView().toolbar(.hidden, for: .tabBar)
+                SnakeGameView().toolbar(.visible, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: $showingWhackABot) {
-                WhackABotGameView().toolbar(.hidden, for: .tabBar)
+                WhackABotGameView().toolbar(.visible, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: $showingTravel) {
                 BotTravelStartView()
+                    .toolbar(.visible, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
             }
             .navigationDestination(isPresented: $showingDriftBottle) {
                 DriftBottleHomeView()
+                    .toolbar(.visible, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
             }
         }
@@ -185,35 +198,70 @@ struct PlaygroundView: View {
     }
 }
 
+/// 仅用于游乐场首页，不改变其他页面的全局品牌主题。
+private enum PlaygroundPalette {
+    static let background = Color.dynamic(light: UIColor(hex: 0xFAFCF9), dark: UIColor(hex: 0x101B18), native: .systemGroupedBackground)
+    static let surface = Color.dynamic(light: .white, dark: UIColor(hex: 0x1C2A25), native: .secondarySystemGroupedBackground)
+    static let text = Color.dynamic(light: UIColor(hex: 0x153F33), dark: UIColor(hex: 0xE2F4EA), native: .label)
+    static let secondaryText = Color.dynamic(light: UIColor(hex: 0x476459), dark: UIColor(hex: 0xBDD5C9), native: .secondaryLabel)
+    static let accent = Color.dynamic(light: UIColor(hex: 0x20795A), dark: UIColor(hex: 0x62D3A6), native: .systemGreen)
+    static let shadow = Color.black.opacity(0.035)
+}
+
+private enum PlaygroundTone {
+    case mint, sky, apricot, lemon
+
+    var fill: Color {
+        let values: (light: UInt32, dark: UInt32) = switch self {
+        case .mint: (0xD6F6EA, 0x244A3D)
+        case .sky: (0xDCEFFC, 0x233E50)
+        case .apricot: (0xFFE5D2, 0x50382C)
+        case .lemon: (0xFFF3C4, 0x484123)
+        }
+        // 插画底色也随原生深色外观变化，避免浅底上出现白字。
+        return Color(uiColor: UIColor { traits in
+            UIColor(hex: traits.userInterfaceStyle == .dark ? values.dark : values.light)
+        })
+    }
+
+    /// 按钮始终使用白字；深色模式也保留足够深的底色。
+    var accent: Color {
+        switch self {
+        case .mint: Color(hex: "175B43")
+        case .sky: Color(hex: "205B80")
+        case .apricot: Color(hex: "824627")
+        case .lemon: Color(hex: "6D561B")
+        }
+    }
+}
+
 /// 游乐场顶部可左右滑动的推荐卡片。按数组顺序展示，新增游戏只需在 `all` 里加一项。
 private struct PlaygroundFeature: Identifiable {
-    enum Glyph { case sudoku, symbol(String) }
-
     let id: String
     let game: PlaygroundGame?          // nil = 即将推出，点按无动作
     let badge: String
     let badgeSymbol: String
     let title: String
     let subtitle: String
-    let glyph: Glyph
+    let artwork: String
     let action: String
-    let colors: [Color]
+    let tone: PlaygroundTone
 
     var isAvailable: Bool { game != nil }
 
     static let all: [PlaygroundFeature] = [
         PlaygroundFeature(id: "sudoku", game: .sudoku, badge: "数字游戏", badgeSymbol: "sparkles",
                           title: "数独", subtitle: "一起找线索，享受解开谜题的瞬间。",
-                          glyph: .sudoku, action: "来一盘数独",
-                          colors: [Color.brandFill, Color.brandAccent]),
+                          artwork: "PlaygroundSudoku", action: "来一盘数独",
+                          tone: .mint),
         PlaygroundFeature(id: "sokoban", game: .sokoban, badge: "益智路线", badgeSymbol: "shippingbox",
                           title: "推箱子", subtitle: "规划每一步，把箱子推到目标点。",
-                          glyph: .symbol("shippingbox.fill"), action: "推一局",
-                          colors: [Color.brandAccent, Color.brandFill]),
+                          artwork: "PlaygroundSokoban", action: "推一局",
+                          tone: .apricot),
         PlaygroundFeature(id: "drift-bottle", game: .driftBottle, badge: "Bot 同行", badgeSymbol: "paperplane",
                           title: "Bot 漂流瓶", subtitle: "和 Bot 一起读一封陌生人的来信，留下共同回忆。",
-                          glyph: .symbol("paperplane.fill"), action: "去海边看看",
-                          colors: [Color.brandFill.opacity(0.85), Color.brandAccent.opacity(0.85)])
+                          artwork: "PlaygroundDriftBottle", action: "去海边看看",
+                          tone: .sky)
     ]
 
     static var featuredGames: Set<PlaygroundGame> { Set(all.compactMap(\.game)) }
@@ -230,7 +278,7 @@ private struct FeaturedGamesCarousel: View {
                 LazyHStack(spacing: 12) {
                     ForEach(features) { feature in
                         card(feature)
-                            .containerRelativeFrame(.horizontal)
+                            .containerRelativeFrame(.horizontal) { width, _ in width - 24 }
                             .id(feature.id)
                     }
                 }
@@ -244,7 +292,7 @@ private struct FeaturedGamesCarousel: View {
                 HStack(spacing: 7) {
                     ForEach(features) { feature in
                         Capsule()
-                            .fill(feature.id == (currentID ?? features.first?.id) ? Color.brand : Color.brand.opacity(0.22))
+                            .fill(feature.id == (currentID ?? features.first?.id) ? PlaygroundPalette.accent : PlaygroundPalette.accent.opacity(0.18))
                             .frame(width: feature.id == (currentID ?? features.first?.id) ? 18 : 7, height: 7)
                             .animation(.snappy, value: currentID)
                     }
@@ -270,38 +318,29 @@ private struct FeaturedGamesCarousel: View {
 
 private struct FeatureCard: View {
     let feature: PlaygroundFeature
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label(feature.badge, systemImage: feature.badgeSymbol)
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(.white.opacity(0.20), in: Capsule())
+                    .background(feature.tone.accent.opacity(0.13), in: Capsule())
                 Spacer()
-                Text(feature.isAvailable ? "可以开局" : "即将推出")
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(.white.opacity(0.18), in: Capsule())
             }
-            HStack(alignment: .center, spacing: 16) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(feature.title)
-                        .font(.title.bold())
-                    Text(feature.subtitle)
-                        .font(.subheadline)
-                        .lineSpacing(3)
-                        .lineLimit(2, reservesSpace: true)
-                        .foregroundStyle(.white.opacity(0.88))
+            if dynamicTypeSize.isAccessibilitySize {
+                headline
+                illustration.frame(height: 120).frame(maxWidth: .infinity)
+            } else {
+                HStack(alignment: .center, spacing: 4) {
+                    headline
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    illustration.frame(width: 108, height: 100)
                 }
-                Spacer(minLength: 0)
-                glyph
-                    .frame(width: 78, height: 78)
-                    .accessibilityHidden(true)
             }
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Text(feature.action)
                     .font(.footnote.weight(.semibold))
                 if feature.isAvailable {
@@ -309,31 +348,41 @@ private struct FeatureCard: View {
                         .font(.caption.weight(.bold))
                 }
             }
-            .padding(.horizontal, 12)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
             .padding(.vertical, 9)
-            .background(.white.opacity(0.17), in: Capsule())
+            .background(feature.tone.accent, in: Capsule())
         }
-        .foregroundStyle(.white)
-        .padding(20)
+        .foregroundStyle(PlaygroundPalette.text)
+        .multilineTextAlignment(.leading)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            LinearGradient(colors: feature.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: [feature.tone.fill, feature.tone.fill.opacity(0.65)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
-    @ViewBuilder
-    private var glyph: some View {
-        switch feature.glyph {
-        case .sudoku:
-            SudokuGlyph()
-        case .symbol(let name):
-            Image(systemName: name)
-                .font(.system(size: 40, weight: .semibold))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    private var headline: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(feature.title)
+                .font(.title.bold())
+            Text(feature.subtitle)
+                .font(.subheadline)
+                .lineSpacing(3)
+                .foregroundStyle(PlaygroundPalette.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var illustration: some View {
+        Image(feature.artwork)
+            .resizable()
+            .scaledToFit()
+            .accessibilityHidden(true)
     }
 }
 
@@ -620,25 +669,6 @@ private enum SudokuPuzzle {
     }
 }
 
-private struct SudokuGlyph: View {
-    private let digits = ["1", "", "4", "", "5", "", "7", "", "2"]
-
-    var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
-            ForEach(Array(digits.enumerated()), id: \.offset) { _, digit in
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(.white.opacity(0.20))
-                    .overlay {
-                        Text(digit)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                    }
-            }
-        }
-        .padding(5)
-        .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
-    }
-}
-
 private enum PlaygroundGame: String, CaseIterable, Identifiable {
     case sudoku
     case sokoban
@@ -650,6 +680,38 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
     case driftBottle
 
     var id: String { rawValue }
+
+    var artwork: String {
+        switch self {
+        case .sudoku: "PlaygroundSudoku"
+        case .sokoban: "PlaygroundSokoban"
+        case .driftBottle: "PlaygroundDriftBottle"
+        case .tetris: "PlaygroundTetris"
+        case .snake: "PlaygroundSnake"
+        case .whackABot: "PlaygroundWhackBot"
+        case .travel: "PlaygroundTravel"
+        case .twentyQuestions: "PlaygroundSudoku"
+        }
+    }
+
+    var tone: PlaygroundTone {
+        switch self {
+        case .sudoku, .snake: .mint
+        case .tetris, .driftBottle, .twentyQuestions: .sky
+        case .sokoban, .whackABot: .apricot
+        case .travel: .lemon
+        }
+    }
+
+    var cardDescription: String {
+        switch self {
+        case .tetris: "旋转、摆放，享受消行的节奏。"
+        case .snake: "吃点果子，慢慢长大。"
+        case .whackABot: "点一点，挑战 60 秒手速。"
+        case .travel: "出发，收集旅途中的小惊喜。"
+        default: description
+        }
+    }
 
     var title: String {
         switch self {
@@ -706,38 +768,39 @@ private enum PlaygroundGame: String, CaseIterable, Identifiable {
 
 private struct GameIdeaRow: View {
     let game: PlaygroundGame
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: game.symbol)
-                .font(.title3)
-                .foregroundStyle(Color.brand)
-                .frame(width: 46, height: 46)
-                .background(Color.brandSoft, in: RoundedRectangle(cornerRadius: 14))
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 7) {
-                    Text(game.title).font(.headline)
-                    Text("可以开局")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Color.appBackground, in: Capsule())
-                }
-                Text(game.description)
+            Image(game.artwork)
+                .resizable()
+                .scaledToFit()
+                .padding(4)
+                .frame(width: dynamicTypeSize.isAccessibilitySize ? 56 : 68,
+                       height: dynamicTypeSize.isAccessibilitySize ? 56 : 68)
+                .background(game.tone.fill, in: RoundedRectangle(cornerRadius: 20))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(game.title)
+                    .font(.headline)
+                    .foregroundStyle(PlaygroundPalette.text)
+                Text(game.cardDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
+        .multilineTextAlignment(.leading)
         .padding(12)
-        .background(Color.sectionFill, in: RoundedRectangle(cornerRadius: 18))
-        .contentShape(RoundedRectangle(cornerRadius: 18))
+        .background(PlaygroundPalette.surface, in: RoundedRectangle(cornerRadius: 24))
+        .shadow(color: PlaygroundPalette.shadow, radius: 12, y: 4)
+        .contentShape(RoundedRectangle(cornerRadius: 24))
+        .accessibilityElement(children: .combine)
     }
 }
 
