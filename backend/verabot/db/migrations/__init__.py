@@ -31,7 +31,9 @@ from . import v033_independent_library, v034_legacy_text_metadata, v035_stale_wo
 
 from . import v036_feed, v037_unified_items, v038_tetris_sessions, v039_drift_bottle
 
-SCHEMA_VERSION = 39  # v33 独立资料库；v34 TXT 元数据；v35 过时任务与 trace 瘦身；v36 个性化 Feed；v37 统一事项；v38 俄罗斯方块；v39 漂流瓶
+from . import v040_bot_capabilities
+
+SCHEMA_VERSION = 40  # v33 独立资料库；v34 TXT 元数据；v35 过时任务与 trace 瘦身；v36 个性化 Feed；v37 统一事项；v38 俄罗斯方块；v39 漂流瓶；v40 Bot 能力默认全开
 
 STEPS = (
     v002_permissions, v003_profile, v004_memory, v005_tags, v006_pinned, v007_mcp, v008_mcp_sync,
@@ -44,7 +46,7 @@ STEPS = (
 STEPS = (*STEPS, v026_primary_bot, v027_owned_tasks, v028_owned_schedule_bridge, v029_owned_task_actions,
          v030_chat_continuity, v031_notification_events, v032_opening_templates,
          v033_independent_library, v034_legacy_text_metadata, v035_stale_work_slim_traces, v036_feed,
-         v037_unified_items, v038_tetris_sessions, v039_drift_bottle)
+         v037_unified_items, v038_tetris_sessions, v039_drift_bottle, v040_bot_capabilities)
 
 def apply(c) -> None:
     """在调用方的事务连接上执行全部迁移步骤。"""

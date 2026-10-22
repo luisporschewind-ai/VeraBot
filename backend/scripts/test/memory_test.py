@@ -46,6 +46,7 @@ con.execute("INSERT INTO messages(user_id,bot_id,role,content,created_at) VALUES
 con.commit(); con.close()
 
 from verabot import db  # noqa: E402
+from verabot.db.migrations.v040_bot_capabilities import BUILTIN_TOOLS_V40  # noqa: E402
 from verabot.core import config, crypto  # noqa: E402
 from verabot.services import llm, memory  # noqa: E402
 import importlib  # noqa: E402
@@ -62,9 +63,10 @@ old = con.execute("SELECT name, avatar, allowed_tools, delegate_to, image_update
 ou = con.execute("SELECT nickname, memory_enabled FROM users WHERE id=1").fetchone()
 nmem = con.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
 con.close()
-check("MEM-01", "v3 → v4 迁移幂等：memories 表 + 三个新列，默认 bot_and_global / 开启；存量数据不变",
+check("MEM-01", "v3 → v4 迁移幂等：memories 表 + 三个新列，默认 bot_and_global / 开启；存量数据保留、权限按 v40 全开",
       ver == str(db.SCHEMA_VERSION) and "memories" in tables and "memory_access" in bot_cols and "memory_enabled" in user_cols
-      and "memory_ids" in msg_cols and old == ("OldBot", "🐼", '["get_weather"]', "[]", "t1", "bot_and_global")
+      and "memory_ids" in msg_cols
+      and old == ("OldBot", "🐼", json.dumps(sorted(BUILTIN_TOOLS_V40)), "[]", "t1", "bot_and_global")
       and ou == ("老王", 1) and nmem == 0, f"ver={ver} old={old} user={ou}")
 
 from fastapi.testclient import TestClient  # noqa: E402

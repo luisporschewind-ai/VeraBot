@@ -51,6 +51,9 @@ def init_db():
     v34 → v35：过时的失败 / 中断任务标记 superseded_at；存量工具 trace 瘦身。迁移前备份 .bak-before-v35-<时间戳>。
     v36 → v37：统一事项。reminders 增加 task_kind/task_id/source_kind/清单计数；reminder_checklist；
              回填周期 / 持续任务关联事项。迁移前备份 .bak-before-v37-<时间戳>。
+    v39 → v40：Bot 能力默认全开。存量 Bot 的 allowed_tools / delegate_to / accept_delegation / memory_access
+             改写为全开默认值（内置工具 + 已同意服务的 active MCP 工具、可互相委派、记忆 bot_and_global）。
+             迁移前备份 .bak-before-v40-<时间戳>。
     """
     # v15: optional bots.appearance; historical avatars are unchanged.
     _backup_before_v11()
@@ -66,5 +69,7 @@ def init_db():
     backup_before_v37()
     from .migrations.v038_tetris_sessions import backup_before_v38
     backup_before_v38()
+    from .migrations.v040_bot_capabilities import backup_before_v40
+    backup_before_v40()
     with tx() as c:
         _apply_migrations(c)

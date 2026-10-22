@@ -473,7 +473,7 @@ yield {"event": "done", "data": {"message_id": mid, "usage": usage_total, "memor
 | 用户隔离 | 所有 SQL 带 `user_id`；他人 / 不存在 → 404 | `db/memory_store.py`（经 `services/memory/repository.py` 调用） |
 | 用户总开关 | `users.memory_enabled = 0` → 不召回、不暴露工具 | `run_chat`、`get_schemas` |
 | 每 Bot 授权 | `memory_access`：`none` (不读不写) / `bot` (只读写本 Bot 记忆) / `bot_and_global` (另可读全局资料、可提议全局记忆) | `recall` 可见集合、`is_permitted`、`propose` 的 scope 降级 |
-| 默认值 | 新 Bot 与迁移后的存量 Bot：`bot_and_global` (理由：每条记忆都经用户确认，全局资料本就为所有 Bot 共享；敏感信息默认不存)。**这与工具「默认最小权限」不同，需 Boss 决定，见 Q1** | `db/schema.py` 列默认值 |
+| 默认值 | 新 Bot 与迁移后的存量 Bot：`bot_and_global` (理由：每条记忆都经用户确认，全局资料本就为所有 Bot 共享；敏感信息默认不存)。2026-10-22 (schema v40) 起工具也默认全开，与记忆默认一致；历史 Q1 决策记录保留 | `db/schema.py` 列默认值 / v40 迁移 |
 | 委派 (depth ≥ 1) | 不注入、不调用记忆工具、不写记忆 | `run_once` 不调用 recall；`is_permitted` 返回 `memory_not_delegable` |
 | 写入 | 只能经确认卡片 / 记忆页；LLM 无法直接写 active | `propose` 只写 proposed；`confirm` 只由 HTTP 接口触发 |
 | 删除 | 用户随时物理删除；Bot 只能提议删除 | `forget_memory` → delete 提议 |

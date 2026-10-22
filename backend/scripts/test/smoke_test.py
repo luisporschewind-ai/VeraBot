@@ -56,7 +56,8 @@ b1 = c.post("/api/bots", headers=ha, json={"name": "Vera", "avatar": "🦊", "co
 b2 = c.post("/api/bots", headers=ha, json={"name": "小研", "avatar": "🔬", "color": "#0369a1",
             "persona": "资深研究员，擅长知识解释", "instructions": "回答不超过 120 字"}).json()
 check(b1.get("id") and b2.get("id"), f"bots created: {b1.get('id')}, {b2.get('id')}")
-check(b1.get("allowed_tools") == [] and b1.get("accept_delegation") is False, "new bot defaults to least privilege")
+check(b1.get("accept_delegation") is True and {"get_weather", "ask_bot"} <= set(b1.get("allowed_tools") or []),
+      "new bot defaults to all capabilities (v40)")
 r1 = c.patch(f"/api/bots/{b1['id']}", headers=ha, json={"allowed_tools": ["get_weather", "create_reminder", "list_reminders", "ask_bot"],
                                                         "delegate_to": [b2["id"]]})
 r2 = c.patch(f"/api/bots/{b2['id']}", headers=ha, json={"accept_delegation": True})

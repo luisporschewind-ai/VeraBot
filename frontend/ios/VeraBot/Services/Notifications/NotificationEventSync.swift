@@ -39,6 +39,20 @@ final class NotificationEventSync {
         pendingReminderCount = count; reminderCoverageEnd = end
         scheduleErrorText = error == nil ? nil : "有提醒暂未排入系统，请稍后重试。"
     }
+
+    /// 提醒到点时 App 正在前台：不弹系统通知，改用 App 内 BotNotice。
+    /// 返回是否已交给 App 内提示；宿主还没挂上时返回 false，由调用方决定是否退回系统横幅。
+    @discardableResult
+    func showReminderDue(reminderID: Int?, title: String) -> Bool {
+        guard let notices else { return false }
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        var notice = BotNotice(title: trimmed.isEmpty ? "到提醒时间了" : trimmed,
+                               detail: trimmed.isEmpty ? "" : "到提醒时间了",
+                               tone: .information, avatar: .wake, actionTitle: "查看", duration: 6)
+        notice.link = reminderID.map { "reminder/\($0)" }
+        notices.show(notice, key: reminderID.map { "reminder:\($0)" } ?? "reminder:local")
+        return true
+    }
     func run() async {
         var failures = 0
         while !Task.isCancelled {

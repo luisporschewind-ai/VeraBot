@@ -1,6 +1,7 @@
 import Foundation
 import CryptoKit
 import UserNotifications
+import UIKit
 import VeraBotCore
 
 extension Notification.Name {
@@ -206,13 +207,19 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
     // 这里先在 nonisolated 方法里取出 Sendable 的值，再回主线程处理，并在主线程调用 completionHandler。
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        let info = notification.request.content.userInfo
+        let content = notification.request.content
+        let info = content.userInfo
         let sourceURL = info["source_url"] as? String
         let uid = info["uid"] as? Int
         let nid = info["nid"] as? Int
+        let reminderID = info["reminder_id"] as? Int
+        // 本地提醒排程固定用 VB_REMINDER；旧排程也带有 reminder_id。
+        let isReminder = content.categoryIdentifier == "VB_REMINDER" || reminderID != nil
+        let title = content.title
         let done = MainThreadCallback(completionHandler)
         Task { @MainActor in
-            let options = await self.handleWillPresent(uid: uid, nid: nid, sourceURL: sourceURL)
+            let options = await self.handleWillPresent(uid: uid, nid: nid, sourceURL: sourceURL,
+                                                       reminderID: reminderID, title: title, isReminder: isReminder)
             done.call(options)
         }
     }
@@ -234,13 +241,28 @@ final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate 
         }
     }
 
-    private func handleWillPresent(uid: Int?, nid: Int?, sourceURL: String?) async -> UNNotificationPresentationOptions {
+    private func handleWillPresent(uid: Int?, nid: Int?, sourceURL: String?, reminderID: Int?, title: String,
+                                   isReminder: Bool) async -> UNNotificationPresentationOptions {
         guard let app, let uid, uid == app.userID, sourceURL == app.baseURLString, preferences.enabled else { return [] }
         if nid == nil && preferences.categories["reminder"] != true { return [] }
-        if let nid {
-            await app.report(notificationID: nid, event: "delivered", channel: "local")
+        let presentation = LocalNotificationPolicy.presentation(
+            isForeground: UIApplication.shared.applicationState == .active,
+            isReminder: isReminder, soundEnabled: preferences.soundEnabled)
+        switch presentation {
+        case .inApp:
+            // 用户已经在 App 里：不弹系统通知，改成 App 内 Bot 提示，点击进入该安排。
+            if app.notificationEvents.showReminderDue(reminderID: reminderID, title: title) { return [] }
+            // App 内提示宿主还没就绪（例如启动瞬间）时退回系统横幅，避免提醒彻底丢失。
+            if let nid {
+                await app.report(notificationID: nid, event: "delivered", channel: "local")
+            }
+            return preferences.soundEnabled ? [.banner, .sound, .list] : [.banner, .list]
+        case .system(let sound):
+            if let nid {
+                await app.report(notificationID: nid, event: "delivered", channel: "local")
+            }
+            return sound ? [.banner, .sound, .list] : [.banner, .list]
         }
-        return preferences.soundEnabled ? [.banner, .sound, .list] : [.banner, .list]
     }
 
     private func handleResponse(_ tap: NotificationTap) async {

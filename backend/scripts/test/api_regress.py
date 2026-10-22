@@ -57,6 +57,8 @@ RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"
 ts = int(time.time()) % 100000
 TMP = f"qa_reg_{ts}"
 ALL = ["get_weather", "create_reminder", "list_reminders", "ask_bot"]
+BUILTINS = ["ask_bot", "create_reminder", "get_weather", "list_reminders",
+            "manage_reminder", "propose_task", "web_read_result", "web_search"]
 
 # ---- 登录 / 安全 ----
 s, d = req("POST", "/api/auth/login", {"username": "demo", "password": "verabot2026"}); demo = d.get("token")
@@ -82,12 +84,14 @@ res = [req(m, pth, body, token=tmp)[0] for m, pth, body in [("GET", f"/api/bots/
        ("PATCH", f"/api/bots/{vid}", {"name": "x"}), ("DELETE", f"/api/bots/{vid}/messages", None), ("DELETE", f"/api/bots/{vid}", None),
        ("POST", f"/api/bots/{vid}/chat", {"message": "hi"}), ("POST", "/api/reminders/1/done", None), ("GET", f"/api/bots/{vid}/delegations", None)]]
 rec("TC-09 IDOR all 404", all(x == 404 for x in res), str(res))
-rec("REG-MIG demo bots migrated", all(set(b["allowed_tools"]) == set(ALL) and b["accept_delegation"] and len(b["delegate_to"]) == 2 for b in demo_bots.values()),
+rec("REG-MIG demo bots migrated to v40 all-on", all(set(ALL) <= set(b["allowed_tools"]) and b["accept_delegation"]
+    and len(b["delegate_to"]) == len(demo_bots) - 1 for b in demo_bots.values()),
     str({n: b["delegate_to"] for n, b in demo_bots.items()}))
 
 # ---- Bot CRUD ----
 s, a = req("POST", "/api/bots", {"name": "测试A", "avatar": "🧪", "persona": "测试用助理，回答简短", "instructions": "回答不超过 50 字"}, token=tmp)
-rec("REG-LP new bot least privilege", s == 201 and a["allowed_tools"] == [] and a["delegate_to"] == [] and a["accept_delegation"] is False, str(a))
+rec("REG-CAP new bot all-on default (v40)", s == 201 and set(a["allowed_tools"]) == set(BUILTINS)
+    and a["delegate_to"] == [] and a["accept_delegation"] is True, str(a))
 s2, _ = req("POST", "/api/bots", {"name": "测试A"}, token=tmp)
 rec("TC-10 create + dup 409", s == 201 and s2 == 409, f"{s} {s2}")
 s, b = req("POST", "/api/bots", {"name": "测试B", "avatar": "🐼", "persona": "图书推荐专家", "allowed_tools": [], "accept_delegation": True}, token=tmp)
@@ -160,6 +164,7 @@ lg = req("GET", f"/api/bots/{a['id']}/delegations", token=tmp)[1]["delegations"]
 okrec = [x for x in lg if x["status"] == "ok"]
 rec("REG-CTX delegation log: payload has no history", bool(okrec) and "HIST_SECRET_778" not in json.dumps(okrec, ensure_ascii=False)
     and okrec[0]["total_tokens"] > 0 and okrec[0]["payload"], f"n={len(lg)} tokens={okrec[0]['total_tokens'] if okrec else None} payload={okrec[0]['payload'][:60]!r}" if okrec else "none")
+req("PATCH", f"/api/bots/{a['id']}", {"delegate_to": [b["id"]]}, token=tmp)   # v40 默认互通；这里显式收窄来测拒绝
 r = chat(tmp, a["id"], "请用 ask_bot 问一下 测试C：1+1 等于几？必须真实调用 ask_bot。")
 ab = [t for t in r["traces"] if t["name"] == "ask_bot"]
 rec("REG-ALLOW unauthorized delegation rejected", bool(ab) and ab[0]["result"].get("code") == "not_in_allowlist" and not ab[0]["result"].get("answer"),

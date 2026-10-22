@@ -13,12 +13,14 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[2]
 SKIP = {
-    "smoke_test.py",          # needs a running API and a real model key
-    "web_browser_test.py",    # reaches the network
-    "web_query_test.py",      # reaches the network
-    "mcp_oauth_test.py",      # reaches an OAuth provider
-    "group_http_test.py",     # needs an already-started HTTP server
+    "smoke_test.py",               # needs a running API and a real model key
+    "web_browser_test.py",         # reaches the network
+    "web_query_test.py",           # reaches the network
+    "mcp_oauth_test.py",           # reaches an OAuth provider
+    "group_http_test.py",          # needs an already-started HTTP server
     "group_execution_http_test.py",
+    "tetris_launchd_test.py",      # manual run: requires --run (installs a temporary launchd job)
+    "tetris_session_load_test.py",  # manual load run: requires --output
 }
 EXTRA = ("sql_layer_check.py",)
 

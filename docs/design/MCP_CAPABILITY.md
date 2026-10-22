@@ -17,7 +17,7 @@
 | 注册表 (Registry) | 三层：内置目录 (built-in catalog，经审核) → 运维配置 (`mcp_servers.toml`) → 每用户实例 (`mcp_servers` 表)。自定义 URL 服务器默认关闭 |
 | 授权 (Authorization) | 远程服务器按 MCP 授权规范使用 **OAuth 2.1**：受保护资源元数据 PRM (RFC 9728) 发现、PKCE (S256)、资源指示符 `resource` (RFC 8707)、`iss` 校验 (RFC 9207)；客户端注册优先级：预注册 (pre-registration) > 客户端 ID 元数据文档 CIMD (Client ID Metadata Documents) > 动态注册 DCR (已被规范弃用，仅兼容) |
 | 工具映射 | `tools/list` 结果映射进 VeraBot 工具目录，命名空间 (namespacing) 为 `mcp__{server_slug}__{tool}`，满足 OpenAI 兼容函数名约束 `^[a-zA-Z0-9_-]{1,64}$` |
-| 权限 | **MCP 工具默认全部关闭**；按 Bot 白名单 (per-Bot allowlist) 逐个开启；**被委派的 Bot (depth ≥ 1) 默认不能使用任何 MCP 工具**；服务器新增 / 变更的工具不会自动授权 |
+| 权限 | 2026-10-22（v40）起新 Bot 默认**开启已连接且已同意服务的 active MCP 工具**（创建时快照，每 Bot 最多 20 个）；可按 Bot 白名单逐个收窄；**被委派的 Bot (depth ≥ 1) 不能使用任何 MCP 工具**；创建后服务器新增 / 变更的工具不会自动授权 |
 | 人工确认 (HITL) | 以下调用**必须用户在 App 确认卡片上逐次确认**：带 `destructiveHint` 的工具、`openWorldHint` 且非只读的工具、任何「发送 / 发布」类动作、无注解 (annotations) 或来自不可信服务器的非只读工具。确认执行的是**冻结的参数**，不经过 LLM |
 | 防提示注入 | 工具结果 (以及工具描述本身) 一律视为**不可信数据 (untrusted data)**：清洗、截断、`<untrusted_tool_result>` 包裹；读过不可信结果的轮次禁止 `ask_bot` (污染标记 taint) |
 | 安全 | Token 用 Fernet 加密存储在后端，按 (user_id, server_id, issuer) 隔离；**Token 永不下发 App、不进 LLM 上下文、不写日志**；不做 Token 透传 (token passthrough)；远程 URL 做 SSRF 防护 |
@@ -271,7 +271,7 @@ sequenceDiagram
 
 | 规则 | 设计 |
 |---|---|
-| 默认关闭 | 新 Bot `allowed_tools=[]` (已有)；schema v7 迁移**不给任何已有 Bot 授予 MCP 工具**；新同步到的工具不自动授权 |
+| 默认值与快照 | 新 Bot（v40 起）默认包含已连接且已同意服务的 active 工具，只取创建时已同步到本地的快照；schema v40 迁移把同样的快照授予存量 Bot；之后新同步 / 变更的工具不自动授权（防 rug-pull） |
 | 白名单粒度 | 按工具 (`mcp__gmail__search_threads`)；App 提供「本服务全部只读工具」快捷开关，但保存时展开为具体工具名 (避免以后新增工具被隐式授权) |
 | 未连接不暴露 | 服务器非 `connected`：`get_schemas` 不暴露其工具；强行调用返回 `not_connected` |
 | 委派限制 | MCP 工具默认 `delegable=False`：**被委派的 Bot 即使白名单包含 MCP 工具也不能调用** (`not_delegable`，写 `tool_denied` 审计与协作记录)。以后可按工具放开「可信服务器的只读工具」(原 Q4，已决定见 §16) |

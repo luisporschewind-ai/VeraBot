@@ -383,7 +383,7 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | ID | 模块 | 用例 | 预期 | 结果 |
 |---|---|---|---|---|
 | TAG-01 | 迁移 | 已有 schema v4 库（含 `memory_access`，无 `tags`）启动两次 | `schema_meta.version = db.SCHEMA_VERSION`，`bots.tags` 出现且存量行为 `[]`；`allowed_tools` / `delegate_to` / `image_updated_at` / `memory_access` 不变；把标签写成 `["研究"]` 后再跑 `init_db()` 不被清掉 | 通过 |
-| TAG-02 | 创建 | `POST /api/bots` 不带 `tags` | 201，响应 `tags: []`，仍是最小权限；`GET /api/bots/{id}` 同样是 `[]` | 通过 |
+| TAG-02 | 创建 | `POST /api/bots` 不带 `tags` | 201，响应 `tags: []`；权限按 v40 默认能力全开；`GET /api/bots/{id}` 同样是 `[]` | 通过 |
 | TAG-03 | 创建 | `tags: ["  研究 ", "", "研究", "写作", "  ", "写作", "　天气　"]` | 201，顺序为 `["研究", "写作", "天气"]`；列表与详情一致 | 通过 |
 | TAG-04 | 更新 | 只 PATCH 名称，省略 `tags` | 200，名称变了，标签不变 | 通过 |
 | TAG-05 | 更新 | `tags: []`，再 PATCH `[" 日程 ", "日程", "笔记"]` | 先清空为 `[]`，再变成 `["日程", "笔记"]` | 通过 |
@@ -398,6 +398,26 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | TAG-UI-04 | iOS | 创建 Bot 的「标签」行；Bot 详情点卡片标签行 | 创建页：一个输入框，占位「如：搜索, 查询, 调研」，输入 4 个或某个 5 字时下方立即出现红色提示，不能提交。Bot 详情 (2026-10-01 改版)：系统弹窗输入，确认后不合法弹出错误、保留原值，见 DETAIL-UI-04 | 延期（非当前阻塞项） |
 
 汇总：TAG **10/10 自动化通过** (2026-10-01 重新设计后，Mac)；回归 MA 25/25、AV/NK 21/21、MEM 36/36；`swift test` 46/46；模拟器构建通过。标签 UI 验收延期。
+
+## Bot 能力默认全开 (All capabilities by default, schema v40) — 2026-10-22
+
+自动化：`backend/scripts/test/bot_capabilities_test.py`（临时 DB + TestClient，不消耗 Token；用例 CAP-01~11）。相关默认值断言已同步更新 `multi_agent_test.py` (MA-01/02/04/06)、`bot_tags_test.py` (TAG-01/02)、`api_regress.py` (REG-MIG/REG-CAP/REG-ALLOW) 与 `smoke_test.py`。
+
+| ID | 模块 | 用例 | 预期 | 结果 |
+|---|---|---|---|---|
+| CAP-01 | 契约 | 内置工具注册表 | `kind=builtin` 的集合为 8 个（ask_bot / 天气 / 提醒三件套 / propose_task / web_search / web_read_result）；新增工具时需同步本用例与文档 | 通过 |
+| CAP-02 | 创建默认 | `POST /api/bots` 不传权限，账号内第一个 Bot | `allowed_tools` = 全部内置工具；`delegate_to=[]`；`accept_delegation=true`；`memory_access=bot_and_global` | 通过 |
+| CAP-03 | 创建默认 | 再建第二个 Bot | 新 Bot 委派给已有 Bot；已有 Bot 的 `delegate_to` 自动补上新 Bot id | 通过 |
+| CAP-04 | 显式覆盖 | 创建时传 `allowed_tools=[]` / `delegate_to=[]` / `accept_delegation=false` | 以传入值为准（仍可收窄） | 通过 |
+| CAP-05 | MCP 快照 | 已连接+已同意服务的 active 工具、未同意服务、已停用服务、changed/removed 工具；另一账号的同名结构 | 只有 已连接+已同意+active 进默认白名单；账号隔离 | 通过 |
+| CAP-06 | MCP 上限 | 同一账号 27 个可用 MCP 工具时创建 Bot | 按工具全名排序取前 20 个（`MCP_MAX_TOOLS_PER_BOT`），结果确定 | 通过 |
+| CAP-07 | 委派互通 | 新建 Bot 后检查其他 Bot | 开启 `ask_bot` 的 Bot 自动补上新 Bot；未开启 `ask_bot` 的 Bot 不被改动 | 通过 |
+| CAP-08 | 迁移 | 把库版本改回 39、清空存量 Bot 权限后 `init_db()` | v39→v40 回填：全部内置工具 + 已同意服务的 active MCP 快照（≤20）、`accept_delegation=1`、委派全部其他 Bot、`memory_access=bot_and_global`；迁移前自动备份 `.bak-before-v40-<时间戳>` | 通过 |
+| CAP-09 | 迁移幂等 | 再启动一次 | 不覆盖已回填的权限 | 通过 |
+| CAP-10 | 收窄 | `PATCH /api/bots/{id}` 显式给白名单 | 默认全开不锁死，PATCH 可收窄 | 通过 |
+| CAP-11 | 客户端契约 | iOS `BotCreate` / Web 创建请求 | 都不传权限字段，走服务端默认值；本轮未改客户端 | 通过 |
+
+汇总：CAP **11/11 自动化通过**（2026-10-22，Mac）；默认值相关回归 MA 25/25、TAG 10/10。iOS 构建与人工验收未在本轮进行（无客户端代码改动）。
 
 ## Bot 详情 / 创建页改版 (Bot detail redesign) — 2026-10-01
 
@@ -415,7 +435,7 @@ demo 只保留 Vera / 小研 / 阿厨 (权限为迁移后状态)，没有新增�
 | DETAIL-UI-04 | iOS | 点标签行 (无标签时灰色「添加标签」) → 输入「一, 二, 三, 四」→ 确定 | 弹出「无法修改」+「每个 Bot 最多 3 个标签」，标签保持原值；输入合法后卡片更新，保存后首页行同步 | 延期（非当前阻塞项） |
 | DETAIL-UI-05 | iOS | 有照片的 Bot：「使用默认形象」→ 保存；另测选图 → 取消 | 前者卡片显示表情 + 底色，保存后各处去掉照片 (`DELETE /api/bots/{id}/avatar`)；后者服务端照片不变、没有上传 | 延期（非当前阻塞项） |
 | DETAIL-UI-06 | iOS | 默认形象分组：选表情和颜色 → 保存 | 卡片 (无照片时) 即时预览；保存后列表头像底色改变 (PATCH 带 `color`)；页脚「设置了相册照片时，优先显示照片。」 | 延期（非当前阻塞项） |
-| DETAIL-UI-07 | iOS | 详情页与创建页的人设 / 自定义指令 | 都是独立分组，标题「人设」「自定义指令」，占位为创建页例句，页脚分别为「对其他 Bot 公开，协作时用来介绍自己。」「仅本 Bot 使用，不对其他 Bot 公开。」；创建页最小权限说明为「新 Bot 默认不开启工具、不参与委派。」 | 延期（非当前阻塞项） |
+| DETAIL-UI-07 | iOS | 详情页与创建页的人设 / 自定义指令 | 都是独立分组，标题「人设」「自定义指令」，占位为创建页例句，页脚分别为「对其他 Bot 公开，协作时用来介绍自己。」「仅本 Bot 使用，不对其他 Bot 公开。」；创建页已不显示权限默认说明（v40 起默认能力全开） | 延期（非当前阻塞项） |
 | DETAIL-UI-08 | iOS | 浏览 Bot 详情、创建页、协作记录 | 无英文：分组「工具权限」「委派」「协作记录」，工具行只有中文名，委派页脚写「委派其他 Bot」；协作记录时间为本机时间、末尾「用量 N」 | 延期（非当前阻塞项） |
 
 | DETAIL-UI-09 | iOS | 打开 Bot 详情 (对话标题)、长按「编辑与权限」、首页 ＋ 创建 Bot，分别在有 / 无改动时向下拖动 sheet | 都不能下滑关闭 (系统 `interactiveDismissDisabled()`，始终开启，无确认弹窗)；只能点「关闭」/「取消」或「保存」/「创建」退出 | 延期（非当前阻塞项） |

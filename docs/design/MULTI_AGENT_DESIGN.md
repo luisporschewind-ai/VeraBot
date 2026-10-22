@@ -1,12 +1,12 @@
 # VeraBot 多 Agent 协作设计 (Multi-Agent Design) — v0.1.0
 
-> 适用版本：v0.1.0 (迭代 2 引入，数据库 schema v2；当前库为 schema v6，v4 = 长期记忆，v5 = Bot 标签，v6 = Bot 置顶，见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md)、[BOT_PIN.md](BOT_PIN.md) 与 [ARCHITECTURE.md](ARCHITECTURE.md) §5.3)。代码位置：`backend/verabot/agents/` (permissions / guardrails / context / delegation / runtime / prompts)。本文说明 Bot 之间的权限模型 (permission model)、上下文隔离 (context isolation)、防护措施 (guardrails)、审计 (audit)，以及 iOS 端的配置界面和设置页 (Settings) 的扩展方式。
+> 适用版本：v0.1.0 (迭代 2 引入，数据库 schema v2；当前库为 schema v40；v4 = 长期记忆，v5 = Bot 标签，v6 = Bot 置顶，v40 = Bot 能力默认全开，见 [MEMORY_GROWTH.md](MEMORY_GROWTH.md)、[BOT_PIN.md](BOT_PIN.md) 与 [ARCHITECTURE.md](ARCHITECTURE.md) §5.3)。代码位置：`backend/verabot/agents/` (permissions / guardrails / context / delegation / runtime / prompts)。本文说明 Bot 之间的权限模型 (permission model)、上下文隔离 (context isolation)、防护措施 (guardrails)、审计 (audit)，以及 iOS 端的配置界面和设置页 (Settings) 的扩展方式。
 
 ## 1. 目标 (Goals)
 
 | 目标 | 做法 |
 |---|---|
-| 最小权限 (Least privilege) | 新建 Bot 默认**没有任何工具、不能委派、不接受委派**，由用户按需开启 |
+| 能力默认全开 (2026-10-22 起) | 新建 Bot 默认**开启全部内置工具、可互相委派、接受委派**（MCP 取已连接且已同意服务的 active 工具）；用户可在 Bot 设置里按需收窄 |
 | 服务端强制 (Server-side enforcement) | 权限在后端检查，不依赖 prompt 或客户端；越权调用会被拒绝并写入审计日志 |
 | 上下文隔离 (Context isolation) | 委派时只发送「问题 + 限长共享背景 + 对方的公开资料」，不发送对话历史和私有指令 |
 | 可控的成本与环路 (Bounded cost & no loops) | 委派深度、环路检测、单轮次数上限、每用户 Token 预算 |
@@ -18,13 +18,14 @@
 
 | 字段 | 类型 | 含义 | 新 Bot 默认值 |
 |---|---|---|---|
-| `allowed_tools` | JSON list | 工具白名单 (Tool allowlist)：`get_weather` / `create_reminder` / `list_reminders` / `ask_bot` | `[]` |
-| `delegate_to` | JSON list[int] | 委派白名单 (Delegation allowlist)：可以委派给哪些 Bot (必须是同一用户的 Bot) | `[]` |
-| `accept_delegation` | 0/1 | 是否接受其他 Bot 的委派 (Accept delegation) | `0` |
+| `allowed_tools` | JSON list | 工具白名单 (Tool allowlist)：全部内置工具 + 已同意服务的 active MCP 工具（每 Bot 最多 20 个 MCP） | 全部内置工具（v40） |
+| `delegate_to` | JSON list[int] | 委派白名单 (Delegation allowlist)：可以委派给哪些 Bot (必须是同一用户的 Bot) | 账号内其他全部 Bot（v40） |
+| `accept_delegation` | 0/1 | 是否接受其他 Bot 的委派 (Accept delegation) | `1`（v40） |
 
 - **要能委派**，必须同时满足：`ask_bot ∈ allowed_tools`、目标 ∈ `delegate_to`、目标的 `accept_delegation = 1`。
 - 校验 (`services/bots.py::validate_perms`)：未知工具、其他用户的 Bot、把自己设为目标，都返回 **422**。
 - 删除 Bot 时，会从其他 Bot 的 `delegate_to` 里移除它的 id。
+- **2026-10-22（schema v40）**：产品决定把新建与存量 Bot 的默认能力改为全开；显式传入的权限仍然优先，服务端强制、委派护栏与审计不变。迁移细节见 [任务记录](../tasks/2026-10-22-bot-capabilities-default-on.md)。
 
 ### 强制执行点 (Enforcement Points)
 
@@ -72,8 +73,8 @@
 
 `db/schema.py::init_db()` 在启动时 (以及 `start.sh` 初始化时) 自动执行。迁移是幂等的 (idempotent)，版本号记在 `schema_meta`：
 
-1. `ALTER TABLE` 增加上述列。**列默认值就是最小权限**，所以之后新建的 Bot 自动受保护。
-2. 只在 v1 → v2 时执行一次：**已有的 Bot** 保留迭代 1 的行为，即开通全部 4 个工具、可以委派给同一用户的其他 Bot、`accept_delegation=1`。例如 demo 迁移后：Vera→[小研, 阿厨]，小研→[Vera, 阿厨]，阿厨→[Vera, 小研]。
+1. `ALTER TABLE` 增加上述列。**DB 列默认值仍是最小权限**；新建接口在未显式传入权限时套用「能力默认全开」（v40 起），存量 Bot 由 v40 迁移一次性回填。
+2. 只在 v1 → v2 时执行一次：**已有的 Bot** 保留迭代 1 的行为，即开通全部 4 个工具、可以委派给同一用户的其他 Bot、`accept_delegation=1`。例如 demo 迁移后：Vera→[小研, 阿厨]，小研→[Vera, 阿厨]，阿厨→[Vera, 小研]。（2026-10-22 v40 又把存量 Bot 统一改为能力全开，见任务记录。）
 3. 清理孤儿委派记录 (orphan delegations)，即 Bot 已被删除的记录。
 4. 回滚：迁移不可逆，升级前请先复制 `backend/data/verabot.db`。(迭代 2 升级时的临时备份 `/tmp/verabot_prefix_backup.db` 已随 Mac 重启被清除。)
 
@@ -81,7 +82,7 @@
 
 ## 7. iOS 界面
 
-- **Bot 列表**：长按 → 「编辑与权限」；不显示数量页脚 (2026-10-01 移除)，到达上限时右上角 ＋ 置灰。新建表单里有最小权限提示。
+- **Bot 列表**：长按 → 「编辑与权限」；不显示数量页脚 (2026-10-01 移除)，到达上限时右上角 ＋ 置灰。创建页不再显示最小权限提示（2026-10-22 起新 Bot 默认能力全开，可在 Bot 设置里收窄）。
 - **BotEditView** (对话页点标题进入 Bot 详情，或 Bot 列表长按「编辑与权限」)：基本信息 (名称 / 表情 / 人设 / 指令)，另有「从相册设置头像」（照片优先于表情；iOS 不提供恢复默认入口）；记忆 (`memory_access` Picker + 「{Bot} 记住的内容」入口，位于工具权限之前)；工具权限开关 (Tool allowlist，记忆工具不在其中)；委派目标 (没有开启 `ask_bot` 时不可选)；接受委派开关；guardrail 说明；「协作记录」入口。保存资料时调用 `PATCH /api/bots/{id}`；照片走 `/api/bots/{id}/avatar`，不跟「保存」按钮绑在一起。
 - **Bot 详情** (对话页点标题「头像 + 名称 ›」)：以系统默认 sheet 弹出 (非 push、非全屏、下滑关闭)。它复用 `BotEditView(infoMode: true)`，内嵌完整设置：资料卡片、基本信息、工具权限、委派、协作记录，底部「清空对话」(有二次确认：「仅清空对话」保留记忆 /「清空对话和「X」的记忆」)。对话页导航栏只保留返回和标题。
 - **首页导航栏**：没有照片时左上角仍是首字，和 ＋ 一样用系统圆形 toolbar 按钮，不自绘背景。有照片时按钮里显示圆形头像。
@@ -106,7 +107,7 @@
 
 ## 9. 测试 (Tests)
 
-- `backend/scripts/test/multi_agent_test.py`：确定性测试，使用 mock LLM 和临时 DB，**25/25 通过** (MA-01 ~ MA-25，MA-25 为 `/api/quota` 与 iOS `Quota` 的字段契约；覆盖迁移、最小权限、校验、拒绝与审计、白名单、accept、隔离、截断、深度、环路、单轮上限、预算、软上限，以及 BUG-02/03/04/08/09)。头像 / 昵称另见 `avatar_profile_test.py`（不在本文件的多 Agent 范围内）。
+- `backend/scripts/test/multi_agent_test.py`：确定性测试，使用 mock LLM 和临时 DB，**25/25 通过** (MA-01 ~ MA-25，MA-25 为 `/api/quota` 与 iOS `Quota` 的字段契约；覆盖迁移、能力默认全开、显式收窄、校验、拒绝与审计、白名单、accept、隔离、截断、深度、环路、单轮上限、预算、软上限，以及 BUG-02/03/04/08/09)。头像 / 昵称另见 `avatar_profile_test.py`（不在本文件的多 Agent 范围内）。
 - 真实 LLM 回归：`backend/scripts/test/api_regress.py`、`api_regress2.py`。iOS UI 回归见 [TEST_CASES_v0.1.md](../testing/TEST_CASES_v0.1.md) 的「回归测试」一节。
 
 ## 群聊与委派的区别（2026-10-11）

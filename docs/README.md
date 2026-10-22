@@ -1,5 +1,7 @@
 # 文档索引 (Docs index)
 
+- [Bot 能力默认全开](tasks/2026-10-22-bot-capabilities-default-on.md)：schema v40；新建与存量 Bot 默认开启全部内置工具、接受并互相委派、已同意服务的 MCP 工具；含迁移、测试、正式库部署与回滚。
+
 - [Main三端验收交付](tasks/2026-10-19-game-main-acceptance.md)：前后端提交/合并、schema38与worker、本机Main包和三端安装状态。
 
 - [三项游戏计划统一进度](tasks/2026-10-18-game-upgrade-progress.md)与[DeepSeek Harness执行后核对](tasks/2026-10-19-game-plans-progress-audit.md)：2026-10-19按代码/提交对齐，掌机与音效部分完成、云端未见仓库交付。

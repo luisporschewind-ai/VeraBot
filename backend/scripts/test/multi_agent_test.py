@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # backend/
 from verabot import db  # noqa: E402
 from verabot.core import config  # noqa: E402
 from verabot.services import llm  # noqa: E402
+from verabot.db.migrations.v040_bot_capabilities import BUILTIN_TOOLS_V40  # noqa: E402
 
 RESULTS = []
 def check(cid, name, ok, note=""):
@@ -28,9 +29,9 @@ for i, n in [(1, "Vera"), (2, "小研"), (3, "阿厨")]:
 con.commit(); con.close()
 db.init_db(); db.init_db()   # 幂等：执行两次
 legacy = db.list_bots(1)
-ok = all(b["accept_delegation"] and set(b["allowed_tools"]) == set(db.ALL_TOOLS_V2)
+ok = all(b["accept_delegation"] and set(b["allowed_tools"]) == set(BUILTIN_TOOLS_V40)
          and set(b["delegate_to"]) == {1, 2, 3} - {b["id"]} for b in legacy)
-check("MA-01", "迁移：存量 Bot 获得全部工具且可互相委派", ok, str([(b["name"], b["delegate_to"]) for b in legacy]))
+check("MA-01", "迁移：存量 Bot 获得全部内置工具（v40 全开）且可互相委派", ok, str([(b["name"], b["delegate_to"]) for b in legacy]))
 
 from fastapi.testclient import TestClient  # noqa: E402
 from verabot.main import app  # noqa: E402
@@ -41,9 +42,10 @@ def reg(u):
     r = cli.post("/api/auth/register", json={"username": u, "password": "pw123456"}); return {"Authorization": "Bearer " + r.json()["token"]}, r.json()["user"]["id"]
 H, UID = reg("alice"); H2, UID2 = reg("bob")
 
-# ---------- 2. 最小权限默认值 ----------
+# ---------- 2. 能力默认全开（v40） ----------
 a = cli.post("/api/bots", json={"name": "A"}, headers=H).json()
-check("MA-02", "新 Bot 默认最小权限", a["allowed_tools"] == [] and a["delegate_to"] == [] and a["accept_delegation"] is False, str(a))
+check("MA-02", "新 Bot 默认能力全开", set(a["allowed_tools"]) == set(BUILTIN_TOOLS_V40)
+      and a["delegate_to"] == [] and a["accept_delegation"] is True, str(a))
 b = cli.post("/api/bots", json={"name": "B", "persona": "厨师", "instructions": "私有指令SECRET_INSTR"}, headers=H).json()
 c = cli.post("/api/bots", json={"name": "C"}, headers=H).json()
 bob_bot = cli.post("/api/bots", json={"name": "BobBot"}, headers=H2).json()
@@ -56,6 +58,7 @@ check("MA-03", "权限配置校验：未知工具/他人 Bot/自己 → 422", (r
       f"{r1.status_code},{r2.status_code},{r3.status_code}")
 
 # ---------- 4. 未授权工具被服务端拒绝 + 审计 ----------
+cli.patch(f"/api/bots/{a['id']}", json={"allowed_tools": []}, headers=H)   # 显式收窄，验证服务端仍强制拦截
 A = db.get_bot(UID, a["id"])
 res = asyncio.run(run_tool(ToolContext(user_id=UID, bot=A), "get_weather", '{"city":"北京"}'))
 n_audit = sqlite3.connect(os.environ["VERABOT_DB"]).execute(
@@ -77,6 +80,7 @@ A = db.get_bot(UID, a["id"])
 # ---------- 5. 委派白名单 ----------
 res = ask(ToolContext(user_id=UID, bot=A), "C")
 check("MA-05", "委派给白名单外的 Bot 被拒绝", res.get("code") == "not_in_allowlist", str(res))
+cli.patch(f"/api/bots/{b['id']}", json={"accept_delegation": False}, headers=H)
 res = ask(ToolContext(user_id=UID, bot=A), "B")
 check("MA-06", "目标未开启 accept_delegation 时被拒绝", res.get("code") == "target_refuses", str(res))
 cli.patch(f"/api/bots/{b['id']}", json={"accept_delegation": True}, headers=H)

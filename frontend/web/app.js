@@ -112,7 +112,7 @@
     e.preventDefault();
     try { await api("/api/bots", { method: "POST", body: { name: $("#bf-name").value.trim(), avatar: form.avatar, color: form.color,
             persona: $("#bf-persona").value.trim(), instructions: $("#bf-instr").value.trim() } });
-      closeSheet(); toast("Bot 已创建（默认最小权限，可在 iOS「Bot 设置」中开启工具与委派）"); enterHome();
+      closeSheet(); toast("Bot 已创建（默认能力全开，可在 iOS「Bot 设置」中调整权限）"); enterHome();
     } catch (err) { $("#bf-err").textContent = err.message; }
   };
 

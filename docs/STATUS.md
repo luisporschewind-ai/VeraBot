@@ -1,5 +1,33 @@
 # 项目状态 (STATUS) — 2026-10-22
 
+## 2026-10-23 · 全部改动收尾与三端安装
+
+按用户授权将 Dsh 与图标等全部当前改动提交本地 Main；504 项 Swift 测试与相关后端专项通过，三端构建安装进行中。见[交付记录](testing/2026-10-23-main-three-target-install.md)。
+
+## 2026-10-23 · 打地鼠游戏列表小图替换
+
+仅替换 PlaygroundWhackBot 图片资源：圆润方形红色光滑 3D Bot，保留橙色洞口与黄色提示符号。游戏内代码和玩法不变，误改代码已撤回。未追加构建或安装，见[修改记录](tasks/2026-10-23-whack-bot-list-artwork.md)。
+
+## 2026-10-22 · Bot 能力默认全开（schema v40）
+
+按用户指令「新建Bot, 能力默认全开」，确认「连 MCP / 插件工具也默认全开（已安装且已同意服务）」与「存量 Bot 也一并打开」两点：
+
+- 新建 Bot 默认：全部内置工具 + 已连接且已同意服务的 `active` MCP 工具（创建时快照，每 Bot ≤20）、接受委派、委派给账号内其他全部 Bot、记忆 `bot_and_global`；显式权限仍优先，`PATCH` 可收窄。
+- 新建后其他开启 `ask_bot` 的 Bot 自动补入新 Bot，维持互通；删除时仍会清理。
+- schema v40：存量 Bot 一次性回填同一套默认值（含记忆授权），迁移前备份 `.bak-before-v40-<时间戳>`；迁移不可逆。
+- 测试：新增 `bot_capabilities_test.py` 11/11；更新 MA / TAG / AV / appearance / api_regress / smoke 的默认值断言；离线全量见任务记录。iOS / Web 无代码改动，未构建、未装机。
+- 正式库已从 v39 备份并迁移 v40（`backend/data/verabot.db.bak-before-v40-20261022-231514-006728`），22 用户 / 110 Bot 数量不变；Main API 已重启，健康检查正常。
+- 部署时发现旧的 `com.verabot.tetris-worker` 进程长期持有主库写锁并让提醒调度反复报 `database is locked`；已停止该 LaunchAgent（DB 写入与提醒调度恢复）。云端俄罗斯方块 worker 当前不在运行，恢复命令见任务记录。
+- 逆转原「最小权限」默认；服务端强制、委派护栏、写操作确认、MCP 委派禁用、审计不变。未推送、未重装 iOS App。人工验收待用户。见[任务记录](tasks/2026-10-22-bot-capabilities-default-on.md)。
+
+## 2026-10-22 · 安排到点：App 在前台改 App 内提示
+
+按用户要求「安排里，如果当前在 App 里，就不用给通知了」，并确认选择「系统通知不弹，改 App 内小提示」：
+
+- App 前台时，提醒类本地通知不再弹系统横幅/声音，改为 App 内 BotNotice（提醒标题 +「到提醒时间了」+「查看」）；点「查看」进入该安排。
+- App 在后台时保持系统通知；Bot 消息、任务结果等非提醒通知不变。前台判断抽成 `VeraBotCore.LocalNotificationPolicy`。
+- Swift 包 504 项 Swift Testing 通过；iPhone 17 / iOS 26.0 模拟器 Debug 构建通过。未安装、推送或部署，到点实测待用户。见[任务记录](tasks/2026-10-22-reminders-foreground-in-app.md)。
+
 ## 2026-10-22 · 游乐场视觉首版提交并合入本地 Main
 
 按用户「提交合并」指令，整合游乐场首页新配色、七个插画、批准参考与实际截图，同步任务记录。Swift 包 501 项 Swift Testing + 1 项 XCTest 通过，差异检查通过；模拟器沿用上一轮安装包，本轮未重新构建、装机、推送或部署。未新增人工验收结论。见[任务记录](tasks/2026-10-21-playground-refresh.md)。

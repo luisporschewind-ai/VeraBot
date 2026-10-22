@@ -199,7 +199,7 @@ User ─┬─ Reminder (系列) ──< ReminderEvent (操作 / 发生记录)
 | `manage_reminder` | **新增**，一个开关：`action ∈ update / complete / snooze / reopen / skip / cancel`，`id` 或 `ids`（批量 ≤ 20） | 新增「管理提醒」 |
 
 - 三个工具都属于内置插件 `builtin_reminder`（PR #7 的目录项 `tools` 追加 `manage_reminder`），在 Bot 详情「工具权限」里按工具开关，插件页提供跳转（与 Boss Q4 决定一致）。
-- 新建 Bot：默认不授予（最小权限，与现有规则一致）。存量 Bot：**不自动授予** `manage_reminder`（D3）。
+- 新建 Bot（2026-10-22 schema v40 起）：随「能力默认全开」默认授予 `manage_reminder`；存量 Bot 由 v40 迁移一并授予（原 D3 的「不自动授予」不再适用）。
 
 ### 5.2 可见与可管理范围
 
@@ -543,7 +543,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_push_token ON push_devices(apns_token) WHE
 
 - R1：工具卡片沿用现有样式，结果中文化（「已创建提醒：明天 09:00 交周报」）。
 - R2：提醒卡片（标题、时间、重复、「编辑」「撤销」）；确认卡片（「研究助手想删除 3 条提醒：… [确认] [取消]」），与 MCP M3 共用组件。
-- 前台收到 `notification` SSE 事件或本地通知 `willPresent`：用系统横幅（`.banner, .sound, .list`）展示，当前正在看的对话不重复弹。
+- 前台收到 `notification` SSE 事件：用系统横幅（`.banner, .sound, .list`）展示，当前正在看的对话不重复弹。2026-10-22 起，提醒类本地通知在 App 前台不再弹系统通知（此前为系统横幅），改用 App 内 BotNotice（显示提醒标题、「到提醒时间了」和「查看」）；点「查看」进入该安排。App 在后台时仍由系统展示。
 
 ## 11. 投递与同步 (Delivery & sync)
 
@@ -553,7 +553,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_push_token ON push_devices(apns_token) WHE
 - `NotificationScheduler.reconcile(reminders)`：期望集合 = 所有 `notify=true`、未结束提醒在未来 14 天内的 `next_fires`（含提前提醒），按时间取最近 **60** 条（系统上限 64，预留 4 条）；与 `getPendingNotificationRequests()` 对比，删多余、补缺失、改已变的。identifier 见 §9.4。
 - 简单重复（每天 / 每周某一天 / 工作日拆成 5 个，`INTERVAL=1` 且无 `COUNT/UNTIL`）额外使用 `UNCalendarNotificationTrigger(repeats: true)`，保证用户 14 天不开 App 也照常响；复杂规则用一次性触发，打开 App 时补齐。
 - 触发 reconcile：启动、回到前台、`GET /api/reminders` 后、本地增删改后、对话 `done` 事件里有提醒工具结果时、通知动作执行后、通知设置变化后；R2 起 APNs 静默推送（`content-available`）也触发。
-- `willPresent`（App 在前台）：显示横幅并回报 `delivered`；`didReceive`（点按或动作）：回报 `opened` 或执行动作。
+- `willPresent`（App 在前台）：提醒类通知不显示系统横幅，改显示 App 内 BotNotice（2026-10-22 起；宿主未就绪时退回系统横幅）；其他通知显示横幅并回报 `delivered`；`didReceive`（点按或动作）：回报 `opened` 或执行动作。
 
 ### 11.2 通知动作在后台执行
 

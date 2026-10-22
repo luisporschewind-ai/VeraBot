@@ -224,6 +224,7 @@ fresh = migrate("empty", "1", "CREATE TABLE schema_meta (key TEXT PRIMARY KEY, v
 # if users missing, SCHEMA creates it. Good.
 
 from verabot.db.migrations import SCHEMA_VERSION
+from verabot.db.migrations.v040_bot_capabilities import BUILTIN_TOOLS_V40
 
 check("PLG-01 empty database reaches current schema twice",
       fresh["ver"] == str(SCHEMA_VERSION) and fresh["has_plugins"] and fresh["n1"] == fresh["n2"] == 0 and fresh["tomb"] == 0,
@@ -236,11 +237,12 @@ check("PLG-01 v8 backfills plugin_id and does not add rows on the second start",
       str(v8))
 
 used = migrate("used", "9", v9("9", LEARN_CONSENT, AWS_UNUSED, tools='["get_weather","mcp__learn__microsoft_docs_search"]', tool_sql=TOOL_SQL))
-check("PLG-02 consented synced Learn stays installed without touching consent or allowlist",
+PLG02_BOT_TOOLS = json.dumps(sorted({*BUILTIN_TOOLS_V40, "mcp__learn__microsoft_docs_search"}))
+check("PLG-02 consented synced Learn stays installed; consent unchanged; v40 allowlist default",
       used["ver"] == str(SCHEMA_VERSION)
       and ["1", "microsoft_learn", "installed"] in [list(map(str, p)) for p in used["plugins"]]
       and used["learn"][1] == "2026-10-02T00:00:00+00:00"
-      and used["bots"] == ['["get_weather","mcp__learn__microsoft_docs_search"]']
+      and used["bots"] == [PLG02_BOT_TOOLS]
       and all(p[1] != "aws_knowledge" or p[2] != "installed" for p in used["plugins"]),
       str(used))
 

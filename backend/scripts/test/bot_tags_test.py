@@ -64,6 +64,7 @@ con.close()
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # backend/
 
 from verabot import db  # noqa: E402
+from verabot.db.migrations.v040_bot_capabilities import BUILTIN_TOOLS_V40  # noqa: E402
 
 RESULTS = []
 
@@ -88,9 +89,9 @@ db.init_db()  # 已有标签不能被第二次迁移清掉
 kept = sqlite3.connect(DB).execute("SELECT tags FROM bots WHERE id=1").fetchone()[0]
 check(
     "TAG-01",
-    "v4→当前版本幂等：出现 tags 且默认 []；存量权限 / 记忆授权 / 头像不变；再跑一次不覆盖已写入的标签",
+    "v4→当前版本幂等：出现 tags 且默认 []；v40 把存量权限 / 记忆授权改写为能力全开；头像不变；再跑一次不覆盖已写入的标签",
     ver == str(db.SCHEMA_VERSION) and "tags" in bot_cols
-    and legacy == ("OldBot", '["get_weather"]', "[2]", "t1", "bot", "[]")
+    and legacy == ("OldBot", json.dumps(sorted(BUILTIN_TOOLS_V40)), "[]", "t1", "bot_and_global", "[]")
     and json.loads(kept) == ["研究"],
     f"ver={ver} legacy={legacy} kept={kept}",
 )
@@ -121,9 +122,10 @@ H2, _ = reg("bob_tag")
 bare = cli.post("/api/bots", json={"name": "无标签"}, headers=H)
 check(
     "TAG-02",
-    "创建时不传 tags：列表与详情都是 []，且仍是最小权限",
+    "创建时不传 tags：列表与详情都是 []；权限按 v40 默认能力全开",
     bare.status_code == 201 and bare.json().get("tags") == []
-    and bare.json().get("allowed_tools") == [] and bare.json().get("accept_delegation") is False
+    and set(bare.json().get("allowed_tools") or []) == set(BUILTIN_TOOLS_V40)
+    and bare.json().get("accept_delegation") is True
     and cli.get(f"/api/bots/{bare.json()['id']}", headers=H).json().get("tags") == [],
     str(bare.json()),
 )

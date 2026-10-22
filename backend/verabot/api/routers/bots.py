@@ -10,7 +10,8 @@ from ...db import audit_store, bot_store, delegation_store, message_store
 from ...core.config import MAX_BOTS_PER_USER
 from ...services import memory
 from ...services.memory import growth
-from ...services.bots import public_bot, remove_from_delegate_lists, validate_perms
+from ...services.bots import (create_perms, delegate_list_updates, public_bot,
+                              remove_from_delegate_lists, validate_perms)
 from ...services.attachments import repo as attachments
 from ...services.opening import generate as opening_generate
 from ..deps import current_user, require_bot
@@ -51,7 +52,8 @@ def bots_list(user=Depends(current_user)):
 
 @router.post("/api/bots", status_code=201)
 def bots_create(body: BotIn, background_tasks: BackgroundTasks, user=Depends(current_user)):
-    perms = validate_perms(user, body, None)   # 未提供的权限字段使用列默认值 = 最小权限（Least privilege）
+    # 未显式传入的权限字段使用「能力默认全开」：内置工具 + 已同意服务的 MCP 工具、接受委派、可委派给全部其他 Bot。
+    perms = create_perms(user, body)
     with db.tx() as c:
         n = bot_store.count_for_user(c, user["id"])
         if n >= MAX_BOTS_PER_USER:   # 软上限（Soft limit），由 MAX_BOTS_PER_USER 配置
@@ -64,6 +66,9 @@ def bots_create(body: BotIn, background_tasks: BackgroundTasks, user=Depends(cur
         if body.appearance is not None:
             cols["appearance"] = json.dumps(body.appearance.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":"))
         bid = bot_store.insert(c, cols)
+        if perms.get("accept_delegation"):   # 其他 Bot 的委派白名单同步补上新 Bot，保持互通
+            for target_id, delegate_json in delegate_list_updates(user["id"], bid):
+                bot_store.set_delegate_to(c, target_id, delegate_json)
     background_tasks.add_task(_generate_opening_background, user["id"], bid)
     return public_bot(db.get_bot(user["id"], bid))
 

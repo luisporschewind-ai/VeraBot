@@ -127,7 +127,7 @@ class DriftStoreTests(DBTest):
             self.assertEqual(c.execute("PRAGMA integrity_check").fetchone()[0], "ok")
             self.assertEqual(c.execute("PRAGMA foreign_key_check").fetchall(), [])
             self.assertEqual(c.execute("SELECT COUNT(*) FROM users").fetchone()[0], before)
-            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], "39")
+            self.assertEqual(c.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0], str(db.SCHEMA_VERSION))
 
     def test_bot_delete_keeps_public_snapshot_and_private_history(self):
         self.make_bottle()

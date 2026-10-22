@@ -48,6 +48,7 @@ INSERT INTO bots(id,user_id,name,created_at,allowed_tools,tags,pinned_at)
 con.commit(); con.close()
 
 from verabot import db
+from verabot.db.migrations.v040_bot_capabilities import BUILTIN_TOOLS_V40
 db.init_db(); db.init_db()
 con = sqlite3.connect(DB)
 ver = con.execute("SELECT value FROM schema_meta WHERE key='version'").fetchone()[0]
@@ -59,7 +60,7 @@ needed = {"mcp_servers", "mcp_tools", "mcp_credentials", "oauth_states", "pendin
 v8_cols = {"consent_at", "sync_status", "circuit_failures", "circuit_open_until"}
 check("MCP-01 migration v6 keeps bots and reaches current (>= v8)",
       ver == str(db.SCHEMA_VERSION) and int(ver) >= 8 and needed <= tables and v8_cols <= cols
-      and legacy == ("Old", '["get_weather"]', '["研究"]', "2026-02-02T00:00:00+00:00"),
+      and legacy == ("Old", json.dumps(sorted(BUILTIN_TOOLS_V40)), '["研究"]', "2026-02-02T00:00:00+00:00"),
       f"ver={ver} missing={needed-tables} cols={v8_cols-cols} legacy={legacy}")
 
 
@@ -428,7 +429,8 @@ try:
           and "bad name" not in names and names["microsoft_docs_search"]["risk"] == "read",
           str([(t["mcp_name"], t["full_name"], t["risk"]) for t in tools]))
     bot = cli.post("/api/bots", json={"name": "Vera"}, headers=H).json()
-    check("MCP-04 new bot has no MCP tools", bot["allowed_tools"] == [], str(bot.get("allowed_tools")))
+    check("MCP-04 new bot has no MCP tools before service consent",
+          not any(t.startswith("mcp__") for t in bot["allowed_tools"]), str(bot.get("allowed_tools")))
     full = names["microsoft_docs_search"]["full_name"]
     patched = cli.patch(f"/api/bots/{bot['id']}", json={"allowed_tools": [full, "get_weather"]}, headers=H)
     check("MCP-04 save concrete tool name",
@@ -735,7 +737,9 @@ aws = c.execute("select status, sync_status, last_error from mcp_servers where i
 tool = c.execute("select full_name, risk from mcp_tools where id=9").fetchone()
 nick = c.execute("select nickname from users where id=1").fetchone()[0]
 assert int(ver) >= 8, ver  # v9 起为账号表；MCP 列从 v8 开始存在
-assert bot == ('["get_weather","mcp__learn__microsoft_docs_search"]', '["研究"]', "2026-02-02T00:00:00+00:00"), bot
+from verabot.db.migrations.v040_bot_capabilities import BUILTIN_TOOLS_V40
+import json as _json
+assert _json.loads(bot[0]) == sorted(BUILTIN_TOOLS_V40) and bot[1:] == ('["研究"]', "2026-02-02T00:00:00+00:00"), bot
 assert learn[0] == "connected" and learn[1] == "2026-10-03T01:00:00+00:00" and learn[2] is None and learn[3] == "ok" and learn[4] == 0, learn
 assert aws == ("error", "error", "boom"), aws
 assert tool == ("mcp__learn__microsoft_docs_search", "read"), tool

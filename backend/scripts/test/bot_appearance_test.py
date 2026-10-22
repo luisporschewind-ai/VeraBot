@@ -44,7 +44,8 @@ with tempfile.TemporaryDirectory(prefix="vera_appearance_") as tmp:
     assert response.status_code == 201,response.text
     bot=response.json();bid=bot['id'];url=f'/api/bots/{bid}'
     assert bot['appearance'] == config
-    invariant={k:bot[k] for k in ['avatar','color','allowed_tools','delegate_to','accept_delegation','has_avatar']}
+    # delegate_to 会随同账号后续新建 Bot 自动补齐（v40 互通），不是外观 PATCH 的稳定字段
+    invariant={k:bot[k] for k in ['avatar','color','allowed_tools','accept_delegation','has_avatar']}
     assert client.get(url,headers=alice).json()['appearance']==config
     assert client.get('/api/bots',headers=alice).json()['bots'][0]['appearance']==config
     assert client.patch(url,headers=alice,json={'name':'Renamed'}).json()['appearance']==config
